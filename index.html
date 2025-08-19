@@ -2273,24 +2273,6 @@ function hitungNilai() {
   return { nilai, predikat, hijau, kuning, merah };
 }
 
-function updateNilaiDiTabel({ nilai, predikat, hijau, kuning, merah }) {
-  if (!currentIdSiswa) return;
-  const row = [...document.querySelectorAll("table tbody tr")]
-    .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
-
-  if (row) {
-    const buttonCell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
-    if (buttonCell) {
-      buttonCell.innerHTML = `
-        <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
-        <div>🟩${hijau} 🟨${kuning} 🟥${merah}</div>
-        <button class="lihat-quran-btn">Lembar Penilaian</button>
-      `;
-      row.markData = JSON.parse(JSON.stringify(markData));
-    }
-  }
-}
-
 	
 
 // ======================
