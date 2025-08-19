@@ -2347,7 +2347,7 @@ function updateNilaiDiTabel({ nilai, predikat }) {
     const buttonCell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
     if (buttonCell) {
       buttonCell.innerHTML = `
-        <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
+        <div><strong>${nilai.toFixed(1)}</strong> ${predikat}</div>
         <button class="lihat-quran-btn">Lembar Penilaian</button>
       `;
       // tetap simpan markData untuk modal
