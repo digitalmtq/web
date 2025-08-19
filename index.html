@@ -2276,7 +2276,7 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
 
 
 // ======================
-// HITUNG NILAI & UPDATE TABEL
+// HITUNG NILAI
 // ======================
 function hitungNilai() {
   let totalMinus = 0;
@@ -2303,20 +2303,10 @@ function hitungNilai() {
     else predikat = "MUMTAZ (A)";
   }
 
-  document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
-  document.getElementById("predikat-akhir").innerText = predikat;
-
   return { nilai, predikat, hijau, kuning, merah };
 }
 
-function updateNilaiDiTabel({ nilai, predikat, hijau, kuning, merah }) {
-  if (!currentIdSiswa) return;
-  const row = [...document.querySelectorAll("table tbody tr")]
-    .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
-}
-
-
-	// ======================
+// ======================
 // TAMPILKAN NILAI DI MODAL
 // ======================
 function tampilkanNilaiDiModal() {
@@ -2330,6 +2320,14 @@ function tampilkanNilaiDiModal() {
 
   document.getElementById("overlay-nilai").style.display = "flex";
 }
+
+// ======================
+// TUTUP MODAL
+// ======================
+function tutupOverlayNilai() {
+  document.getElementById("overlay-nilai").style.display = "none";
+}
+
 	
 
 // ======================
