@@ -2383,14 +2383,8 @@ document.addEventListener('click', async function(e) {
 
     const row = e.target.closest('tr');
     currentIdSiswa = parseInt(row.cells[0].innerText.trim());
-
-    // Nama santri di modal
-    const namaSantri = row.cells[1].innerText.trim();
-    const namaSpan = document.getElementById('modal-nama-santri');
-    if (namaSpan) namaSpan.innerText = namaSantri;
-
-    const kelas = document.getElementById('kelas')?.value || 'default';
-    const tanggal = document.getElementById('tanggal')?.value || 'default';
+    const kelas = document.getElementById('kelas').value;
+    const tanggal = document.getElementById('tanggal').value;
 
     // Ambil marks + audio
     markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
@@ -2454,8 +2448,6 @@ document.addEventListener('click', async function(e) {
     updateNilaiDiTabel(hasil);
   }
 });
-
-	
 
 // ======================
 // TOMBOL NILAI 100
