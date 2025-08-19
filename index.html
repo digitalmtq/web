@@ -2276,8 +2276,16 @@ function hitungNilai() {
   return { nilai, predikat, hijau, kuning, merah };
 }
 
+const hasil = hitungNilai();
+
+// Update modal overlay dengan warna mark
+const warnaDiv = document.getElementById("modal-mark-warna");
+warnaDiv.innerHTML = `🟩 ${hasil.hijau} &nbsp; 🟨 ${hasil.kuning} &nbsp; 🟥 ${hasil.merah}`;
+
+	
 	function updateNilaiDiTabel({ nilai, predikat }) {
   if (!currentIdSiswa) return;
+
   const row = [...document.querySelectorAll("table tbody tr")]
     .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
 
@@ -2288,16 +2296,11 @@ function hitungNilai() {
         <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
         <button class="lihat-quran-btn">Lembar Penilaian</button>
       `;
+      // tetap simpan markData agar modal bisa menampilkan warna
       row.markData = JSON.parse(JSON.stringify(markData));
     }
   }
 }
-
-	const hasil = hitungNilai();
-
-// Update modal overlay dengan warna mark
-const warnaDiv = document.getElementById("modal-mark-warna");
-warnaDiv.innerHTML = `🟩 ${hasil.hijau} &nbsp; 🟨 ${hasil.kuning} &nbsp; 🟥 ${hasil.merah}`;
 
 
 	
