@@ -1393,9 +1393,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           continue;
         }
         if (start === prev) {
-          result.push(`Juz ${start}`);
+          result.push(`${start}`);
         } else {
-          result.push(`Juz ${start}-${prev}`);
+          result.push(`${start}-${prev}`);
         }
         start = curr;
         prev = curr;
