@@ -2243,7 +2243,7 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
 
 
 // ======================
-// HITUNG NILAI & UPDATE TABEL
+// HITUNG NILAI
 // ======================
 function hitungNilai() {
   let totalMinus = 0;
@@ -2270,20 +2270,23 @@ function hitungNilai() {
     else predikat = "MUMTAZ (A)";
   }
 
+  // Update modal overlay
   document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
   document.getElementById("predikat-akhir").innerText = predikat;
+
+  // Update jumlah mark warna di modal overlay
+  const warnaDiv = document.getElementById("modal-mark-warna");
+  if (warnaDiv) {
+    warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
+  }
 
   return { nilai, predikat, hijau, kuning, merah };
 }
 
-const hasil = hitungNilai();
-
-// Update modal overlay dengan warna mark
-const warnaDiv = document.getElementById("modal-mark-warna");
-warnaDiv.innerHTML = `🟩 ${hasil.hijau} &nbsp; 🟨 ${hasil.kuning} &nbsp; 🟥 ${hasil.merah}`;
-
-	
-	function updateNilaiDiTabel({ nilai, predikat }) {
+// ======================
+// UPDATE TABEL (tanpa warna mark)
+// ======================
+function updateNilaiDiTabel({ nilai, predikat }) {
   if (!currentIdSiswa) return;
 
   const row = [...document.querySelectorAll("table tbody tr")]
@@ -2296,14 +2299,11 @@ warnaDiv.innerHTML = `🟩 ${hasil.hijau} &nbsp; 🟨 ${hasil.kuning} &nbsp; �
         <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
         <button class="lihat-quran-btn">Lembar Penilaian</button>
       `;
-      // tetap simpan markData agar modal bisa menampilkan warna
+      // tetap simpan markData untuk modal
       row.markData = JSON.parse(JSON.stringify(markData));
     }
   }
 }
-
-
-	
 
 // ======================
 // BUAT KATA KLIK
@@ -2328,15 +2328,23 @@ function buatKataKlik(surah, ayat, teks) {
       if (warnaBaru) markData[surah+":"+ayat][idx] = warnaBaru;
       else delete markData[surah+":"+ayat][idx];
 
+      // Update background kata
       span.style.backgroundColor = warnaBaru || "";
+
+      // Hitung nilai & update tabel + modal
       const hasil = hitungNilai();
       updateNilaiDiTabel(hasil);
     };
 
-    if (markData[surah+":"+ayat]?.[idx]) span.style.backgroundColor = markData[surah+":"+ayat][idx];
+    // Set warna awal kata jika sudah ada mark
+    if (markData[surah+":"+ayat]?.[idx]) {
+      span.style.backgroundColor = markData[surah+":"+ayat][idx];
+    }
+
     return span;
   });
 }
+
 
 // ======================
 // LOAD DATA QURAN
