@@ -470,7 +470,7 @@ button.lihat-quran-btn:hover::after {
     <input type="text" id="inputNis" style="width:90%; margin-bottom:10px;" />
 
     <label>Tingkat:</label><br>
-    <select id="inputSemester" style="width:90%; margin-bottom:10px;">
+    <select id="inputTingkat" style="width:90%; margin-bottom:10px;">
       <option value="1">1</option>
       <option value="2">2</option>
       <option value="3">3</option>
@@ -1023,13 +1023,13 @@ row.innerHTML = `
   <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
   <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
   <td>
-            <select class="semester">
-              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>1</option>
-              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>2</option>
-              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>3</option>
-              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>4</option>
-              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>5</option>
-              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>6</option>
+            <select class="tingkat">
+              <option value="1" ${santri.tingkat == 1 ? 'selected' : ''}>1</option>
+              <option value="2" ${santri.tingkat == 2 ? 'selected' : ''}>2</option>
+              <option value="3" ${santri.tingkat == 3 ? 'selected' : ''}>3</option>
+              <option value="4" ${santri.tingkat == 4 ? 'selected' : ''}>4</option>
+              <option value="5" ${santri.tingkat == 5 ? 'selected' : ''}>5</option>
+              <option value="6" ${santri.tingkat == 6 ? 'selected' : ''}>6</option>
             </select>
             </td>
   <td>
@@ -1244,7 +1244,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   rows.forEach((row) => {
     const id = parseInt(row.children[0].textContent);
     const nama = row.children[1].textContent;
-    const semester = row.querySelector(".semester").value;
+    const tingkat = row.querySelector(".tingkat").value;
     const absensi = row.querySelector(".absensi").value;
     const surahDari = row.querySelector(".surah-dari").value;
     const ayatDari = row.querySelector(".ayat-dari").value;
@@ -1266,7 +1266,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
       id,
       nama,
       absensi,
-      semester,
+      tingkat,
       dari: `${surahDari}:${ayatDari}`,
       sampai: `${surahSampai}:${ayatSampai}`,
       totalJuz,
@@ -1461,19 +1461,19 @@ async function hitungTotalAllJuzFromTable() {
     const allData = await res.json();
 
     const rows = santriTableBody.querySelectorAll("tr");
-    const rekap = {}; // id => { totalJuz, semester }
+    const rekap = {}; // id => { totalJuz, tingkat }
 
     // Rekap total juz per santri dari data absensi
     allData.forEach(item => {
       const id = item.id;
       if (!rekap[id]) {
-        rekap[id] = { totalJuz: 0, semester: item.semester || null };
+        rekap[id] = { totalJuz: 0, tingkat: item.tingkat || null };
       }
       rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
     });
 
-    // Batas ketuntasan per semester
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    // Batas ketuntasan per tingkat
+    const batastingkat = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
     // Update tabel dan siapkan data untuk disimpan
     const dataToSave = [];
@@ -1484,10 +1484,10 @@ async function hitungTotalAllJuzFromTable() {
 
       if (rekap[id]) {
         const totalJuz = rekap[id].totalJuz.toFixed(2);
-        let semester = parseInt(row.querySelector(".semester")?.value);
-        if (!semester && rekap[id].semester) semester = rekap[id].semester;
+        let tingkat = parseInt(row.querySelector(".tingkat")?.value);
+        if (!tingkat && rekap[id].tingkat) tingkat = rekap[id].tingkat;
 
-        const batas = batasSemester[semester] || 0;
+        const batas = batastingkat[tingkat] || 0;
         let prosentase = batas > 0 ? Math.floor((rekap[id].totalJuz / batas) * 100) : 0;
         if (prosentase > 100) prosentase = 100;
 
@@ -1500,7 +1500,7 @@ async function hitungTotalAllJuzFromTable() {
         dataToSave.push({
           id,
           totalJuz: parseFloat(totalJuz),
-          semester,
+          tingkat,
           tuntas
         });
       } else {
@@ -1614,19 +1614,19 @@ document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTot
     const rekap = {};
     allData.forEach(item => {
       const id = item.id;
-      if (!rekap[id]) rekap[id] = { totalJuz: 0, semester: item.semester || null };
+      if (!rekap[id]) rekap[id] = { totalJuz: 0, tingkat: item.tingkat || null };
       rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
     });
 
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    const batasTingkat = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
     rows.forEach(row => {
       const id = parseInt(row.children[0].textContent);
       const cell = row.querySelector(".total-all-juz");
       if (rekap[id]) {
         const totalJuz = rekap[id].totalJuz.toFixed(2);
-        let semester = parseInt(row.querySelector(".semester")?.value) || rekap[id].semester;
-        const target = batasSemester[semester] || 0;
+        let tingkat = parseInt(row.querySelector(".tingkat")?.value) || rekap[id].tingkat;
+        const target = batastingkat[tingkat] || 0;
 
         let prosentase = target > 0 ? Math.floor((rekap[id].totalJuz / target) * 100) : 0;
         if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
@@ -2043,14 +2043,14 @@ async function submitTambahKelasBaru() {
     document.getElementById("modalSantri").style.display = "none";
     document.getElementById("inputNama").value = "";
     document.getElementById("inputNis").value = "";
-    document.getElementById("inputSemester").value = "1";
+    document.getElementById("inputTingkat").value = "1";
     document.getElementById("loadingTambahSantri").style.display = "none";
   }
 
   async function simpanSantriBaru() {
     const nama = document.getElementById("inputNama").value.trim();
     const nis = document.getElementById("inputNis").value.trim();
-    const semester = document.getElementById("inputSemester").value;
+    const tingkat = document.getElementById("inputTingkat").value;
     const kelas = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
 
     if (!nama) {
@@ -2069,7 +2069,7 @@ async function submitTambahKelasBaru() {
       const res = await fetch("/.netlify/functions/tambahSantri", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nama, nis, semester, kelas })
+        body: JSON.stringify({ nama, nis, tingkat, kelas })
       });
 
       const data = await res.json();
@@ -2111,7 +2111,7 @@ async function submitTambahKelasBaru() {
       santriList.forEach(s => {
         const opt = document.createElement("option");
         opt.value = s.id; // tetap pakai ID untuk konsistensi
-        opt.textContent = `${s.nis || s.id} - ${s.nama} (Semester ${s.semester})`;
+        opt.textContent = `${s.nis || s.id} - ${s.nama} (tingkat ${s.tingkat})`;
         santriSelect.appendChild(opt);
       });
     } catch (err) {
