@@ -524,6 +524,11 @@ button.lihat-quran-btn:hover::after {
     <div>
       Nilai: <span id="nilai-akhir">100</span> — Predikat: <span id="predikat-akhir">MUMTAZ</span>
     </div>
+	<div>
+  <label for="input-nilai-manual">Nilai Manual:</label>
+  <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:70px;">
+  <button id="btn-beri-nilai">Beri Nilai</button>
+</div>
 
 	  <!-- Tempat jumlah warna mark -->
 <div id="modal-mark-warna" style="margin-top:8px; font-weight:bold; font-size:16px;"></div>
@@ -747,7 +752,6 @@ stopBtn.addEventListener('click', () => {
 </style>
 
     <!-- ===== BUTTON ===== -->
-    <button id="btn-nilai-100">Nilai 100</button>
     <button id="save-btn-modal">Simpan Data Mutaba'ah</button>
     <button onclick="document.getElementById('overlay-quran').style.display='none'">Tutup</button>
   </div>
@@ -2458,14 +2462,35 @@ document.addEventListener('click', async function(e) {
 });
 
 // ======================
-// TOMBOL NILAI 100
+// TOMBOL NILAI MANUAL
 // ======================
-document.getElementById("btn-nilai-100").onclick = function() {
+document.getElementById("btn-beri-nilai").onclick = function() {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
+
+  // Ambil nilai dari input
+  const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
+  if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
+    return alert("Masukkan nilai antara 0 dan 100.");
+  }
+
+  // Tentukan predikat berdasarkan input nilai
+  let predikat = "-";
+  if (inputNilai <= 59) predikat = "ROSIB (E)";
+  else if (inputNilai <= 69) predikat = "MAQBUL (D)";
+  else if (inputNilai <= 79) predikat = "JAYYID (C)";
+  else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
+  else predikat = "MUMTAZ (A)";
+
+  // Reset markData
   markData = {};
-  document.getElementById("nilai-akhir").innerText = "100.0";
-  document.getElementById("predikat-akhir").innerText = "MUMTAZ (A)";
-  updateNilaiDiTabel({ nilai: 100, predikat: "MUMTAZ (A)", hijau: 0, kuning: 0, merah: 0 });
+
+  // Update modal overlay
+  document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
+  document.getElementById("predikat-akhir").innerText = predikat;
+  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
+
+  // Update tabel (tanpa warna mark)
+  updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
 };
 </script>
 
