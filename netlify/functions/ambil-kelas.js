@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 
-const GITHUB_API = 'https://api.github.com/repos/dickymiswardi/private/contents';
+const GITHUB_API = 'https://api.github.com/repos/digitalmtq/server/contents';
 const TOKEN = process.env.MTQ_TOKEN;
 
 exports.handler = async (event) => {
