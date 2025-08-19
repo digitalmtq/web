@@ -539,9 +539,14 @@ button.lihat-quran-btn:hover::after {
 
 <!-- Box keterangan -->
 <div id="keterangan-box" class="keterangan-box">
-  <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.5</b>)</p>
-  <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>1</b>)</p>
-  <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>2</b>)</p>
+  <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.25</b>)<br>
+     Contoh: meninggalkan tajwid seperti <i>Ikhfa, Tebal, Tipis, Hukum Ra, Qalqalah, Ghunnah, Mad Munfashil, Mad Iwad, Shafir, Dhod, Hams, Mim Sakinah</i>, dan lain-lain.</p>
+     
+  <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>0.5</b>)<br>
+     Contoh: salah hafalan tapi bisa memperbaiki sendiri, <i>waqof</i> dan <i>ibtida'</i> kurang tepat, dan lain-lain.</p>
+     
+  <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>1</b>)<br>
+     Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
 </div>
     <br>
     
@@ -2268,9 +2273,9 @@ function hitungNilai() {
   for (let ayat in markData) {
     for (let idx in markData[ayat]) {
       adaMark = true;
-      if (markData[ayat][idx] === "green") { totalMinus += 0.5; hijau++; }
-      if (markData[ayat][idx] === "yellow") { totalMinus += 1; kuning++; }
-      if (markData[ayat][idx] === "red") { totalMinus += 2; merah++; }
+      if (markData[ayat][idx] === "green") { totalMinus += 0.25; hijau++; }
+      if (markData[ayat][idx] === "yellow") { totalMinus += 0.5; kuning++; }
+      if (markData[ayat][idx] === "red") { totalMinus += 1; merah++; }
     }
   }
 
