@@ -2266,41 +2266,49 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
 // HITUNG NILAI
 // ======================
 function hitungNilai() {
+  if (!markData) markData = {}; // pastikan markData ada
+
   let totalMinus = 0;
   let hijau = 0, kuning = 0, merah = 0;
   let adaMark = false;
 
   for (let ayat in markData) {
+    if (!markData[ayat]) continue;
     for (let idx in markData[ayat]) {
+      let warna = markData[ayat][idx];
+      if (!warna) continue;
       adaMark = true;
-      if (markData[ayat][idx] === "green") { totalMinus += 0.25; hijau++; }
-      if (markData[ayat][idx] === "yellow") { totalMinus += 0.5; kuning++; }
-      if (markData[ayat][idx] === "red") { totalMinus += 1; merah++; }
+      if (warna === "green") { totalMinus += 0.25; hijau++; }
+      else if (warna === "yellow") { totalMinus += 0.5; kuning++; }
+      else if (warna === "red") { totalMinus += 1; merah++; }
     }
   }
 
-  let nilai, predikat;
-  if (!adaMark) { nilai = 0; predikat = "-"; }
-  else {
+  let nilai = 0, predikatText = "-", predikatHuruf = "-";
+
+  if (adaMark) {
     nilai = Math.max(0, 100 - totalMinus);
-    if (nilai <= 59) predikat = "ROSIB (E)";
-    else if (nilai <= 69) predikat = "MAQBUL (D)";
-    else if (nilai <= 79) predikat = "JAYYID (C)";
-    else if (nilai <= 89) predikat = "JAYYID JIDDAN (B)";
-    else predikat = "MUMTAZ (A)";
+
+    if (nilai <= 59) { predikatText = "ROSIB"; predikatHuruf = "E"; }
+    else if (nilai <= 69) { predikatText = "MAQBUL"; predikatHuruf = "D"; }
+    else if (nilai <= 79) { predikatText = "JAYYID"; predikatHuruf = "C"; }
+    else if (nilai <= 89) { predikatText = "JAYYID JIDDAN"; predikatHuruf = "B"; }
+    else { predikatText = "MUMTAZ"; predikatHuruf = "A"; }
   }
 
-  // Update modal overlay
-  document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
-  document.getElementById("predikat-akhir").innerText = predikat;
+  // Update tampilan
+  const nilaiDisplay = document.getElementById("nilai-akhir");
+  const predikatDisplay = document.getElementById("predikat-akhir");
+  if (nilaiDisplay) nilaiDisplay.textContent = nilai.toFixed(1);
+  if (predikatDisplay) predikatDisplay.innerHTML = `${predikatText} <span class="predikat-${predikatHuruf}">${predikatHuruf}</span>`;
 
-  // Update jumlah mark warna di modal overlay
+  // Update jumlah mark warna
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) {
     warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
   }
 
-  return { nilai, predikat, hijau, kuning, merah };
+  return { nilai, predikatText, predikatHuruf, hijau, kuning, merah };
 }
 
 // ======================
