@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 
 export async function handler() {
   const token = process.env.MTQ_TOKEN;
-  const apiUrl = "https://api.github.com/repos/dickymiswardi/private/contents/getAyat.json";
+  const apiUrl = "https://api.github.com/repos/digitalmtq/server/contents/getAyat.json";
 
   try {
     const response = await fetch(apiUrl, {
