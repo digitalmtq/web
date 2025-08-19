@@ -6,7 +6,7 @@ export async function handler(event) {
   const { file } = event.queryStringParameters || {};
   if (!file) return { statusCode: 400, body: 'File tidak ada' };
 
-  const url = `https://api.github.com/repos/dickymiswardi/private/contents/audio/${file}`;
+  const url = `https://api.github.com/repos/digitalmtq/server/contents/audio/${file}`;
 
   // Tentukan MIME type berdasarkan ekstensi
   const ext = file.split('.').pop().toLowerCase();
