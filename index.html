@@ -435,7 +435,8 @@ button.lihat-quran-btn:hover::after {
             <th>Absensi</th>
             <th>Setoran Dari</th>
             <th>Setoran Sampai</th>
-			<th>Halaman</th>
+			<th>Page</th>
+			<th>Total Page</th>
 			<th>Juz</th>
             <th>Total Juz</th>
             <th>Semester</th>
@@ -1018,6 +1019,7 @@ row.innerHTML = `
     <select class="ayat-sampai"></select>
   </td>
   <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
+  <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
   <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
   <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
   <td>
@@ -1181,16 +1183,19 @@ function updateTotalJuz(row) {
 
 	const juzTerbacaFormatted = compressJuzRanges(juzTercakup);
 
-	// Hitung halaman Quran
-function calculateHalamanTerbaca(halamanList) {
-  if (!halamanList || halamanList.length === 0) return "-";
+	 // Hitung pages quran
+	function calculateHalamanTerbaca(halamanList) {
+  if (!halamanList || halamanList.length === 0) return { ranges: "-", total: 0 };
 
   const halamanCountMap = {}; // key: halaman, value: jumlah ayat terbaca
   for (let h of halamanList) {
     halamanCountMap[h] = (halamanCountMap[h] || 0) + 1;
   }
 
-  const uniqueHalaman = Object.keys(halamanCountMap).map(Number).sort((a, b) => a - b);
+  const uniqueHalaman = Object.keys(halamanCountMap)
+                             .map(Number)
+                             .sort((a, b) => a - b);
+
   const ranges = [];
   let totalHalaman = 0;
 
@@ -1201,26 +1206,27 @@ function calculateHalamanTerbaca(halamanList) {
     const h = uniqueHalaman[i];
     const ayatTerbaca = halamanCountMap[h];
     const ayatTotal = jumlahAyatPerHalaman[h] || 1;
-    const proporsi = ayatTerbaca / ayatTotal;
-    totalHalaman += proporsi;
+    totalHalaman += ayatTerbaca / ayatTotal;
 
-    if (i === 0) continue;
-
-    if (h === end + 1) {
-      end = h;
-    } else {
-      ranges.push(start === end ? `${start}` : `${start}-${end}`);
-      start = end = h;
+    if (i > 0) {
+      if (h === end + 1) {
+        end = h;
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = end = h;
+      }
     }
   }
+
   ranges.push(start === end ? `${start}` : `${start}-${end}`);
 
-  return `${ranges.join(", ")} (${totalHalaman.toFixed(2)} halaman)`;
+  return { ranges: ranges.join(", "), total: totalHalaman };
 }
 
-
- row.querySelector(".halaman-terbaca").textContent = calculateHalamanTerbaca(halamanValid);
-
+// Pemakaian di tabel
+const result = calculateHalamanTerbaca(halamanValid);
+row.querySelector(".halaman-terbaca").textContent = result.ranges;
+row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   
   row.querySelector(".juz-terbaca").textContent = juzTerbacaFormatted;
   row.querySelector(".total-juz").textContent = totalJuz;
@@ -1246,6 +1252,7 @@ function calculateHalamanTerbaca(halamanList) {
     const ayatSampai = row.querySelector(".ayat-sampai").value;
     const totalJuz = row.querySelector(".total-juz").textContent;
 	const halaman = row.querySelector(".halaman-terbaca").textContent;
+	const totalHalaman = row.querySelector(".total-halaman").textContent;
     const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
 
     const nilaiCell = row.querySelector(".lihat-quran-btn").parentElement;
@@ -1264,6 +1271,7 @@ function calculateHalamanTerbaca(halamanList) {
       sampai: `${surahSampai}:${ayatSampai}`,
       totalJuz,
 	  halaman, // <-- kolom baru
+	  totalHalaman,
       juzTerbaca,
       buttonCell,
       marks
