@@ -520,6 +520,16 @@ button.lihat-quran-btn:hover::after {
     <div>
       Nilai: <span id="nilai-akhir">100</span> — Predikat: <span id="predikat-akhir">MUMTAZ</span>
     </div>
+
+	  <!-- Tombol untuk menampilkan keterangan warna -->
+<button id="toggle-keterangan" class="keterangan-toggle">ℹ️ Lihat Keterangan Warna</button>
+
+<!-- Box keterangan -->
+<div id="keterangan-box" class="keterangan-box">
+  <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.5</b>)</p>
+  <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>1</b>)</p>
+  <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>2</b>)</p>
+</div>
     <br>
     
 <!-- ===== AUDIO RECORDING ===== -->
@@ -546,6 +556,32 @@ button.lihat-quran-btn:hover::after {
 <ul id="recordingsList"></ul>
 
 <style>
+
+	/* Box keterangan */
+.keterangan-box {
+  display: none;
+  background: #f9f9f9;
+  border-left: 4px solid #007bff;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.keterangan-toggle {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 6px;
+  text-decoration: underline;
+}
+.keterangan-toggle:hover {
+  color: #0056b3;
+}
+
 /* Spinner CSS */
 .spinner {
   border: 4px solid #f3f3f3; /* light grey */
@@ -622,6 +658,15 @@ stopBtn.addEventListener('click', () => {
         };
         recorder.finishRecording();
     }
+});
+
+	document.getElementById("toggle-keterangan").addEventListener("click", () => {
+  const box = document.getElementById("keterangan-box");
+  if (box.style.display === "block") {
+    box.style.display = "none";
+  } else {
+    box.style.display = "block";
+  }
 });
 </script>
 
