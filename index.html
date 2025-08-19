@@ -522,15 +522,6 @@ button.lihat-quran-btn:hover::after {
     </div>
 
 
-	  <!-- ===== Modal Overlay Nilai ===== -->
-<div id="overlay-nilai" class="overlay" style="display:none;">
-  <div class="overlay-content">
-    <span class="close-btn" onclick="tutupOverlayNilai()">&times;</span>
-    <h2>Hasil Penilaian</h2>
-    <div id="hasil-nilai"></div>
-  </div>
-</div>
-
 	  <!-- Tombol untuk menampilkan keterangan warna -->
 <button id="toggle-keterangan" class="keterangan-toggle">ℹ️ Lihat Keterangan Warna</button>
 
@@ -566,33 +557,6 @@ button.lihat-quran-btn:hover::after {
 <ul id="recordingsList"></ul>
 
 <style>
-
-
-	/* Tambahkan CSS biar modal rapi */
-.overlay {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.overlay-content {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  max-width: 400px;
-  width: 90%;
-  text-align: center;
-  font-size: 1.1em;
-}
-.overlay-content h2 {
-  margin-bottom: 15px;
-}
-#hasil-nilai strong {
-  font-size: 1.4em;
-}
 
 
 	/* Box keterangan */
@@ -2276,7 +2240,7 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
 
 
 // ======================
-// HITUNG NILAI
+// HITUNG NILAI & UPDATE TABEL
 // ======================
 function hitungNilai() {
   let totalMinus = 0;
@@ -2303,29 +2267,28 @@ function hitungNilai() {
     else predikat = "MUMTAZ (A)";
   }
 
+  document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
+  document.getElementById("predikat-akhir").innerText = predikat;
+
   return { nilai, predikat, hijau, kuning, merah };
 }
 
-// ======================
-// TAMPILKAN NILAI DI MODAL
-// ======================
-function tampilkanNilaiDiModal() {
-  const { nilai, predikat, hijau, kuning, merah } = hitungNilai();
+function updateNilaiDiTabel({ nilai, predikat, hijau, kuning, merah }) {
+  if (!currentIdSiswa) return;
+  const row = [...document.querySelectorAll("table tbody tr")]
+    .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
 
-  const hasilDiv = document.getElementById("hasil-nilai");
-  hasilDiv.innerHTML = `
-    <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
-    <div>🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}</div>
-  `;
-
-  document.getElementById("overlay-nilai").style.display = "flex";
-}
-
-// ======================
-// TUTUP MODAL
-// ======================
-function tutupOverlayNilai() {
-  document.getElementById("overlay-nilai").style.display = "none";
+  if (row) {
+    const buttonCell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
+    if (buttonCell) {
+      buttonCell.innerHTML = `
+        <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
+        <div>🟩${hijau} 🟨${kuning} 🟥${merah}</div>
+        <button class="lihat-quran-btn">Lembar Penilaian</button>
+      `;
+      row.markData = JSON.parse(JSON.stringify(markData));
+    }
+  }
 }
 
 	
