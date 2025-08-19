@@ -5,7 +5,7 @@ export async function handler() {
 
   // URL file di GitHub API
   const files = [
-    "https://api.github.com/repos/dickymiswardi/home/contents/symbol1.json",
+    "https://api.github.com/repos/dickymiswardi/web/contents/symbol1.json",
     "https://api.github.com/repos/dickymiswardi/tadabbur/contents/ayah_page_map.json"
   ];
 
