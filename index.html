@@ -579,14 +579,16 @@ button.lihat-quran-btn:hover::after {
 }
 
 .keterangan-toggle {
-  background: none;
-  border: none;
-  color: #ff4d00;
+  all: unset; /* reset semua style bawaan */
+  display: inline-block;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  color: #1E88E5;
+  padding: 2px 4px;
   cursor: pointer;
-  font-size: 14px;
-  margin-top: 6px;
-  text-decoration: underline;
-  font-weight: bold;
+  position: relative;
+  transition: color 0.00s ease;
 }
 .keterangan-toggle:hover {
   color: #ffffff;
