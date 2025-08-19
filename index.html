@@ -2262,9 +2262,15 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
 }
 
 
-// ======================
-// HITUNG NILAI
-// ======================
+<style>
+  .predikat-A { color: green; font-weight: bold; }
+  .predikat-B { color: blue; font-weight: bold; }
+  .predikat-C { color: orange; font-weight: bold; }
+  .predikat-D { color: red; font-weight: bold; }
+  .predikat-E { color: black; font-weight: bold; }
+</style>
+
+<script>
 function hitungNilai() {
   let totalMinus = 0;
   let hijau = 0, kuning = 0, merah = 0;
@@ -2279,29 +2285,36 @@ function hitungNilai() {
     }
   }
 
-  let nilai, predikat;
-  if (!adaMark) { nilai = 0; predikat = "-"; }
-  else {
+  let nilai, predikatText = "-", predikatHuruf = "-";
+  if (!adaMark) { 
+    nilai = 0; 
+  } else {
     nilai = Math.max(0, 100 - totalMinus);
-    if (nilai <= 59) predikat = "ROSIB (E)";
-    else if (nilai <= 69) predikat = "MAQBUL (D)";
-    else if (nilai <= 79) predikat = "JAYYID (C)";
-    else if (nilai <= 89) predikat = "JAYYID JIDDAN (B)";
-    else predikat = "MUMTAZ (A)";
+
+    // Tentukan predikat
+    if (nilai <= 59) { predikatText = "ROSIB"; predikatHuruf = "E"; }
+    else if (nilai <= 69) { predikatText = "MAQBUL"; predikatHuruf = "D"; }
+    else if (nilai <= 79) { predikatText = "JAYYID"; predikatHuruf = "C"; }
+    else if (nilai <= 89) { predikatText = "JAYYID JIDDAN"; predikatHuruf = "B"; }
+    else { predikatText = "MUMTAZ"; predikatHuruf = "A"; }
   }
 
-  // Update modal overlay
-  document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
-  document.getElementById("predikat-akhir").innerText = predikat;
+  // Update modal overlay dengan format baru
+  const nilaiDisplay = document.getElementById("nilai-akhir");
+  const predikatDisplay = document.getElementById("predikat-akhir");
 
-  // Update jumlah mark warna di modal overlay
+  if (nilaiDisplay) nilaiDisplay.innerHTML = nilai.toFixed(1);
+  if (predikatDisplay) predikatDisplay.innerHTML = `${predikatText} <span class="predikat-${predikatHuruf}">${predikatHuruf}</span>`;
+
+  // Update jumlah mark warna
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) {
     warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
   }
 
-  return { nilai, predikat, hijau, kuning, merah };
+  return { nilai, predikatText, predikatHuruf, hijau, kuning, merah };
 }
+</script>
 
 // ======================
 // UPDATE TABEL (tanpa warna mark)
