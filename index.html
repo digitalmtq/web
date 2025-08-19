@@ -2293,6 +2293,9 @@ if (!adaMark) {
   else predikat = 'MUMTAZ <span style="background-color:green;color:white;font-weight:bold;padding:2px 5px;border-radius:3px;">A</span>';
 }
 
+// Format tampilan di tabel atau div
+const tampilan = `${nilai.toFixed(1)} - ${predikat}`;
+
   // Update modal overlay
   document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
   document.getElementById("predikat-akhir").innerText = predikat;
