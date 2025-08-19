@@ -521,6 +521,16 @@ button.lihat-quran-btn:hover::after {
       Nilai: <span id="nilai-akhir">100</span> — Predikat: <span id="predikat-akhir">MUMTAZ</span>
     </div>
 
+
+	  <!-- ===== Modal Overlay Nilai ===== -->
+<div id="overlay-nilai" class="overlay" style="display:none;">
+  <div class="overlay-content">
+    <span class="close-btn" onclick="tutupOverlayNilai()">&times;</span>
+    <h2>Hasil Penilaian</h2>
+    <div id="hasil-nilai"></div>
+  </div>
+</div>
+
 	  <!-- Tombol untuk menampilkan keterangan warna -->
 <button id="toggle-keterangan" class="keterangan-toggle">ℹ️ Lihat Keterangan Warna</button>
 
@@ -556,6 +566,34 @@ button.lihat-quran-btn:hover::after {
 <ul id="recordingsList"></ul>
 
 <style>
+
+
+	/* Tambahkan CSS biar modal rapi */
+.overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.overlay-content {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  font-size: 1.1em;
+}
+.overlay-content h2 {
+  margin-bottom: 15px;
+}
+#hasil-nilai strong {
+  font-size: 1.4em;
+}
+
 
 	/* Box keterangan */
 .keterangan-box {
