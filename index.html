@@ -2270,29 +2270,59 @@ function hitungNilai() {
   let hijau = 0, kuning = 0, merah = 0;
   let adaMark = false;
 
+  // Hitung total minus dan jumlah warna
   for (let ayat in markData) {
     for (let idx in markData[ayat]) {
+      const mark = markData[ayat][idx];
+      if (!mark) continue;
       adaMark = true;
-      if (markData[ayat][idx] === "green") { totalMinus += 0.5; hijau++; }
-      if (markData[ayat][idx] === "yellow") { totalMinus += 1; kuning++; }
-      if (markData[ayat][idx] === "red") { totalMinus += 2; merah++; }
+
+      switch (mark) {
+        case "green":
+          totalMinus += 0.5;
+          hijau++;
+          break;
+        case "yellow":
+          totalMinus += 1;
+          kuning++;
+          break;
+        case "red":
+          totalMinus += 2;
+          merah++;
+          break;
+      }
     }
   }
 
-  let nilai, predikat;
-  if (!adaMark) { nilai = 0; predikat = "-"; }
-  else {
-    nilai = Math.max(0, 100 - totalMinus);
-    if (nilai <= 59) predikat = "ROSIB E";
-    else if (nilai <= 69) predikat = "MAQBUL D";
-    else if (nilai <= 79) predikat = "JAYYID C";
-    else if (nilai <= 89) predikat = "JAYYID JIDDAN B";
-    else predikat = "MUMTAZ A";
+  // Tentukan nilai dan predikat
+  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
+
+  const predikatMap = [
+    { max: 59, text: "ROSIB", huruf: "E" },
+    { max: 69, text: "MAQBUL", huruf: "D" },
+    { max: 79, text: "JAYYID", huruf: "C" },
+    { max: 89, text: "JAYYID JIDDAN", huruf: "B" },
+    { max: 100, text: "MUMTAZ", huruf: "A" }
+  ];
+
+  let predikat = "-";
+  if (adaMark) {
+    const p = predikatMap.find(p => nilai <= p.max);
+
+    // Fungsi memberi background warna huruf
+    function bgHuruf(huruf) {
+      const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+      return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+    }
+
+    predikat = `${p.text} ${bgHuruf(p.huruf)}`;
   }
 
   // Update modal overlay
-  document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
-  document.getElementById("predikat-akhir").innerText = predikat;
+  const nilaiEl = document.getElementById("nilai-akhir");
+  const predikatEl = document.getElementById("predikat-akhir");
+  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
+  if (predikatEl) predikatEl.innerHTML = predikat; // gunakan innerHTML agar span bisa tampil
 
   // Update jumlah mark warna di modal overlay
   const warnaDiv = document.getElementById("modal-mark-warna");
@@ -2302,6 +2332,7 @@ function hitungNilai() {
 
   return { nilai, predikat, hijau, kuning, merah };
 }
+
 
 // ======================
 // UPDATE TABEL (tanpa warna mark)
