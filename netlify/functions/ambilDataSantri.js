@@ -13,7 +13,7 @@ export async function handler(event) {
   }
 
   const fileName = `${kelas}.json`; // contoh: kelas_1.json
-  const githubApiUrl = `https://api.github.com/repos/dickymiswardi/private/contents/${fileName}`;
+  const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
 
   try {
     // Ambil file dari GitHub
