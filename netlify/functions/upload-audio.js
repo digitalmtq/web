@@ -21,7 +21,7 @@ export async function handler(event) {
 
     const cleanBase64 = base64.replace(/^data:.*;base64,/, "");
     const path = `${folder}/${fileName}`;
-    const url = `https://api.github.com/repos/dickymiswardi/private/contents/${path}`;
+    const url = `https://api.github.com/repos/digitalmtq/server/contents/${path}`;
 
     // Cek apakah file sudah ada
     let sha = null;
