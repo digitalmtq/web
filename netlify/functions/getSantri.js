@@ -10,7 +10,7 @@ export async function handler(event) {
   }
 
   // URL API GitHub (bukan raw)
-  const apiUrl = `https://api.github.com/repos/dickymiswardi/private/contents/${kelas}.json`;
+  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${kelas}.json`;
 
   try {
     const response = await fetch(apiUrl, {
