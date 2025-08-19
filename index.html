@@ -419,7 +419,7 @@ button.lihat-quran-btn:hover::after {
 
       <div class="dashboard-header">
   <div class="dashboard-header-row">
-    <label for="kelas">Pilih Kelas:</label>
+    <label for="kelas">Kelas:</label>
     <select id="kelas"></select>
 
     <label for="tanggal">Tanggal:</label>
@@ -439,7 +439,7 @@ button.lihat-quran-btn:hover::after {
 			<th>Total Page</th>
 			<th>Juz</th>
             <th>Total Juz</th>
-            <th>Semester</th>
+            <th>Tingkat</th>
             <th>Nilai</th>
             <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Capaian Target</th>
           </tr>
@@ -469,7 +469,7 @@ button.lihat-quran-btn:hover::after {
     <label>NIS:</label><br>
     <input type="text" id="inputNis" style="width:90%; margin-bottom:10px;" />
 
-    <label>Semester:</label><br>
+    <label>Tingkat:</label><br>
     <select id="inputSemester" style="width:90%; margin-bottom:10px;">
       <option value="1">1</option>
       <option value="2">2</option>
@@ -1024,12 +1024,12 @@ row.innerHTML = `
   <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
   <td>
             <select class="semester">
-              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
-              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
-              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
-              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
-              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
-              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
+              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>1</option>
+              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>2</option>
+              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>3</option>
+              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>4</option>
+              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>5</option>
+              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>6</option>
             </select>
             </td>
   <td>
