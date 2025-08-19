@@ -2273,6 +2273,18 @@ function hitungNilai() {
   return { nilai, predikat, hijau, kuning, merah };
 }
 
+	function updateNilaiDiTabel({ nilai, predikat, hijau, kuning, merah }) {
+  if (!currentIdSiswa) return;
+  const row = [...document.querySelectorAll("table tbody tr")]
+    .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
+
+  if (row) {
+    const buttonCell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
+      row.markData = JSON.parse(JSON.stringify(markData));
+    }
+  }
+}
+
 	
 
 // ======================
