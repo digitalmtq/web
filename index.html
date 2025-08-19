@@ -2383,8 +2383,16 @@ document.addEventListener('click', async function(e) {
 
     const row = e.target.closest('tr');
     currentIdSiswa = parseInt(row.cells[0].innerText.trim());
-    const kelas = document.getElementById('kelas').value;
-    const tanggal = document.getElementById('tanggal').value;
+
+    // Ambil nama santri dari kolom 1 (asumsi kolom 1 adalah nama)
+    const namaSantri = row.cells[1].innerText.trim();
+    const namaSpan = document.getElementById('modal-nama-santri');
+    if (namaSpan) {
+      namaSpan.innerText = namaSantri;
+    }
+
+    const kelas = document.getElementById('kelas')?.value || 'default';
+    const tanggal = document.getElementById('tanggal')?.value || 'default';
 
     // Ambil marks + audio
     markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
