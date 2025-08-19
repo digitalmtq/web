@@ -11,7 +11,7 @@ export async function handler(event) {
 
   try {
     const fileName = `${kelas}_${tanggal}.json`;
-    const url = `https://api.github.com/repos/dickymiswardi/private/contents/absensi/${fileName}`;
+    const url = `https://api.github.com/repos/digitalmtq/server/contents/absensi/${fileName}`;
 
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" }
