@@ -19,7 +19,7 @@ export async function handler(event) {
     }
 
     const fileName = `${kelas}_${tanggal}.json`;
-    const url = `https://api.github.com/repos/dickymiswardi/private/contents/absensi/${fileName}`;
+    const url = `https://api.github.com/repos/digitalmtq/server/contents/absensi/${fileName}`;
 
     // Ambil data lama dari GitHub
     let sha = null;
