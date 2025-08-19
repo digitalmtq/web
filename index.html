@@ -2265,6 +2265,9 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
 // ======================
 // HITUNG NILAI
 // ======================
+Aduh saya tidak paham, tolong kamu revisi ini full ya: // ======================
+// HITUNG NILAI
+// ======================
 function hitungNilai() {
   let totalMinus = 0;
   let hijau = 0, kuning = 0, merah = 0;
@@ -2279,22 +2282,16 @@ function hitungNilai() {
     }
   }
 
- let nilai, predikat;
-if (!adaMark) { 
-  nilai = 0; 
-  predikat = "-"; 
-} else {
-  nilai = Math.max(0, 100 - totalMinus);
-
-  if (nilai <= 59) predikat = 'ROSIB <span style="background-color:black;color:white;font-weight:bold;padding:2px 5px;border-radius:3px;">E</span>';
-  else if (nilai <= 69) predikat = 'MAQBUL <span style="background-color:red;color:white;font-weight:bold;padding:2px 5px;border-radius:3px;">D</span>';
-  else if (nilai <= 79) predikat = 'JAYYID <span style="background-color:orange;color:white;font-weight:bold;padding:2px 5px;border-radius:3px;">C</span>';
-  else if (nilai <= 89) predikat = 'JAYYID JIDDAN <span style="background-color:blue;color:white;font-weight:bold;padding:2px 5px;border-radius:3px;">B</span>';
-  else predikat = 'MUMTAZ <span style="background-color:green;color:white;font-weight:bold;padding:2px 5px;border-radius:3px;">A</span>';
-}
-
-// Format tampilan di tabel atau div
-const tampilan = `${nilai.toFixed(1)} - ${predikat}`;
+  let nilai, predikat;
+  if (!adaMark) { nilai = 0; predikat = "-"; }
+  else {
+    nilai = Math.max(0, 100 - totalMinus);
+    if (nilai <= 59) predikat = "ROSIB E";
+    else if (nilai <= 69) predikat = "MAQBUL D";
+    else if (nilai <= 79) predikat = "JAYYID C";
+    else if (nilai <= 89) predikat = "JAYYID JIDDAN B";
+    else predikat = "MUMTAZ A";
+  }
 
   // Update modal overlay
   document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
