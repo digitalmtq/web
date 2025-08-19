@@ -28,7 +28,7 @@ export async function handler(event) {
 
   for (const tanggal of tanggalList) {
     const fileName = `${kelas}_${tanggal}.json`;
-    const apiUrl = `https://api.github.com/repos/dickymiswardi/private/contents/absensi/${fileName}`;
+    const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/absensi/${fileName}`;
 
     try {
       const response = await fetch(apiUrl, {
