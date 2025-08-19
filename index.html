@@ -517,6 +517,9 @@ button.lihat-quran-btn:hover::after {
     <h3>Ayat Al-Qur'an</h3>
     <div id="quran-text" style="white-space:pre-wrap; line-height:2.2; direction:rtl; font-size:30px;"></div>
     <hr>
+	  <div>
+  Nama Santri: <span id="modal-nama-santri" style="font-weight:bold; font-size:18px;"></span>
+</div>
     <div>
       Nilai: <span id="nilai-akhir">100</span> — Predikat: <span id="predikat-akhir">MUMTAZ</span>
     </div>
@@ -2377,6 +2380,10 @@ document.addEventListener('click', async function(e) {
     const overlay = document.getElementById('overlay-quran');
     overlay.style.display = 'flex';
 
+// Ambil nama santri dari kolom 1 (asumsi)
+    const namaSantri = row.cells[1].innerText.trim();
+    document.getElementById('modal-nama-santri').innerText = namaSantri;
+	  
     const row = e.target.closest('tr');
     currentIdSiswa = parseInt(row.cells[0].innerText.trim());
     const kelas = document.getElementById('kelas').value;
@@ -2444,6 +2451,8 @@ document.addEventListener('click', async function(e) {
     updateNilaiDiTabel(hasil);
   }
 });
+
+	
 
 // ======================
 // TOMBOL NILAI 100
