@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 
 export async function handler() {
   const token = process.env.MTQ_TOKEN;
-  const githubApiUrl = "https://api.github.com/repos/dickymiswardi/private/contents/user.json";
+  const githubApiUrl = "https://api.github.com/repos/digitalmtq/server/contents/user.json";
 
   try {
     const response = await fetch(githubApiUrl, {
