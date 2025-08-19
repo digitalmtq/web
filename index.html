@@ -2275,18 +2275,22 @@ function updateNilaiDiTabel({ nilai, predikat, hijau, kuning, merah }) {
   if (!currentIdSiswa) return;
   const row = [...document.querySelectorAll("table tbody tr")]
     .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
+}
 
-  if (row) {
-    const buttonCell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
-    if (buttonCell) {
-      buttonCell.innerHTML = `
-        <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
-        <div>🟩${hijau} 🟨${kuning} 🟥${merah}</div>
-        <button class="lihat-quran-btn">Lembar Penilaian</button>
-      `;
-      row.markData = JSON.parse(JSON.stringify(markData));
-    }
-  }
+
+	// ======================
+// TAMPILKAN NILAI DI MODAL
+// ======================
+function tampilkanNilaiDiModal() {
+  const { nilai, predikat, hijau, kuning, merah } = hitungNilai();
+
+  const hasilDiv = document.getElementById("hasil-nilai");
+  hasilDiv.innerHTML = `
+    <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
+    <div>🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}</div>
+  `;
+
+  document.getElementById("overlay-nilai").style.display = "flex";
 }
 	
 
