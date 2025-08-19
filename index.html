@@ -521,6 +521,9 @@ button.lihat-quran-btn:hover::after {
       Nilai: <span id="nilai-akhir">100</span> — Predikat: <span id="predikat-akhir">MUMTAZ</span>
     </div>
 
+	  <!-- Tempat jumlah warna mark -->
+<div id="modal-mark-warna" style="margin-top:8px; font-weight:bold; font-size:16px;"></div>
+
 
 	  <!-- Tombol untuk menampilkan keterangan warna -->
 <button id="toggle-keterangan" class="keterangan-toggle">ℹ️ Lihat Keterangan Warna</button>
@@ -2289,6 +2292,12 @@ function hitungNilai() {
     }
   }
 }
+
+	const hasil = hitungNilai();
+
+// Update modal overlay dengan warna mark
+const warnaDiv = document.getElementById("modal-mark-warna");
+warnaDiv.innerHTML = `🟩 ${hasil.hijau} &nbsp; 🟨 ${hasil.kuning} &nbsp; 🟥 ${hasil.merah}`;
 
 
 	
