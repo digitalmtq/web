@@ -1173,11 +1173,11 @@ function updateTotalJuz(row) {
       if (list[i] === end + 1) {
         end = list[i];
       } else {
-        ranges.push(start === end ? `Juz ${start}` : `Juz ${start}-${end}`);
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
         start = end = list[i];
       }
     }
-    ranges.push(start === end ? `Juz ${start}` : `Juz ${start}-${end}`);
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
     return ranges.join(", ");
   }
 
