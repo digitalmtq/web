@@ -2600,10 +2600,11 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 <script>
-// 1. Fungsi untuk memberi warna huruf predikat
+// 1. Fungsi untuk memberi warna hanya huruf predikat
 function bgHuruf(huruf, predikatText = "") {
   const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${predikatText} ${huruf}</span>`;
+  // huruf diberi background, predikatText normal
+  return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
 }
 
 // 2. Data dari server / dataSantri
@@ -2617,8 +2618,6 @@ function renderTabelPredikat() {
     cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
   });
 }
-
-// 4. Panggil renderTabelPredikat() setelah dataSantri tersedia
 </script>
 	
 </body>
