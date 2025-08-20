@@ -2536,9 +2536,20 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
 };
 
-	// Render tabel ulang
-  renderTabelNilai();
-};
+
+	function renderTabelNilai() {
+  const warnaMap = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+
+    const { nilai, predikatText, predikatHuruf } = data.buttonCell;
+    const hurufSpan = `<span style="background-color:${warnaMap[predikatHuruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${predikatHuruf}</span>`;
+
+    cell.innerHTML = `<strong>${nilai.toFixed(1)}</strong> - ${predikatText} ${hurufSpan}`;
+  });
+}
 </script>
 
 
