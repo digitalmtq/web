@@ -980,36 +980,29 @@ function aturDropdownKelas(user) {
     });
 
     async function loadSantriData() {
-  const kelas = kelasSelect?.value;
-  const tanggal = tanggalInput?.value;
-  overlay.style.display = "flex";
+      const kelas = kelasSelect.value;
+      const tanggal = tanggalInput.value;
+      overlay.style.display = "flex";
 
-  try {
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
-    if (!resSantri.ok) throw new Error("Gagal ambil data santri");
-    const santriData = await resSantri.json();
+      try {
+        const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+        const santriData = await resSantri.json();
 
-    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
-    if (!resAbsensi.ok) throw new Error("Gagal ambil data absensi");
-    const absensiData = await resAbsensi.json();
+        const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+        const absensiData = await resAbsensi.json();
 
-    santriTableBody.innerHTML = "";
+        santriTableBody.innerHTML = "";
 
-    santriData.forEach((santri, i) => {
-      // FIX: samakan tipe ID, cek id agar aman
-      const dataAbsensi = absensiData.find(
-        a => a?.id && String(a.id) === String(santri.id)
-      ) || {};
+        santriData.forEach((santri, i) => {
+          const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
+          const row = document.createElement("tr");
 
-      const row = document.createElement("tr");
+          const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
+          const dari = (dataAbsensi.dari || "1:1").split(":");
+          const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
-      const surahOptions = surahList.map(
-        s => `<option value="${s.id}">${s.nama}</option>`
-      ).join("");
-
-      const dari = (dataAbsensi.dari || "1:1").split(":");
-      const sampai = (dataAbsensi.sampai || "1:1").split(":");
-
+          // asumsi: dataAbsensi sudah didefinisikan untuk setiap santri, mis.
+// const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
 
 row.innerHTML = `
   <td>${santri.nis || santri.id}</td>
@@ -1045,20 +1038,13 @@ row.innerHTML = `
             </select>
             </td>
   <td>
-  <!-- Tampilkan nilai dan warna ringkas -->
   <div class="nilai-ringkas">
-    ${dataAbsensi.buttonCell?.nilai ?? ''}
+    ${dataAbsensi.buttonCell 
+       ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+       : ''}
   </div>
-  <div class="warna-ringkas">
-    ${dataAbsensi.buttonCell?.warna ?? ''}
-  </div>
-
-  <!-- Tombol Lembar Penilaian dengan data-id -->
-  <button type="button" class="lihat-quran-btn" data-id="${dataAbsensi.id}">
-    Lembar Penilaian
-  </button>
+  <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
 </td>
-
 <td class="total-all-juz">
   <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
 </td>
@@ -1070,35 +1056,7 @@ document.querySelectorAll("td.total-all-juz").forEach(td => {
     td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
   }
 });
-
-// Ambil semua tombol Lembar Penilaian
-document.querySelectorAll('.lihat-quran-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    // Ambil ID dari atribut data-id (selalu string)
-    const id = this.dataset.id;
-
-    // Cari data santri di array dataAbsensi
-    const siswa = dataAbsensi.find(d => String(d.id) === id);
-
-    if (!siswa) {
-      return alert('Data santri tidak ditemukan!');
-    }
-
-    // Contoh aksi: tampilkan info di console
-    console.log('Klik Lembar Penilaian untuk:', siswa);
-
-    // TODO: ganti dengan fungsi lembar penilaian asli
-    tampilkanLembarPenilaian(siswa);
-  });
-});
-
-// Contoh fungsi lembar penilaian
-function tampilkanLembarPenilaian(santri) {
-  alert(`Lembar Penilaian: ${santri.nama} (ID: ${santri.id})`);
-}
-
-
-			
+          
           const surahDari = row.querySelector(".surah-dari");
           const ayatDari = row.querySelector(".ayat-dari");
           const surahSampai = row.querySelector(".surah-sampai");
@@ -1293,6 +1251,10 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
   rows.forEach((row) => {
     const id = parseInt(row.children[0].textContent);
+
+    // Cek dulu apakah data sudah ada di array
+    let existing = data.find(d => d.id === id);
+
     const nama = row.children[1].textContent;
     const semester = row.querySelector(".semester").value;
     const absensi = row.querySelector(".absensi").value;
@@ -1301,18 +1263,25 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     const surahSampai = row.querySelector(".surah-sampai").value;
     const ayatSampai = row.querySelector(".ayat-sampai").value;
     const totalJuz = row.querySelector(".total-juz").textContent;
-	const halaman = row.querySelector(".halaman-terbaca").textContent;
-	const totalHalaman = row.querySelector(".total-halaman").textContent;
+    const halaman = row.querySelector(".halaman-terbaca").textContent;
+    const totalHalaman = row.querySelector(".total-halaman").textContent;
     const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
 
     const nilaiCell = row.querySelector(".lihat-quran-btn").parentElement;
-    const nilaiDiv = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
-    const warnaDiv = nilaiCell.querySelector("div:nth-child(2)")?.innerText.trim() || "";
-    const buttonCell = { nilai: nilaiDiv, warna: warnaDiv };
+    const nilaiStr = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
+    let nilai = 0, predikatText = "-", predikatHuruf = "";
+    if (nilaiStr) {
+        const parts = nilaiStr.split(" ");
+        if (parts.length >= 3) {
+            nilai = parseFloat(parts[0]);
+            predikatText = parts[1];
+            predikatHuruf = parts[2];
+        }
+    }
 
     const marks = row.markData || {};
 
-    data.push({
+    const newData = {
       id,
       nama,
       absensi,
@@ -1320,16 +1289,25 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
       dari: `${surahDari}:${ayatDari}`,
       sampai: `${surahSampai}:${ayatSampai}`,
       totalJuz,
-	  halaman, // <-- kolom baru
-	  totalHalaman,
+      halaman,
+      totalHalaman,
       juzTerbaca,
-      buttonCell,
+      buttonCell: { nilai, predikatText, predikatHuruf },
       marks
-    });
-  });
+    };
 
-  saveBtn.disabled = true;
-  saveBtn.textContent = "⏳ Menyimpan...";
+    if (existing) {
+        // update data lama
+        Object.assign(existing, newData);
+    } else {
+        // tambah data baru
+        data.push(newData);
+    }
+});
+
+saveBtn.disabled = true;
+saveBtn.textContent = "⏳ Menyimpan...";
+
 
   try {
     const res = await fetch("/.netlify/functions/saveData", {
@@ -2619,5 +2597,28 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 });
 </script>
 
+
+
+<script>
+// 1. Fungsi untuk memberi warna hanya huruf predikat
+function bgHuruf(huruf, predikatText = "") {
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  // huruf diberi background, predikatText normal
+  return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+}
+
+// 2. Data dari server / dataSantri
+let dataSantri = []; // nanti diisi fetch atau data.push
+
+// 3. Fungsi render tabel
+function renderTabelPredikat() {
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
+  });
+}
+</script>
+	
 </body>
 </html>
