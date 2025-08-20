@@ -1046,6 +1046,7 @@ row.innerHTML = `
   </div>
   <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
 </td>
+
 <td class="total-all-juz">
   <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
 </td>
@@ -2605,15 +2606,19 @@ function bgHuruf(huruf, predikatText = "") {
 let dataSantri = []; // nanti diisi fetch atau data.push
 
 // 3. Fungsi render tabel
-function renderTabelPredikat() {
-  dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
-  });
+function renderSantri(data) {
+  const row = document.querySelector(`#row-${data.id}`);
+  if (!row) return;
+
+  const nilaiCell = row.querySelector(".nilai-ringkas");
+  if (nilaiCell && data.buttonCell) {
+    nilaiCell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
+  }
 }
 
-// 4. Panggil renderTabelPredikat() setelah dataSantri tersedia
+// Contoh pemanggilan
+renderSantri(dataSantri[0]); // hanya untuk santri pertama
+
 </script>
 
 </body>
