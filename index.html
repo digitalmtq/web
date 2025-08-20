@@ -2504,24 +2504,6 @@ document.addEventListener('click', async function(e) {
   }
 });
 
-	// ======================
-// Fungsi memberi background warna huruf
-// ======================
-function bgHuruf(huruf) {
-  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  return `<span style="background-color:${warna[huruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${huruf}</span>`;
-}
-
-// ======================
-// Fungsi update nilai di tabel
-// ======================
-function renderPredikatDiTabel(rowId, buttonCell) {
-  const cell = document.querySelector(`#row-${rowId} .nilaiPredikat`);
-  if (cell) {
-    cell.innerHTML = `${buttonCell.nilai.toFixed(1)} - ${buttonCell.predikatText} ${bgHuruf(buttonCell.predikatHuruf)}`;
-  }
-}
-
 // ======================
 // TOMBOL NILAI MANUAL
 // ======================
@@ -2535,94 +2517,44 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   }
 
   // Tentukan predikat berdasarkan input nilai
-  let predikatText = "-";
-  let predikatHuruf = "";
-  if (inputNilai <= 59) { predikatText = "ROSIB"; predikatHuruf = "E"; }
-  else if (inputNilai <= 69) { predikatText = "MAQBUL"; predikatHuruf = "D"; }
-  else if (inputNilai <= 79) { predikatText = "JAYYID"; predikatHuruf = "C"; }
-  else if (inputNilai <= 89) { predikatText = "JAYYID JIDDAN"; predikatHuruf = "B"; }
-  else { predikatText = "MUMTAZ"; predikatHuruf = "A"; }
+  let predikat = "-";
+  if (inputNilai <= 59) predikat = "ROSIB (E)";
+  else if (inputNilai <= 69) predikat = "MAQBUL (D)";
+  else if (inputNilai <= 79) predikat = "JAYYID (C)";
+  else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
+  else predikat = "MUMTAZ (A)";
 
   // Reset markData
   markData = {};
 
-  // Simpan ke data.buttonCell (siap push ke server)
-  const siswaData = dataSantri.find(s => s.id === currentIdSiswa);
-  if (siswaData) {
-    siswaData.buttonCell = {
-      nilai: inputNilai,
-      predikatText,
-      predikatHuruf
-    };
+  // Update modal overlay
+  document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
+  document.getElementById("predikat-akhir").innerText = predikat;
+  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
 
-    // ======================
-// Fungsi memberi background warna huruf
-// ======================
-function bgHuruf(huruf) {
-  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  return `<span style="background-color:${warna[huruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${huruf}</span>`;
-}
-
-// ======================
-// Fungsi update nilai di tabel
-// ======================
-function renderPredikatDiTabel(rowId, buttonCell) {
-  const cell = document.querySelector(`#row-${rowId} .nilaiPredikat`);
-  if (cell) {
-    cell.innerHTML = `${buttonCell.nilai.toFixed(1)} - ${buttonCell.predikatText} ${bgHuruf(buttonCell.predikatHuruf)}`;
-  }
-}
-
-// ======================
-// TOMBOL NILAI MANUAL
-// ======================
-document.getElementById("btn-beri-nilai").onclick = function() {
-  if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
-
-  // Ambil nilai dari input
-  const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
-  if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
-    return alert("Masukkan nilai antara 0 dan 100.");
-  }
-
-  // Tentukan predikat berdasarkan input nilai
-  let predikatText = "-";
-  let predikatHuruf = "";
-  if (inputNilai <= 59) { predikatText = "ROSIB"; predikatHuruf = "E"; }
-  else if (inputNilai <= 69) { predikatText = "MAQBUL"; predikatHuruf = "D"; }
-  else if (inputNilai <= 79) { predikatText = "JAYYID"; predikatHuruf = "C"; }
-  else if (inputNilai <= 89) { predikatText = "JAYYID JIDDAN"; predikatHuruf = "B"; }
-  else { predikatText = "MUMTAZ"; predikatHuruf = "A"; }
-
-  // Reset markData
-  markData = {};
-
-  // Simpan ke data.buttonCell (siap push ke server)
-  const siswaData = dataSantri.find(s => s.id === currentIdSiswa);
-  if (siswaData) {
-    siswaData.buttonCell = {
-      nilai: inputNilai,
-      predikatText,
-      predikatHuruf
-    };
-
-    // --- UPDATE TABEL ---
-    renderPredikatDiTabel(currentIdSiswa, siswaData.buttonCell);
-  }
-
-  // --- UPDATE MODAL OVERLAY ---
-  const nilaiEl = document.getElementById("nilai-akhir");
-  const predikatEl = document.getElementById("predikat-akhir");
-  if (nilaiEl) nilaiEl.innerText = inputNilai.toFixed(1);
-  if (predikatEl) predikatEl.innerHTML = `${predikatText} ${bgHuruf(predikatHuruf)}`;
-
-  // Reset jumlah mark warna di modal
-  const warnaDiv = document.getElementById("modal-mark-warna");
-  if (warnaDiv) {
-    warnaDiv.innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
-  }
+  // Update tabel (tanpa warna mark)
+  updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
 };
 
+
+	dataSantri.forEach(data => {
+  const cell = document.querySelector(`#row-${data.id} .nilaiPredikat`);
+  if (!cell) return;
+
+  // Pisahkan nilai dan predikat
+  // Misal buttonCell.nilai = "99.5 MUMTAZ A"
+  const parts = data.buttonCell.nilai.split(" ");
+  const nilai = parts[0]; // "99.5"
+  const predikatText = parts[1]; // "MUMTAZ"
+  const predikatHuruf = parts[2]; // "A"
+
+  // Fungsi memberi background warna huruf
+  const warnaMap = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  const hurufSpan = `<span style="background-color:${warnaMap[predikatHuruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${predikatHuruf}</span>`;
+
+  // Update tabel
+  cell.innerHTML = `${nilai} - ${predikatText} ${hurufSpan}`;
+});
 </script>
 
 
