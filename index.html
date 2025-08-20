@@ -1256,14 +1256,24 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     const surahSampai = row.querySelector(".surah-sampai").value;
     const ayatSampai = row.querySelector(".ayat-sampai").value;
     const totalJuz = row.querySelector(".total-juz").textContent;
-	const halaman = row.querySelector(".halaman-terbaca").textContent;
-	const totalHalaman = row.querySelector(".total-halaman").textContent;
+    const halaman = row.querySelector(".halaman-terbaca").textContent;
+    const totalHalaman = row.querySelector(".total-halaman").textContent;
     const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
 
+    // Ambil nilai string "99.5 MUMTAZ A" dari div
     const nilaiCell = row.querySelector(".lihat-quran-btn").parentElement;
-    const nilaiDiv = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
-    const warnaDiv = nilaiCell.querySelector("div:nth-child(2)")?.innerText.trim() || "";
-    const buttonCell = { nilai: nilaiDiv, warna: warnaDiv };
+    const nilaiStr = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
+    
+    // Pisahkan menjadi angka, predikatText, predikatHuruf
+    let nilai = 0, predikatText = "-", predikatHuruf = "";
+    if (nilaiStr) {
+        const parts = nilaiStr.split(" ");
+        if (parts.length >= 3) {
+            nilai = parseFloat(parts[0]);
+            predikatText = parts[1];
+            predikatHuruf = parts[2];
+        }
+    }
 
     const marks = row.markData || {};
 
@@ -1275,16 +1285,21 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
       dari: `${surahDari}:${ayatDari}`,
       sampai: `${surahSampai}:${ayatSampai}`,
       totalJuz,
-	  halaman, // <-- kolom baru
-	  totalHalaman,
+      halaman, 
+      totalHalaman,
       juzTerbaca,
-      buttonCell,
+      buttonCell: {
+          nilai,
+          predikatText,
+          predikatHuruf
+      },
       marks
     });
-  });
+});
 
-  saveBtn.disabled = true;
-  saveBtn.textContent = "⏳ Menyimpan...";
+saveBtn.disabled = true;
+saveBtn.textContent = "⏳ Menyimpan...";
+
 
   try {
     const res = await fetch("/.netlify/functions/saveData", {
@@ -2356,6 +2371,13 @@ function updateNilaiDiTabel({ nilai, predikat }) {
   }
 }
 
+	dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
+});
+
+
 // ======================
 // BUAT KATA KLIK
 // ======================
@@ -2535,23 +2557,6 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   // Update tabel (tanpa warna mark)
   updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
 };
-</script>
-
-
-  <script>
-	function renderTabelNilai() {
-  const warnaMap = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-
-  dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-
-    const { nilai, predikatText, predikatHuruf } = data.buttonCell;
-    const hurufSpan = `<span style="background-color:${warnaMap[predikatHuruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${predikatHuruf}</span>`;
-
-    cell.innerHTML = `<strong>${nilai.toFixed(1)}</strong> - ${predikatText} ${hurufSpan}`;
-  });
-}
 </script>
 
 
