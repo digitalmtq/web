@@ -1266,21 +1266,28 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     const buttonCell = { nilai: nilaiDiv, warna: warnaDiv };
 
     const marks = row.markData || {};
+	  const parts = nilaiDiv.split(" "); // ["99.5", "MUMTAZ", "A"]
+const buttonCell = {
+  nilai: parseFloat(parts[0]),
+  predikatText: parts[1] || "",
+  predikatHuruf: parts[2] || ""
+};
+
 
     data.push({
-      id,
-      nama,
-      absensi,
-      semester,
-      dari: `${surahDari}:${ayatDari}`,
-      sampai: `${surahSampai}:${ayatSampai}`,
-      totalJuz,
-	  halaman, // <-- kolom baru
-	  totalHalaman,
-      juzTerbaca,
-      buttonCell,
-      marks
-    });
+  id,
+  nama,
+  absensi,
+  semester,
+  dari: `${surahDari}:${ayatDari}`,
+  sampai: `${surahSampai}:${ayatSampai}`,
+  totalJuz,
+  halaman,
+  totalHalaman,
+  juzTerbaca,
+  buttonCell,
+  marks
+});
   });
 
   saveBtn.disabled = true;
@@ -2537,43 +2544,15 @@ document.getElementById("btn-beri-nilai").onclick = function() {
 };
 
 
-	let dataSantri = []; // global
+	dataSantri.forEach(data => {
+  const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+  if (!cell) return;
 
-fetch("URL_SERVER_JSON")
-  .then(res => res.json())
-  .then(data => {
-    dataSantri = data;
-    renderTabelSantri(); // panggil render setelah data siap
-  });
-
-
-	function renderTabelSantri() {
   const warnaMap = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  const hurufSpan = `<span style="background-color:${warnaMap[data.buttonCell.predikatHuruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${data.buttonCell.predikatHuruf}</span>`;
 
-  dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilaiPredikat`);
-    if (!cell) return;
-
-    // Pisahkan nilai dan predikat
-    let nilai = data.buttonCell.nilai;
-    let predikatText = "-";
-    let predikatHuruf = "";
-
-    // Cek apakah buttonCell.nilai punya format "99.5 MUMTAZ A"
-    const parts = nilai.toString().split(" ");
-    if (parts.length >= 3) {
-      nilai = parts[0];
-      predikatText = parts[1];
-      predikatHuruf = parts[2];
-    }
-
-    // Buat span untuk huruf predikat
-    const hurufSpan = `<span style="background-color:${warnaMap[predikatHuruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${predikatHuruf}</span>`;
-
-    // Update sel tabel
-    cell.innerHTML = `${nilai} - ${predikatText} ${hurufSpan}`;
-  });
-}
+  cell.innerHTML = `${data.buttonCell.nilai.toFixed(1)} - ${data.buttonCell.predikatText} ${hurufSpan}`;
+});
 </script>
 
 
