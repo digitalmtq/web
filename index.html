@@ -1037,11 +1037,11 @@ row.innerHTML = `
               <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
             </select>
             </td>
-  <td>
-    <div class="nilai-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.nilai) ? dataAbsensi.buttonCell.nilai : ''}</div>
-    <div class="warna-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.warna) ? dataAbsensi.buttonCell.warna : ''}</div>
-    <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-  </td>
+  <td class="nilaiPredikat">
+          <div class="nilai-ringkas"><strong>${data.buttonCell.nilai.toFixed(1)}</strong></div>
+          <div class="warna-ringkas">${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}</div>
+          <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+        </td>
 <td class="total-all-juz">
   <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
 </td>
