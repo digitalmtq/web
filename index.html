@@ -1309,6 +1309,7 @@ saveBtn.disabled = true;
 saveBtn.textContent = "⏳ Menyimpan...";
 
 
+
   try {
     const res = await fetch("/.netlify/functions/saveData", {
       method: "POST",
@@ -2599,12 +2600,11 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 
+
 <script>
-// 1. Fungsi untuk memberi warna hanya huruf predikat
 function bgHuruf(huruf, predikatText = "") {
   const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  // huruf diberi background, predikatText normal
-  return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${predikatText} ${huruf}</span>`;
 }
 
 // 2. Data dari server / dataSantri
