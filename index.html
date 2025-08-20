@@ -2600,25 +2600,39 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 <script>
-// 1. Fungsi untuk memberi warna hanya huruf predikat
+// 1. Fungsi memberi warna huruf predikat
 function bgHuruf(huruf, predikatText = "") {
   const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  // huruf diberi background, predikatText normal
   return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
 }
 
 // 2. Data dari server / dataSantri
 let dataSantri = []; // nanti diisi fetch atau data.push
 
-// 3. Fungsi render tabel
+// 3. Fungsi render tabel untuk ID pendek/panjang
 function renderTabelPredikat() {
   dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    // Cari row dengan cell pertama sama dengan data.id atau data.nis
+    const rows = document.querySelectorAll("#santri-table tbody tr");
+    let rowFound = null;
+    rows.forEach(row => {
+      const firstCell = row.children[0].textContent.trim();
+      if (firstCell === String(data.id) || firstCell === String(data.nis)) {
+        rowFound = row;
+      }
+    });
+    
+    if (!rowFound) return; // row tidak ada, skip
+
+    const cell = rowFound.querySelector(".nilai-ringkas");
     if (!cell) return;
+
+    // Update nilai + predikat
     cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
   });
 }
 </script>
+
 	
 </body>
 </html>
