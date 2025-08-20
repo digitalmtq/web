@@ -980,29 +980,43 @@ function aturDropdownKelas(user) {
     });
 
     async function loadSantriData() {
-      const kelas = kelasSelect.value;
-      const tanggal = tanggalInput.value;
-      overlay.style.display = "flex";
+  const kelas = kelasSelect.value;
+  const tanggal = tanggalInput.value;
+  overlay.style.display = "flex";
 
-      try {
-        const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
-        const santriData = await resSantri.json();
+  try {
+    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+    const santriData = await resSantri.json();
 
-        const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
-        const absensiData = await resAbsensi.json();
+    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+    const absensiData = await resAbsensi.json();
 
-        santriTableBody.innerHTML = "";
+    santriTableBody.innerHTML = "";
 
-        santriData.forEach((santri, i) => {
-          const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
-          const row = document.createElement("tr");
+    santriData.forEach((santri, i) => {
+      // FIX: samakan tipe ID
+      const dataAbsensi = absensiData.find(
+        a => String(a.id) === String(santri.id)
+      ) || {};
 
-          const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
-          const dari = (dataAbsensi.dari || "1:1").split(":");
-          const sampai = (dataAbsensi.sampai || "1:1").split(":");
+      const row = document.createElement("tr");
 
-          // asumsi: dataAbsensi sudah didefinisikan untuk setiap santri, mis.
-// const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
+      const surahOptions = surahList.map(
+        s => `<option value="${s.id}">${s.nama}</option>`
+      ).join("");
+
+      const dari = (dataAbsensi.dari || "1:1").split(":");
+      const sampai = (dataAbsensi.sampai || "1:1").split(":");
+
+      // isi row selanjutnya...
+    });
+  } catch (err) {
+    console.error("Gagal memuat data:", err);
+  } finally {
+    overlay.style.display = "none";
+  }
+}
+
 
 row.innerHTML = `
   <td>${santri.nis || santri.id}</td>
