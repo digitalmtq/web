@@ -2596,5 +2596,28 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 });
 </script>
 
+<script>
+// Fungsi untuk memberi warna background huruf predikat
+function bgHuruf(huruf) {
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+}
+
+// Render tabel dari dataSantri
+function renderTabelPredikat() {
+  dataSantri.forEach(data => {
+    // Cari cell .nilai-ringkas berdasarkan row id
+    const cell = document.querySelector(`#row-${santri.id} .nilai-ringkas`);
+    if (!cell) return;
+
+    // Update innerHTML dengan warna huruf predikat
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
+  });
+}
+
+// Panggil fungsi ini setelah dataSantri tersedia dari server
+renderTabelPredikat();
+</script>
+	
 </body>
 </html>
