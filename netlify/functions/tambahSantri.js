@@ -33,18 +33,14 @@ export async function handler(event) {
     const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
     const santriList = JSON.parse(contentDecoded);
 
-    // 🔹 2. Buat ID baru (berurutan, bukan ambil max biar tidak meloncat)
-    const nextId = santriList.length > 0 
-      ? santriList[santriList.length - 1].id + 1 
-      : 1;
-
-    // 🔹 3. Tambahkan santri baru
+    // 🔹 2. Buat ID baru dan tambahkan santri
+    const nextId = santriList.reduce((max, s) => Math.max(max, s.id), 0) + 1;
     santriList.push({ id: nextId, nis, nama, semester });
 
-    // 🔹 4. Encode konten baru ke Base64
+    // 🔹 3. Encode konten baru ke Base64
     const updatedContent = Buffer.from(JSON.stringify(santriList, null, 2)).toString("base64");
 
-    // 🔹 5. Kirim PUT ke GitHub API
+    // 🔹 4. Kirim PUT ke GitHub API
     const putRes = await fetch(githubApiUrl, {
       method: "PUT",
       headers: {
