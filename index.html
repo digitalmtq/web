@@ -2119,62 +2119,97 @@ async function submitTambahKelasBaru() {
 
 <script>
   async function bukaModalHapusSantri() {
+    console.log("📌 bukaModalHapusSantri() dipanggil");
+
     document.getElementById("modalHapusSantri").style.display = "block";
 
     const kelas = document.getElementById("kelas").value;
+    console.log("➡️ Kelas terpilih:", kelas);
+
+    if (!kelas) {
+      alert("❌ Kelas belum dipilih!");
+      return;
+    }
+
     const santriSelect = document.getElementById("pilihSantri");
     santriSelect.innerHTML = "<option disabled selected>Loading...</option>";
 
     try {
-      const res = await fetch(`/.netlify/functions/ambilDataSantri?kelas=${kelas}`);
-      if (!res.ok) throw new Error("Gagal ambil data santri");
+      const url = `/.netlify/functions/ambilDataSantri?kelas=${kelas}`;
+      console.log("📡 Fetch data santri dari:", url);
+
+      const res = await fetch(url);
+      console.log("🔎 Status response:", res.status);
+
+      if (!res.ok) throw new Error("Gagal ambil data santri (status " + res.status + ")");
       const santriList = await res.json();
 
+      console.log("📦 Data santri diterima:", santriList);
+
       santriSelect.innerHTML = "";
-      if (santriList.length === 0) {
+      if (!Array.isArray(santriList) || santriList.length === 0) {
+        console.warn("⚠️ Tidak ada santri untuk kelas:", kelas);
         santriSelect.innerHTML = "<option disabled selected>Tidak ada santri</option>";
         return;
       }
 
       santriList.forEach(s => {
         const opt = document.createElement("option");
-        opt.value = s.id; // tetap pakai ID untuk konsistensi
+        opt.value = s.id; // ID tetap jadi kunci utama
         opt.textContent = `${s.id} - ${s.nama} (Semester ${s.semester})`;
         santriSelect.appendChild(opt);
       });
     } catch (err) {
+      console.error("❌ Error saat ambil data santri:", err);
       alert("Gagal mengambil daftar santri: " + err.message);
     }
   }
 
   function tutupModal(id) {
+    console.log("📌 tutupModal() dipanggil, modal:", id);
     document.getElementById(id).style.display = "none";
     document.getElementById("pilihSantri").innerHTML = "";
     document.getElementById("loadingHapusSantri").style.display = "none";
   }
 
   async function konfirmasiHapusSantri() {
+    console.log("📌 konfirmasiHapusSantri() dipanggil");
+
     const idSantri = document.getElementById("pilihSantri").value;
     const kelas = document.getElementById("kelas").value;
 
+    console.log("➡️ ID Santri:", idSantri, "| Kelas:", kelas);
+
     if (!idSantri) {
-      alert("Pilih santri yang ingin dihapus.");
+      alert("❌ Pilih santri yang ingin dihapus.");
+      return;
+    }
+    if (!kelas) {
+      alert("❌ Kelas belum dipilih.");
       return;
     }
 
-    if (!confirm("Yakin ingin menghapus santri ini?")) return;
+    if (!confirm("⚠️ Yakin ingin menghapus santri ini?")) {
+      console.log("❌ Penghapusan dibatalkan oleh user.");
+      return;
+    }
 
     const loadingEl = document.getElementById("loadingHapusSantri");
     loadingEl.style.display = "block";
 
     try {
+      console.log("📡 Kirim request hapus ke Netlify...");
       const res = await fetch("/.netlify/functions/hapusSantri", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: parseInt(idSantri), kelas })
       });
 
+      console.log("🔎 Status response hapus:", res.status);
+
       const data = await res.json();
+      console.log("📦 Response body:", data);
+
       loadingEl.style.display = "none";
 
       if (res.ok) {
@@ -2182,14 +2217,16 @@ async function submitTambahKelasBaru() {
         tutupModal("modalHapusSantri");
         location.reload();
       } else {
-        alert("❌ Gagal menghapus: " + data.error);
+        alert("❌ Gagal menghapus: " + (data.error || "Unknown error"));
       }
     } catch (err) {
       loadingEl.style.display = "none";
+      console.error("🔥 Error fatal saat hapus:", err);
       alert("Terjadi kesalahan: " + err.message);
     }
   }
 </script>
+
   
 
 <script>
