@@ -314,7 +314,7 @@ button.lihat-quran-btn:hover::after {
 <div class="container">
   <!-- Halaman Login -->
   <div id="login-card" class="card">
-    <h1>Login Pengajar</h1>
+    <h1>Portal Mutaba'ah Tahfidz</h1>
     <form id="login-form" onsubmit="event.preventDefault(); login();">
       <input type="text" id="username" placeholder="Username" required />
       <div class="password-group" style="display: flex; align-items: center;">
@@ -324,17 +324,6 @@ button.lihat-quran-btn:hover::after {
   </div>
   <button type="submit">Login</button>
 </div>
-
-<script>
-  function togglePassword() {
-    const passwordInput = document.getElementById("password");
-    const toggleBtn = document.querySelector(".toggle-password");
-
-    const type = passwordInput.type === "password" ? "text" : "password";
-    passwordInput.type = type;
-    toggleBtn.textContent = type === "password" ? "👁" : "🙈";
-  }
-</script>
 
 
       <div class="login-actions">
@@ -430,7 +419,7 @@ button.lihat-quran-btn:hover::after {
 
       <div class="dashboard-header">
   <div class="dashboard-header-row">
-    <label for="kelas">Pilih Kelas:</label>
+    <label for="kelas">Kelas:</label>
     <select id="kelas"></select>
 
     <label for="tanggal">Tanggal:</label>
@@ -446,12 +435,13 @@ button.lihat-quran-btn:hover::after {
             <th>Absensi</th>
             <th>Setoran Dari</th>
             <th>Setoran Sampai</th>
-			<th>Halaman</th>
+			<th>Page</th>
+			<th>Total Page</th>
 			<th>Juz</th>
             <th>Total Juz</th>
             <th>Semester</th>
             <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Capaian Target</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -528,18 +518,43 @@ button.lihat-quran-btn:hover::after {
     <h3>Ayat Al-Qur'an</h3>
     <div id="quran-text" style="white-space:pre-wrap; line-height:2.2; direction:rtl; font-size:30px;"></div>
     <hr>
+	  <div>
+  Nama Santri: <span id="modal-nama-santri" style="font-weight:bold; font-size:18px;"></span>
+</div>
+
     <div>
-      Nilai: <span id="nilai-akhir">100</span> — Predikat: <span id="predikat-akhir">MUMTAZ</span>
+      Nilai: <span id="nilai-akhir">100</span> — <span id="predikat-akhir">MUMTAZ</span>
     </div>
+	<div>
+  <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:70px;">
+  <button id="btn-beri-nilai">Beri Nilai Manual</button>
+</div>
+
+	  <!-- Tempat jumlah warna mark -->
+<div id="modal-mark-warna" style="margin-top:8px; font-weight:bold; font-size:16px;"></div>
+
+<br>
+	  <!-- Tombol untuk menampilkan keterangan warna -->
+<button id="toggle-keterangan" class="keterangan-toggle">Lihat Keterangan Warna</button>
+
+<!-- Box keterangan -->
+<div id="keterangan-box" class="keterangan-box">
+  <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.25</b>)<br>
+     Contoh: meninggalkan tajwid seperti <i>Ikhfa, Tebal, Tipis, Hukum Ra, Qalqalah, Ghunnah, Mad Munfashil, Mad Iwad, Shafir, Dhod, Hams, Mim Sakinah</i>, dan lain-lain.</p>
+     
+  <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>0.5</b>)<br>
+     Contoh: salah hafalan tapi bisa memperbaiki sendiri, <i>waqof</i> dan <i>ibtida'</i> kurang tepat, dan lain-lain.</p>
+     
+  <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>1</b>)<br>
+     Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
+</div>
     <br>
     
 <!-- ===== AUDIO RECORDING ===== -->
 <h4>Rekam Audio</h4>
 
 <select id="encodingTypeSelect">
-  <option value="wav">Waveform Audio (.wav)</option>
   <option value="mp3">MP3 (.mp3)</option>
-  <option value="ogg">Ogg Vorbis (.ogg)</option>
 </select>
 
 <div id="controls" style="margin-top:10px;">
@@ -557,6 +572,36 @@ button.lihat-quran-btn:hover::after {
 <ul id="recordingsList"></ul>
 
 <style>
+
+
+	/* Box keterangan */
+.keterangan-box {
+  display: none;
+  background: #f9f9f9;
+  border-left: 4px solid #007bff;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.keterangan-toggle {
+  all: unset; /* reset semua style bawaan */
+  display: inline-block;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+  color: #1E88E5;
+  padding: 2px 4px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.00s ease;
+}
+.keterangan-toggle:hover {
+  color: #ffffff;
+}
+
 /* Spinner CSS */
 .spinner {
   border: 4px solid #f3f3f3; /* light grey */
@@ -634,6 +679,15 @@ stopBtn.addEventListener('click', () => {
         recorder.finishRecording();
     }
 });
+
+	document.getElementById("toggle-keterangan").addEventListener("click", () => {
+  const box = document.getElementById("keterangan-box");
+  if (box.style.display === "block") {
+    box.style.display = "none";
+  } else {
+    box.style.display = "block";
+  }
+});
 </script>
 
 
@@ -703,7 +757,6 @@ stopBtn.addEventListener('click', () => {
 </style>
 
     <!-- ===== BUTTON ===== -->
-    <button id="btn-nilai-100">Nilai 100</button>
     <button id="save-btn-modal">Simpan Data Mutaba'ah</button>
     <button onclick="document.getElementById('overlay-quran').style.display='none'">Tutup</button>
   </div>
@@ -971,6 +1024,7 @@ row.innerHTML = `
     <select class="ayat-sampai"></select>
   </td>
   <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
+  <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
   <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
   <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
   <td>
@@ -984,12 +1038,15 @@ row.innerHTML = `
             </select>
             </td>
   <td>
-    <div class="nilai-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.nilai) ? dataAbsensi.buttonCell.nilai : ''}</div>
-    <div class="warna-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.warna) ? dataAbsensi.buttonCell.warna : ''}</div>
-    <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-  </td>
+  <div class="nilai-ringkas">
+    ${dataAbsensi.buttonCell 
+       ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+       : ''}
+  </div>
+  <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+</td>
 <td class="total-all-juz">
-  <img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">
+  <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
 </td>
 `;
 santriTableBody.appendChild(row);
@@ -1124,26 +1181,29 @@ function updateTotalJuz(row) {
       if (list[i] === end + 1) {
         end = list[i];
       } else {
-        ranges.push(start === end ? `Juz ${start}` : `Juz ${start}-${end}`);
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
         start = end = list[i];
       }
     }
-    ranges.push(start === end ? `Juz ${start}` : `Juz ${start}-${end}`);
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
     return ranges.join(", ");
   }
 
 	const juzTerbacaFormatted = compressJuzRanges(juzTercakup);
 
-	// Hitung halaman Quran
-function calculateHalamanTerbaca(halamanList) {
-  if (!halamanList || halamanList.length === 0) return "-";
+	 // Hitung pages quran
+	function calculateHalamanTerbaca(halamanList) {
+  if (!halamanList || halamanList.length === 0) return { ranges: "-", total: 0 };
 
   const halamanCountMap = {}; // key: halaman, value: jumlah ayat terbaca
   for (let h of halamanList) {
     halamanCountMap[h] = (halamanCountMap[h] || 0) + 1;
   }
 
-  const uniqueHalaman = Object.keys(halamanCountMap).map(Number).sort((a, b) => a - b);
+  const uniqueHalaman = Object.keys(halamanCountMap)
+                             .map(Number)
+                             .sort((a, b) => a - b);
+
   const ranges = [];
   let totalHalaman = 0;
 
@@ -1154,26 +1214,27 @@ function calculateHalamanTerbaca(halamanList) {
     const h = uniqueHalaman[i];
     const ayatTerbaca = halamanCountMap[h];
     const ayatTotal = jumlahAyatPerHalaman[h] || 1;
-    const proporsi = ayatTerbaca / ayatTotal;
-    totalHalaman += proporsi;
+    totalHalaman += ayatTerbaca / ayatTotal;
 
-    if (i === 0) continue;
-
-    if (h === end + 1) {
-      end = h;
-    } else {
-      ranges.push(start === end ? `${start}` : `${start}-${end}`);
-      start = end = h;
+    if (i > 0) {
+      if (h === end + 1) {
+        end = h;
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = end = h;
+      }
     }
   }
+
   ranges.push(start === end ? `${start}` : `${start}-${end}`);
 
-  return `${ranges.join(", ")} (${totalHalaman.toFixed(2)} halaman)`;
+  return { ranges: ranges.join(", "), total: totalHalaman };
 }
 
-
- row.querySelector(".halaman-terbaca").textContent = calculateHalamanTerbaca(halamanValid);
-
+// Pemakaian di tabel
+const result = calculateHalamanTerbaca(halamanValid);
+row.querySelector(".halaman-terbaca").textContent = result.ranges;
+row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   
   row.querySelector(".juz-terbaca").textContent = juzTerbacaFormatted;
   row.querySelector(".total-juz").textContent = totalJuz;
@@ -1190,6 +1251,10 @@ function calculateHalamanTerbaca(halamanList) {
 
   rows.forEach((row) => {
     const id = parseInt(row.children[0].textContent);
+
+    // Cek dulu apakah data sudah ada di array
+    let existing = data.find(d => d.id === id);
+
     const nama = row.children[1].textContent;
     const semester = row.querySelector(".semester").value;
     const absensi = row.querySelector(".absensi").value;
@@ -1198,17 +1263,25 @@ function calculateHalamanTerbaca(halamanList) {
     const surahSampai = row.querySelector(".surah-sampai").value;
     const ayatSampai = row.querySelector(".ayat-sampai").value;
     const totalJuz = row.querySelector(".total-juz").textContent;
-	const halaman = row.querySelector(".halaman-terbaca").textContent;
+    const halaman = row.querySelector(".halaman-terbaca").textContent;
+    const totalHalaman = row.querySelector(".total-halaman").textContent;
     const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
 
     const nilaiCell = row.querySelector(".lihat-quran-btn").parentElement;
-    const nilaiDiv = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
-    const warnaDiv = nilaiCell.querySelector("div:nth-child(2)")?.innerText.trim() || "";
-    const buttonCell = { nilai: nilaiDiv, warna: warnaDiv };
+    const nilaiStr = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
+    let nilai = 0, predikatText = "-", predikatHuruf = "";
+    if (nilaiStr) {
+        const parts = nilaiStr.split(" ");
+        if (parts.length >= 3) {
+            nilai = parseFloat(parts[0]);
+            predikatText = parts[1];
+            predikatHuruf = parts[2];
+        }
+    }
 
     const marks = row.markData || {};
 
-    data.push({
+    const newData = {
       id,
       nama,
       absensi,
@@ -1216,15 +1289,25 @@ function calculateHalamanTerbaca(halamanList) {
       dari: `${surahDari}:${ayatDari}`,
       sampai: `${surahSampai}:${ayatSampai}`,
       totalJuz,
-	  halaman, // <-- kolom baru
+      halaman,
+      totalHalaman,
       juzTerbaca,
-      buttonCell,
+      buttonCell: { nilai, predikatText, predikatHuruf },
       marks
-    });
-  });
+    };
 
-  saveBtn.disabled = true;
-  saveBtn.textContent = "⏳ Menyimpan...";
+    if (existing) {
+        // update data lama
+        Object.assign(existing, newData);
+    } else {
+        // tambah data baru
+        data.push(newData);
+    }
+});
+
+saveBtn.disabled = true;
+saveBtn.textContent = "⏳ Menyimpan...";
+
 
   try {
     const res = await fetch("/.netlify/functions/saveData", {
@@ -1790,7 +1873,7 @@ async function ambilDaftarKelas() {
   container.innerHTML = "🔄 Memuat daftar kelas...";
 
   try {
-    const res = await fetch("https://api.github.com/repos/dickymiswardi/usermtq/contents");
+    const res = await fetch("https://api.github.com/repos/digitalmtq/server/contents");
     const data = await res.json();
 
     // Filter nama file seperti: kelas_1.json
@@ -2203,41 +2286,83 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
 
 
 // ======================
-// HITUNG NILAI & UPDATE TABEL
+// HITUNG NILAI
 // ======================
 function hitungNilai() {
   let totalMinus = 0;
   let hijau = 0, kuning = 0, merah = 0;
   let adaMark = false;
 
+  // Hitung total minus dan jumlah warna
   for (let ayat in markData) {
     for (let idx in markData[ayat]) {
+      const mark = markData[ayat][idx];
+      if (!mark) continue;
       adaMark = true;
-      if (markData[ayat][idx] === "green") { totalMinus += 0.5; hijau++; }
-      if (markData[ayat][idx] === "yellow") { totalMinus += 1; kuning++; }
-      if (markData[ayat][idx] === "red") { totalMinus += 2; merah++; }
+
+      switch (mark) {
+        case "green":
+          totalMinus += 0.5;
+          hijau++;
+          break;
+        case "yellow":
+          totalMinus += 1;
+          kuning++;
+          break;
+        case "red":
+          totalMinus += 2;
+          merah++;
+          break;
+      }
     }
   }
 
-  let nilai, predikat;
-  if (!adaMark) { nilai = 0; predikat = "-"; }
-  else {
-    nilai = Math.max(0, 100 - totalMinus);
-    if (nilai <= 59) predikat = "ROSIB (E)";
-    else if (nilai <= 69) predikat = "MAQBUL (D)";
-    else if (nilai <= 79) predikat = "JAYYID (C)";
-    else if (nilai <= 89) predikat = "JAYYID JIDDAN (B)";
-    else predikat = "MUMTAZ (A)";
+  // Tentukan nilai dan predikat
+  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
+
+  const predikatMap = [
+    { max: 59, text: "ROSIB", huruf: "E" },
+    { max: 69, text: "MAQBUL", huruf: "D" },
+    { max: 79, text: "JAYYID", huruf: "C" },
+    { max: 89, text: "JAYYID JIDDAN", huruf: "B" },
+    { max: 100, text: "MUMTAZ", huruf: "A" }
+  ];
+
+  let predikat = "-";
+  if (adaMark) {
+    const p = predikatMap.find(p => nilai <= p.max);
+
+    // Fungsi memberi background warna huruf
+    function bgHuruf(huruf) {
+      const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+      return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+    }
+
+    predikat = `${p.text} ${bgHuruf(p.huruf)}`;
   }
 
-  document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
-  document.getElementById("predikat-akhir").innerText = predikat;
+  // Update modal overlay
+  const nilaiEl = document.getElementById("nilai-akhir");
+  const predikatEl = document.getElementById("predikat-akhir");
+  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
+  if (predikatEl) predikatEl.innerHTML = predikat; // gunakan innerHTML agar span bisa tampil
+
+  // Update jumlah mark warna di modal overlay
+  const warnaDiv = document.getElementById("modal-mark-warna");
+  if (warnaDiv) {
+    warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
+  }
 
   return { nilai, predikat, hijau, kuning, merah };
 }
 
-function updateNilaiDiTabel({ nilai, predikat, hijau, kuning, merah }) {
+
+// ======================
+// UPDATE TABEL (tanpa warna mark)
+// ======================
+function updateNilaiDiTabel({ nilai, predikat }) {
   if (!currentIdSiswa) return;
+
   const row = [...document.querySelectorAll("table tbody tr")]
     .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
 
@@ -2245,15 +2370,14 @@ function updateNilaiDiTabel({ nilai, predikat, hijau, kuning, merah }) {
     const buttonCell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
     if (buttonCell) {
       buttonCell.innerHTML = `
-        <div><strong>${nilai.toFixed(1)}</strong> (${predikat})</div>
-        <div>🟩${hijau} 🟨${kuning} 🟥${merah}</div>
+        <div><strong>${nilai.toFixed(1)}</strong> ${predikat}</div>
         <button class="lihat-quran-btn">Lembar Penilaian</button>
       `;
+      // tetap simpan markData untuk modal
       row.markData = JSON.parse(JSON.stringify(markData));
     }
   }
 }
-	
 
 // ======================
 // BUAT KATA KLIK
@@ -2278,15 +2402,23 @@ function buatKataKlik(surah, ayat, teks) {
       if (warnaBaru) markData[surah+":"+ayat][idx] = warnaBaru;
       else delete markData[surah+":"+ayat][idx];
 
+      // Update background kata
       span.style.backgroundColor = warnaBaru || "";
+
+      // Hitung nilai & update tabel + modal
       const hasil = hitungNilai();
       updateNilaiDiTabel(hasil);
     };
 
-    if (markData[surah+":"+ayat]?.[idx]) span.style.backgroundColor = markData[surah+":"+ayat][idx];
+    // Set warna awal kata jika sudah ada mark
+    if (markData[surah+":"+ayat]?.[idx]) {
+      span.style.backgroundColor = markData[surah+":"+ayat][idx];
+    }
+
     return span;
   });
 }
+
 
 // ======================
 // LOAD DATA QURAN
@@ -2321,8 +2453,16 @@ document.addEventListener('click', async function(e) {
 
     const row = e.target.closest('tr');
     currentIdSiswa = parseInt(row.cells[0].innerText.trim());
-    const kelas = document.getElementById('kelas').value;
-    const tanggal = document.getElementById('tanggal').value;
+
+    // Ambil nama santri dari kolom 1 (asumsi kolom 1 adalah nama)
+    const namaSantri = row.cells[1].innerText.trim();
+    const namaSpan = document.getElementById('modal-nama-santri');
+    if (namaSpan) {
+      namaSpan.innerText = namaSantri;
+    }
+
+    const kelas = document.getElementById('kelas')?.value || 'default';
+    const tanggal = document.getElementById('tanggal')?.value || 'default';
 
     // Ambil marks + audio
     markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
@@ -2388,14 +2528,35 @@ document.addEventListener('click', async function(e) {
 });
 
 // ======================
-// TOMBOL NILAI 100
+// TOMBOL NILAI MANUAL
 // ======================
-document.getElementById("btn-nilai-100").onclick = function() {
+document.getElementById("btn-beri-nilai").onclick = function() {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
+
+  // Ambil nilai dari input
+  const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
+  if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
+    return alert("Masukkan nilai antara 0 dan 100.");
+  }
+
+  // Tentukan predikat berdasarkan input nilai
+  let predikat = "-";
+  if (inputNilai <= 59) predikat = "ROSIB (E)";
+  else if (inputNilai <= 69) predikat = "MAQBUL (D)";
+  else if (inputNilai <= 79) predikat = "JAYYID (C)";
+  else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
+  else predikat = "MUMTAZ (A)";
+
+  // Reset markData
   markData = {};
-  document.getElementById("nilai-akhir").innerText = "100.0";
-  document.getElementById("predikat-akhir").innerText = "MUMTAZ (A)";
-  updateNilaiDiTabel({ nilai: 100, predikat: "MUMTAZ (A)", hijau: 0, kuning: 0, merah: 0 });
+
+  // Update modal overlay
+  document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
+  document.getElementById("predikat-akhir").innerText = predikat;
+  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
+
+  // Update tabel (tanpa warna mark)
+  updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
 };
 </script>
 
@@ -2436,5 +2597,28 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 });
 </script>
 
+
+
+<script>
+// 1. Fungsi untuk memberi warna hanya huruf predikat
+function bgHuruf(huruf, predikatText = "") {
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  // huruf diberi background, predikatText normal
+  return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+}
+
+// 2. Data dari server / dataSantri
+let dataSantri = []; // nanti diisi fetch atau data.push
+
+// 3. Fungsi render tabel
+function renderTabelPredikat() {
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
+  });
+}
+</script>
+	
 </body>
 </html>
