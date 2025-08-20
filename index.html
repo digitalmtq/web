@@ -428,24 +428,27 @@ button.lihat-quran-btn:hover::after {
 </div>
 
       <table id="santri-table">
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Nama</th>
-            <th>Absensi</th>
-            <th>Setoran Dari</th>
-            <th>Setoran Sampai</th>
-			<th>Page</th>
-			<th>Total Page</th>
-			<th>Juz</th>
-            <th>Total Juz</th>
-            <th>Semester</th>
-            <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+  <thead>
+    <tr>
+      <th>No</th>
+      <th>Nama</th>
+      <th>Absensi</th>
+      <th>Setoran Dari</th>
+      <th>Setoran Sampai</th>
+      <th>Page</th>
+      <th>Total Page</th>
+      <th>Juz</th>
+      <th>Total Juz</th>
+      <th>Semester</th>
+      <th>Nilai</th>
+      <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
+    </tr>
+  </thead>
+  <tbody id="santri-tbody">
+    <!-- Data santri akan di-render lewat JS -->
+  </tbody>
+</table>
+
       <button onclick="bukaModalSantri()" style="margin-left:0px;">➕ Tambah Santri</button>
       <button onclick="bukaModalHapusSantri()" style="margin-left:0px;">🗑 Hapus Santri</button>
       <div class="actions">
@@ -1004,52 +1007,60 @@ function aturDropdownKelas(user) {
           // asumsi: dataAbsensi sudah didefinisikan untuk setiap santri, mis.
 // const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
 
-row.innerHTML = `
-  <td>${santri.nis || santri.id}</td>
-  <td>${santri.nama}</td>
-  <td>
-    <select class="absensi">
-      <option value="Hadir" ${dataAbsensi.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
-      <option value="Alpha" ${dataAbsensi.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
-      <option value="Sakit" ${dataAbsensi.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
-      <option value="Izin" ${dataAbsensi.absensi === "Izin" ? "selected" : ""}>Izin</option>
-    </select>
-  </td>
-  <td>
-    <select class="surah-dari">${surahOptions}</select>
-    <select class="ayat-dari"></select>
-  </td>
-  <td>
-    <select class="surah-sampai">${surahOptions}</select>
-    <select class="ayat-sampai"></select>
-  </td>
-  <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
-  <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
-  <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
-  <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
-  <td>
-            <select class="semester">
-              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
-              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
-              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
-              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
-              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
-              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
-            </select>
-            </td>
-  <td>
-  <div class="nilai-ringkas">
-    ${dataAbsensi.buttonCell 
-       ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
-       : ''}
-  </div>
-  <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-</td>
-<td class="total-all-juz">
-  <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
-</td>
-`;
-santriTableBody.appendChild(row);
+// asumsikan: dataSantri = [...] sudah berisi semua santri
+
+function renderTabel() {
+  const tbody = document.querySelector("#santri-table tbody");
+  tbody.innerHTML = ""; // kosongkan tbody dulu
+
+  dataSantri.forEach(santri => {
+    const row = document.createElement("tr");
+
+    // dataAbsensi sama dengan santri (tidak perlu cari lagi)
+    const dataAbsensi = santri;
+
+    row.innerHTML = `
+      <td>${santri.nis || santri.id}</td>
+      <td>${santri.nama}</td>
+      <td>
+        <select class="absensi">
+          <option value="Hadir" ${dataAbsensi.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
+          <option value="Alpha" ${dataAbsensi.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
+          <option value="Sakit" ${dataAbsensi.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
+          <option value="Izin" ${dataAbsensi.absensi === "Izin" ? "selected" : ""}>Izin</option>
+        </select>
+      </td>
+      <td><input type="text" class="surah-dari" value="${dataAbsensi.dari.split(':')[0] || ''}"></td>
+      <td><input type="text" class="ayat-dari" value="${dataAbsensi.dari.split(':')[1] || ''}"></td>
+      <td><input type="text" class="surah-sampai" value="${dataAbsensi.sampai.split(':')[0] || ''}"></td>
+      <td><input type="text" class="ayat-sampai" value="${dataAbsensi.sampai.split(':')[1] || ''}"></td>
+      <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
+      <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
+      <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
+      <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
+      <td>
+        <select class="semester">
+          <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
+          <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
+          <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
+          <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
+          <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
+          <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
+        </select>
+      </td>
+      <td class="nilai-ringkas">
+        ${dataAbsensi.buttonCell
+           ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+           : ''}
+      </td>
+      <td class="total-all-juz">
+        <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
+      </td>
+    `;
+
+    tbody.appendChild(row);
+  });
+}
 
 document.querySelectorAll("td.total-all-juz").forEach(td => {
   if (td.textContent.trim() === "0") {
@@ -2600,38 +2611,33 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 <script>
-// Fungsi memberi warna huruf predikat
+// 1. Fungsi untuk memberi warna hanya huruf predikat
 function bgHuruf(huruf, predikatText = "") {
   const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
   return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
 }
 
-// Data dari server / dataSantri
+// 2. Data dari server / dataSantri
 let dataSantri = []; // nanti diisi fetch atau data.push
 
-// Fungsi render tabel
+// 3. Fungsi render tabel predikat
 function renderTabelPredikat() {
-  const rows = document.querySelectorAll("#santri-table tbody tr");
-  
-  dataSantri.forEach(data => {
-    let rowFound = null;
-    rows.forEach(row => {
-      const firstCell = row.children[0].textContent.trim();
-      if (firstCell === String(data.id) || firstCell === String(data.nis)) {
-        rowFound = row;
-      }
-    });
+  // Ambil semua baris tbody
+  const tbody = document.getElementById("santri-tbody");
+  if (!tbody) return;
 
-    if (!rowFound) return;
+  const rows = tbody.querySelectorAll("tr");
+  rows.forEach((row, index) => {
+    const data = dataSantri[index]; // ambil dataSantri berdasarkan urutan
+    if (!data || !data.buttonCell) return;
 
-    const cell = rowFound.querySelector(".nilai-ringkas");
+    const cell = row.querySelector(".nilai-ringkas");
     if (!cell) return;
 
     cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
   });
 }
 </script>
-
 
 	
 </body>
