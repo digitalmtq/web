@@ -2294,6 +2294,11 @@ function hitungNilai() {
     }
   }
 
+	const textSpan = document.querySelector(`#row-${data.id} .nilaiPredikat .textNilai`);
+if (textSpan) {
+  textSpan.innerHTML = `${data.buttonCell.nilai.toFixed(1)} - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
+}
+
   // Tentukan nilai dan predikat
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
 
