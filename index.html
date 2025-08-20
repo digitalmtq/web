@@ -1004,9 +1004,6 @@ function aturDropdownKelas(user) {
           // asumsi: dataAbsensi sudah didefinisikan untuk setiap santri, mis.
 // const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
 
-const row = document.createElement("tr");
-row.setAttribute("data-id", santri.nis || santri.id);
-
 row.innerHTML = `
   <td>${santri.nis || santri.id}</td>
   <td>${santri.nama}</td>
@@ -1031,30 +1028,29 @@ row.innerHTML = `
   <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
   <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
   <td>
-    <select class="semester">
-      <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
-      <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
-      <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
-      <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
-      <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
-      <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
-    </select>
-  </td>
+            <select class="semester">
+              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
+              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
+              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
+              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
+              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
+              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
+            </select>
+            </td>
   <td>
-    <div class="nilai-ringkas">
-      ${dataAbsensi.buttonCell 
-         ? `<strong>${dataAbsensi.buttonCell?.nilai?.toFixed(1) ?? ''}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
-         : ''}
-    </div>
-    <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-  </td>
-  <td class="total-all-juz">
-    <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
-  </td>
+  <div class="nilai-ringkas">
+    ${dataAbsensi.buttonCell 
+       ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+       : ''}
+  </div>
+  <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+</td>
+<td class="total-all-juz">
+  <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
+</td>
 `;
-
 santriTableBody.appendChild(row);
-			
+
 document.querySelectorAll("td.total-all-juz").forEach(td => {
   if (td.textContent.trim() === "0") {
     td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
