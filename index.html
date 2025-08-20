@@ -1001,7 +1001,7 @@ function aturDropdownKelas(user) {
           const dari = (dataAbsensi.dari || "1:1").split(":");
           const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
- // asumsi: dataAbsensi sudah didefinisikan untuk setiap santri, mis.
+          // asumsi: dataAbsensi sudah didefinisikan untuk setiap santri, mis.
 // const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
 
 row.innerHTML = `
@@ -1037,17 +1037,16 @@ row.innerHTML = `
               <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
             </select>
             </td>
-  <td class="nilaiPredikat">
-          <div class="nilai-ringkas"><strong>${data.buttonCell.nilai.toFixed(1)}</strong></div>
-          <div class="warna-ringkas">${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}</div>
-          <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-        </td>
+  <td>
+    <div class="nilai-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.nilai) ? dataAbsensi.buttonCell.nilai : ''}</div>
+    <div class="warna-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.warna) ? dataAbsensi.buttonCell.warna : ''}</div>
+    <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+  </td>
 <td class="total-all-juz">
   <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
 </td>
 `;
 santriTableBody.appendChild(row);
-
 
 document.querySelectorAll("td.total-all-juz").forEach(td => {
   if (td.textContent.trim() === "0") {
@@ -1249,10 +1248,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
   rows.forEach((row) => {
     const id = parseInt(row.children[0].textContent);
-
-    // Cek dulu apakah data sudah ada di array
-    let existing = data.find(d => d.id === id);
-
     const nama = row.children[1].textContent;
     const semester = row.querySelector(".semester").value;
     const absensi = row.querySelector(".absensi").value;
@@ -1261,25 +1256,18 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     const surahSampai = row.querySelector(".surah-sampai").value;
     const ayatSampai = row.querySelector(".ayat-sampai").value;
     const totalJuz = row.querySelector(".total-juz").textContent;
-    const halaman = row.querySelector(".halaman-terbaca").textContent;
-    const totalHalaman = row.querySelector(".total-halaman").textContent;
+	const halaman = row.querySelector(".halaman-terbaca").textContent;
+	const totalHalaman = row.querySelector(".total-halaman").textContent;
     const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
 
     const nilaiCell = row.querySelector(".lihat-quran-btn").parentElement;
-    const nilaiStr = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
-    let nilai = 0, predikatText = "-", predikatHuruf = "";
-    if (nilaiStr) {
-        const parts = nilaiStr.split(" ");
-        if (parts.length >= 3) {
-            nilai = parseFloat(parts[0]);
-            predikatText = parts[1];
-            predikatHuruf = parts[2];
-        }
-    }
+    const nilaiDiv = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
+    const warnaDiv = nilaiCell.querySelector("div:nth-child(2)")?.innerText.trim() || "";
+    const buttonCell = { nilai: nilaiDiv, warna: warnaDiv };
 
     const marks = row.markData || {};
 
-    const newData = {
+    data.push({
       id,
       nama,
       absensi,
@@ -1287,25 +1275,16 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
       dari: `${surahDari}:${ayatDari}`,
       sampai: `${surahSampai}:${ayatSampai}`,
       totalJuz,
-      halaman,
-      totalHalaman,
+	  halaman, // <-- kolom baru
+	  totalHalaman,
       juzTerbaca,
-      buttonCell: { nilai, predikatText, predikatHuruf },
+      buttonCell,
       marks
-    };
+    });
+  });
 
-    if (existing) {
-        // update data lama
-        Object.assign(existing, newData);
-    } else {
-        // tambah data baru
-        data.push(newData);
-    }
-});
-
-saveBtn.disabled = true;
-saveBtn.textContent = "⏳ Menyimpan...";
-
+  saveBtn.disabled = true;
+  saveBtn.textContent = "⏳ Menyimpan...";
 
   try {
     const res = await fetch("/.netlify/functions/saveData", {
@@ -2377,7 +2356,6 @@ function updateNilaiDiTabel({ nilai, predikat }) {
   }
 }
 
-
 // ======================
 // BUAT KATA KLIK
 // ======================
@@ -2586,28 +2564,15 @@ document.getElementById("btn-beri-nilai").onclick = function() {
 }
 </script>
 
-<script>
-
-	dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
+	  <script>
+document.getElementById("login-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const username = document.getElementById("username").value;
+  const password = document.getElementById("password").value;
+  console.log("Login:", username, password);
+  // proses login
 });
-
-function bgHuruf(huruf, predikatText = "") {
-  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${predikatText} ${huruf}</span>`;
-}
-
-	// 2. Data dari server / dataSantri
-let dataSantri = []; // nanti diisi fetch atau data.push
-
-
-// Panggil fungsi ini setelah dataSantri tersedia dari server
-renderTabelPredikat();
-
 </script>
 
-	
 </body>
 </html>
