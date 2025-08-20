@@ -2555,6 +2555,57 @@ document.getElementById("btn-beri-nilai").onclick = function() {
       predikatHuruf
     };
 
+    // ======================
+// Fungsi memberi background warna huruf
+// ======================
+function bgHuruf(huruf) {
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  return `<span style="background-color:${warna[huruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+}
+
+// ======================
+// Fungsi update nilai di tabel
+// ======================
+function renderPredikatDiTabel(rowId, buttonCell) {
+  const cell = document.querySelector(`#row-${rowId} .nilaiPredikat`);
+  if (cell) {
+    cell.innerHTML = `${buttonCell.nilai.toFixed(1)} - ${buttonCell.predikatText} ${bgHuruf(buttonCell.predikatHuruf)}`;
+  }
+}
+
+// ======================
+// TOMBOL NILAI MANUAL
+// ======================
+document.getElementById("btn-beri-nilai").onclick = function() {
+  if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
+
+  // Ambil nilai dari input
+  const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
+  if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
+    return alert("Masukkan nilai antara 0 dan 100.");
+  }
+
+  // Tentukan predikat berdasarkan input nilai
+  let predikatText = "-";
+  let predikatHuruf = "";
+  if (inputNilai <= 59) { predikatText = "ROSIB"; predikatHuruf = "E"; }
+  else if (inputNilai <= 69) { predikatText = "MAQBUL"; predikatHuruf = "D"; }
+  else if (inputNilai <= 79) { predikatText = "JAYYID"; predikatHuruf = "C"; }
+  else if (inputNilai <= 89) { predikatText = "JAYYID JIDDAN"; predikatHuruf = "B"; }
+  else { predikatText = "MUMTAZ"; predikatHuruf = "A"; }
+
+  // Reset markData
+  markData = {};
+
+  // Simpan ke data.buttonCell (siap push ke server)
+  const siswaData = dataSantri.find(s => s.id === currentIdSiswa);
+  if (siswaData) {
+    siswaData.buttonCell = {
+      nilai: inputNilai,
+      predikatText,
+      predikatHuruf
+    };
+
     // --- UPDATE TABEL ---
     renderPredikatDiTabel(currentIdSiswa, siswaData.buttonCell);
   }
@@ -2572,37 +2623,6 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   }
 };
 
-// ======================
-// TOMBOL NILAI MANUAL
-// ======================
-document.getElementById("btn-beri-nilai").onclick = function() {
-  if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
-
-  // Ambil nilai dari input
-  const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
-  if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
-    return alert("Masukkan nilai antara 0 dan 100.");
-  }
-
-  // Tentukan predikat berdasarkan input nilai
-  let predikat = "-";
-  if (inputNilai <= 59) predikat = "ROSIB (E)";
-  else if (inputNilai <= 69) predikat = "MAQBUL (D)";
-  else if (inputNilai <= 79) predikat = "JAYYID (C)";
-  else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
-  else predikat = "MUMTAZ (A)";
-
-  // Reset markData
-  markData = {};
-
-  // Update modal overlay
-  document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
-  document.getElementById("predikat-akhir").innerText = predikat;
-  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
-
-  // Update tabel (tanpa warna mark)
-  updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
-};
 </script>
 
 
