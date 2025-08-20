@@ -435,8 +435,7 @@ button.lihat-quran-btn:hover::after {
             <th>Absensi</th>
             <th>Setoran Dari</th>
             <th>Setoran Sampai</th>
-			<th>Page</th>
-			<th>Total Page</th>
+			<th>Halaman</th>
 			<th>Juz</th>
             <th>Total Juz</th>
             <th>Semester</th>
@@ -525,10 +524,6 @@ button.lihat-quran-btn:hover::after {
     <div>
       Nilai: <span id="nilai-akhir">100</span> — Predikat: <span id="predikat-akhir">MUMTAZ</span>
     </div>
-	<div>
-  <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:70px;">
-  <button id="btn-beri-nilai">Beri Nilai Manual</button>
-</div>
 
 	  <!-- Tempat jumlah warna mark -->
 <div id="modal-mark-warna" style="margin-top:8px; font-weight:bold; font-size:16px;"></div>
@@ -549,7 +544,9 @@ button.lihat-quran-btn:hover::after {
 <h4>Rekam Audio</h4>
 
 <select id="encodingTypeSelect">
+  <option value="wav">Waveform Audio (.wav)</option>
   <option value="mp3">MP3 (.mp3)</option>
+  <option value="ogg">Ogg Vorbis (.ogg)</option>
 </select>
 
 <div id="controls" style="margin-top:10px;">
@@ -752,6 +749,7 @@ stopBtn.addEventListener('click', () => {
 </style>
 
     <!-- ===== BUTTON ===== -->
+    <button id="btn-nilai-100">Nilai 100</button>
     <button id="save-btn-modal">Simpan Data Mutaba'ah</button>
     <button onclick="document.getElementById('overlay-quran').style.display='none'">Tutup</button>
   </div>
@@ -1019,7 +1017,6 @@ row.innerHTML = `
     <select class="ayat-sampai"></select>
   </td>
   <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
-  <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
   <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
   <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
   <td>
@@ -1183,19 +1180,16 @@ function updateTotalJuz(row) {
 
 	const juzTerbacaFormatted = compressJuzRanges(juzTercakup);
 
-	 // Hitung pages quran
-	function calculateHalamanTerbaca(halamanList) {
-  if (!halamanList || halamanList.length === 0) return { ranges: "-", total: 0 };
+	// Hitung halaman Quran
+function calculateHalamanTerbaca(halamanList) {
+  if (!halamanList || halamanList.length === 0) return "-";
 
   const halamanCountMap = {}; // key: halaman, value: jumlah ayat terbaca
   for (let h of halamanList) {
     halamanCountMap[h] = (halamanCountMap[h] || 0) + 1;
   }
 
-  const uniqueHalaman = Object.keys(halamanCountMap)
-                             .map(Number)
-                             .sort((a, b) => a - b);
-
+  const uniqueHalaman = Object.keys(halamanCountMap).map(Number).sort((a, b) => a - b);
   const ranges = [];
   let totalHalaman = 0;
 
@@ -1206,27 +1200,26 @@ function updateTotalJuz(row) {
     const h = uniqueHalaman[i];
     const ayatTerbaca = halamanCountMap[h];
     const ayatTotal = jumlahAyatPerHalaman[h] || 1;
-    totalHalaman += ayatTerbaca / ayatTotal;
+    const proporsi = ayatTerbaca / ayatTotal;
+    totalHalaman += proporsi;
 
-    if (i > 0) {
-      if (h === end + 1) {
-        end = h;
-      } else {
-        ranges.push(start === end ? `${start}` : `${start}-${end}`);
-        start = end = h;
-      }
+    if (i === 0) continue;
+
+    if (h === end + 1) {
+      end = h;
+    } else {
+      ranges.push(start === end ? `${start}` : `${start}-${end}`);
+      start = end = h;
     }
   }
-
   ranges.push(start === end ? `${start}` : `${start}-${end}`);
 
-  return { ranges: ranges.join(", "), total: totalHalaman };
+  return `${ranges.join(", ")} (${totalHalaman.toFixed(2)} halaman)`;
 }
 
-// Pemakaian di tabel
-const result = calculateHalamanTerbaca(halamanValid);
-row.querySelector(".halaman-terbaca").textContent = result.ranges;
-row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
+
+ row.querySelector(".halaman-terbaca").textContent = calculateHalamanTerbaca(halamanValid);
+
   
   row.querySelector(".juz-terbaca").textContent = juzTerbacaFormatted;
   row.querySelector(".total-juz").textContent = totalJuz;
@@ -1252,7 +1245,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     const ayatSampai = row.querySelector(".ayat-sampai").value;
     const totalJuz = row.querySelector(".total-juz").textContent;
 	const halaman = row.querySelector(".halaman-terbaca").textContent;
-	const totalHalaman = row.querySelector(".total-halaman").textContent;
     const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
 
     const nilaiCell = row.querySelector(".lihat-quran-btn").parentElement;
@@ -1271,7 +1263,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
       sampai: `${surahSampai}:${ayatSampai}`,
       totalJuz,
 	  halaman, // <-- kolom baru
-	  totalHalaman,
       juzTerbaca,
       buttonCell,
       marks
@@ -2469,35 +2460,14 @@ document.addEventListener('click', async function(e) {
 });
 
 // ======================
-// TOMBOL NILAI MANUAL
+// TOMBOL NILAI 100
 // ======================
-document.getElementById("btn-beri-nilai").onclick = function() {
+document.getElementById("btn-nilai-100").onclick = function() {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
-
-  // Ambil nilai dari input
-  const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
-  if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
-    return alert("Masukkan nilai antara 0 dan 100.");
-  }
-
-  // Tentukan predikat berdasarkan input nilai
-  let predikat = "-";
-  if (inputNilai <= 59) predikat = "ROSIB (E)";
-  else if (inputNilai <= 69) predikat = "MAQBUL (D)";
-  else if (inputNilai <= 79) predikat = "JAYYID (C)";
-  else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
-  else predikat = "MUMTAZ (A)";
-
-  // Reset markData
   markData = {};
-
-  // Update modal overlay
-  document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
-  document.getElementById("predikat-akhir").innerText = predikat;
-  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
-
-  // Update tabel (tanpa warna mark)
-  updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
+  document.getElementById("nilai-akhir").innerText = "100.0";
+  document.getElementById("predikat-akhir").innerText = "MUMTAZ (A)";
+  updateNilaiDiTabel({ nilai: 100, predikat: "MUMTAZ (A)", hijau: 0, kuning: 0, merah: 0 });
 };
 </script>
 
