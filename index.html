@@ -1038,10 +1038,10 @@ row.innerHTML = `
             </select>
             </td>
   <td>
-  <div class="nilai-ringkas"></div> <!-- diisi JS saat render -->
-  <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-</td>
-
+    <div class="nilai-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.nilai) ? dataAbsensi.buttonCell.nilai : ''}</div>
+    <div class="warna-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.warna) ? dataAbsensi.buttonCell.warna : ''}</div>
+    <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+  </td>
 <td class="total-all-juz">
   <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
 </td>
@@ -1264,16 +1264,8 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     const nilaiDiv = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
     const warnaDiv = nilaiCell.querySelector("div:nth-child(2)")?.innerText.trim() || "";
     const buttonCell = { nilai: nilaiDiv, warna: warnaDiv };
-	const nilaiDiv = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
-  
-  // Pisahkan teks: "99.5 MUMTAZ A"
-  const parts = nilaiDiv.split(" ");
-  const nilai = parseFloat(parts[0]) || 0;
-  const predikatText = parts[1] || "-";
-  const predikatHuruf = parts[2] || "";
 
-  const buttonCell = { nilai, predikatText, predikatHuruf };
-  const marks = row.markData || {};
+    const marks = row.markData || {};
 
     data.push({
       id,
@@ -2518,58 +2510,38 @@ document.addEventListener('click', async function(e) {
 document.getElementById("btn-beri-nilai").onclick = function() {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
 
+  // Ambil nilai dari input
   const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
     return alert("Masukkan nilai antara 0 dan 100.");
   }
 
-  // Tentukan predikat
-  let predikatText, predikatHuruf;
-  if (inputNilai <= 59) { predikatText = "ROSIB"; predikatHuruf = "E"; }
-  else if (inputNilai <= 69) { predikatText = "MAQBUL"; predikatHuruf = "D"; }
-  else if (inputNilai <= 79) { predikatText = "JAYYID"; predikatHuruf = "C"; }
-  else if (inputNilai <= 89) { predikatText = "JAYYID JIDDAN"; predikatHuruf = "B"; }
-  else { predikatText = "MUMTAZ"; predikatHuruf = "A"; }
+  // Tentukan predikat berdasarkan input nilai
+  let predikat = "-";
+  if (inputNilai <= 59) predikat = "ROSIB (E)";
+  else if (inputNilai <= 69) predikat = "MAQBUL (D)";
+  else if (inputNilai <= 79) predikat = "JAYYID (C)";
+  else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
+  else predikat = "MUMTAZ (A)";
 
-  // Update dataSantri
-  const siswa = dataSantri.find(s => s.id === currentIdSiswa);
-  if (siswa) {
-    siswa.buttonCell = { nilai: inputNilai, predikatText, predikatHuruf };
-  }
+  // Reset markData
+  markData = {};
 
   // Update modal overlay
   document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
-  document.getElementById("predikat-akhir").innerHTML = `${predikatText} ${bgHuruf(predikatHuruf)}`;
+  document.getElementById("predikat-akhir").innerText = predikat;
   document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
-
-  // Render tabel ulang
-  renderTabelNilai();
-};
-
 
   // Update tabel (tanpa warna mark)
   updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
 };
 
-
-
-	function bgHuruf(huruf) {
-  const warnaMap = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  return `<span style="background-color:${warnaMap[huruf] || 'gray'}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${huruf}</span>`;
-}
-
-
-	function renderTabelNilai() {
-  dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-
-    const { nilai, predikatText, predikatHuruf } = data.buttonCell || { nilai: 0, predikatText: "-", predikatHuruf: "" };
-    cell.innerHTML = `${nilai.toFixed(1)} - ${predikatText} ${bgHuruf(predikatHuruf)}`;
-  });
-}
-
+	// Render tabel ulang
+  renderTabelNilai();
+};
 </script>
+
+
 
 
 
