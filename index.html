@@ -1037,12 +1037,13 @@ row.innerHTML = `
               <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
             </select>
             </td>
- <td>
+  <td>
   <div class="nilai-ringkas">
     ${dataAbsensi.buttonCell 
        ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
        : ''}
   </div>
+  <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
 </td>
 <td class="total-all-juz">
   <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
@@ -1306,7 +1307,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
 saveBtn.disabled = true;
 saveBtn.textContent = "⏳ Menyimpan...";
-
 
 
   try {
@@ -2599,11 +2599,12 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 
-
 <script>
+// 1. Fungsi untuk memberi warna hanya huruf predikat
 function bgHuruf(huruf, predikatText = "") {
   const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${predikatText} ${huruf}</span>`;
+  // huruf diberi background, predikatText normal
+  return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
 }
 
 // 2. Data dari server / dataSantri
