@@ -1038,10 +1038,20 @@ row.innerHTML = `
             </select>
             </td>
   <td>
-    <div class="nilai-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.nilai) ? dataAbsensi.buttonCell.nilai : ''}</div>
-    <div class="warna-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.warna) ? dataAbsensi.buttonCell.warna : ''}</div>
-    <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-  </td>
+  <!-- Tampilkan nilai dan warna ringkas -->
+  <div class="nilai-ringkas">
+    ${dataAbsensi.buttonCell?.nilai ?? ''}
+  </div>
+  <div class="warna-ringkas">
+    ${dataAbsensi.buttonCell?.warna ?? ''}
+  </div>
+
+  <!-- Tombol Lembar Penilaian dengan data-id -->
+  <button type="button" class="lihat-quran-btn" data-id="${dataAbsensi.id}">
+    Lembar Penilaian
+  </button>
+</td>
+
 <td class="total-all-juz">
   <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
 </td>
@@ -1053,7 +1063,35 @@ document.querySelectorAll("td.total-all-juz").forEach(td => {
     td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
   }
 });
-          
+
+// Ambil semua tombol Lembar Penilaian
+document.querySelectorAll('.lihat-quran-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    // Ambil ID dari atribut data-id (selalu string)
+    const id = this.dataset.id;
+
+    // Cari data santri di array dataAbsensi
+    const siswa = dataAbsensi.find(d => String(d.id) === id);
+
+    if (!siswa) {
+      return alert('Data santri tidak ditemukan!');
+    }
+
+    // Contoh aksi: tampilkan info di console
+    console.log('Klik Lembar Penilaian untuk:', siswa);
+
+    // TODO: ganti dengan fungsi lembar penilaian asli
+    tampilkanLembarPenilaian(siswa);
+  });
+});
+
+// Contoh fungsi lembar penilaian
+function tampilkanLembarPenilaian(santri) {
+  alert(`Lembar Penilaian: ${santri.nama} (ID: ${santri.id})`);
+}
+
+
+			
           const surahDari = row.querySelector(".surah-dari");
           const ayatDari = row.querySelector(".ayat-dari");
           const surahSampai = row.querySelector(".surah-sampai");
