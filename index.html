@@ -2595,10 +2595,26 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 </script>
 
 	<script>
-	function bgHuruf(huruf, predikatText = "") {
+// 1. Fungsi untuk memberi warna huruf predikat
+function bgHuruf(huruf, predikatText = "") {
   const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
   return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${predikatText} ${huruf}</span>`;
 }
+
+// 2. Data dari server / dataSantri
+let dataSantri = []; // nanti diisi fetch atau data.push
+
+// 3. Fungsi render tabel
+function renderTabelPredikat() {
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
+  });
+}
+
+// 4. Panggil renderTabelPredikat() setelah dataSantri tersedia
 </script>
+
 </body>
 </html>
