@@ -2333,6 +2333,11 @@ function hitungNilai() {
   return { nilai, predikat, hijau, kuning, merah };
 }
 
+	const cell = document.querySelector(`#row-${data.id} .nilaiPredikat`);
+if (cell) {
+  cell.innerHTML = `${data.buttonCell.nilai.toFixed(1)} - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
+}
+
 
 // ======================
 // UPDATE TABEL (tanpa warna mark)
