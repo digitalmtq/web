@@ -9,6 +9,7 @@ export async function handler(event) {
     };
   }
 
+  // URL API GitHub (bukan raw)
   const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${kelas}.json`;
 
   try {
@@ -28,16 +29,12 @@ export async function handler(event) {
 
     const result = await response.json();
 
-    // Decode base64 -> UTF-8 -> parse ke objek
-    const decoded = Buffer.from(result.content, "base64").toString("utf-8");
-    const parsed = JSON.parse(decoded);
+    // Decode base64 -> UTF-8
+    const decoded = Buffer.from(result.content, 'base64').toString('utf-8');
 
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(parsed)
+      body: decoded
     };
 
   } catch (error) {
