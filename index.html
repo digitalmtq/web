@@ -1001,6 +1001,29 @@ function aturDropdownKelas(user) {
           const dari = (dataAbsensi.dari || "1:1").split(":");
           const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
+			<script>
+// 1. Fungsi untuk memberi warna huruf predikat
+function bgHuruf(huruf, predikatText = "") {
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${predikatText} ${huruf}</span>`;
+}
+
+// 2. Data dari server / dataSantri
+let dataSantri = []; // nanti diisi fetch atau data.push
+
+// 3. Fungsi render tabel
+function renderTabelPredikat() {
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
+  });
+}
+
+// 4. Panggil renderTabelPredikat() setelah dataSantri tersedia
+</script>
+
+
           // asumsi: dataAbsensi sudah didefinisikan untuk setiap santri, mis.
 // const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
 
@@ -1038,10 +1061,13 @@ row.innerHTML = `
             </select>
             </td>
   <td>
-    <div class="nilai-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.nilai) ? dataAbsensi.buttonCell.nilai : ''}</div>
-    <div class="warna-ringkas">${(dataAbsensi.buttonCell && dataAbsensi.buttonCell.warna) ? dataAbsensi.buttonCell.warna : ''}</div>
-    <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-  </td>
+  <div class="nilai-ringkas">
+    ${dataAbsensi.buttonCell 
+       ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+       : ''}
+  </div>
+  <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+</td>
 <td class="total-all-juz">
   <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
 </td>
@@ -2551,28 +2577,6 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   // Update tabel (tanpa warna mark)
   updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
 };
-
-
-	// Fungsi untuk memberi warna background huruf predikat
-function bgHuruf(huruf) {
-  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
-}
-
-// Render tabel dari dataSantri
-function renderTabelPredikat() {
-  dataSantri.forEach(data => {
-    // Cari cell .nilai-ringkas berdasarkan row id
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-
-    // Update innerHTML dengan warna huruf predikat
-    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
-  });
-}
-
-// Panggil fungsi ini setelah dataSantri tersedia dari server
-renderTabelPredikat();
 </script>
 
 
