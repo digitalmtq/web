@@ -2371,12 +2371,6 @@ function updateNilaiDiTabel({ nilai, predikat }) {
   }
 }
 
-	dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
-});
-
 
 // ======================
 // BUAT KATA KLIK
