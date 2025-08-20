@@ -2601,29 +2601,33 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 </script>
 
 	<script>
-// 1. Fungsi untuk memberi warna huruf predikat
-function bgHuruf(huruf, predikatText = "") {
+
+		dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
+});
+
+// Fungsi untuk memberi warna background huruf predikat
+function bgHuruf(huruf) {
   const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${predikatText} ${huruf}</span>`;
+  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
 }
 
-// 2. Data dari server / dataSantri
-let dataSantri = []; // nanti diisi fetch atau data.push
+// Render tabel dari dataSantri
+function renderTabelPredikat() {
+  dataSantri.forEach(data => {
+    // Cari cell .nilai-ringkas berdasarkan row id
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
 
-// 3. Fungsi render tabel
-function renderSantri(data) {
-  const row = document.querySelector(`#row-${data.id}`);
-  if (!row) return;
-
-  const nilaiCell = row.querySelector(".nilai-ringkas");
-  if (nilaiCell && data.buttonCell) {
-    nilaiCell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
-  }
+    // Update innerHTML dengan warna huruf predikat
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
+  });
 }
 
-// Contoh pemanggilan
-renderSantri(dataSantri[0]); // hanya untuk santri pertama
-
+// Panggil fungsi ini setelah dataSantri tersedia dari server
+renderTabelPredikat();
 </script>
 
 </body>
