@@ -2555,6 +2555,36 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   // Update tabel
   cell.innerHTML = `${nilai} - ${predikatText} ${hurufSpan}`;
 });
+
+	let dataSantri = []; // buat di scope global
+
+fetch("URL_SERVER_JSON")
+  .then(res => res.json())
+  .then(data => {
+    dataSantri = data; // simpan ke global
+    renderTabelSantri(); // panggil render
+  });
+
+
+	function renderTabelSantri() {
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilaiPredikat`);
+    if (!cell) return;
+
+    // Pisahkan nilai dan predikat
+    const parts = data.buttonCell.nilai.split(" ");
+    const nilai = parts[0];
+    const predikatText = parts[1];
+    const predikatHuruf = parts[2];
+
+    // Fungsi memberi background warna huruf
+    const warnaMap = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+    const hurufSpan = `<span style="background-color:${warnaMap[predikatHuruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${predikatHuruf}</span>`;
+
+    // Update tabel
+    cell.innerHTML = `${nilai} - ${predikatText} ${hurufSpan}`;
+  });
+}
 </script>
 
 
