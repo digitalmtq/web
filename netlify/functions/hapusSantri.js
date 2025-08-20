@@ -1,60 +1,62 @@
 import fetch from "node-fetch";
 
 export async function handler(event) {
-  console.log("=== HAPUS SANTRI DEBUG START ===");
+  console.log("=== [hapusSantri.js] START ===");
 
   try {
-    // Cek token env
-    const token = process.env.MTQ_TOKEN;
-    if (!token) {
-      console.error("ERROR: MTQ_TOKEN tidak ditemukan di environment!");
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Server token tidak tersedia" }),
-      };
-    }
-    console.log("Token OK (panjang):", token.length);
-
-    // Validasi method
+    // Pastikan method benar
     if (event.httpMethod !== "POST") {
-      console.error("Method salah:", event.httpMethod);
+      console.log("❌ Method salah:", event.httpMethod);
       return {
         statusCode: 405,
         body: JSON.stringify({ error: "Method harus POST" }),
       };
     }
 
+    // Token
+    const token = process.env.MTQ_TOKEN;
+    if (!token) {
+      console.error("❌ MTQ_TOKEN tidak ditemukan di environment");
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Server token hilang" }),
+      };
+    }
+
     // Parse body
-    let bodyData;
+    let body;
     try {
-      bodyData = JSON.parse(event.body);
+      body = JSON.parse(event.body);
     } catch (err) {
-      console.error("Gagal parse body:", event.body, err);
+      console.error("❌ Gagal parse body:", err.message);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Body tidak valid JSON" }),
+        body: JSON.stringify({ error: "Body harus JSON valid" }),
       };
     }
 
-    console.log("Body diterima:", bodyData);
-
-    const { kelas, id } = bodyData;
+    const { kelas, id } = body;
     if (!kelas || !id) {
-      console.error("Kelas atau ID kosong:", bodyData);
+      console.error("❌ Parameter hilang:", body);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Parameter kelas dan id wajib" }),
+        body: JSON.stringify({ error: "Parameter 'kelas' dan 'id' wajib ada" }),
       };
     }
 
+    console.log("➡ Input:", { kelas, id });
+
+    // URL GitHub raw
+    const repoOwner = "digitalmtq";
+    const repoName = "server";
+    const branch = "main";
     const filePath = `absensi/kelas_${kelas}.json`;
-    console.log("Target file:", filePath);
+    const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`;
 
-    // Ambil file lama
-    const getUrl = `https://api.github.com/repos/digitalmtq/server/contents/${filePath}`;
-    console.log("GET URL:", getUrl);
+    console.log("➡ API URL:", apiUrl);
 
-    const getRes = await fetch(getUrl, {
+    // Ambil data file dulu
+    const getRes = await fetch(apiUrl, {
       headers: {
         Authorization: `token ${token}`,
         Accept: "application/vnd.github.v3+json",
@@ -63,7 +65,7 @@ export async function handler(event) {
 
     if (!getRes.ok) {
       const txt = await getRes.text();
-      console.error("Gagal ambil data GitHub:", getRes.status, txt);
+      console.error("❌ Gagal ambil file:", getRes.status, txt);
       return {
         statusCode: getRes.status,
         body: JSON.stringify({ error: "Gagal ambil data GitHub", detail: txt }),
@@ -71,70 +73,70 @@ export async function handler(event) {
     }
 
     const fileData = await getRes.json();
-    console.log("Data file berhasil diambil, ukuran base64:", fileData.content.length);
+    const sha = fileData.sha;
+    const content = Buffer.from(fileData.content, "base64").toString();
+    let santriList = [];
 
-    // Decode isi file
-    const content = Buffer.from(fileData.content, "base64").toString("utf-8");
-    let santriList;
     try {
       santriList = JSON.parse(content);
     } catch (err) {
-      console.error("Gagal parse JSON file:", err, content.slice(0, 200));
+      console.error("❌ JSON file rusak:", err.message);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "File JSON rusak" }),
+        body: JSON.stringify({ error: "File JSON tidak valid" }),
       };
     }
 
-    console.log("Jumlah santri sebelum hapus:", santriList.length);
+    console.log("➡ Jumlah santri sebelum hapus:", santriList.length);
 
     // Hapus santri berdasarkan id
     const newList = santriList.filter((s) => String(s.id) !== String(id));
-    console.log("Jumlah santri setelah hapus:", newList.length);
-
     if (newList.length === santriList.length) {
-      console.warn("Tidak ada santri dengan ID:", id);
+      console.warn("⚠ ID tidak ditemukan:", id);
       return {
         statusCode: 404,
         body: JSON.stringify({ error: "Santri tidak ditemukan" }),
       };
     }
 
-    // Simpan kembali ke GitHub
-    const updateRes = await fetch(getUrl, {
+    console.log("➡ Jumlah santri sesudah hapus:", newList.length);
+
+    // Update file ke GitHub
+    const updateRes = await fetch(apiUrl, {
       method: "PUT",
       headers: {
         Authorization: `token ${token}`,
         Accept: "application/vnd.github.v3+json",
       },
       body: JSON.stringify({
-        message: `Hapus santri id ${id} dari kelas ${kelas}`,
+        message: `Hapus santri ID ${id} dari kelas ${kelas}`,
         content: Buffer.from(JSON.stringify(newList, null, 2)).toString("base64"),
-        sha: fileData.sha,
+        sha,
       }),
     });
 
     if (!updateRes.ok) {
       const txt = await updateRes.text();
-      console.error("Gagal update GitHub:", updateRes.status, txt);
+      console.error("❌ Gagal update file:", updateRes.status, txt);
       return {
         statusCode: updateRes.status,
-        body: JSON.stringify({ error: "Gagal update GitHub", detail: txt }),
+        body: JSON.stringify({ error: "Gagal update data GitHub", detail: txt }),
       };
     }
 
-    console.log("Update GitHub berhasil.");
-    console.log("=== HAPUS SANTRI DEBUG END ===");
+    console.log("✅ Santri berhasil dihapus:", id);
 
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true, id }),
     };
   } catch (err) {
-    console.error("EXCEPTION:", err);
+    console.error("❌ Error utama:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Server error", detail: err.message }),
+      body: JSON.stringify({ error: "Internal Server Error", detail: err.message }),
     };
+  } finally {
+    console.log("=== [hapusSantri.js] END ===");
   }
 }
