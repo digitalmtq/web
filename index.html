@@ -2263,16 +2263,40 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
 
 
 // ======================
-// HITUNG NILAI & UPDATE TABEL
+// HITUNG NILAI
 // ======================
-function hitungNilai(dataSantri, rowSelectorPrefix = "row-") {
-  // Fungsi memberi background warna huruf
-  function bgHuruf(huruf) {
-    const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-    return `<span style="background-color:${warna[huruf]}; color:white; font-weight:bold; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+function hitungNilai() {
+  let totalMinus = 0;
+  let hijau = 0, kuning = 0, merah = 0;
+  let adaMark = false;
+
+  // Hitung total minus dan jumlah warna
+  for (let ayat in markData) {
+    for (let idx in markData[ayat]) {
+      const mark = markData[ayat][idx];
+      if (!mark) continue;
+      adaMark = true;
+
+      switch (mark) {
+        case "green":
+          totalMinus += 0.5;
+          hijau++;
+          break;
+        case "yellow":
+          totalMinus += 1;
+          kuning++;
+          break;
+        case "red":
+          totalMinus += 2;
+          merah++;
+          break;
+      }
+    }
   }
 
-  // Pemetaan predikat
+  // Tentukan nilai dan predikat
+  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
+
   const predikatMap = [
     { max: 59, text: "ROSIB", huruf: "E" },
     { max: 69, text: "MAQBUL", huruf: "D" },
@@ -2281,72 +2305,32 @@ function hitungNilai(dataSantri, rowSelectorPrefix = "row-") {
     { max: 100, text: "MUMTAZ", huruf: "A" }
   ];
 
-  // Proses setiap santri
-  dataSantri.forEach(data => {
-    const marks = data.marks || {};
-    let totalMinus = 0, hijau = 0, kuning = 0, merah = 0;
-    let adaMark = false;
+  let predikat = "-";
+  if (adaMark) {
+    const p = predikatMap.find(p => nilai <= p.max);
 
-    // Hitung total minus dan jumlah warna
-    for (let ayat in marks) {
-      for (let idx in marks[ayat]) {
-        const mark = marks[ayat][idx];
-        if (!mark) continue;
-        adaMark = true;
-
-        switch (mark) {
-          case "green":
-            totalMinus += 0.5;
-            hijau++;
-            break;
-          case "yellow":
-            totalMinus += 1;
-            kuning++;
-            break;
-          case "red":
-            totalMinus += 2;
-            merah++;
-            break;
-        }
-      }
+    // Fungsi memberi background warna huruf
+    function bgHuruf(huruf) {
+      const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+      return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
     }
 
-    // Tentukan nilai dan predikat
-    const nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
-    let predikatText = "-";
-    let predikatHuruf = "";
-    if (adaMark) {
-      const p = predikatMap.find(p => nilai <= p.max);
-      predikatText = p.text;
-      predikatHuruf = p.huruf;
-    }
+    predikat = `${p.text} ${bgHuruf(p.huruf)}`;
+  }
 
-    // Simpan ke data.buttonCell untuk push ke server
-    data.buttonCell = {
-      nilai,
-      predikatText,
-      predikatHuruf
-    };
+  // Update modal overlay
+  const nilaiEl = document.getElementById("nilai-akhir");
+  const predikatEl = document.getElementById("predikat-akhir");
+  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
+  if (predikatEl) predikatEl.innerHTML = predikat; // gunakan innerHTML agar span bisa tampil
 
-    // --- UPDATE TABEL ---
-    const cell = document.querySelector(`#${rowSelectorPrefix}${data.id} .nilaiPredikat`);
-    if (cell) {
-      cell.innerHTML = `${nilai.toFixed(1)} - ${predikatText} ${bgHuruf(predikatHuruf)}`;
-    }
+  // Update jumlah mark warna di modal overlay
+  const warnaDiv = document.getElementById("modal-mark-warna");
+  if (warnaDiv) {
+    warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
+  }
 
-    // --- UPDATE MODAL OVERLAY (jika modal untuk santri ini dibuka) ---
-    const nilaiEl = document.getElementById("nilai-akhir");
-    const predikatEl = document.getElementById("predikat-akhir");
-    if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
-    if (predikatEl) predikatEl.innerHTML = `${predikatText} ${bgHuruf(predikatHuruf)}`;
-
-    const warnaDiv = document.getElementById("modal-mark-warna");
-    if (warnaDiv) {
-      warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
-    }
-  });
-
-  return dataSantri;
+  return { nilai, predikat, hijau, kuning, merah };
 }
 
 
