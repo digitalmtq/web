@@ -2614,7 +2614,6 @@ let dataSantri = []; // nanti diisi fetch atau data.push
 function renderTabelPredikat() {
   dataSantri.forEach(data => {
     const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-	const cell = document.querySelector(`#row-${data.nis} .nilai-ringkas`);
     if (!cell) return;
     cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
   });
