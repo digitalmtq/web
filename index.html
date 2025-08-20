@@ -2586,6 +2586,28 @@ document.getElementById("btn-beri-nilai").onclick = function() {
 }
 </script>
 
+<script>
+
+	dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${data.buttonCell.predikatText} ${bgHuruf(data.buttonCell.predikatHuruf)}`;
+});
+
+function bgHuruf(huruf, predikatText = "") {
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${predikatText} ${huruf}</span>`;
+}
+
+	// 2. Data dari server / dataSantri
+let dataSantri = []; // nanti diisi fetch atau data.push
+
+
+// Panggil fungsi ini setelah dataSantri tersedia dari server
+renderTabelPredikat();
+
+</script>
+
 	
 </body>
 </html>
