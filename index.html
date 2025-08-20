@@ -2139,7 +2139,7 @@ async function submitTambahKelasBaru() {
       santriList.forEach(s => {
         const opt = document.createElement("option");
         opt.value = s.id; // tetap pakai ID untuk konsistensi
-        opt.textContent = `${s.nis || s.id} - ${s.nama} (Semester ${s.semester})`;
+        opt.textContent = `${s.id} - ${s.nama} (Semester ${s.semester})`;
         santriSelect.appendChild(opt);
       });
     } catch (err) {
