@@ -1005,7 +1005,7 @@ function aturDropdownKelas(user) {
 // const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
 
 row.innerHTML = `
-  <td>${santri.nis ? santri.nis : "-"}</td>
+  <td>${santri.id}</td>
   <td>${santri.nama}</td>
   <td>
     <select class="absensi">
@@ -2138,8 +2138,8 @@ async function submitTambahKelasBaru() {
 
       santriList.forEach(s => {
         const opt = document.createElement("option");
-        opt.value = s.id; // tetap pakai ID untuk hapus
-		opt.textContent = `ID:${s.id} | NIS:${s.nis ? s.nis : "-"} | ${s.nama} (Semester ${s.semester})`;
+        opt.value = s.id; // tetap pakai ID untuk konsistensi
+        opt.textContent = `${s.nis || s.id} - ${s.nama} (Semester ${s.semester})`;
         santriSelect.appendChild(opt);
       });
     } catch (err) {
