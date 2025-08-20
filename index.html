@@ -1040,7 +1040,7 @@ row.innerHTML = `
   <td>
   <div class="nilai-ringkas">
     ${dataAbsensi.buttonCell 
-       ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+       (? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf)}, ${(dataAbsensi.buttonCell.predikatText)}`
        : ''}
   </div>
   <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
