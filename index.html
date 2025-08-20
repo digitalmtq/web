@@ -793,6 +793,7 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   const kelasSelect = document.getElementById("kelas");
   const tanggalInput = document.getElementById("tanggal");
   const santriTableBody = document.querySelector("#santri-table tbody");
+  const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
   const saveBtn = document.getElementById("save-btn");
   const downloadBtn = document.getElementById("download-btn");
   const totalAllJuzHeader = document.getElementById("totalAllJuzHeader");
@@ -2607,7 +2608,7 @@ function bgHuruf(huruf) {
 function renderTabelPredikat() {
   dataSantri.forEach(data => {
     // Cari cell .nilai-ringkas berdasarkan row id
-    const cell = document.querySelector(`#row-${santri.id} .nilai-ringkas`);
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
     if (!cell) return;
 
     // Update innerHTML dengan warna huruf predikat
