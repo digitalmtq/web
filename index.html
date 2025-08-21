@@ -1200,50 +1200,51 @@ function updateTotalJuz(row) {
   // ============================
   // Hitung pages quran (final)
   // ============================
-  function calculateHalamanTerbaca(halamanList) {
-    if (!halamanList || halamanList.length === 0) return { ranges: "-", total: 0 };
+function calculateHalamanTerbaca(halamanList) {
+  if (!halamanList || halamanList.length === 0) 
+    return { ranges: "-", total: 0 };
 
-    // ❌ KECUALIKAN halaman 21, 602, 603, 604
-    const skipHalaman = [21, 602, 603, 604];
-    halamanList = halamanList.filter(h => !skipHalaman.includes(Number(h)));
+  const skipHalaman = [21, 602, 603, 604];
 
-    if (halamanList.length === 0) return { ranges: "-", total: 0 };
+  const halamanCountMap = {};
+  for (let h of halamanList) {
+    halamanCountMap[h] = (halamanCountMap[h] || 0) + 1;
+  }
 
-    const halamanCountMap = {}; // key: halaman, value: jumlah ayat terbaca
-    for (let h of halamanList) {
-      halamanCountMap[h] = (halamanCountMap[h] || 0) + 1;
+  const uniqueHalaman = Object.keys(halamanCountMap)
+                             .map(Number)
+                             .sort((a, b) => a - b);
+
+  const ranges = [];
+  let totalHalaman = 0;
+
+  let start = uniqueHalaman[0];
+  let end = start;
+
+  for (let i = 0; i < uniqueHalaman.length; i++) {
+    const h = uniqueHalaman[i];
+    const ayatTerbaca = halamanCountMap[h];
+    const ayatTotal = jumlahAyatPerHalaman[h] || 1;
+
+    // ⬇️ hanya skip di perhitungan total
+    if (!skipHalaman.includes(h)) {
+      totalHalaman += ayatTerbaca / ayatTotal;
     }
 
-    const uniqueHalaman = Object.keys(halamanCountMap)
-                               .map(Number)
-                               .sort((a, b) => a - b);
-
-    const ranges = [];
-    let totalHalaman = 0;
-
-    let start = uniqueHalaman[0];
-    let end = start;
-
-    for (let i = 0; i < uniqueHalaman.length; i++) {
-      const h = uniqueHalaman[i];
-      const ayatTerbaca = halamanCountMap[h];
-      const ayatTotal = jumlahAyatPerHalaman[h] || 1;
-      totalHalaman += ayatTerbaca / ayatTotal;
-
-      if (i > 0) {
-        if (h === end + 1) {
-          end = h;
-        } else {
-          ranges.push(start === end ? `${start}` : `${start}-${end}`);
-          start = end = h;
-        }
+    if (i > 0) {
+      if (h === end + 1) {
+        end = h;
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = end = h;
       }
     }
-
-    ranges.push(start === end ? `${start}` : `${start}-${end}`);
-
-    return { ranges: ranges.join(", "), total: totalHalaman };
   }
+
+  ranges.push(start === end ? `${start}` : `${start}-${end}`);
+
+  return { ranges: ranges.join(", "), total: totalHalaman };
+}
 
   // Pemakaian di tabel
   const result = calculateHalamanTerbaca(halamanValid);
