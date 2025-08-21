@@ -330,7 +330,6 @@ button.lihat-quran-btn:hover::after {
         <button type="button" onclick="toggleChangePassword()">Ganti Password</button>
         <button type="button" id="daftar-btn" onclick="daftar()">Daftar Admin</button>
         <button type="button" onclick="munculkanValidasiAdmin()">Daftar User Kelas</button>
-		<button type="button" onclick="bukaModalUserNIS()">Buat User NIS</button>
         <button type="button" onclick="bukaModalTambahKelas()">Tambah Kelas</button>
       </div>
     </form>
@@ -387,27 +386,6 @@ button.lihat-quran-btn:hover::after {
     <button onclick="tutupModal('modalDaftar')">Close</button>
     <p id="daftarError" style="color:red;"></p>
     <p id="daftarSuccess" style="color:green;"></p>
-  </div>
-</div>
-
-
-	   <!-- Modal Buat User NIS -->
-  <div id="modalUserNIS" class="modal" style="display:none;">
-    <div class="modal-content">
-      <h2>Buat User NIS</h2>
-      <label>NIS Santri:</label>
-      <input type="text" id="nisUser" placeholder="Masukkan NIS santri" />
-      <label>Username:</label>
-      <input type="text" id="usernameUser" placeholder="Username login" />
-      <label>Password:</label>
-      <input type="password" id="passwordUser" placeholder="Password login" />
-      <div class="modal-actions">
-        <button onclick="simpanUserNIS()">Simpan</button>
-        <button onclick="tutupModalUserNIS()">Batal</button>
-      </div>
-      <p id="userNISError" style="color:red;"></p>
-      <p id="userNISSuccess" style="color:green;"></p>
-    </div>
   </div>
 </div>
 
@@ -2684,155 +2662,6 @@ function renderTabelPredikat() {
     cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
   });
 }
-</script>
-
-<script>
-	const loginForm = document.getElementById("login-form");
-
-// Toggle Password
-function togglePassword() {
-  const pwField = document.getElementById("password");
-  pwField.type = pwField.type === "password" ? "text" : "password";
-}
-
-// Modal User NIS
-function bukaModalUserNIS() {
-  document.getElementById("modalUserNIS").style.display = "flex";
-  document.getElementById("userNISError").textContent = "";
-  document.getElementById("userNISSuccess").textContent = "";
-}
-function tutupModalUserNIS() {
-  document.getElementById("modalUserNIS").style.display = "none";
-}
-
-// Simpan User NIS ke Netlify Function
-async function simpanUserNIS() {
-  const nis = document.getElementById("nisUser").value.trim();
-  const username = document.getElementById("usernameUser").value.trim();
-  const password = document.getElementById("passwordUser").value.trim();
-
-  if (!nis || !username || !password) {
-    document.getElementById("userNISError").textContent = "Semua kolom wajib diisi!";
-    return;
-  }
-
-  try {
-    const res = await fetch("/.netlify/functions/daftar-nis", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nis, username, password })
-    });
-
-    const result = await res.json();
-    if (res.status === 200) {
-      document.getElementById("userNISSuccess").textContent = "User NIS berhasil dibuat!";
-      document.getElementById("userNISError").textContent = "";
-      setTimeout(tutupModalUserNIS, 1000);
-    } else {
-      document.getElementById("userNISError").textContent = result.message || "Gagal membuat user.";
-    }
-  } catch (err) {
-    console.error(err);
-    document.getElementById("userNISError").textContent = "Terjadi kesalahan server.";
-  }
-}	
-</script>
-
-<script>
-	loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
-
-  try {
-    // Cek user NIS
-    const resNIS = await fetch("/.netlify/functions/getUserNIS");
-    const userNISList = await resNIS.json();
-    const userNIS = userNISList.find(u => u.username === username && u.password === password);
-
-    if (userNIS) {
-      // Login NIS
-      localStorage.setItem("isLoggedIn", true);
-      localStorage.setItem("username", username);
-      localStorage.setItem("nisLogin", userNIS.nis);
-      namaUserSpan.textContent = username;
-
-      showDashboard();
-      loadSantriData();
-      return;
-    }
-
-    // Login admin biasa
-    const res = await fetch("/.netlify/functions/getUsers");
-    const users = await res.json();
-    const user = users.find(u => u.username === username && u.password === password);
-
-    if (user) {
-      localStorage.setItem("isLoggedIn", true);
-      localStorage.setItem("username", username);
-      localStorage.setItem("kelasDiizinkan", JSON.stringify(user.kelas || []));
-      namaUserSpan.textContent = username;
-
-      showDashboard();
-      loadSantriData();
-    } else {
-      loginError.style.display = "block";
-    }
-  } catch (err) {
-    console.error(err);
-    loginError.textContent = "Gagal memuat data user!";
-    loginError.style.display = "block";
-  }
-});
-</script>
-
-<script>
-async function loadSantriData() {
-  const kelas = kelasSelect.value;
-  const tanggal = tanggalInput.value;
-  overlay.style.display = "flex";
-
-  try {
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
-    let santriData = await resSantri.json();
-
-    const nisLogin = localStorage.getItem("nisLogin");
-    if (nisLogin) {
-      // Filter hanya santri NIS yang diizinkan
-      santriData = santriData.filter(s => s.nis === nisLogin);
-    }
-
-    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
-    const absensiData = await resAbsensi.json();
-
-    santriTableBody.innerHTML = "";
-
-    santriData.forEach(santri => {
-      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${santri.id}</td>
-        <td>${santri.nama}</td>
-        <td>${dataAbsensi.absensi || '-'}</td>
-        <td>${dataAbsensi.dari || '-'}</td>
-        <td>${dataAbsensi.sampai || '-'}</td>
-        <td>${dataAbsensi.page || '-'}</td>
-        <td>${dataAbsensi.totalHalaman || '-'}</td>
-        <td>${dataAbsensi.juzTerbaca || '-'}</td>
-        <td>${dataAbsensi.totalJuz ?? 0}</td>
-        <td>${santri.semester}</td>
-        <td>${dataAbsensi.nilai || '-'}</td>
-        <td></td>
-      `;
-      santriTableBody.appendChild(row);
-    });
-  } catch (err) {
-    console.error(err);
-    alert("Gagal memuat data santri / absensi!");
-  } finally {
-    overlay.style.display = "none";
-  }
-}		
 </script>
 	
 </body>
