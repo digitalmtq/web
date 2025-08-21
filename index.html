@@ -1252,7 +1252,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   rows.forEach((row) => {
   const id = parseInt(row.children[0].textContent);
 
-  // Cek dulu apakah data sudah ada di array
+  // Cek apakah data lama ada
   let existing = data.find(d => d.id === id);
 
   const nama = row.children[1].textContent;
@@ -1282,9 +1282,15 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
   const marks = row.markData || {};
 
-  // gabungkan dengan data lama supaya field lama tidak hilang
+  // jika sudah ada data lama, merge spesifik hanya buttonCell & marks
+  let buttonCell = existing?.buttonCell ? { ...existing.buttonCell } : {};
+  if (nilai !== null) buttonCell.nilai = nilai;
+  if (predikatText !== null) buttonCell.predikatText = predikatText;
+  if (predikatHuruf !== null) buttonCell.predikatHuruf = predikatHuruf;
+
+  let newMarks = existing?.marks ? { ...existing.marks, ...marks } : marks;
+
   const newData = {
-    ...(existing || {}), // semua field lama
     id,
     nama,
     absensi,
@@ -1295,16 +1301,8 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     halaman,
     totalHalaman,
     juzTerbaca,
-    buttonCell: {
-      ...(existing?.buttonCell || {}), // isi lama
-      ...(nilai !== null ? { nilai } : {}),
-      ...(predikatText !== null ? { predikatText } : {}),
-      ...(predikatHuruf !== null ? { predikatHuruf } : {})
-    },
-    marks: {
-      ...(existing?.marks || {}),
-      ...marks
-    }
+    buttonCell,
+    marks: newMarks
   };
 
   if (existing) {
@@ -1349,6 +1347,7 @@ document.getElementById("save-btn").addEventListener("click", function () {
 document.getElementById("save-btn-modal").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
+
 
 
 
