@@ -1247,74 +1247,91 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
   const rows = santriTableBody.querySelectorAll("tr");
-  const data = [];
 
-  rows.forEach((row) => {
-    const id = parseInt(row.children[0].textContent);
-
-    // Cek dulu apakah data sudah ada di array
-    let existing = data.find(d => d.id === id);
-
-    const nama = row.children[1].textContent;
-    const semester = row.querySelector(".semester").value;
-    const absensi = row.querySelector(".absensi").value;
-    const surahDari = row.querySelector(".surah-dari").value;
-    const ayatDari = row.querySelector(".ayat-dari").value;
-    const surahSampai = row.querySelector(".surah-sampai").value;
-    const ayatSampai = row.querySelector(".ayat-sampai").value;
-    const totalJuz = row.querySelector(".total-juz").textContent;
-    const halaman = row.querySelector(".halaman-terbaca").textContent;
-    const totalHalaman = row.querySelector(".total-halaman").textContent;
-    const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
-
-    const nilaiCell = row.querySelector(".lihat-quran-btn").parentElement;
-    const nilaiStr = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
-    let nilai = 0, predikatText = "-", predikatHuruf = "";
-    if (nilaiStr) {
-        const parts = nilaiStr.split(" ");
-        if (parts.length >= 3) {
-            nilai = parseFloat(parts[0]);
-            predikatText = parts[1];
-            predikatHuruf = parts[2];
-        }
-    }
-
-    const marks = row.markData || {};
-
-    const newData = {
-      id,
-      nama,
-      absensi,
-      semester,
-      dari: `${surahDari}:${ayatDari}`,
-      sampai: `${surahSampai}:${ayatSampai}`,
-      totalJuz,
-      halaman,
-      totalHalaman,
-      juzTerbaca,
-      buttonCell: { nilai, predikatText, predikatHuruf },
-      marks
-    };
-
-    if (existing) {
-        // update data lama
-        Object.assign(existing, newData);
-    } else {
-        // tambah data baru
-        data.push(newData);
-    }
-});
-
-saveBtn.disabled = true;
-saveBtn.textContent = "⏳ Menyimpan...";
-
+  saveBtn.disabled = true;
+  saveBtn.textContent = "⏳ Menyimpan...";
 
   try {
+    // 1. Ambil data lama dari server
+    let dataLama = [];
+    try {
+      const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+      if (resLama.ok) {
+        dataLama = await resLama.json();
+      }
+    } catch (err) {
+      console.warn("⚠️ Tidak bisa ambil data lama, lanjut dengan kosong");
+    }
+
+    // 2. Copy dulu ke array baru
+    let data = [...dataLama];
+
+    // 3. Loop baris tabel, update hanya ID yang ada di layar
+    rows.forEach((row) => {
+      const id = parseInt(row.children[0].textContent);
+
+      let existing = data.find(d => d.id === id) || {};
+
+      const nama = row.children[1].textContent;
+      const semester = row.querySelector(".semester").value;
+      const absensi = row.querySelector(".absensi").value;
+      const surahDari = row.querySelector(".surah-dari").value;
+      const ayatDari = row.querySelector(".ayat-dari").value;
+      const surahSampai = row.querySelector(".surah-sampai").value;
+      const ayatSampai = row.querySelector(".ayat-sampai").value;
+      const totalJuz = row.querySelector(".total-juz").textContent;
+      const halaman = row.querySelector(".halaman-terbaca").textContent;
+      const totalHalaman = row.querySelector(".total-halaman").textContent;
+      const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
+
+      const nilaiCell = row.querySelector(".lihat-quran-btn").parentElement;
+      const nilaiStr = nilaiCell.querySelector("div:nth-child(1)")?.innerText.trim() || "";
+      let nilai = existing.buttonCell?.nilai || 0;
+      let predikatText = existing.buttonCell?.predikatText || "-";
+      let predikatHuruf = existing.buttonCell?.predikatHuruf || "-";
+
+      if (nilaiStr) {
+        const parts = nilaiStr.split(" ");
+        if (parts.length >= 3) {
+          nilai = parseFloat(parts[0]);
+          predikatText = parts[1];
+          predikatHuruf = parts[2];
+        }
+      }
+
+      const marks = row.markData || existing.marks || {};
+
+      const newData = {
+        ...existing, // merge semua data lama biar tidak hilang
+        id,
+        nama,
+        semester,
+        absensi,
+        dari: `${surahDari}:${ayatDari}`,
+        sampai: `${surahSampai}:${ayatSampai}`,
+        totalJuz,
+        halaman,
+        totalHalaman,
+        juzTerbaca,
+        buttonCell: { nilai, predikatText, predikatHuruf },
+        marks
+      };
+
+      const idx = data.findIndex(d => d.id === id);
+      if (idx !== -1) {
+        data[idx] = newData; // replace
+      } else {
+        data.push(newData);  // insert baru
+      }
+    });
+
+    // 4. Kirim hasil merge ke server
     const res = await fetch("/.netlify/functions/saveData", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tanggal, kelas, data })
     });
+
     const result = await res.json();
     if (result.success) {
       saveBtn.textContent = "✅ Tersimpan";
@@ -1327,6 +1344,7 @@ saveBtn.textContent = "⏳ Menyimpan...";
       saveBtn.disabled = false;
       saveBtn.textContent = "Simpan Data Mutaba'ah";
     }
+
   } catch (err) {
     alert("⚠️ Error menyimpan data!");
     console.error(err);
@@ -1334,6 +1352,7 @@ saveBtn.textContent = "⏳ Menyimpan...";
     saveBtn.textContent = "Simpan Data Mutaba'ah";
   }
 }
+
 
 // Pasang event listener ke dua tombol Save
 document.getElementById("save-btn").addEventListener("click", function () {
