@@ -339,12 +339,14 @@ button.lihat-quran-btn:hover::after {
     <div id="modalTambahKelasPassword" class="modal" style="display:none;">
   <div class="modal-content">
     <h3>Verifikasi Admin</h3>
-    <input type="password" id="inputPasswordTambahKelas" placeholder="Password Admin" />
-    <button onclick="verifikasiAdminTambahKelas()">Lanjut</button>
-    <button onclick="tutupModal('modalTambahKelasPassword')">Batal</button>
+    <label>Password Admin: <input type="password" id="inputPasswordTambahKelas"></label>
     <p id="statusPasswordTambahKelas" style="color:red;"></p>
+    <button onclick="verifikasiAdminTambahKelas()">Submit</button>
+    <button onclick="tutupModal('modalTambahKelasPassword')">Close</button>
   </div>
 </div>
+
+	
 
 
     <div id="modalFormTambahKelas" class="modal" style="display:none;">
