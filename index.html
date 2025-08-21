@@ -1279,9 +1279,9 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         }
     }
 
-    const marks = row.markData || {};
-
-    const newData = {
+      // gabungkan dengan data lama supaya field lama tidak hilang
+      const newData = {
+      ...(existing || {}), // semua field lama
       id,
       nama,
       absensi,
