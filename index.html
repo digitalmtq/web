@@ -347,14 +347,21 @@ button.lihat-quran-btn:hover::after {
 </div>
 
 
-    <div id="modalFormTambahKelas" class="modal" style="display:none;">
+    <!-- Modal Tambah Kelas -->
+<div id="modalFormTambahKelas" class="modal" style="display:none;">
   <div class="modal-content">
     <h3>Tambah Kelas Baru</h3>
+
     <p>Kelas yang sudah ada:</p>
-    <ul id="listKelasTersedia"></ul>
-    <input type="number" id="inputNomorKelasBaruTambah" placeholder="Contoh: 7" />
-    <button onclick="submitTambahKelasBaru()">Buat</button>
+    <ul id="listKelasTersediaTambah"></ul>
+
+    <label>Nomor Kelas Baru: 
+      <input type="number" id="inputNomorKelasBaruTambah" placeholder="Contoh: 7" />
+    </label><br><br>
+
+    <button onclick="submitTambahKelasBaru()" class="btn-primary">Buat</button>
     <button onclick="tutupModal('modalFormTambahKelas')">Close</button>
+
     <p id="statusTambahKelasBaru" style="color:red;"></p>
   </div>
 </div>
@@ -372,26 +379,29 @@ button.lihat-quran-btn:hover::after {
   </div>
 </div>
 
-<!-- Modal Form Daftar Akun -->
+<!-- Modal Daftar User Kelas -->
 <div id="modalDaftar" class="modal" style="display:none;">
   <div class="modal-content">
     <h3>Daftar User Kelas</h3>
-    <label>Username: <input type="text" id="newUsername"></label><br>
-    <label>Password: <input type="password" id="newPassword"></label>
-    <br></br>
-    <label><input type="checkbox" onclick="toggleLihatPassword()"> Lihat Password</label><br><br>
+    
+    <label>Username: <input type="text" id="newUsernameKelas"></label><br>
+    <label>Password: <input type="password" id="newPasswordKelas"></label><br>
+    <label><input type="checkbox" onclick="toggleLihatPasswordKelas()"> Lihat Password</label><br><br>
 
-    <div id="kelasCheckboxContainer">🔄 Memuat daftar kelas...</div><br>
+    <div id="kelasCheckboxContainerKelas">🔄 Memuat daftar kelas...</div><br>
+    <div id="kelasTambahanContainer">🔄 Pilih kelas dahulu...</div><br>
 
-    <button onclick="buatAkunBaru()">Create Account</button>
+    <button onclick="buatUserKelas()">Create User Kelas</button>
     <button onclick="tutupModal('modalDaftar')">Close</button>
-    <p id="daftarError" style="color:red;"></p>
-    <p id="daftarSuccess" style="color:green;"></p>
+
+    <p id="daftarKelasError" style="color:red;"></p>
+    <p id="daftarKelasSuccess" style="color:green;"></p>
   </div>
 </div>
 
 
-<!-- Tombol Daftar User NIS -->
+
+<!-- Daftar User NIS -->
 <!-- Modal Validasi Admin -->
 <div id="modalAdminNIS" class="modal" style="display:none;">
   <div class="modal-content">
