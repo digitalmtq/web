@@ -1,7 +1,7 @@
-const fetch = require('node-fetch'); 
+const fetch = require('node-fetch');
 const REPO = 'digitalmtq/server';
-const TOKEN = process.env.MTQ_TOKEN;
 const BRANCH = 'main';
+const TOKEN = process.env.MTQ_TOKEN;
 const headers = { Authorization: `Bearer ${TOKEN}`, Accept: 'application/vnd.github.v3+json' };
 
 exports.handler = async (event) => {
@@ -9,26 +9,31 @@ exports.handler = async (event) => {
 
   try {
     const { username, password, nis, adminPassword } = JSON.parse(event.body || '{}');
-    if (!username || !password || !nis || !adminPassword) return { statusCode: 400, body: JSON.stringify({ message: 'Data tidak lengkap.' }) };
+    if (!username || !password || !nis || !adminPassword) {
+      return { statusCode: 400, body: JSON.stringify({ message: 'Data tidak lengkap.' }) };
+    }
 
-    // validasi admin
+    // 1️⃣ Ambil secure.json → validasi adminPassword
     const secureRes = await fetch(`https://api.github.com/repos/${REPO}/contents/secure.json`, { headers });
     const secureJson = await secureRes.json();
     const secureDecoded = Buffer.from(secureJson.content, 'base64').toString('utf-8');
     const { adminPassword: realAdminPassword } = JSON.parse(secureDecoded);
     if (adminPassword !== realAdminPassword) return { statusCode: 401, body: JSON.stringify({ message: 'Password admin salah.' }) };
 
-    // ambil user_khusus.json
+    // 2️⃣ Ambil user_khusus.json
     const userRes = await fetch(`https://api.github.com/repos/${REPO}/contents/user_khusus.json`, { headers });
     const userJson = await userRes.json();
     const userSha = userJson.sha;
     const users = JSON.parse(Buffer.from(userJson.content, 'base64').toString('utf-8'));
 
-    if (users.some(u => u.username === username)) return { statusCode: 409, body: JSON.stringify({ message: 'Username sudah terdaftar.' }) };
+    // 3️⃣ Cek username sudah ada
+    if (users.some(u => u.username === username)) return { statusCode: 409, body: JSON.stringify({ message: 'Username sudah ada.' }) };
 
+    // 4️⃣ Tambahkan user baru
     users.push({ username, password, nis });
     const updatedContent = Buffer.from(JSON.stringify(users, null, 2)).toString('base64');
 
+    // 5️⃣ Push kembali ke GitHub
     const updateRes = await fetch(`https://api.github.com/repos/${REPO}/contents/user_khusus.json`, {
       method: 'PUT',
       headers,
@@ -42,6 +47,7 @@ exports.handler = async (event) => {
 
     return { statusCode: 200, body: JSON.stringify({ message: 'User NIS berhasil ditambahkan.' }) };
   } catch (err) {
+    console.error(err);
     return { statusCode: 500, body: JSON.stringify({ message: 'Terjadi kesalahan.', error: err.message }) };
   }
 };
