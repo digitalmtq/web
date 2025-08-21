@@ -2195,9 +2195,34 @@ async function submitTambahKelasBaru() {
 <script>
 let quranData = {};
 let ayahPageMap = {};
-let markData = {};
+let allMarkData = {};   // simpan semua santri
+let markData = {};      // simpan 1 santri aktif
 let currentIdSiswa = null;
 let recordingsList = document.getElementById("recordingsList");
+
+// ======================
+// STORAGE
+// ======================
+function getStorageKey() {
+  const kelas = document.getElementById('kelas')?.value || 'default';
+  const tanggal = document.getElementById('tanggal')?.value || 'default';
+  return `marks_${kelas}_${tanggal}`;
+}
+
+function simpanKeStorage() {
+  const key = getStorageKey();
+  localStorage.setItem(key, JSON.stringify(allMarkData));
+}
+
+function ambilDariStorage() {
+  const key = getStorageKey();
+  const saved = localStorage.getItem(key);
+  if (saved) {
+    allMarkData = JSON.parse(saved);
+    return true;
+  }
+  return false;
+}
 
 // ======================
 // AMBIL DATA MARKS + AUDIO DARI NETLIFY FUNCTION
@@ -2242,48 +2267,6 @@ function getMimeType(filename) {
   if (ext === 'mp3') return 'audio/mpeg';
   if (ext === 'ogg') return 'audio/ogg';
   return 'audio/wav';
-}
-
-// ======================
-// STORAGE
-// ======================
-function getStorageKey() {
-  const kelas = document.getElementById('kelas')?.value || 'default';
-  const tanggal = document.getElementById('tanggal')?.value || 'default';
-  return `marks_${kelas}_${tanggal}_${currentIdSiswa}`;
-}
-
-function simpanKeStorage() {
-  if (!currentIdSiswa) return;
-  const key = getStorageKey();
-  localStorage.setItem(key, JSON.stringify(markData));
-}
-
-function ambilDariStorage() {
-  if (!currentIdSiswa) return;
-  const key = getStorageKey();
-  const saved = localStorage.getItem(key);
-  if (saved) {
-    markData = JSON.parse(saved);
-    return true;
-  }
-  return false;
-}
-
-// ======================
-// AMBIL MARK DARI SERVER
-// ======================
-async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
-  try {
-    const res = await fetch(`/.netlify/functions/getMarkData?kelas=${kelas}&tanggal=${tanggal}`);
-    if (!res.ok) throw new Error("Gagal ambil data santri dari server");
-    const data = await res.json();
-    const santri = data.find(s => s.id === idSiswa);
-    return santri?.marks || {};
-  } catch(err) {
-    console.error(err);
-    return {};
-  }
 }
 
 // ======================
@@ -2358,6 +2341,10 @@ function updateNilaiDiTabel({ nilai, predikat }) {
       row.markData = JSON.parse(JSON.stringify(markData));
     }
   }
+
+  // update ke allMarkData + storage
+  allMarkData[currentIdSiswa] = markData;
+  simpanKeStorage();
 }
 
 // ======================
@@ -2387,7 +2374,6 @@ function buatKataKlik(surah, ayat, teks) {
 
       const hasil = hitungNilai();
       updateNilaiDiTabel(hasil);
-      simpanKeStorage();   // simpan setiap perubahan
     };
 
     if (markData[surah+":"+ayat]?.[idx]) {
@@ -2431,10 +2417,15 @@ document.addEventListener('click', async function(e) {
     const kelas = document.getElementById('kelas')?.value || 'default';
     const tanggal = document.getElementById('tanggal')?.value || 'default';
 
-    // Ambil dari localStorage dulu
-    const adaLocal = ambilDariStorage();
-    if (!adaLocal || Object.keys(markData).length === 0) {
+    // Pastikan ambil semua data dulu dari storage
+    ambilDariStorage();
+
+    // Ambil markData untuk santri ini
+    if (allMarkData[currentIdSiswa]) {
+      markData = allMarkData[currentIdSiswa];
+    } else {
       markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
+      allMarkData[currentIdSiswa] = markData;
       simpanKeStorage();
     }
 
@@ -2517,6 +2508,7 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   else predikat = "MUMTAZ (A)";
 
   markData = {}; // reset mark
+  allMarkData[currentIdSiswa] = markData;
 
   document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
   document.getElementById("predikat-akhir").innerText = predikat;
@@ -2526,6 +2518,7 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   simpanKeStorage();   // simpan nilai manual
 };
 </script>
+
 
 
 
