@@ -347,21 +347,14 @@ button.lihat-quran-btn:hover::after {
 </div>
 
 
-    <!-- Modal Tambah Kelas -->
-<div id="modalFormTambahKelas" class="modal" style="display:none;">
+    <div id="modalFormTambahKelas" class="modal" style="display:none;">
   <div class="modal-content">
     <h3>Tambah Kelas Baru</h3>
-
     <p>Kelas yang sudah ada:</p>
-    <ul id="listKelasTersediaTambah"></ul>
-
-    <label>Nomor Kelas Baru: 
-      <input type="number" id="inputNomorKelasBaruTambah" placeholder="Contoh: 7" />
-    </label><br><br>
-
-    <button onclick="submitTambahKelasBaru()" class="btn-primary">Buat</button>
+    <ul id="listKelasTersedia"></ul>
+    <input type="number" id="inputNomorKelasBaruTambah" placeholder="Contoh: 7" />
+    <button onclick="submitTambahKelasBaru()">Buat</button>
     <button onclick="tutupModal('modalFormTambahKelas')">Close</button>
-
     <p id="statusTambahKelasBaru" style="color:red;"></p>
   </div>
 </div>
@@ -372,36 +365,33 @@ button.lihat-quran-btn:hover::after {
 <div id="modalAdmin" class="modal" style="display:none;">
   <div class="modal-content">
     <h3>Masukkan Password Admin</h3>
-    <input type="password" id="adminPasswordInput" placeholder="Password Admin">
-    <button onclick="cekPasswordAdmin()">Lanjut</button>
-    <button onclick="tutupModal('modalAdmin')">Batal</button>
+     <label>Password Admin: <input type="password" id="adminPasswordInput"></label>
     <p id="adminError" style="color:red;"></p>
+    <button onclick="cekPasswordAdmin()">Submit</button>
+    <button onclick="tutupModal('modalAdmin')">Close</button>
   </div>
 </div>
 
-<!-- Modal Daftar User Kelas -->
+<!-- Modal Form Daftar Akun -->
 <div id="modalDaftar" class="modal" style="display:none;">
   <div class="modal-content">
     <h3>Daftar User Kelas</h3>
-    
-    <label>Username: <input type="text" id="newUsernameKelas"></label><br>
-    <label>Password: <input type="password" id="newPasswordKelas"></label><br>
-    <label><input type="checkbox" onclick="toggleLihatPasswordKelas()"> Lihat Password</label><br><br>
+    <label>Username: <input type="text" id="newUsername"></label><br>
+    <label>Password: <input type="password" id="newPassword"></label>
+    <br></br>
+    <label><input type="checkbox" onclick="toggleLihatPassword()"> Lihat Password</label><br><br>
 
-    <div id="kelasCheckboxContainerKelas">🔄 Memuat daftar kelas...</div><br>
-    <div id="kelasTambahanContainer">🔄 Pilih kelas dahulu...</div><br>
+    <div id="kelasCheckboxContainer">🔄 Memuat daftar kelas...</div><br>
 
-    <button onclick="buatUserKelas()">Create User Kelas</button>
+    <button onclick="buatAkunBaru()">Create Account</button>
     <button onclick="tutupModal('modalDaftar')">Close</button>
-
-    <p id="daftarKelasError" style="color:red;"></p>
-    <p id="daftarKelasSuccess" style="color:green;"></p>
+    <p id="daftarError" style="color:red;"></p>
+    <p id="daftarSuccess" style="color:green;"></p>
   </div>
 </div>
 
 
-
-<!-- Daftar User NIS -->
+<!-- Tombol Daftar User NIS -->
 <!-- Modal Validasi Admin -->
 <div id="modalAdminNIS" class="modal" style="display:none;">
   <div class="modal-content">
@@ -413,6 +403,8 @@ button.lihat-quran-btn:hover::after {
   </div>
 </div>
 
+
+	  
 <!-- Modal Daftar User NIS -->
 <div id="modalDaftarNIS" class="modal" style="display:none;">
   <div class="modal-content">
