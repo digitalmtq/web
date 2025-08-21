@@ -1049,7 +1049,7 @@ function aturDropdownKelas(user) {
       }, 500);
     });
 
-    async function loadSantriData() {
+    async function loadSantriData() { 
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
   overlay.style.display = "flex";
@@ -1057,7 +1057,7 @@ function aturDropdownKelas(user) {
   try {
     // Ambil semua santri di kelas
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
-    const santriData = await resSantri.json();
+    let santriData = await resSantri.json();
 
     // Ambil data absensi
     const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
@@ -1070,15 +1070,27 @@ function aturDropdownKelas(user) {
     const users = await fetch(`/.netlify/functions/getUsers`).then(r => r.json());
     const user = users.find(u => u.username === username);
 
-    // Ambil array NIS yang bisa diakses user
-    const allowedNIS = user?.nis || [];
-
-    // Filter santriData agar hanya menampilkan NIS yang diizinkan
-    const filteredSantri = santriData.filter(s => allowedNIS.includes(s.nis));
+    // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
+    if (user) {
+      // Superuser: tidak ada properti kelas → akses semua
+      if (user.kelas && user.kelas.length) {
+        // Batasi ke kelas yang diizinkan
+        if (!user.kelas.includes(kelas)) {
+          santriData = []; // kelas tidak diizinkan
+        } else if (user.nis && user.nis.length) {
+          // Batasi NIS hanya yang diizinkan
+          santriData = santriData.filter(s => user.nis.includes(s.nis));
+        }
+      }
+    } else {
+      // user tidak ditemukan → kosongkan tabel
+      santriData = [];
+    }
+    // ===== END FILTER =====
 
     santriTableBody.innerHTML = "";
 
-    filteredSantri.forEach((santri, i) => {
+    santriData.forEach((santri, i) => {
       const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
       const row = document.createElement("tr");
 
@@ -1175,6 +1187,7 @@ function aturDropdownKelas(user) {
 
   overlay.style.display = "none";
 }
+
 
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
       const surah = surahList.find(s => s.id == surahId);
