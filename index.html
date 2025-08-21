@@ -328,7 +328,7 @@ button.lihat-quran-btn:hover::after {
 
       <div class="login-actions">
         <button type="button" onclick="toggleChangePassword()">Ganti Password</button>
-        <button type="button" id="daftar-btn" onclick="daftar()">Daftar Admin</button>
+        <button type="button" onclick="munculkanModalDaftarAdmin()">Daftar Admin</button>
         <button type="button" onclick="munculkanValidasiAdmin()">Daftar User Kelas</button>
 		<button type="button" onclick="munculkanValidasiAdminNIS()">Daftar User NIS</button>
         <button type="button" onclick="bukaModalTambahKelas()">Tambah Kelas</button>
@@ -336,34 +336,61 @@ button.lihat-quran-btn:hover::after {
     </form>
 
 
-    <div id="modalTambahKelasPassword" class="modal" style="display:none;">
-  <div class="modal-content">
-    <h3>Verifikasi Admin</h3>
-    <label>Password Admin: <input type="password" id="inputPasswordTambahKelas"></label>
-    <p id="statusPasswordTambahKelas" style="color:red;"></p>
-    <button onclick="verifikasiAdminTambahKelas()">Submit</button>
-    <button onclick="tutupModal('modalTambahKelasPassword')">Close</button>
+
+	  <!-- Overlay Ganti Password -->
+<div id="change-password-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:300px; position:relative;">
+    <h3 style="margin-top:0;">Ganti Password</h3>
+    <input type="text" id="change-username" placeholder="Username" required style="width:80%; margin-bottom:8px;" />
+    <input type="password" id="old-password" placeholder="Password Lama" required style="width:80%; margin-bottom:8px;" />
+<input type="password" id="new-password" placeholder="Password Baru" required style="width:80%; margin-bottom:8px;" />
+
+<label style="display:block; margin-bottom:10px;">
+  <input type="checkbox" onclick="togglePasswordVisibility()"> Lihat Password
+</label>
+    <button id="save-password-btn" type="button" onclick="submitPasswordChange()" style="width:90%;">Simpan</button>
+    <p id="change-password-msg" style="color:red; margin-top:10px;"></p>
+    <button onclick="toggleChangePassword()" style="position:absolute; top:5px; right:10px;">✖</button>
   </div>
 </div>
 
-	
-
-
-    <div id="modalFormTambahKelas" class="modal" style="display:none;">
-  <div class="modal-content">
-    <h3>Tambah Kelas Baru</h3>
-    <p>Kelas yang sudah ada:</p>
-    <ul id="listKelasTersedia"></ul>
-    <input type="number" id="inputNomorKelasBaruTambah" placeholder="Contoh: 7" />
-    <button onclick="submitTambahKelasBaru()">Buat</button>
-    <button onclick="tutupModal('modalFormTambahKelas')">Close</button>
-    <p id="statusTambahKelasBaru" style="color:red;"></p>
-  </div>
-</div>
-
+    <p id="login-error" style="color: red; display: none;">Username atau password salah!</p>
     
+  </div>
+</div>
 
+<!-- Daftar Admin -->
 <!-- Modal Validasi Admin -->
+<div id="modalAdminDaftar" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Masukkan Password Admin</h3>
+    <label>Password Admin: <input type="password" id="adminPasswordInputDaftar"></label>
+    <p id="adminErrorDaftar" style="color:red;"></p>
+    <button onclick="cekPasswordAdminDaftar()">Submit</button>
+    <button onclick="tutupModal('modalAdminDaftar')">Close</button>
+  </div>
+</div>
+
+<!-- Modal Form Daftar Admin -->
+<div id="modalDaftarAdmin" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Daftar Admin</h3>
+
+    <label>Username: <input type="text" id="usernameAdmin"></label><br>
+    <label>Password: <input type="password" id="passwordAdmin"></label><br>
+    <label><input type="checkbox" onclick="toggleLihatPasswordAdmin()"> Lihat Password</label><br><br>
+
+    <button onclick="buatAdminBaru()">Create Admin</button>
+    <button onclick="tutupModal('modalDaftarAdmin')">Close</button>
+
+    <p id="daftarAdminError" style="color:red;"></p>
+    <p id="daftarAdminSuccess" style="color:green;"></p>
+  </div>
+</div>
+
+
+
+	<!-- Daftar User Kelas -->
 <div id="modalAdmin" class="modal" style="display:none;">
   <div class="modal-content">
     <h3>Masukkan Password Admin</h3>
@@ -426,27 +453,30 @@ button.lihat-quran-btn:hover::after {
 </div>
 
 
-    <!-- Overlay Ganti Password -->
-<div id="change-password-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-  <div style="background:#fff; padding:20px; border-radius:8px; width:300px; position:relative;">
-    <h3 style="margin-top:0;">Ganti Password</h3>
-    <input type="text" id="change-username" placeholder="Username" required style="width:80%; margin-bottom:8px;" />
-    <input type="password" id="old-password" placeholder="Password Lama" required style="width:80%; margin-bottom:8px;" />
-<input type="password" id="new-password" placeholder="Password Baru" required style="width:80%; margin-bottom:8px;" />
-
-<label style="display:block; margin-bottom:10px;">
-  <input type="checkbox" onclick="togglePasswordVisibility()"> Lihat Password
-</label>
-    <button id="save-password-btn" type="button" onclick="submitPasswordChange()" style="width:90%;">Simpan</button>
-    <p id="change-password-msg" style="color:red; margin-top:10px;"></p>
-    <button onclick="toggleChangePassword()" style="position:absolute; top:5px; right:10px;">✖</button>
+	<!-- Tambah Kelas -->
+    <div id="modalTambahKelasPassword" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Verifikasi Admin</h3>
+    <label>Password Admin: <input type="password" id="inputPasswordTambahKelas"></label>
+    <p id="statusPasswordTambahKelas" style="color:red;"></p>
+    <button onclick="verifikasiAdminTambahKelas()">Submit</button>
+    <button onclick="tutupModal('modalTambahKelasPassword')">Close</button>
   </div>
 </div>
 
-    <p id="login-error" style="color: red; display: none;">Username atau password salah!</p>
-    
+
+    <div id="modalFormTambahKelas" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Tambah Kelas Baru</h3>
+    <p>Kelas yang sudah ada:</p>
+    <ul id="listKelasTersedia"></ul>
+    <input type="number" id="inputNomorKelasBaruTambah" placeholder="Contoh: 7" />
+    <button onclick="submitTambahKelasBaru()">Buat</button>
+    <button onclick="tutupModal('modalFormTambahKelas')">Close</button>
+    <p id="statusTambahKelasBaru" style="color:red;"></p>
   </div>
 </div>
+
   
     <!-- Dashboard -->
     <div id="dashboard-card" class="card" style="display: none;">
@@ -1789,67 +1819,99 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
   </script>
 
-  <script>
-  function togglePassword() {
-    const passwordInput = document.getElementById("password");
-    passwordInput.type = passwordInput.type === "password" ? "text" : "password";
+<script>
+function munculkanModalDaftarAdmin() {
+  document.getElementById("modalAdminDaftar").style.display = "flex";
+}
+
+// Toggle password
+function toggleLihatPasswordAdmin() {
+  const input = document.getElementById("passwordAdmin");
+  input.type = input.type === "password" ? "text" : "password";
+}
+
+// Validasi password admin
+async function cekPasswordAdminDaftar() {
+  const password = document.getElementById("adminPasswordInputDaftar").value.trim();
+  const errorEl = document.getElementById("adminErrorDaftar");
+  errorEl.textContent = "";
+
+  if (!password) {
+    errorEl.textContent = "Password admin wajib diisi.";
+    return;
   }
 
-  async function daftar() {
-    const adminPassword = prompt("Masukkan password admin:");
-    if (!adminPassword) {
-      alert("Password admin wajib diisi.");
+  try {
+    const res = await fetch("/.netlify/functions/cek-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.message || "Password admin salah.";
       return;
     }
 
-    try {
-      const cekRes = await fetch("/.netlify/functions/cek-admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: adminPassword }),
-      });
+    // Sembunyikan modal validasi dan tampilkan modal daftar admin
+    tutupModal("modalAdminDaftar");
+    document.getElementById("modalDaftarAdmin").style.display = "flex";
 
-      const cekData = await cekRes.json();
+  } catch (err) {
+    console.error(err);
+    errorEl.textContent = "Terjadi kesalahan saat menghubungi server.";
+  }
+}
 
-      if (!cekRes.ok) {
-        alert(cekData.message || "Password admin salah.");
-        return;
-      }
+// Fungsi membuat admin baru
+async function buatAdminBaru() {
+  const username = document.getElementById("usernameAdmin").value.trim();
+  const password = document.getElementById("passwordAdmin").value;
+  const errorEl = document.getElementById("daftarAdminError");
+  const successEl = document.getElementById("daftarAdminSuccess");
 
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value;
+  errorEl.textContent = "";
+  successEl.textContent = "";
 
-      if (!username || !password) {
-        alert("Username dan password wajib diisi.");
-        return;
-      }
-
-      const konfirmasi = confirm(`Yakin ingin mendaftar user baru: ${username}?`);
-      if (!konfirmasi) return;
-
-      const res = await fetch("/.netlify/functions/daftar-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const hasil = await res.json();
-
-      if (res.ok) {
-        alert("🎉 Pendaftaran berhasil!\nSilakan login.");
-        document.getElementById("username").value = "";
-        document.getElementById("password").value = "";
-      } else {
-        alert("⚠️ " + (hasil.message || "Gagal mendaftar."));
-      }
-
-    } catch (err) {
-      console.error(err);
-      alert("Terjadi kesalahan saat menghubungi server.");
-    }
+  if (!username || !password) {
+    errorEl.textContent = "Username dan password wajib diisi.";
+    return;
   }
 
+  const konfirmasi = confirm(`Yakin ingin mendaftar admin baru: ${username}?`);
+  if (!konfirmasi) return;
 
+  try {
+    const res = await fetch("/.netlify/functions/daftar-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, role: "admin" }),
+    });
+
+    const hasil = await res.json();
+
+    if (res.ok) {
+      successEl.textContent = "🎉 Pendaftaran berhasil! Silakan login.";
+      document.getElementById("usernameAdmin").value = "";
+      document.getElementById("passwordAdmin").value = "";
+    } else {
+      errorEl.textContent = hasil.message || "Gagal mendaftar.";
+    }
+
+  } catch (err) {
+    console.error(err);
+    errorEl.textContent = "Terjadi kesalahan saat menghubungi server.";
+  }
+}
+
+// Fungsi tutup modal
+function tutupModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+</script>
+
+<script>
   function toggleChangePassword() {
     const overlay = document.getElementById("change-password-overlay");
     overlay.style.display = overlay.style.display === "flex" ? "none" : "flex";
