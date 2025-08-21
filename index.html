@@ -2195,34 +2195,9 @@ async function submitTambahKelasBaru() {
 <script>
 let quranData = {};
 let ayahPageMap = {};
-let allMarkData = {};   // simpan semua santri
-let markData = {};      // simpan 1 santri aktif
+let allMarkData = {};   // semua santri disimpan di sini
 let currentIdSiswa = null;
 let recordingsList = document.getElementById("recordingsList");
-
-// ======================
-// STORAGE
-// ======================
-function getStorageKey() {
-  const kelas = document.getElementById('kelas')?.value || 'default';
-  const tanggal = document.getElementById('tanggal')?.value || 'default';
-  return `marks_${kelas}_${tanggal}`;
-}
-
-function simpanKeStorage() {
-  const key = getStorageKey();
-  localStorage.setItem(key, JSON.stringify(allMarkData));
-}
-
-function ambilDariStorage() {
-  const key = getStorageKey();
-  const saved = localStorage.getItem(key);
-  if (saved) {
-    allMarkData = JSON.parse(saved);
-    return true;
-  }
-  return false;
-}
 
 // ======================
 // AMBIL DATA MARKS + AUDIO DARI NETLIFY FUNCTION
@@ -2270,14 +2245,49 @@ function getMimeType(filename) {
 }
 
 // ======================
+// STORAGE
+// ======================
+function getStorageKey() {
+  const kelas = document.getElementById('kelas')?.value || 'default';
+  const tanggal = document.getElementById('tanggal')?.value || 'default';
+  return `marks_${kelas}_${tanggal}`;
+}
+
+function simpanKeStorage() {
+  const key = getStorageKey();
+  localStorage.setItem(key, JSON.stringify(allMarkData));
+}
+
+function ambilDariStorage() {
+  const key = getStorageKey();
+  const saved = localStorage.getItem(key);
+  if (saved) {
+    allMarkData = JSON.parse(saved);
+    return true;
+  }
+  return false;
+}
+
+function getMarkDataForCurrent() {
+  return allMarkData[currentIdSiswa] || {};
+}
+
+function setMarkDataForCurrent(data) {
+  allMarkData[currentIdSiswa] = data;
+  simpanKeStorage();
+}
+
+// ======================
 // HITUNG NILAI
 // ======================
 function hitungNilai() {
+  const markData = getMarkDataForCurrent();
   let totalMinus = 0;
   let hijau = 0, kuning = 0, merah = 0;
   let adaMark = false;
 
   for (let ayat in markData) {
+    if (ayat === "audio") continue; // skip audio
     for (let idx in markData[ayat]) {
       const mark = markData[ayat][idx];
       if (!mark) continue;
@@ -2311,13 +2321,9 @@ function hitungNilai() {
     predikat = `${p.text} ${bgHuruf(p.huruf)}`;
   }
 
-  const nilaiEl = document.getElementById("nilai-akhir");
-  const predikatEl = document.getElementById("predikat-akhir");
-  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
-  if (predikatEl) predikatEl.innerHTML = predikat;
-
-  const warnaDiv = document.getElementById("modal-mark-warna");
-  if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
+  document.getElementById("nilai-akhir").innerText = nilai.toFixed(1);
+  document.getElementById("predikat-akhir").innerHTML = predikat;
+  document.getElementById("modal-mark-warna").innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
 
   return { nilai, predikat, hijau, kuning, merah };
 }
@@ -2338,19 +2344,16 @@ function updateNilaiDiTabel({ nilai, predikat }) {
         <div><strong>${nilai.toFixed(1)}</strong> ${predikat}</div>
         <button class="lihat-quran-btn">Lembar Penilaian</button>
       `;
-      row.markData = JSON.parse(JSON.stringify(markData));
     }
   }
-
-  // update ke allMarkData + storage
-  allMarkData[currentIdSiswa] = markData;
-  simpanKeStorage();
 }
 
 // ======================
 // BUAT KATA KLIK
 // ======================
 function buatKataKlik(surah, ayat, teks) {
+  const markData = getMarkDataForCurrent();
+
   return teks.split(" ").map((kata, idx) => {
     const span = document.createElement("span");
     span.innerText = kata + " ";
@@ -2359,7 +2362,7 @@ function buatKataKlik(surah, ayat, teks) {
     span.dataset.idx = idx;
 
     span.onclick = () => {
-      const warnaSekarang = markData[surah+":"+ayat]?.[idx] || null;
+      let warnaSekarang = markData[surah+":"+ayat]?.[idx] || null;
       let warnaBaru = null;
       if (warnaSekarang === null) warnaBaru = "green";
       else if (warnaSekarang === "green") warnaBaru = "yellow";
@@ -2372,6 +2375,7 @@ function buatKataKlik(surah, ayat, teks) {
 
       span.style.backgroundColor = warnaBaru || "";
 
+      setMarkDataForCurrent(markData);
       const hasil = hitungNilai();
       updateNilaiDiTabel(hasil);
     };
@@ -2389,11 +2393,11 @@ function buatKataKlik(surah, ayat, teks) {
 // ======================
 let dataSiap = Promise.all([
   fetch('https://raw.githubusercontent.com/dickymiswardi/mtq/refs/heads/main/symbol1.json')
-    .then(res => { if (!res.ok) throw new Error("Gagal fetch symbol1.json"); return res.json(); })
+    .then(res => res.json())
     .then(data => { quranData = data; }),
 
   fetch('https://raw.githubusercontent.com/dickymiswardi/tadabbur/refs/heads/main/ayah_page_map.json')
-    .then(res => { if (!res.ok) throw new Error("Gagal fetch ayah_page_map.json"); return res.json(); })
+    .then(res => res.json())
     .then(data => { ayahPageMap = data; })
 ])
 .then(() => console.log("✅ Data Quran siap dipakai"))
@@ -2411,26 +2415,18 @@ document.addEventListener('click', async function(e) {
     currentIdSiswa = parseInt(row.cells[0].innerText.trim());
 
     const namaSantri = row.cells[1].innerText.trim();
-    const namaSpan = document.getElementById('modal-nama-santri');
-    if (namaSpan) namaSpan.innerText = namaSantri;
+    document.getElementById('modal-nama-santri').innerText = namaSantri;
 
     const kelas = document.getElementById('kelas')?.value || 'default';
     const tanggal = document.getElementById('tanggal')?.value || 'default';
 
-    // Pastikan ambil semua data dulu dari storage
-    ambilDariStorage();
-
-    // Ambil markData untuk santri ini
-    if (allMarkData[currentIdSiswa]) {
-      markData = allMarkData[currentIdSiswa];
-    } else {
-      markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
-      allMarkData[currentIdSiswa] = markData;
+    ambilDariStorage(); // load semua santri dulu
+    if (!allMarkData[currentIdSiswa]) {
+      allMarkData[currentIdSiswa] = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
       simpanKeStorage();
     }
 
-    tampilkanAudioDariMarks(markData);
-
+    tampilkanAudioDariMarks(getMarkDataForCurrent());
     await dataSiap;
 
     const surahDari = parseInt(row.querySelector('.surah-dari').value);
@@ -2507,17 +2503,17 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
   else predikat = "MUMTAZ (A)";
 
-  markData = {}; // reset mark
-  allMarkData[currentIdSiswa] = markData;
+  allMarkData[currentIdSiswa] = {}; // reset mark untuk siswa ini
 
   document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
   document.getElementById("predikat-akhir").innerText = predikat;
   document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
 
   updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
-  simpanKeStorage();   // simpan nilai manual
+  simpanKeStorage();
 };
 </script>
+
 
 
 
