@@ -1,130 +1,78 @@
+// netlify/functions/hapusSantri.js
 import fetch from "node-fetch";
 
 export async function handler(event) {
-  console.log("=== HAPUS SANTRI START ===");
-
-  const token = process.env.MTQ_TOKEN;
-  if (!token) {
-    console.error("❌ MTQ_TOKEN tidak tersedia di environment!");
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Server config error: MTQ_TOKEN missing" }),
-    };
-  }
-
   if (event.httpMethod !== "POST") {
-    console.warn("❌ Method salah:", event.httpMethod);
     return {
       statusCode: 405,
-      body: JSON.stringify({ error: "Gunakan POST method" }),
+      body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
 
-  let body;
-  try {
-    body = JSON.parse(event.body);
-    console.log("📩 Request body:", body);
-  } catch (err) {
-    console.error("❌ Gagal parse body:", err.message);
+  const token = process.env.MTQ_TOKEN; // token GitHub disimpan di environment variable
+  const { id, kelas } = JSON.parse(event.body);
+
+  if (!id || !kelas) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "Body harus JSON valid" }),
+      body: JSON.stringify({ error: "Parameter 'id' dan 'kelas' wajib diisi" }),
     };
   }
 
-  const { kelas, id, nis } = body;
-  if (!kelas) {
-    console.warn("❌ Param kelas kosong");
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Parameter 'kelas' wajib diisi" }),
-    };
-  }
-  if (!id && !nis) {
-    console.warn("❌ Param id/nis kosong");
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Harus ada 'id' atau 'nis'" }),
-    };
-  }
-
-  const repoOwner = "digitalmtq";
-  const repoName = "server";
-  const filePath = `kelas_${kelas}.json`;
-  const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`;
+  const repo = "digiitalmtq/server";
+  const path = `absensi/kelas_${kelas}.json`;
 
   try {
-    // Ambil file existing dari GitHub
-    console.log("🔗 GET:", apiUrl);
-    const res = await fetch(apiUrl, {
+    // Ambil file kelas di GitHub
+    const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
       headers: { Authorization: `token ${token}` },
     });
+
     if (!res.ok) {
-      const text = await res.text();
-      console.error("❌ Gagal ambil file:", res.status, text);
-      return {
-        statusCode: res.status,
-        body: JSON.stringify({ error: "Gagal ambil data GitHub" }),
-      };
-    }
-    const fileData = await res.json();
-    const sha = fileData.sha;
-    const content = JSON.parse(
-      Buffer.from(fileData.content, "base64").toString("utf-8")
-    );
-
-    console.log("📦 Data santri awal:", content);
-
-    // Filter data
-    let newData;
-    if (id) {
-      newData = content.filter((s) => String(s.id) !== String(id));
-      console.log(`🗑 Filter by id=${id}`);
-    } else if (nis) {
-      newData = content.filter((s) => String(s.nis) !== String(nis));
-      console.log(`🗑 Filter by nis=${nis}`);
+      throw new Error(`Gagal ambil file kelas_${kelas}.json`);
     }
 
-    if (newData.length === content.length) {
-      console.warn("⚠ Tidak ada data yang dihapus");
+    const file = await res.json();
+    const content = Buffer.from(file.content, "base64").toString("utf8");
+    const data = JSON.parse(content);
+
+    // Hapus berdasarkan id
+    const newData = data.filter((s) => s.id !== id);
+
+    if (newData.length === data.length) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: "Santri tidak ditemukan" }),
+        body: JSON.stringify({ error: `Santri dengan id ${id} tidak ditemukan` }),
       };
     }
 
-    console.log("✅ Data setelah hapus:", newData);
-
     // Update file di GitHub
-    const updateRes = await fetch(apiUrl, {
+    const updatedContent = Buffer.from(
+      JSON.stringify(newData, null, 2)
+    ).toString("base64");
+
+    const updateRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
       method: "PUT",
       headers: {
         Authorization: `token ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: `Hapus santri ${id ? `id=${id}` : `nis=${nis}`}`,
-        content: Buffer.from(JSON.stringify(newData, null, 2)).toString("base64"),
-        sha: sha,
+        message: `Hapus santri id=${id} dari kelas ${kelas}`,
+        content: updatedContent,
+        sha: file.sha,
       }),
     });
 
     if (!updateRes.ok) {
-      const text = await updateRes.text();
-      console.error("❌ Gagal update file:", updateRes.status, text);
-      return {
-        statusCode: updateRes.status,
-        body: JSON.stringify({ error: "Gagal update file GitHub" }),
-      };
+      throw new Error("Gagal update file kelas di GitHub");
     }
 
-    console.log("✅ Update sukses");
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Santri berhasil dihapus" }),
+      body: JSON.stringify({ success: true }),
     };
   } catch (err) {
-    console.error("❌ Error di try-catch:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: err.message }),
