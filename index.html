@@ -330,7 +330,7 @@ button.lihat-quran-btn:hover::after {
         <button type="button" onclick="toggleChangePassword()">Ganti Password</button>
         <button type="button" id="daftar-btn" onclick="daftar()">Daftar Admin</button>
         <button type="button" onclick="munculkanValidasiAdmin()">Daftar User Kelas</button>
-		<button type="button" onclick="bukaModalUserNIS()">Buat User NIS</button>
+		<button type="button" onclick="munculkanValidasiAdminNIS()">Daftar User NIS</button>
         <button type="button" onclick="bukaModalTambahKelas()">Tambah Kelas</button>
       </div>
     </form>
@@ -387,6 +387,43 @@ button.lihat-quran-btn:hover::after {
     <button onclick="tutupModal('modalDaftar')">Close</button>
     <p id="daftarError" style="color:red;"></p>
     <p id="daftarSuccess" style="color:green;"></p>
+  </div>
+</div>
+
+
+
+<!-- Modal Validasi Admin -->
+<div id="modalAdminNIS" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Validasi Admin</h3>
+    <label>Password Admin: <input type="password" id="adminPasswordNIS"></label><br>
+    <p id="adminErrorNIS" style="color:red;"></p>
+    <button onclick="cekPasswordAdminNIS()">Submit</button>
+    <button onclick="tutupModal('modalAdminNIS')">Close</button>
+  </div>
+</div>
+
+<!-- Modal Daftar User NIS -->
+<div id="modalDaftarNIS" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Daftar User NIS</h3>
+    <label>Username: <input type="text" id="newUsernameNIS"></label><br>
+    <label>Password: <input type="password" id="newPasswordNIS"></label><br>
+    <label><input type="checkbox" onclick="toggleLihatPasswordNIS()"> Lihat Password</label><br><br>
+    <label>Kelas: 
+      <select id="kelasSelectNIS" onchange="tampilkanNIS()">
+        <option>Memuat...</option>
+      </select>
+    </label><br><br>
+    <label>NIS Santri: 
+      <select id="nisSelectNIS">
+        <option>Memuat...</option>
+      </select>
+    </label><br><br>
+    <button onclick="buatUserNIS()">Create User NIS</button>
+    <button onclick="tutupModal('modalDaftarNIS')">Close</button>
+    <p id="daftarErrorNIS" style="color:red;"></p>
+    <p id="daftarSuccessNIS" style="color:green;"></p>
   </div>
 </div>
 
@@ -1975,6 +2012,116 @@ async function ambilDaftarKelas() {
 }
   </script>
 
+
+<script>
+// ==== Modal & toggle password ====
+function munculkanValidasiAdminNIS() {
+  document.getElementById('modalAdminNIS').style.display = 'flex';
+  document.getElementById('adminPasswordNIS').value = '';
+  document.getElementById('adminErrorNIS').textContent = '';
+}
+
+function toggleLihatPasswordNIS() {
+  const pwField = document.getElementById('newPasswordNIS');
+  pwField.type = pwField.type === 'password' ? 'text' : 'password';
+}
+
+function tutupModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+// ==== Validasi admin ====
+let adminPasswordGlobalNIS = "";
+async function cekPasswordAdminNIS() {
+  const pw = document.getElementById('adminPasswordNIS').value;
+  if (!pw) return document.getElementById('adminErrorNIS').textContent = "Password wajib diisi.";
+
+  const res = await fetch('/.netlify/functions/cek-admin', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ password: pw })
+  });
+  const result = await res.json();
+  if (res.status === 200) {
+    adminPasswordGlobalNIS = pw;
+    tutupModal('modalAdminNIS');
+    bukaModalDaftarNIS();
+  } else {
+    document.getElementById('adminErrorNIS').textContent = result.message || "Gagal validasi.";
+  }
+}
+
+// ==== Buka modal daftar NIS ====
+async function bukaModalDaftarNIS() {
+  document.getElementById('modalDaftarNIS').style.display = 'flex';
+  document.getElementById('daftarErrorNIS').textContent = '';
+  document.getElementById('daftarSuccessNIS').textContent = '';
+
+  // Load daftar kelas
+  const res = await fetch('/.netlify/functions/ambil-kelas-nis');
+  const kelasData = await res.json();
+
+  const kelasSelect = document.getElementById('kelasSelectNIS');
+  kelasSelect.innerHTML = '';
+  kelasData.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k.kelas;
+    opt.textContent = k.kelas;
+    kelasSelect.appendChild(opt);
+  });
+
+  tampilkanNIS(); // Load NIS default kelas pertama
+}
+
+// ==== Tampilkan NIS per kelas ====
+async function tampilkanNIS() {
+  const kelas = document.getElementById('kelasSelectNIS').value;
+  const res = await fetch('/.netlify/functions/ambil-kelas-nis');
+  const kelasData = await res.json();
+  const nisSelect = document.getElementById('nisSelectNIS');
+  nisSelect.innerHTML = '';
+
+  const santri = kelasData.find(k => k.kelas === kelas)?.santri || [];
+  santri.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.nis;
+    opt.textContent = `${s.nis} - ${s.nama}`;
+    nisSelect.appendChild(opt);
+  });
+}
+
+// ==== Submit user NIS ====
+async function buatUserNIS() {
+  const username = document.getElementById('newUsernameNIS').value;
+  const password = document.getElementById('newPasswordNIS').value;
+  const nis = document.getElementById('nisSelectNIS').value;
+
+  if (!username || !password || !nis) {
+    return document.getElementById('daftarErrorNIS').textContent = "Semua field wajib diisi!";
+  }
+
+  try {
+    const res = await fetch('/.netlify/functions/daftar-nis', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ username, password, nis, adminPassword: adminPasswordGlobalNIS })
+    });
+    const result = await res.json();
+    if (res.status === 200) {
+      document.getElementById('daftarSuccessNIS').textContent = result.message;
+      document.getElementById('daftarErrorNIS').textContent = '';
+    } else {
+      document.getElementById('daftarErrorNIS').textContent = result.message || 'Gagal membuat user.';
+      document.getElementById('daftarSuccessNIS').textContent = '';
+    }
+  } catch (err) {
+    document.getElementById('daftarErrorNIS').textContent = err.message;
+  }
+}
+</script>
+
+	
+
   <script>
 async function buatAkunBaru() {
   const username = document.getElementById("newUsername").value.trim();
@@ -2662,172 +2809,6 @@ function renderTabelPredikat() {
     if (!cell) return;
     cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
   });
-}
-</script>
-
-
-
-
-
-
-
-
-<!-- Modal untuk buat user NIS -->
-<div id="modalUserNIS" class="modal" style="display:none;">
-  <div class="modal-content">
-    <h2>Buat User NIS</h2>
-    <label>NIS Santri:</label>
-    <input type="text" id="nisUser" placeholder="Masukkan NIS santri" />
-    <label>Username:</label>
-    <input type="text" id="usernameUser" placeholder="Username login" />
-    <label>Password:</label>
-    <input type="password" id="passwordUser" placeholder="Password login" />
-    <div class="modal-actions">
-      <button onclick="simpanUserNIS()">Simpan</button>
-      <button onclick="tutupModalUserNIS()">Batal</button>
-    </div>
-  </div>
-</div>
-
-<script>
-// =====================
-// FUNGSI MODAL USER NIS
-// =====================
-function bukaModalUserNIS() {
-  document.getElementById("modalUserNIS").style.display = "flex";
-}
-function tutupModalUserNIS() {
-  document.getElementById("modalUserNIS").style.display = "none";
-}
-
-// Simpan user NIS ke localStorage sementara (atau bisa diganti ke Netlify Function)
-function simpanUserNIS() {
-  const nis = document.getElementById("nisUser").value.trim();
-  const username = document.getElementById("usernameUser").value.trim();
-  const password = document.getElementById("passwordUser").value.trim();
-
-  if (!nis || !username || !password) {
-    alert("Semua kolom wajib diisi!");
-    return;
-  }
-
-  // Ambil data user khusus dari localStorage
-  let userNISList = JSON.parse(localStorage.getItem("userNISList") || "[]");
-
-  // Cek duplikasi
-  if (userNISList.find(u => u.username === username)) {
-    alert("Username sudah ada!");
-    return;
-  }
-
-  userNISList.push({ nis, username, password });
-  localStorage.setItem("userNISList", JSON.stringify(userNISList));
-  alert("User NIS berhasil dibuat!");
-  tutupModalUserNIS();
-}
-
-// =====================
-// LOGIN KHUSUS USER NIS
-// =====================
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
-
-  overlay.style.display = "flex";
-
-  try {
-    // Ambil user khusus NIS
-    const userNISList = JSON.parse(localStorage.getItem("userNISList") || "[]");
-    const userNIS = userNISList.find(u => u.username === username && u.password === password);
-    if (userNIS) {
-      // login sebagai NIS
-      localStorage.setItem("isLoggedIn", true);
-      localStorage.setItem("username", username);
-      localStorage.setItem("nisLogin", userNIS.nis);
-      namaUserSpan.textContent = username;
-
-      aturDropdownKelas(null); // optional, NIS hanya bisa 1 santri
-      showDashboard();
-      loadSantriData(); // load data terbatas NIS
-      overlay.style.display = "none";
-      return;
-    }
-
-    // Login admin biasa
-    const res = await fetch("/.netlify/functions/getUsers");
-    const users = await res.json();
-    const user = users.find(u => u.username === username && u.password === password);
-
-    if (user) {
-      localStorage.setItem("isLoggedIn", true);
-      localStorage.setItem("username", username);
-      localStorage.setItem("kelasDiizinkan", JSON.stringify(user.kelas || []));
-      namaUserSpan.textContent = username;
-
-      aturDropdownKelas(user);
-      showDashboard();
-      loadSantriData();
-    } else {
-      loginError.style.display = "block";
-    }
-  } catch (err) {
-    loginError.textContent = "Gagal memuat data user!";
-    loginError.style.display = "block";
-    console.error(err);
-  }
-
-  overlay.style.display = "none";
-});
-
-// =====================
-// MODIFIKASI loadSantriData untuk user NIS
-// =====================
-async function loadSantriData() {
-  const kelas = kelasSelect.value;
-  const tanggal = tanggalInput.value;
-  overlay.style.display = "flex";
-
-  try {
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
-    const santriData = await resSantri.json();
-
-    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
-    const absensiData = await resAbsensi.json();
-
-    santriTableBody.innerHTML = "";
-
-    const nisLogin = localStorage.getItem("nisLogin");
-    const dataToRender = nisLogin ? santriData.filter(s => s.nis === nisLogin || s.id == nisLogin) : santriData;
-
-    dataToRender.forEach((santri, i) => {
-      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
-      const row = document.createElement("tr");
-
-      row.innerHTML = `
-        <td>${santri.id}</td>
-        <td>${santri.nama}</td>
-        <td>${dataAbsensi.absensi || '-'}</td>
-        <td>${dataAbsensi.dari || '-'}</td>
-        <td>${dataAbsensi.sampai || '-'}</td>
-        <td>${dataAbsensi.page || '-'}</td>
-        <td>${dataAbsensi.totalHalaman || '-'}</td>
-        <td>${dataAbsensi.juzTerbaca || '-'}</td>
-        <td>${dataAbsensi.totalJuz ?? 0}</td>
-        <td>${santri.semester}</td>
-        <td>${dataAbsensi.nilai || '-'}</td>
-        <td></td>
-      `;
-
-      santriTableBody.appendChild(row);
-    });
-
-  } catch (err) {
-    console.error(err);
-    alert("Gagal memuat data santri / absensi!");
-  }
-
-  overlay.style.display = "none";
 }
 </script>
 	
