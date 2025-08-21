@@ -2245,20 +2245,6 @@ function getMimeType(filename) {
   return 'audio/wav';
 }
 
-// ======================
-// STORAGE
-// ======================
-function getStorageKey() {
-  const kelas = document.getElementById('kelas')?.value || 'default';
-  const tanggal = document.getElementById('tanggal')?.value || 'default';
-  return `marks_${kelas}_${tanggal}_${currentIdSiswa}`;
-}
-
-function simpanKeStorage() {
-  if (!currentIdSiswa) return;
-  const key = getStorageKey();
-  localStorage.setItem(key, JSON.stringify(markData));
-}
 
 // ======================
 // AMBIL MARK DARI SERVER
