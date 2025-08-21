@@ -491,6 +491,11 @@ button.lihat-quran-btn:hover::after {
 
     <label for="tanggal">Tanggal:</label>
     <input type="date" id="tanggal" />
+
+<label>Dari: <input type="date" id="tanggalDari"></label>
+<label>Sampai: <input type="date" id="tanggalSampai"></label>
+<button type="button" onclick="loadSantriDataRange()">Tampilkan Rentang</button>
+	  
   </div>
 </div>
 
@@ -1049,140 +1054,150 @@ function aturDropdownKelas(user) {
       }, 500);
     });
 
-    async function loadSantriData() { 
+    async function loadSantriDataRange() {
   const kelas = kelasSelect.value;
-  const tanggal = tanggalInput.value;
+  const tanggalDari = document.getElementById("tanggalDari").value;
+  const tanggalSampai = document.getElementById("tanggalSampai").value;
   overlay.style.display = "flex";
+
+  if (!tanggalDari || !tanggalSampai) {
+    alert("Silakan pilih tanggal dari dan sampai!");
+    overlay.style.display = "none";
+    return;
+  }
 
   try {
     // Ambil semua santri di kelas
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+    let resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
     let santriData = await resSantri.json();
 
-    // Ambil data absensi
-    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
-    const absensiData = await resAbsensi.json();
-
-    // Ambil username user login
+    // Ambil user login & hak akses
     const username = localStorage.getItem("username");
-
-    // Ambil semua user dan temukan user login
     const users = await fetch(`/.netlify/functions/getUsers`).then(r => r.json());
     const user = users.find(u => u.username === username);
 
     // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
     if (user) {
-      // Superuser: tidak ada properti kelas → akses semua
+      // Superuser: akses semua kelas/NIS
       if (user.kelas && user.kelas.length) {
-        // Batasi ke kelas yang diizinkan
         if (!user.kelas.includes(kelas)) {
           santriData = []; // kelas tidak diizinkan
         } else if (user.nis && user.nis.length) {
-          // Batasi NIS hanya yang diizinkan
           santriData = santriData.filter(s => user.nis.includes(s.nis));
         }
       }
     } else {
-      // user tidak ditemukan → kosongkan tabel
-      santriData = [];
+      santriData = []; // user tidak ditemukan
     }
     // ===== END FILTER =====
 
+    // Ambil data absensi rentang tanggal
+    const resAbsensi = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${kelas}&from=${tanggalDari}&to=${tanggalSampai}`);
+    const absensiRange = await resAbsensi.json(); 
+    // format: [{tanggal, data:[{id, absensi, dari, sampai, halaman, totalHalaman, juzTerbaca, totalJuz, buttonCell}]}]
+
     santriTableBody.innerHTML = "";
 
-    santriData.forEach((santri, i) => {
-      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
-      const row = document.createElement("tr");
+    absensiRange.forEach(absensiPerHari => {
+      const tanggal = absensiPerHari.tanggal;
 
-      const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
-      const dari = (dataAbsensi.dari || "1:1").split(":");
-      const sampai = (dataAbsensi.sampai || "1:1").split(":");
+      santriData.forEach(santri => {
+        const dataAbsensi = absensiPerHari.data.find(a => a.id === santri.id) || {};
+        const row = document.createElement("tr");
 
-      row.innerHTML = `
-        <td>${santri.id || santri.id}</td>
-        <td>${santri.nama}</td>
-        <td>
-          <select class="absensi">
-            <option value="Hadir" ${dataAbsensi.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
-            <option value="Alpha" ${dataAbsensi.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
-            <option value="Sakit" ${dataAbsensi.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
-            <option value="Izin" ${dataAbsensi.absensi === "Izin" ? "selected" : ""}>Izin</option>
-          </select>
-        </td>
-        <td>
-          <select class="surah-dari">${surahOptions}</select>
-          <select class="ayat-dari"></select>
-        </td>
-        <td>
-          <select class="surah-sampai">${surahOptions}</select>
-          <select class="ayat-sampai"></select>
-        </td>
-        <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
-        <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
-        <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
-        <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
-        <td>
-          <select class="semester">
-            <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
-            <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
-            <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
-            <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
-            <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
-            <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
-          </select>
-        </td>
-        <td>
-          <div class="nilai-ringkas">
-            ${dataAbsensi.buttonCell 
-               ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
-               : ''}
-          </div>
-          <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-        </td>
-        <td class="total-all-juz">
-          <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
-        </td>
-      `;
-      santriTableBody.appendChild(row);
+        const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
+        const dari = (dataAbsensi.dari || "1:1").split(":");
+        const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
-      document.querySelectorAll("td.total-all-juz").forEach(td => {
-        if (td.textContent.trim() === "0") {
-          td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
-        }
-      });
+        row.innerHTML = `
+          <td>${santri.id}</td>
+          <td>${santri.nama}</td>
+          <td>${tanggal}</td>
+          <td>
+            <select class="absensi">
+              <option value="Hadir" ${dataAbsensi.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
+              <option value="Alpha" ${dataAbsensi.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
+              <option value="Sakit" ${dataAbsensi.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
+              <option value="Izin" ${dataAbsensi.absensi === "Izin" ? "selected" : ""}>Izin</option>
+            </select>
+          </td>
+          <td>
+            <select class="surah-dari">${surahOptions}</select>
+            <select class="ayat-dari"></select>
+          </td>
+          <td>
+            <select class="surah-sampai">${surahOptions}</select>
+            <select class="ayat-sampai"></select>
+          </td>
+          <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
+          <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
+          <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
+          <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
+          <td>
+            <select class="semester">
+              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
+              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
+              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
+              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
+              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
+              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
+            </select>
+          </td>
+          <td>
+            <div class="nilai-ringkas">
+              ${dataAbsensi.buttonCell 
+                 ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+                 : ''}
+            </div>
+            <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+          </td>
+          <td class="total-all-juz">
+            <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
+          </td>
+        `;
+        santriTableBody.appendChild(row);
 
-      // Set surah & ayat dropdown
-      const surahDari = row.querySelector(".surah-dari");
-      const ayatDari = row.querySelector(".ayat-dari");
-      const surahSampai = row.querySelector(".surah-sampai");
-      const ayatSampai = row.querySelector(".ayat-sampai");
+        // update gambar progress jika 0
+        document.querySelectorAll("td.total-all-juz").forEach(td => {
+          if (td.textContent.trim() === "0") {
+            td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
+          }
+        });
 
-      surahDari.value = dari[0];
-      surahSampai.value = sampai[0];
+        // set surah & ayat dropdown
+        const surahDari = row.querySelector(".surah-dari");
+        const ayatDari = row.querySelector(".ayat-dari");
+        const surahSampai = row.querySelector(".surah-sampai");
+        const ayatSampai = row.querySelector(".ayat-sampai");
 
-      fillAyatOptions(ayatDari, surahDari.value, dari[1]);
-      fillAyatOptions(ayatSampai, surahSampai.value, sampai[1]);
+        surahDari.value = dari[0];
+        surahSampai.value = sampai[0];
 
-      surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
-      surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
+        fillAyatOptions(ayatDari, surahDari.value, dari[1]);
+        fillAyatOptions(ayatSampai, surahSampai.value, sampai[1]);
 
-      // Sinkronisasi otomatis kolom Sampai ketika Dari berubah
-      surahDari.addEventListener("change", () => {
-        surahSampai.value = surahDari.value;
-        fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
-      });
+        surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
+        surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
 
-      ayatDari.addEventListener("change", () => {
-        ayatSampai.value = ayatDari.value;
-      });
+        surahDari.addEventListener("change", () => {
+          surahSampai.value = surahDari.value;
+          fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
+        });
 
-      [ayatDari, ayatSampai, surahDari, surahSampai].forEach(el => {
-        el.addEventListener("change", () => updateTotalJuz(row));
+        ayatDari.addEventListener("change", () => {
+          ayatSampai.value = ayatDari.value;
+        });
+
+        [ayatDari, ayatSampai, surahDari, surahSampai].forEach(el => {
+          el.addEventListener("change", () => updateTotalJuz(row));
+        });
+
       });
     });
+
   } catch (err) {
-    alert("Gagal memuat data santri / absensi!");
     console.error(err);
+    alert("Gagal memuat data santri / absensi rentang tanggal!");
   }
 
   overlay.style.display = "none";
