@@ -20,7 +20,7 @@ export async function handler(event) {
   }
 
   const repo = "digitalmtq/server";
-  const path = `absensi/kelas_${kelas}.json`;
+  const path = `kelas_${kelas}.json`;
 
   try {
     // Ambil file kelas
