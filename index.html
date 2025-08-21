@@ -1206,6 +1206,7 @@ function calculateHalamanTerbaca(halamanList) {
 
   const skipHalaman = [21, 602, 603, 604];
 
+  // Hitung kemunculan tiap halaman
   const halamanCountMap = {};
   for (let h of halamanList) {
     halamanCountMap[h] = (halamanCountMap[h] || 0) + 1;
@@ -1216,41 +1217,39 @@ function calculateHalamanTerbaca(halamanList) {
                              .sort((a, b) => a - b);
 
   const ranges = [];
-  let totalPage = 0; // selalu hitung semua halaman
-  let totalJuz = 0;  // exclude halaman terlarang
+  let totalPage = 0;
+  let totalJuz = 0;
 
-  let start = uniqueHalaman[0];
-  let end = start;
+  let rangeStart = uniqueHalaman[0];
+  let rangeEnd = uniqueHalaman[0];
 
   for (let i = 0; i < uniqueHalaman.length; i++) {
     const h = uniqueHalaman[i];
     const ayatTerbaca = halamanCountMap[h];
     const ayatTotal = jumlahAyatPerHalaman[h] || 1;
 
-    // selalu hitung totalPage (meskipun halaman terlarang)
+    // Total page selalu dihitung
     totalPage += ayatTerbaca / ayatTotal;
 
-    // totalJuz: skip halaman terlarang
-    if (!skipHalaman.includes(h)) {
-      totalJuz += ayatTerbaca / ayatTotal;
-    }
+    // Total juz hanya halaman yang tidak dilarang
+    if (!skipHalaman.includes(h)) totalJuz += ayatTerbaca / ayatTotal;
 
-    if (i > 0) {
-      if (h === end + 1) {
-        end = h;
-      } else {
-        ranges.push(start === end ? `${start}` : `${start}-${end}`);
-        start = end = h;
-      }
+    // Logic range
+    if (h === rangeEnd + 1) {
+      rangeEnd = h;
+    } else {
+      ranges.push(rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`);
+      rangeStart = rangeEnd = h;
     }
   }
 
-  ranges.push(start === end ? `${start}` : `${start}-${end}`);
+  // Push range terakhir
+  ranges.push(rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`);
 
   return { 
-    ranges: ranges.join(", "),   // untuk kolom Page
-    totalPage: totalPage,        // untuk kolom Total Page
-    totalJuz: totalJuz           // untuk kolom Total Juz (skip halaman terlarang)
+    ranges: ranges.join(", "),   // Kolom Page
+    totalPage: totalPage,        // Kolom Total Page
+    totalJuz: totalJuz           // Kolom Total Juz (skip halaman terlarang)
   };
 }
 
