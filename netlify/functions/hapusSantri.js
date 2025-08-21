@@ -23,22 +23,21 @@ export async function handler(event) {
   const path = `kelas_${kelas}.json`;
 
   try {
-    // Ambil file kelas
+    // ambil file
     const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
       headers: { Authorization: `token ${token}` },
     });
 
     if (!res.ok) {
-      throw new Error(`Gagal ambil file kelas_${kelas}.json`);
+      throw new Error(`Gagal ambil file ${path}`);
     }
 
     const file = await res.json();
     const content = Buffer.from(file.content, "base64").toString("utf8");
     const data = JSON.parse(content);
 
-    // Hapus berdasarkan id
+    // filter santri berdasarkan id
     const newData = data.filter((s) => s.id !== id);
-
     if (newData.length === data.length) {
       return {
         statusCode: 404,
@@ -46,7 +45,7 @@ export async function handler(event) {
       };
     }
 
-    // Update file di GitHub
+    // simpan update
     const updatedContent = Buffer.from(
       JSON.stringify(newData, null, 2)
     ).toString("base64");
