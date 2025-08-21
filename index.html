@@ -1216,7 +1216,7 @@ function calculateHalamanTerbaca(halamanList) {
                              .sort((a, b) => a - b);
 
   const ranges = [];
-  let totalPage = 0; // semua halaman (termasuk yang terlarang)
+  let totalPage = 0; // selalu hitung semua halaman
   let totalJuz = 0;  // exclude halaman terlarang
 
   let start = uniqueHalaman[0];
@@ -1227,10 +1227,10 @@ function calculateHalamanTerbaca(halamanList) {
     const ayatTerbaca = halamanCountMap[h];
     const ayatTotal = jumlahAyatPerHalaman[h] || 1;
 
-    // totalPage = selalu tambah semua
+    // selalu hitung totalPage (meskipun halaman terlarang)
     totalPage += ayatTerbaca / ayatTotal;
 
-    // totalJuz = skip halaman terlarang
+    // totalJuz: skip halaman terlarang
     if (!skipHalaman.includes(h)) {
       totalJuz += ayatTerbaca / ayatTotal;
     }
@@ -1248,11 +1248,12 @@ function calculateHalamanTerbaca(halamanList) {
   ranges.push(start === end ? `${start}` : `${start}-${end}`);
 
   return { 
-    ranges: ranges.join(", "), 
-    totalPage: totalPage, 
-    totalJuz: totalJuz 
+    ranges: ranges.join(", "),   // untuk kolom Page
+    totalPage: totalPage,        // untuk kolom Total Page
+    totalJuz: totalJuz           // untuk kolom Total Juz (skip halaman terlarang)
   };
 }
+
 
 
   // Pemakaian di tabel
