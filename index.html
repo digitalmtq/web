@@ -1249,94 +1249,100 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   const rows = santriTableBody.querySelectorAll("tr");
   const data = [];
 
+  async function simpanDataMutabaah(saveBtn) {
   try {
-  saveBtn.disabled = true;
-  saveBtn.textContent = "⏳ Menyimpan...";
+    saveBtn.disabled = true;
+    saveBtn.textContent = "⏳ Menyimpan...";
 
-  // === Loop simpan data ===
-  rows.forEach((row) => {
-    const id = parseInt(row.children[0].textContent);
-    let existing = data.find(d => d.id === id);
+    const rows = santriTableBody.querySelectorAll("tr");
 
-    const nama = row.children[1].textContent;
-    const semester = row.querySelector(".semester").value;
-    const absensi = row.querySelector(".absensi").value;
-    const surahDari = row.querySelector(".surah-dari").value;
-    const ayatDari = row.querySelector(".ayat-dari").value;
-    const surahSampai = row.querySelector(".surah-sampai").value;
-    const ayatSampai = row.querySelector(".ayat-sampai").value;
-    const totalJuz = row.querySelector(".total-juz").textContent;
-    const halaman = row.querySelector(".halaman-terbaca").textContent;
-    const totalHalaman = row.querySelector(".total-halaman").textContent;
-    const juzTerbaca = row.querySelector(".juz-terbaca").textContent;
+    rows.forEach((row) => {
+      try {
+        const id = parseInt(row.children[0].textContent);
+        let existing = data.find(d => d.id === id);
 
-    const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
-    const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText.trim() || "";
+        const nama = row.children[1].textContent;
+        const semester = row.querySelector(".semester")?.value || "";
+        const absensi = row.querySelector(".absensi")?.value || "";
+        const surahDari = row.querySelector(".surah-dari")?.value || "";
+        const ayatDari = row.querySelector(".ayat-dari")?.value || "";
+        const surahSampai = row.querySelector(".surah-sampai")?.value || "";
+        const ayatSampai = row.querySelector(".ayat-sampai")?.value || "";
+        const totalJuz = row.querySelector(".total-juz")?.textContent || "";
+        const halaman = row.querySelector(".halaman-terbaca")?.textContent || "";
+        const totalHalaman = row.querySelector(".total-halaman")?.textContent || "";
+        const juzTerbaca = row.querySelector(".juz-terbaca")?.textContent || "";
 
-    let nilai = null, predikatText = null, predikatHuruf = null;
-    if (nilaiStr) {
-      const parts = nilaiStr.split(" ");
-      if (parts.length >= 3) {
-        nilai = parseFloat(parts[0]);
-        predikatText = parts[1];
-        predikatHuruf = parts[2];
+        const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
+        const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText.trim() || "";
+
+        let nilai = null, predikatText = null, predikatHuruf = null;
+        if (nilaiStr) {
+          const parts = nilaiStr.split(" ");
+          if (parts.length >= 3) {
+            nilai = parseFloat(parts[0]);
+            predikatText = parts[1];
+            predikatHuruf = parts[2];
+          }
+        }
+
+        const marks = row.markData || {};
+
+        const newData = {
+          ...(existing || {}),
+          id,
+          nama,
+          absensi,
+          semester,
+          dari: `${surahDari}:${ayatDari}`,
+          sampai: `${surahSampai}:${ayatSampai}`,
+          totalJuz,
+          halaman,
+          totalHalaman,
+          juzTerbaca,
+          buttonCell: {
+            ...(existing?.buttonCell || {}),
+            ...(nilai !== null ? { nilai } : {}),
+            ...(predikatText !== null ? { predikatText } : {}),
+            ...(predikatHuruf !== null ? { predikatHuruf } : {})
+          },
+          marks: {
+            ...(existing?.marks || {}),
+            ...marks
+          }
+        };
+
+        if (existing) {
+          Object.assign(existing, newData);
+        } else {
+          data.push(newData);
+        }
+      } catch (err) {
+        console.warn("⚠️ Error di row:", err);
       }
-    }
+    });
 
-    const marks = row.markData || {};
+    const res = await fetch("/.netlify/functions/saveData", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tanggal, kelas, data })
+    });
+    const result = await res.json();
 
-    const newData = {
-      ...(existing || {}),
-      id,
-      nama,
-      absensi,
-      semester,
-      dari: `${surahDari}:${ayatDari}`,
-      sampai: `${surahSampai}:${ayatSampai}`,
-      totalJuz,
-      halaman,
-      totalHalaman,
-      juzTerbaca,
-      buttonCell: {
-        ...(existing?.buttonCell || {}),
-        ...(nilai !== null ? { nilai } : {}),
-        ...(predikatText !== null ? { predikatText } : {}),
-        ...(predikatHuruf !== null ? { predikatHuruf } : {})
-      },
-      marks: {
-        ...(existing?.marks || {}),
-        ...marks
-      }
-    };
-
-    if (existing) {
-      Object.assign(existing, newData);
+    if (result.success) {
+      saveBtn.textContent = "✅ Tersimpan";
+      setTimeout(() => {
+        saveBtn.textContent = "Simpan Data Mutaba'ah";
+      }, 2000);
     } else {
-      data.push(newData);
+      alert("❌ Gagal menyimpan data!");
     }
-  });
-
-  // === Kirim ke server ===
-  const res = await fetch("/.netlify/functions/saveData", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tanggal, kelas, data })
-  });
-  const result = await res.json();
-
-  if (result.success) {
-    saveBtn.textContent = "✅ Tersimpan";
-    setTimeout(() => {
-      saveBtn.textContent = "Simpan Data Mutaba'ah";
-    }, 2000);
-  } else {
-    alert("❌ Gagal menyimpan data!");
+  } catch (err) {
+    console.error("❌ Error utama simpan:", err);
+    alert("⚠️ Error saat simpan data!");
+  } finally {
+    saveBtn.disabled = false; // tombol dipastikan aktif kembali
   }
-} catch (err) {
-  alert("⚠️ Error menyimpan data!");
-  console.error(err);
-} finally {
-  saveBtn.disabled = false; // <-- tombol pasti aktif kembali
 }
 
 
