@@ -9,7 +9,7 @@ export async function handler(event) {
     };
   }
 
-  const token = process.env.MTQ_TOKEN; // token GitHub disimpan di environment variable
+  const token = process.env.MTQ_TOKEN;
   const { id, kelas } = JSON.parse(event.body);
 
   if (!id || !kelas) {
@@ -19,11 +19,11 @@ export async function handler(event) {
     };
   }
 
-  const repo = "digiitalmtq/server";
+  const repo = "digitalmtq/server";
   const path = `absensi/kelas_${kelas}.json`;
 
   try {
-    // Ambil file kelas di GitHub
+    // Ambil file kelas
     const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
       headers: { Authorization: `token ${token}` },
     });
