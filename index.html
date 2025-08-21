@@ -1005,7 +1005,7 @@ function aturDropdownKelas(user) {
 // const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
 
 row.innerHTML = `
-  <td>${|| santri.id}</td>
+  <td>${santri.id || santri.id}</td>
   <td>${santri.nama}</td>
   <td>
     <select class="absensi">
