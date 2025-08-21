@@ -1292,8 +1292,16 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
       halaman,
       totalHalaman,
       juzTerbaca,
-      buttonCell: { nilai, predikatText, predikatHuruf },
-      marks
+      buttonCell: {
+      ...(existing?.buttonCell || {}), // isi lama
+      ...(nilai !== null ? { nilai } : {}),
+      ...(predikatText !== null ? { predikatText } : {}),
+      ...(predikatHuruf !== null ? { predikatHuruf } : {})
+    },
+    marks: {
+      ...(existing?.marks || {}),
+      ...marks
+    }
     };
 
     if (existing) {
