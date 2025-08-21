@@ -2,7 +2,7 @@
 import fetch from "node-fetch";
 
 export async function handler(event) {
-  const token = process.env.MTQ_TOKEN; // simpan token GitHub di environment variable
+  const token = process.env.MTQ_TOKEN;
   const { kelas } = event.queryStringParameters;
 
   if (!kelas) {
@@ -21,10 +21,7 @@ export async function handler(event) {
     });
 
     if (!res.ok) {
-      return {
-        statusCode: res.status,
-        body: JSON.stringify({ error: `Gagal mengambil file kelas_${kelas}.json` }),
-      };
+      throw new Error(`Gagal ambil file ${path}`);
     }
 
     const file = await res.json();
