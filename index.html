@@ -441,7 +441,7 @@ button.lihat-quran-btn:hover::after {
             <th>Total Juz</th>
             <th>Semester</th>
             <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Tanggal Target</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -2199,7 +2199,6 @@ let markData = {};
 let currentIdSiswa = null;
 let recordingsList = document.getElementById("recordingsList");
 
-
 // ======================
 // AMBIL DATA MARKS + AUDIO DARI NETLIFY FUNCTION
 // ======================
@@ -2264,8 +2263,11 @@ function ambilDariStorage() {
   if (!currentIdSiswa) return;
   const key = getStorageKey();
   const saved = localStorage.getItem(key);
-  if (saved) markData = JSON.parse(saved);
-  else markData = {};
+  if (saved) {
+    markData = JSON.parse(saved);
+    return true;
+  }
+  return false;
 }
 
 // ======================
@@ -2284,7 +2286,6 @@ async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
   }
 }
 
-
 // ======================
 // HITUNG NILAI
 // ======================
@@ -2293,7 +2294,6 @@ function hitungNilai() {
   let hijau = 0, kuning = 0, merah = 0;
   let adaMark = false;
 
-  // Hitung total minus dan jumlah warna
   for (let ayat in markData) {
     for (let idx in markData[ayat]) {
       const mark = markData[ayat][idx];
@@ -2301,23 +2301,13 @@ function hitungNilai() {
       adaMark = true;
 
       switch (mark) {
-        case "green":
-          totalMinus += 0.5;
-          hijau++;
-          break;
-        case "yellow":
-          totalMinus += 1;
-          kuning++;
-          break;
-        case "red":
-          totalMinus += 2;
-          merah++;
-          break;
+        case "green": totalMinus += 0.5; hijau++; break;
+        case "yellow": totalMinus += 1; kuning++; break;
+        case "red": totalMinus += 2; merah++; break;
       }
     }
   }
 
-  // Tentukan nilai dan predikat
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
 
   const predikatMap = [
@@ -2331,34 +2321,26 @@ function hitungNilai() {
   let predikat = "-";
   if (adaMark) {
     const p = predikatMap.find(p => nilai <= p.max);
-
-    // Fungsi memberi background warna huruf
     function bgHuruf(huruf) {
       const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
       return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
     }
-
     predikat = `${p.text} ${bgHuruf(p.huruf)}`;
   }
 
-  // Update modal overlay
   const nilaiEl = document.getElementById("nilai-akhir");
   const predikatEl = document.getElementById("predikat-akhir");
   if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
-  if (predikatEl) predikatEl.innerHTML = predikat; // gunakan innerHTML agar span bisa tampil
+  if (predikatEl) predikatEl.innerHTML = predikat;
 
-  // Update jumlah mark warna di modal overlay
   const warnaDiv = document.getElementById("modal-mark-warna");
-  if (warnaDiv) {
-    warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
-  }
+  if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
 
   return { nilai, predikat, hijau, kuning, merah };
 }
 
-
 // ======================
-// UPDATE TABEL (tanpa warna mark)
+// UPDATE TABEL
 // ======================
 function updateNilaiDiTabel({ nilai, predikat }) {
   if (!currentIdSiswa) return;
@@ -2373,7 +2355,6 @@ function updateNilaiDiTabel({ nilai, predikat }) {
         <div><strong>${nilai.toFixed(1)}</strong> ${predikat}</div>
         <button class="lihat-quran-btn">Lembar Penilaian</button>
       `;
-      // tetap simpan markData untuk modal
       row.markData = JSON.parse(JSON.stringify(markData));
     }
   }
@@ -2402,15 +2383,13 @@ function buatKataKlik(surah, ayat, teks) {
       if (warnaBaru) markData[surah+":"+ayat][idx] = warnaBaru;
       else delete markData[surah+":"+ayat][idx];
 
-      // Update background kata
       span.style.backgroundColor = warnaBaru || "";
 
-      // Hitung nilai & update tabel + modal
       const hasil = hitungNilai();
       updateNilaiDiTabel(hasil);
+      simpanKeStorage();   // simpan setiap perubahan
     };
 
-    // Set warna awal kata jika sudah ada mark
     if (markData[surah+":"+ayat]?.[idx]) {
       span.style.backgroundColor = markData[surah+":"+ayat][idx];
     }
@@ -2419,28 +2398,19 @@ function buatKataKlik(surah, ayat, teks) {
   });
 }
 
-
 // ======================
 // LOAD DATA QURAN
 // ======================
 let dataSiap = Promise.all([
   fetch('https://raw.githubusercontent.com/dickymiswardi/mtq/refs/heads/main/symbol1.json')
-    .then(res => {
-      if (!res.ok) throw new Error("Gagal fetch symbol1.json");
-      return res.json();
-    })
+    .then(res => { if (!res.ok) throw new Error("Gagal fetch symbol1.json"); return res.json(); })
     .then(data => { quranData = data; }),
 
   fetch('https://raw.githubusercontent.com/dickymiswardi/tadabbur/refs/heads/main/ayah_page_map.json')
-    .then(res => {
-      if (!res.ok) throw new Error("Gagal fetch ayah_page_map.json");
-      return res.json();
-    })
+    .then(res => { if (!res.ok) throw new Error("Gagal fetch ayah_page_map.json"); return res.json(); })
     .then(data => { ayahPageMap = data; })
 ])
-.then(() => {
-  console.log("✅ Data Quran siap dipakai", quranData, ayahPageMap);
-})
+.then(() => console.log("✅ Data Quran siap dipakai"))
 .catch(err => console.error('❌ Gagal memuat data Quran:', err));
 
 // ======================
@@ -2454,21 +2424,22 @@ document.addEventListener('click', async function(e) {
     const row = e.target.closest('tr');
     currentIdSiswa = parseInt(row.cells[0].innerText.trim());
 
-    // Ambil nama santri dari kolom 1 (asumsi kolom 1 adalah nama)
     const namaSantri = row.cells[1].innerText.trim();
     const namaSpan = document.getElementById('modal-nama-santri');
-    if (namaSpan) {
-      namaSpan.innerText = namaSantri;
-    }
+    if (namaSpan) namaSpan.innerText = namaSantri;
 
     const kelas = document.getElementById('kelas')?.value || 'default';
     const tanggal = document.getElementById('tanggal')?.value || 'default';
 
-    // Ambil marks + audio
-    markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
+    // Ambil dari localStorage dulu
+    const adaLocal = ambilDariStorage();
+    if (!adaLocal || Object.keys(markData).length === 0) {
+      markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
+      simpanKeStorage();
+    }
+
     tampilkanAudioDariMarks(markData);
 
-    // Load Quran
     await dataSiap;
 
     const surahDari = parseInt(row.querySelector('.surah-dari').value);
@@ -2533,13 +2504,11 @@ document.addEventListener('click', async function(e) {
 document.getElementById("btn-beri-nilai").onclick = function() {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
 
-  // Ambil nilai dari input
   const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
     return alert("Masukkan nilai antara 0 dan 100.");
   }
 
-  // Tentukan predikat berdasarkan input nilai
   let predikat = "-";
   if (inputNilai <= 59) predikat = "ROSIB (E)";
   else if (inputNilai <= 69) predikat = "MAQBUL (D)";
@@ -2547,18 +2516,17 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
   else predikat = "MUMTAZ (A)";
 
-  // Reset markData
-  markData = {};
+  markData = {}; // reset mark
 
-  // Update modal overlay
   document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
   document.getElementById("predikat-akhir").innerText = predikat;
   document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
 
-  // Update tabel (tanpa warna mark)
   updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
+  simpanKeStorage();   // simpan nilai manual
 };
 </script>
+
 
 
 
