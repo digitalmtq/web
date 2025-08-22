@@ -13,7 +13,7 @@ exports.handler = async (event) => {
       }
     });
 
-    if (res.status === 404) return { statusCode: 200, body: JSON.stringify([]) }; // file belum ada
+    if (res.status === 404) return { statusCode: 200, body: JSON.stringify([]) };
 
     if (!res.ok) {
       const text = await res.text();
@@ -21,8 +21,9 @@ exports.handler = async (event) => {
     }
 
     const result = await res.json();
-    const santri = JSON.parse(Buffer.from(result.content, "base64").toString("utf-8"));
+    if (!result.content) return { statusCode: 200, body: JSON.stringify([]) };
 
+    const santri = JSON.parse(Buffer.from(result.content, "base64").toString("utf-8"));
     return { statusCode: 200, body: JSON.stringify(santri) };
 
   } catch (err) {
