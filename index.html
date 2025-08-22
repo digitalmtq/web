@@ -2233,23 +2233,52 @@ async function submitTambahKelasBaru() {
 </script>
   
   <script>
-  function bukaModalSantri() {
-    document.getElementById("modalSantri").style.display = "block";
+document.addEventListener("DOMContentLoaded", () => {
+
+  function getEl(id) {
+    const el = document.getElementById(id);
+    if (!el) console.warn(`Element #${id} tidak ditemukan`);
+    return el;
   }
 
-  function tutupModal() {
-    document.getElementById("modalSantri").style.display = "none";
-    document.getElementById("inputNama").value = "";
-    document.getElementById("inputNis").value = "";
-    document.getElementById("inputSemester").value = "1";
-    document.getElementById("loadingTambahSantri").style.display = "none";
+  window.bukaModalSantri = function() {
+    const modal = getEl("modalSantri");
+    if (modal) modal.style.display = "block";
   }
 
-  async function simpanSantriBaru() {
-    const nama = document.getElementById("inputNama").value.trim();
-    const nis = document.getElementById("inputNis").value.trim();
-    const semester = document.getElementById("inputSemester").value;
-    const kelas = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
+  window.tutupModal = function() {
+    const modal = getEl("modalSantri");
+    if (modal) modal.style.display = "none";
+
+    const inputNama = getEl("inputNama");
+    if (inputNama) inputNama.value = "";
+
+    const inputNis = getEl("inputNis");
+    if (inputNis) inputNis.value = "";
+
+    const inputSemester = getEl("inputSemester");
+    if (inputSemester) inputSemester.value = "1";
+
+    const loadingEl = getEl("loadingTambahSantri");
+    if (loadingEl) loadingEl.style.display = "none";
+  }
+
+  window.simpanSantriBaru = async function() {
+    const inputNama = getEl("inputNama");
+    const inputNis = getEl("inputNis");
+    const inputSemester = getEl("inputSemester");
+    const kelasSelect = getEl("kelas");
+    const loadingEl = getEl("loadingTambahSantri");
+
+    if (!inputNama || !inputNis || !inputSemester || !kelasSelect || !loadingEl) {
+      console.error("Beberapa elemen tidak ditemukan, proses dibatalkan.");
+      return;
+    }
+
+    const nama = inputNama.value.trim();
+    const nis = inputNis.value.trim();
+    const semester = inputSemester.value;
+    const kelas = kelasSelect.value;
 
     if (!nama) {
       alert("Nama tidak boleh kosong.");
@@ -2260,7 +2289,6 @@ async function submitTambahKelasBaru() {
       return;
     }
 
-    const loadingEl = document.getElementById("loadingTambahSantri");
     loadingEl.style.display = "block";
 
     try {
@@ -2278,13 +2306,15 @@ async function submitTambahKelasBaru() {
         tutupModal();
         location.reload();
       } else {
-        alert("Gagal menambahkan: " + data.error);
+        alert("Gagal menambahkan: " + (data.error || "Unknown error"));
       }
     } catch (err) {
       loadingEl.style.display = "none";
-      alert("Terjadi kesalahan: " + err.message);
+      console.error("Terjadi kesalahan:", err); // hanya log di console, tidak pakai alert
     }
   }
+
+});
 </script>
 
 <script>
@@ -2912,11 +2942,5 @@ async function buatUserNIS() {
 }
 </script>
 
-
-<script>
-	document.addEventListener("DOMContentLoaded", () => {
-  // semua fungsi bukaModalSantri, tutupModal, simpanSantriBaru
-});
-</script>	
 </body>
 </html>
