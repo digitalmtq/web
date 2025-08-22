@@ -514,7 +514,7 @@ button.lihat-quran-btn:hover::after {
         <tbody></tbody>
       </table>
       <button onclick="bukaModalSantri()" style="margin-left:0px;">➕ Tambah Santri</button>
-      <button id="btnDeleteSantri">🗑 Delete Santri</button>
+      <button onclick="bukaModalHapusSantri()" style="margin-left:10px;">🗑 Hapus Santri</button>
       <div class="actions">
         <button id="save-btn">Simpan Data Mutaba'ah</button>
         <button id="download-btn">Download PDF</button>
@@ -559,24 +559,22 @@ button.lihat-quran-btn:hover::after {
 
 
 
-<!-- Modal Delete Santri -->
-<div id="modalDeleteSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
-  <div style="background:#fff; width:400px; margin:100px auto; padding:20px; border-radius:10px; position:relative;">
-    <!-- Tombol Close × -->
-    <span id="closeModalDeleteSantri" style="position:absolute; top:10px; right:15px; cursor:pointer; font-size:18px;">&times;</span>
-    <h2>Delete Santri</h2>
-
+<!-- Modal Hapus Santri -->
+<div id="modalHapusSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
+  <div style="background:#fff; width:350px; margin:100px auto; padding:20px; border-radius:10px;">
+    <h2>Hapus Santri</h2>
+    
     <label>Pilih Santri:</label>
-    <select id="selectSantri" style="width:100%; margin-bottom:10px;">
-      <option value="">-- Pilih Santri --</option>
-    </select>
+    <select id="pilihSantri" style="width:100%; margin-bottom:10px;"></select>
 
-    <div style="display:flex; justify-content:space-between;">
-      <button id="confirmDelete">🗑 Hapus</button>
-      <button id="cancelDelete">❌ Batal</button>
+    <div style="margin-top:10px; display:flex; justify-content:space-between;">
+      <button onclick="konfirmasiHapusSantri()">🗑️ Hapus</button>
+      <button onclick="tutupModal('modalHapusSantri')">❌ Batal</button>
     </div>
 
-    <div id="loadingDelete" style="display:none; margin-top:10px; color:red;">⏳ Menghapus...</div>
+    <div id="loadingHapusSantri" style="display:none; margin-top:10px; color:red;">
+      ⏳ Menghapus...
+    </div>
   </div>
 </div>
   
@@ -1101,7 +1099,7 @@ function aturDropdownKelas(user) {
       const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
       row.innerHTML = `
-        <td>${santri.id || santri.nis}</td>
+        <td>${santri.id || santri.id}</td>
         <td>${santri.nama}</td>
         <td>
           <select class="absensi">
@@ -1836,24 +1834,8 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   </script>
 
 <script>
-// ======================
-// Modal Utility
-// ======================
-function bukaModal(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = "flex";
-}
-
-function tutupModal(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = "none";
-}
-
-// ======================
-// Modal Daftar Admin
-// ======================
 function munculkanModalDaftarAdmin() {
-  bukaModal("modalAdminDaftar");
+  document.getElementById("modalAdminDaftar").style.display = "flex";
 }
 
 // Toggle password
@@ -1862,7 +1844,7 @@ function toggleLihatPasswordAdmin() {
   input.type = input.type === "password" ? "text" : "password";
 }
 
-// Validasi password admin daftar admin
+// Validasi password admin
 async function cekPasswordAdminDaftar() {
   const password = document.getElementById("adminPasswordInputDaftar").value.trim();
   const errorEl = document.getElementById("adminErrorDaftar");
@@ -1886,8 +1868,9 @@ async function cekPasswordAdminDaftar() {
       return;
     }
 
+    // Sembunyikan modal validasi dan tampilkan modal daftar admin
     tutupModal("modalAdminDaftar");
-    bukaModal("modalDaftarAdmin");
+    document.getElementById("modalAdminDaftar").style.display = "flex";
 
   } catch (err) {
     console.error(err);
@@ -1895,7 +1878,7 @@ async function cekPasswordAdminDaftar() {
   }
 }
 
-// Buat admin baru
+// Fungsi membuat admin baru
 async function buatAdminBaru() {
   const username = document.getElementById("usernameAdmin").value.trim();
   const password = document.getElementById("passwordAdmin").value;
@@ -1936,73 +1919,78 @@ async function buatAdminBaru() {
   }
 }
 
-// ======================
-// Ganti Password Overlay
-// ======================
-function toggleChangePassword() {
-  const overlay = document.getElementById("change-password-overlay");
-  overlay.style.display = overlay.style.display === "flex" ? "none" : "flex";
-  document.getElementById("change-password-msg").textContent = "";
+// Fungsi tutup modal
+function tutupModal(id) {
+  document.getElementById(id).style.display = "none";
 }
+</script>
 
-async function submitPasswordChange() {
-  const username = document.getElementById("change-username").value.trim();
-  const oldPassword = document.getElementById("old-password").value;
-  const newPassword = document.getElementById("new-password").value;
-  const msgEl = document.getElementById("change-password-msg");
-  const saveBtn = document.getElementById("save-password-btn");
-
-  if (!username || !oldPassword || !newPassword) {
-    msgEl.textContent = "Semua kolom wajib diisi.";
-    return;
+<script>
+  function toggleChangePassword() {
+    const overlay = document.getElementById("change-password-overlay");
+    overlay.style.display = overlay.style.display === "flex" ? "none" : "flex";
+    document.getElementById("change-password-msg").textContent = "";
   }
 
-  saveBtn.disabled = true;
-  saveBtn.textContent = "Menyimpan...";
+  async function submitPasswordChange() {
+    const username = document.getElementById("change-username").value.trim();
+    const oldPassword = document.getElementById("old-password").value;
+    const newPassword = document.getElementById("new-password").value;
+    const msgEl = document.getElementById("change-password-msg");
+    const saveBtn = document.getElementById("save-password-btn");
 
-  try {
-    const res = await fetch("/.netlify/functions/changePassword", {
-      method: "POST",
-      body: JSON.stringify({ username, oldPassword, newPassword })
-    });
-
-    const data = await res.json();
-
-    if (res.ok) {
-      msgEl.style.color = "green";
-      msgEl.textContent = data.message || "Berhasil mengganti password.";
-      setTimeout(() => toggleChangePassword(), 1000);
-    } else {
-      msgEl.style.color = "red";
-      msgEl.textContent = data.message || "Gagal mengganti password.";
+    if (!username || !oldPassword || !newPassword) {
+      msgEl.textContent = "Semua kolom wajib diisi.";
+      return;
     }
-  } catch (err) {
-    msgEl.textContent = "Terjadi kesalahan.";
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Menyimpan...";
+
+    try {
+      const res = await fetch("/.netlify/functions/changePassword", {
+        method: "POST",
+        body: JSON.stringify({ username, oldPassword, newPassword })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        msgEl.style.color = "green";
+        msgEl.textContent = data.message || "Berhasil mengganti password.";
+        setTimeout(() => {
+          toggleChangePassword(); // tutup overlay
+        }, 1000);
+      } else {
+        msgEl.style.color = "red";
+        msgEl.textContent = data.message || "Gagal mengganti password.";
+      }
+    } catch (err) {
+      msgEl.textContent = "Terjadi kesalahan.";
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Simpan";
   }
 
-  saveBtn.disabled = false;
-  saveBtn.textContent = "Simpan";
-}
+    function togglePasswordVisibility() {
+    const oldPass = document.getElementById("old-password");
+    const newPass = document.getElementById("new-password");
 
-function togglePasswordVisibility() {
-  const oldPass = document.getElementById("old-password");
-  const newPass = document.getElementById("new-password");
-  const type = oldPass.type === "password" ? "text" : "password";
-  oldPass.type = type;
-  newPass.type = type;
-}
+    const type = oldPass.type === "password" ? "text" : "password";
+    oldPass.type = type;
+    newPass.type = type;
+  }
+</script>
 
-// ======================
-// Modal Validasi Admin & Daftar User
-// ======================
-let adminPasswordGlobal = "";
-
+  <script>
 function munculkanValidasiAdmin() {
-  bukaModal("modalAdmin");
+  document.getElementById("modalAdmin").style.display = "flex";
   document.getElementById("adminPasswordInput").value = "";
   document.getElementById("adminError").textContent = "";
 }
 
+// Fungsi untuk cek password admin
 async function cekPasswordAdmin() {
   const password = document.getElementById("adminPasswordInput").value;
 
@@ -2021,29 +2009,68 @@ async function cekPasswordAdmin() {
 
   if (response.status === 200) {
     tutupModal("modalAdmin");
-    bukaFormDaftar(password);
+    bukaFormDaftar(password); // password disimpan sementara
   } else {
     document.getElementById("adminError").textContent = result.message || "Gagal validasi.";
   }
 }
 
+// Buka modal daftar setelah validasi admin sukses
+let adminPasswordGlobal = "";
 function bukaFormDaftar(adminPass) {
   adminPasswordGlobal = adminPass;
-  bukaModal("modalDaftar");
+  document.getElementById("modalDaftar").style.display = "flex";
   document.getElementById("daftarError").textContent = "";
   document.getElementById("daftarSuccess").textContent = "";
-  ambilDaftarKelas();
+  ambilDaftarKelas(); // Load daftar kelas dari GitHub
 }
 
+// Tutup modal
+function tutupModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+// Toggle lihat password
 function toggleLihatPassword() {
   const pwField = document.getElementById("newPassword");
   pwField.type = pwField.type === "password" ? "text" : "password";
 }
+</script>
 
-// ======================
-// Ambil Daftar Kelas
-// ======================
+  <script>
 async function ambilDaftarKelas() {
+  const container = document.getElementById("kelasCheckboxContainer");
+  container.innerHTML = "🔄 Memuat daftar kelas...";
+
+  try {
+    const res = await fetch("https://api.github.com/repos/digitalmtq/server/contents");
+    const data = await res.json();
+
+    // Filter nama file seperti: kelas_1.json
+    const kelasFiles = data.filter(file => /^kelas_\d+\.json$/.test(file.name));
+
+    if (kelasFiles.length === 0) {
+      container.innerHTML = "❌ Tidak ada file kelas_{}.json ditemukan.";
+      return;
+    }
+
+    container.innerHTML = ""; // Bersihkan
+
+    kelasFiles.forEach(file => {
+      const kelas = file.name.replace(".json", ""); // contoh: kelas_1
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" value="${kelas}"> ${kelas}<br>`;
+      container.appendChild(label);
+    });
+  } catch (err) {
+    container.innerHTML = "❌ Gagal memuat kelas.";
+    console.error("Gagal fetch kelas:", err);
+  }
+}
+</script>
+  
+  <script>
+    async function ambilDaftarKelas() {
   const container = document.getElementById("kelasCheckboxContainer");
   container.innerHTML = "🔄 Memuat daftar kelas...";
 
@@ -2056,7 +2083,8 @@ async function ambilDaftarKelas() {
       return;
     }
 
-    container.innerHTML = "";
+    container.innerHTML = ""; // Bersihkan
+
     kelasList.forEach(kelas => {
       const label = document.createElement("label");
       label.innerHTML = `<input type="checkbox" value="${kelas}"> ${kelas}<br>`;
@@ -2067,10 +2095,9 @@ async function ambilDaftarKelas() {
     console.error("Gagal fetch kelas:", err);
   }
 }
+  </script>
 
-// ======================
-// Buat Akun User Baru
-// ======================
+  <script>
 async function buatAkunBaru() {
   const username = document.getElementById("newUsername").value.trim();
   const password = document.getElementById("newPassword").value.trim();
@@ -2107,6 +2134,7 @@ async function buatAkunBaru() {
 
     if (res.status === 200) {
       successEl.textContent = "✅ Akun berhasil dibuat.";
+      // Reset form
       document.getElementById("newUsername").value = "";
       document.getElementById("newPassword").value = "";
       document.querySelectorAll('#kelasCheckboxContainer input:checked')
@@ -2119,14 +2147,17 @@ async function buatAkunBaru() {
     errorEl.textContent = "Terjadi kesalahan jaringan.";
   }
 }
+</script>
 
-// ======================
-// Tambah Kelas Baru
-// ======================
+  <script>
 let passwordTambahKelas = "";
 
 function bukaModalTambahKelas() {
-  bukaModal("modalTambahKelasPassword");
+  document.getElementById("modalTambahKelasPassword").style.display = "flex";
+}
+
+function tutupModal(id) {
+  document.getElementById(id).style.display = "none";
 }
 
 async function verifikasiAdminTambahKelas() {
@@ -2167,7 +2198,7 @@ async function tampilkanFormTambahKelasBaru() {
       list.appendChild(li);
     });
 
-    bukaModal("modalFormTambahKelas");
+    document.getElementById("modalFormTambahKelas").style.display = "flex";
   } catch (err) {
     list.innerHTML = "<li>❌ Gagal mengambil daftar kelas.</li>";
   }
@@ -2200,25 +2231,63 @@ async function submitTambahKelasBaru() {
   }
 }
 </script>
-
-	<script>
-function bukaModal(id) {
-  const modal = document.getElementById(id);
-  if (modal) {
-    modal.style.display = "flex"; // semua modal buka pakai flex biar rata tengah
-  }
-}
-
-function tutupModal(id) {
-  const modal = document.getElementById(id);
-  if (modal) {
-    modal.style.display = "none"; // semua modal ditutup pakai none
-  }
-}
-</script>
-
   
   <script>
+  function bukaModalSantri() {
+    document.getElementById("modalSantri").style.display = "block";
+  }
+
+  function tutupModal() {
+    document.getElementById("modalSantri").style.display = "none";
+    document.getElementById("inputNama").value = "";
+    document.getElementById("inputNis").value = "";
+    document.getElementById("inputSemester").value = "1";
+    document.getElementById("loadingTambahSantri").style.display = "none";
+  }
+
+  async function simpanSantriBaru() {
+    const nama = document.getElementById("inputNama").value.trim();
+    const nis = document.getElementById("inputNis").value.trim();
+    const semester = document.getElementById("inputSemester").value;
+    const kelas = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
+
+    if (!nama) {
+      alert("Nama tidak boleh kosong.");
+      return;
+    }
+    if (!nis) {
+      alert("NIS tidak boleh kosong.");
+      return;
+    }
+
+    const loadingEl = document.getElementById("loadingTambahSantri");
+    loadingEl.style.display = "block";
+
+    try {
+      const res = await fetch("/.netlify/functions/tambahSantri", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama, nis, semester, kelas })
+      });
+
+      const data = await res.json();
+      loadingEl.style.display = "none";
+
+      if (res.ok) {
+        alert("Santri berhasil ditambahkan!");
+        tutupModal();
+        location.reload();
+      } else {
+        alert("Gagal menambahkan: " + data.error);
+      }
+    } catch (err) {
+      loadingEl.style.display = "none";
+      alert("Terjadi kesalahan: " + err.message);
+    }
+  }
+</script>
+
+<script>
 document.addEventListener("DOMContentLoaded", () => {
 
   function getEl(id) {
@@ -2300,94 +2369,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-});
-</script>
-
-	
-<script>
-// Tombol buka modal
-document.getElementById("btnDeleteSantri").addEventListener("click", async () => {
-  const modal = document.getElementById("modalDeleteSantri");
-  modal.style.display = "block";
-  await loadSantriList();
-});
-
-// Tombol close ×
-document.getElementById("closeModalDeleteSantri").addEventListener("click", () => {
-  document.getElementById("modalDeleteSantri").style.display = "none";
-});
-
-// Tombol Batal
-document.getElementById("cancelDelete").addEventListener("click", () => {
-  document.getElementById("modalDeleteSantri").style.display = "none";
-});
-
-// Klik di luar modal
-window.addEventListener("click", function(event) {
-  const modal = document.getElementById("modalDeleteSantri");
-  if (event.target === modal) {
-    modal.style.display = "none";
-  }
-});
-
-// Fungsi load daftar santri dari API
-async function loadSantriList() {
-  const select = document.getElementById("selectSantri");
-  select.innerHTML = '<option value="">-- Pilih Santri --</option>';
-
-  try {
-    const kelas = document.getElementById("kelas").value; // dropdown kelas utama
-    const res = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
-    const data = await res.json();
-
-    data.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = `${s.id} - ${s.nama} (Semester ${s.semester})`;
-      select.appendChild(opt);
-    });
-  } catch (err) {
-    alert("Gagal memuat daftar santri: " + err.message);
-  }
-}
-
-// Tombol Hapus
-document.getElementById("confirmDelete").addEventListener("click", async () => {
-  const select = document.getElementById("selectSantri");
-  const id = select.value;
-  const kelas = document.getElementById("kelas").value;
-  const loading = document.getElementById("loadingDelete");
-
-  if (!id) {
-    alert("Pilih santri yang ingin dihapus!");
-    return;
-  }
-
-  if (!confirm("Yakin ingin menghapus santri ini?")) return;
-
-  loading.style.display = "block";
-
-  try {
-    const res = await fetch("/.netlify/functions/hapusSantri", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, kelas })
-    });
-
-    const data = await res.json();
-    loading.style.display = "none";
-
-    if (res.ok) {
-      alert("Santri berhasil dihapus!");
-      document.getElementById("modalDeleteSantri").style.display = "none";
-      await loadSantriList(); // refresh daftar santri
-    } else {
-      alert("Gagal menghapus: " + data.error);
-    }
-  } catch (err) {
-    loading.style.display = "none";
-    alert("Terjadi kesalahan: " + err.message);
-  }
 });
 </script>
   
