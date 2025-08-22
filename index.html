@@ -2201,6 +2201,22 @@ async function submitTambahKelasBaru() {
 }
 </script>
 
+	<script>
+function bukaModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.style.display = "flex"; // semua modal buka pakai flex biar rata tengah
+  }
+}
+
+function tutupModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.style.display = "none"; // semua modal ditutup pakai none
+  }
+}
+</script>
+
   
   <script>
 document.addEventListener("DOMContentLoaded", () => {
