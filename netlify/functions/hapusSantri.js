@@ -50,6 +50,13 @@ export async function handler(event) {
       }
     }
 
+    // Kirim semua santri sebelum hapus ke response untuk info
+    const allSantriInfo = santriList.map((s) => ({
+      id: s.id,
+      nis: s.nis || "",
+      nama: s.nama,
+    }));
+
     // Hapus santri sesuai ID atau NIS
     const awalLength = santriList.length;
     santriList = santriList.filter(
@@ -59,7 +66,10 @@ export async function handler(event) {
     if (santriList.length === awalLength) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: `Santri dengan ID ${id} tidak ditemukan.` }),
+        body: JSON.stringify({
+          error: `Santri dengan ID/NIS ${id} tidak ditemukan.`,
+          allSantri: allSantriInfo,
+        }),
       };
     }
 
@@ -67,10 +77,10 @@ export async function handler(event) {
     const updatedContent = Buffer.from(JSON.stringify(santriList, null, 2)).toString("base64");
 
     const putBody = {
-      message: `Menghapus santri ID ${id} dari ${fileName}`,
+      message: `Menghapus santri ID/NIS ${id} dari ${fileName}`,
       content: updatedContent,
     };
-    if (fileData && fileData.sha) putBody.sha = fileData.sha; // tambahkan sha kalau ada
+    if (fileData && fileData.sha) putBody.sha = fileData.sha;
 
     const putRes = await fetch(githubApiUrl, {
       method: "PUT",
@@ -89,7 +99,11 @@ export async function handler(event) {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, message: `Santri ID ${id} berhasil dihapus` }),
+      body: JSON.stringify({
+        success: true,
+        message: `Santri ID/NIS ${id} berhasil dihapus`,
+        allSantriBeforeDelete: allSantriInfo,
+      }),
     };
   } catch (err) {
     console.error("Error hapusSantri:", err);
