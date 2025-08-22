@@ -1,10 +1,7 @@
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 405,
-        body: JSON.stringify({ error: "Method Not Allowed" })
-      };
+      return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
     }
 
     const { kelas, id } = JSON.parse(event.body);
@@ -13,7 +10,7 @@ exports.handler = async (event) => {
 
     console.log("➡️ Hapus santri:", id, "di", filename);
 
-    // 🔹 Ambil file santri
+    // 🔹 Ambil isi file (RAW JSON)
     const res = await fetch(url, {
       headers: {
         Authorization: `token ${process.env.MTQ_TOKEN}`,
@@ -21,82 +18,38 @@ exports.handler = async (event) => {
       }
     });
 
-    // 🔹 Kalau file tidak ada (404) → buat file kosong
+    let santri = [];
     if (res.status === 404) {
       console.warn("⚠️ File belum ada, buat file kosong []");
-
-      const createRes = await fetch(url, {
-        method: "PUT",
-        headers: {
-          Authorization: `token ${process.env.MTQ_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: `Buat file ${filename} kosong`,
-          content: Buffer.from(JSON.stringify([], null, 2)).toString("base64")
-        })
-      });
-
-      if (!createRes.ok) {
-        const errText = await createRes.text();
-        console.error("❌ Gagal membuat file kosong:", errText);
-        return {
-          statusCode: 500,
-          body: JSON.stringify({ error: "Gagal membuat file kosong" })
-        };
+    } else if (res.ok) {
+      try {
+        santri = await res.json();
+      } catch (e) {
+        console.error("❌ File bukan JSON valid:", e);
+        return { statusCode: 500, body: JSON.stringify({ error: "Format file tidak valid" }) };
       }
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          success: true,
-          deletedId: id,
-          note: "File baru dibuat kosong"
-        })
-      };
-    }
-
-    if (!res.ok) {
+    } else {
       const text = await res.text();
-      console.error("❌ Gagal ambil data GitHub:", res.status, text);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: `Gagal ambil data GitHub (${res.status})` })
-      };
+      console.error("❌ Gagal ambil file:", res.status, text);
+      return { statusCode: 500, body: JSON.stringify({ error: `Gagal ambil file (${res.status})` }) };
     }
 
-    let santri;
-    try {
-      santri = await res.json();
-    } catch (parseErr) {
-      console.error("❌ Error parse JSON:", parseErr);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Format JSON file tidak valid" })
-      };
-    }
-
-    console.log("✅ Data santri sebelum hapus:", santri.length);
+    console.log("✅ Jumlah santri sebelum hapus:", santri.length);
 
     // 🔹 Hapus berdasarkan ID
     const newSantri = santri.filter(s => String(s.id) !== String(id));
-    console.log("✅ Data santri sesudah hapus:", newSantri.length);
+    console.log("✅ Sesudah hapus:", newSantri.length);
 
-    // 🔹 Ambil SHA file untuk update
+    // 🔹 Ambil info SHA (tanpa raw)
     const fileInfoRes = await fetch(url, {
       headers: { Authorization: `token ${process.env.MTQ_TOKEN}` }
     });
     const fileInfo = await fileInfoRes.json();
 
-    if (!fileInfo.sha) {
-      console.error("❌ Tidak ada SHA:", fileInfo);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Gagal ambil SHA file" })
-      };
-    }
+    // Kalau file belum ada, bikin baru
+    const sha = fileInfo.sha || undefined;
 
-    // 🔹 Update file dengan data baru
+    // 🔹 Update file
     const updateRes = await fetch(url, {
       method: "PUT",
       headers: {
@@ -104,31 +57,22 @@ exports.handler = async (event) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        message: `Hapus santri id ${id}`,
+        message: sha ? `Hapus santri id ${id}` : `Buat file ${filename}`,
         content: Buffer.from(JSON.stringify(newSantri, null, 2)).toString("base64"),
-        sha: fileInfo.sha
+        sha
       })
     });
 
     if (!updateRes.ok) {
       const errText = await updateRes.text();
       console.error("❌ Gagal update file:", updateRes.status, errText);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: `Gagal update file (${updateRes.status})` })
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: `Gagal update file (${updateRes.status})` }) };
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, deletedId: id })
-    };
+    return { statusCode: 200, body: JSON.stringify({ success: true, deletedId: id }) };
 
   } catch (err) {
     console.error("❌ Error umum:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: `Internal Server Error: ${err.message}` })
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: `Internal Server Error: ${err.message}` }) };
   }
 };
