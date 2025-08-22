@@ -57,17 +57,15 @@ export async function handler(event) {
       nama: s.nama,
     }));
 
-    // Hapus santri sesuai ID atau NIS
+    // Hapus santri berdasarkan ID saja
     const awalLength = santriList.length;
-    santriList = santriList.filter(
-      (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
-    );
+    santriList = santriList.filter((s) => String(s.id) !== String(id));
 
     if (santriList.length === awalLength) {
       return {
         statusCode: 404,
         body: JSON.stringify({
-          error: `Santri dengan ID/NIS ${id} tidak ditemukan.`,
+          error: `Santri dengan ID ${id} tidak ditemukan.`,
           allSantri: allSantriInfo,
         }),
       };
@@ -77,7 +75,7 @@ export async function handler(event) {
     const updatedContent = Buffer.from(JSON.stringify(santriList, null, 2)).toString("base64");
 
     const putBody = {
-      message: `Menghapus santri ID/NIS ${id} dari ${fileName}`,
+      message: `Menghapus santri ID ${id} dari ${fileName}`,
       content: updatedContent,
     };
     if (fileData && fileData.sha) putBody.sha = fileData.sha;
@@ -101,7 +99,7 @@ export async function handler(event) {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        message: `Santri ID/NIS ${id} berhasil dihapus`,
+        message: `Santri ID ${id} berhasil dihapus`,
         allSantriBeforeDelete: allSantriInfo,
       }),
     };
