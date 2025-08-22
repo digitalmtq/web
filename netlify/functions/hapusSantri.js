@@ -20,13 +20,12 @@ export async function handler(event) {
     };
   }
 
+  // Pastikan format nama file benar (kelas_1.json, kelas_2.json, dst)
   const fileName = `kelas_${kelas}.json`;
   const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
 
   try {
-    // Ambil file lama dari GitHub
-    let fileData;
-    let santriList = [];
+    // 1. Ambil file lama dari GitHub
     const getRes = await fetch(githubApiUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -35,50 +34,29 @@ export async function handler(event) {
       },
     });
 
-    if (getRes.status === 404) {
-      console.log(`${fileName} belum ada, buat baru.`);
-    } else if (!getRes.ok) {
-      throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
-    } else {
-      fileData = await getRes.json();
-      try {
-        const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
-        santriList = JSON.parse(contentDecoded);
-      } catch (e) {
-        console.warn("JSON corrupt, pakai array kosong");
-        santriList = [];
-      }
-    }
+    if (!getRes.ok) throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
 
-    // Kirim semua santri sebelum hapus ke response untuk info
-    const allSantriInfo = santriList.map((s) => ({
-      id: s.id,
-      nis: s.nis || "",
-      nama: s.nama,
-    }));
+    const fileData = await getRes.json();
+    const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
+    let santriList = JSON.parse(contentDecoded);
 
-    // Hapus santri berdasarkan ID saja
+    // 2. Hapus santri sesuai ID (handle tipe data number/string)
     const awalLength = santriList.length;
-    santriList = santriList.filter((s) => String(s.id) !== String(id));
+    santriList = santriList.filter(
+      (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
+    );
 
     if (santriList.length === awalLength) {
       return {
         statusCode: 404,
-        body: JSON.stringify({
-          error: `Santri dengan ID ${id} tidak ditemukan.`,
-          allSantri: allSantriInfo,
-        }),
+        body: JSON.stringify({ error: `Santri dengan ID ${id} tidak ditemukan.` }),
       };
     }
 
-    // Encode & update ke GitHub
-    const updatedContent = Buffer.from(JSON.stringify(santriList, null, 2)).toString("base64");
-
-    const putBody = {
-      message: `Menghapus santri ID ${id} dari ${fileName}`,
-      content: updatedContent,
-    };
-    if (fileData && fileData.sha) putBody.sha = fileData.sha;
+    // 3. Encode & update ke GitHub
+    const updatedContent = Buffer.from(
+      JSON.stringify(santriList, null, 2)
+    ).toString("base64");
 
     const putRes = await fetch(githubApiUrl, {
       method: "PUT",
@@ -87,7 +65,11 @@ export async function handler(event) {
         "User-Agent": "NetlifyFunction",
         Accept: "application/vnd.github.v3+json",
       },
-      body: JSON.stringify(putBody),
+      body: JSON.stringify({
+        message: `Menghapus santri ID ${id} dari ${fileName}`,
+        content: updatedContent,
+        sha: fileData.sha,
+      }),
     });
 
     if (!putRes.ok) {
@@ -97,11 +79,7 @@ export async function handler(event) {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        message: `Santri ID ${id} berhasil dihapus`,
-        allSantriBeforeDelete: allSantriInfo,
-      }),
+      body: JSON.stringify({ success: true, message: `Santri ID ${id} berhasil dihapus` }),
     };
   } catch (err) {
     console.error("Error hapusSantri:", err);
