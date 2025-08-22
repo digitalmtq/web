@@ -20,12 +20,13 @@ export async function handler(event) {
     };
   }
 
-  // Pastikan format nama file benar (kelas_1.json, kelas_2.json, dst)
   const fileName = `kelas_${kelas}.json`;
   const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
 
   try {
-    // 1. Ambil file lama dari GitHub
+    // Ambil file lama dari GitHub
+    let fileData;
+    let santriList = [];
     const getRes = await fetch(githubApiUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -34,13 +35,22 @@ export async function handler(event) {
       },
     });
 
-    if (!getRes.ok) throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
+    if (getRes.status === 404) {
+      console.log(`${fileName} belum ada, buat baru.`);
+    } else if (!getRes.ok) {
+      throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
+    } else {
+      fileData = await getRes.json();
+      try {
+        const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
+        santriList = JSON.parse(contentDecoded);
+      } catch (e) {
+        console.warn("JSON corrupt, pakai array kosong");
+        santriList = [];
+      }
+    }
 
-    const fileData = await getRes.json();
-    const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
-    let santriList = JSON.parse(contentDecoded);
-
-    // 2. Hapus santri sesuai ID (handle tipe data number/string)
+    // Hapus santri sesuai ID atau NIS
     const awalLength = santriList.length;
     santriList = santriList.filter(
       (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
@@ -53,10 +63,14 @@ export async function handler(event) {
       };
     }
 
-    // 3. Encode & update ke GitHub
-    const updatedContent = Buffer.from(
-      JSON.stringify(santriList, null, 2)
-    ).toString("base64");
+    // Encode & update ke GitHub
+    const updatedContent = Buffer.from(JSON.stringify(santriList, null, 2)).toString("base64");
+
+    const putBody = {
+      message: `Menghapus santri ID ${id} dari ${fileName}`,
+      content: updatedContent,
+    };
+    if (fileData && fileData.sha) putBody.sha = fileData.sha; // tambahkan sha kalau ada
 
     const putRes = await fetch(githubApiUrl, {
       method: "PUT",
@@ -65,11 +79,7 @@ export async function handler(event) {
         "User-Agent": "NetlifyFunction",
         Accept: "application/vnd.github.v3+json",
       },
-      body: JSON.stringify({
-        message: `Menghapus santri ID ${id} dari ${fileName}`,
-        content: updatedContent,
-        sha: fileData.sha,
-      }),
+      body: JSON.stringify(putBody),
     });
 
     if (!putRes.ok) {
