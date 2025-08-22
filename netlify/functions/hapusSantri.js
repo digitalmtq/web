@@ -1,13 +1,10 @@
-const fetch = require("node-fetch");
-
 exports.handler = async (event) => {
   try {
-    // Hanya POST
     if (event.httpMethod !== "POST") {
       return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
     }
 
-    const { kelas, id } = JSON.parse(event.body);
+    const { kelas, id } = JSON.parse(event.body || "{}");
     if (!kelas || !id) {
       return { statusCode: 400, body: JSON.stringify({ error: "Parameter 'kelas' dan 'id' wajib diisi" }) };
     }
@@ -18,14 +15,13 @@ exports.handler = async (event) => {
 
     console.log("➡️ Hapus santri:", id, "di", filename);
 
-    // Ambil file santri dari GitHub
+    // Ambil file dari GitHub
     const res = await fetch(url, { headers: { Authorization: `token ${token}` } });
 
     let santri = [];
     let sha;
 
     if (res.status === 404) {
-      // File belum ada → buat kosong
       console.warn("⚠️ File belum ada, buat file kosong []");
       const createRes = await fetch(url, {
         method: "PUT",
@@ -51,11 +47,22 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: `Gagal ambil data GitHub (${res.status})` }) };
     }
 
-    // Ambil konten & decode JSON
     const fileData = await res.json();
     sha = fileData.sha;
+
+    // Decode base64
+    let decoded = "";
     try {
-      santri = JSON.parse(Buffer.from(fileData.content, "base64").toString("utf-8"));
+      decoded = Buffer.from(fileData.content, "base64").toString("utf-8");
+    } catch (err) {
+      console.error("❌ Error decode base64:", err);
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal decode file content" }) };
+    }
+
+    // Parse JSON
+    try {
+      santri = JSON.parse(decoded);
+      if (!Array.isArray(santri)) throw new Error("File bukan array JSON");
     } catch (err) {
       console.error("❌ Error parse JSON:", err);
       return { statusCode: 500, body: JSON.stringify({ error: "Format JSON file tidak valid" }) };
@@ -63,7 +70,7 @@ exports.handler = async (event) => {
 
     console.log("✅ Data santri sebelum hapus:", santri.map(s => s.id));
 
-    // Hapus berdasarkan ID (Number agar selalu cocok)
+    // Hapus ID
     const newSantri = santri.filter(s => Number(s.id) !== Number(id));
     if (newSantri.length === santri.length) {
       return { statusCode: 400, body: JSON.stringify({ error: `ID ${id} tidak ditemukan` }) };
@@ -71,7 +78,7 @@ exports.handler = async (event) => {
 
     console.log("✅ Data santri sesudah hapus:", newSantri.map(s => s.id));
 
-    // Update file GitHub
+    // Update GitHub
     const updateRes = await fetch(url, {
       method: "PUT",
       headers: { Authorization: `token ${token}`, "Content-Type": "application/json" },
@@ -92,25 +99,6 @@ exports.handler = async (event) => {
 
   } catch (err) {
     console.error("❌ Error umum:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: `Internal Server Error: ${err.message}` }) };
-  }
-};
-      },
-      body: JSON.stringify({
-        message: `Hapus santri id ${id}`,
-        content: Buffer.from(JSON.stringify(newSantri, null, 2)).toString("base64"),
-        sha
-      })
-    });
-
-    if (!updateRes.ok) {
-      const errText = await updateRes.text();
-      return { statusCode: 500, body: JSON.stringify({ error: `Gagal update file: ${errText}` }) };
-    }
-
-    return { statusCode: 200, body: JSON.stringify({ success: true, deletedId: id }) };
-
-  } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: `Internal Server Error: ${err.message}` }) };
   }
 };
