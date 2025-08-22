@@ -1,6 +1,6 @@
 export async function handler(event) {
   const token = process.env.MTQ_TOKEN;
-  const kelas = event.queryStringParameters.kelas;
+  const kelas = event.queryStringParameters.kelas; // harus angka
 
   if (!kelas) {
     return {
@@ -9,7 +9,6 @@ export async function handler(event) {
     };
   }
 
-  // URL API GitHub untuk file kelas
   const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/kelas_${kelas}.json`;
 
   try {
@@ -28,8 +27,6 @@ export async function handler(event) {
     }
 
     const result = await response.json();
-
-    // Decode base64 content menjadi JSON
     const decoded = Buffer.from(result.content, 'base64').toString('utf-8');
     const santriData = JSON.parse(decoded);
 
@@ -37,11 +34,10 @@ export async function handler(event) {
       statusCode: 200,
       body: JSON.stringify(santriData)
     };
-
-  } catch (error) {
+  } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify({ error: err.message })
     };
   }
 }
