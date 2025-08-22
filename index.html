@@ -2423,8 +2423,8 @@ async function muatDaftarSantri() {
   pilihSantri.innerHTML = "<option>Loading...</option>";
 
   try {
-    const res = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
-    const data = await res.json(); // Pastikan getSantri.js sudah mengembalikan JSON
+    const res = await fetch(`/.netlify/functions/getSantri2?kelas=${kelas}`);
+    const data = await res.json();
 
     pilihSantri.innerHTML = "";
     data.forEach(s => {
@@ -2471,7 +2471,6 @@ async function konfirmasiHapusSantri() {
 
     if (res.ok && data.success) {
       alert("Santri berhasil dihapus!");
-      // Hapus option dari dropdown tanpa reload
       const optionToRemove = Array.from(select.options).find(o => o.value == id);
       if (optionToRemove) select.remove(optionToRemove.index);
     } else {
