@@ -2353,6 +2353,24 @@ async function loadSantriList() {
   const kelas = selectKelas.value;
 
   try {
+    const res = await fetch(`/.netlify/functions/getDataSantri?kelas=${kelas}`);
+    const data = await res.json();
+
+    if (Array.isArray(data)) {
+      data.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = `${s.id} - ${s.nama}`;
+        selectSantri.appendChild(opt);
+      });
+    }
+  } catch (err) {
+    alert("Gagal load santri: " + err.message);
+  }
+}
+
+
+  try {
     const res = await fetch(`/.netlify/functions/hapusSantri`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
