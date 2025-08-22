@@ -2,28 +2,19 @@ const fetch = require("node-fetch");
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
-    }
+    if (event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
 
     const { kelas, id } = JSON.parse(event.body);
     const filename = `absensi/kelas_${kelas}.json`;
     const url = `https://api.github.com/repos/digitalmtq/server/contents/${filename}`;
 
-    console.log("➡️ Hapus santri:", id);
-
-    // Ambil file JSON + SHA
-    const fileRes = await fetch(url, {
-      headers: { Authorization: `token ${process.env.MTQ_TOKEN}` }
-    });
-
+    // Ambil file dari GitHub
+    const fileRes = await fetch(url, { headers: { Authorization: `token ${process.env.MTQ_TOKEN}` } });
     let santri = [];
     let sha;
 
-    if (fileRes.status === 404) {
-      console.warn("⚠️ File belum ada, buat file kosong []");
-      santri = [];
-    } else if (fileRes.ok) {
+    if (fileRes.status === 404) santri = [];
+    else if (fileRes.ok) {
       const fileData = await fileRes.json();
       sha = fileData.sha;
       const contentStr = Buffer.from(fileData.content, "base64").toString("utf-8");
@@ -33,14 +24,11 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: `Gagal ambil file (${fileRes.status}): ${text}` }) };
     }
 
-    // Filter ID
-    const newSantri = santri.filter(s => String(s.id).trim() !== String(id).trim());
+    // Filter ID pakai Number agar pasti cocok
+    const newSantri = santri.filter(s => Number(s.id) !== Number(id));
+    if (newSantri.length === santri.length) return { statusCode: 400, body: JSON.stringify({ error: `ID ${id} tidak ditemukan` }) };
 
-    if (newSantri.length === santri.length) {
-      return { statusCode: 400, body: JSON.stringify({ error: `ID ${id} tidak ditemukan` }) };
-    }
-
-    // Update file
+    // Update file di GitHub
     const updateRes = await fetch(url, {
       method: "PUT",
       headers: {
