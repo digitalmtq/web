@@ -561,7 +561,10 @@ button.lihat-quran-btn:hover::after {
 
 <!-- Modal Hapus Santri -->
 <div id="modalHapusSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
-  <div style="background:#fff; width:350px; margin:100px auto; padding:20px; border-radius:10px;">
+  <div style="background:#fff; width:350px; margin:100px auto; padding:20px; border-radius:10px; position:relative;">
+    <!-- Tombol Close × -->
+    <span id="closeHapusSantri" style="position:absolute; top:10px; right:15px; cursor:pointer; font-size:18px;">&times;</span>
+
     <h2>Hapus Santri</h2>
     
     <label>Pilih Santri:</label>
@@ -2387,6 +2390,19 @@ async function konfirmasiHapusSantri() {
     alert("Terjadi kesalahan: " + err.message);
   }
 }
+
+// Event listener tombol × untuk menutup modal
+document.getElementById("closeHapusSantri").addEventListener("click", () => {
+  tutupModal("modalHapusSantri");
+});
+
+// Klik di luar modal-content menutup modal
+window.addEventListener("click", function(event) {
+  const modal = document.getElementById("modalHapusSantri");
+  if (event.target === modal) {
+    tutupModal("modalHapusSantri");
+  }
+});
 </script>
   
 
