@@ -2357,64 +2357,9 @@ window.loadSantriData = async function (...args) {
 // Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
 tanggalInput?.addEventListener("change", () => loadSantriData());
 kelasSelect?.addEventListener("change", () => loadSantriData());
-
-  </script>
-
-  
-  <script>
-  function bukaModalSantri() {
-    document.getElementById("modalSantri").style.display = "block";
-  }
-
-  function tutupModal() {
-    document.getElementById("modalSantri").style.display = "none";
-    document.getElementById("inputNama").value = "";
-    document.getElementById("inputNis").value = "";
-    document.getElementById("inputSemester").value = "1";
-    document.getElementById("loadingTambahSantri").style.display = "none";
-  }
-
-  async function simpanSantriBaru() {
-    const nama = document.getElementById("inputNama").value.trim();
-    const nis = document.getElementById("inputNis").value.trim();
-    const semester = document.getElementById("inputSemester").value;
-    const kelas = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
-
-    if (!nama) {
-      alert("Nama tidak boleh kosong.");
-      return;
-    }
-    if (!nis) {
-      alert("NIS tidak boleh kosong.");
-      return;
-    }
-
-    const loadingEl = document.getElementById("loadingTambahSantri");
-    loadingEl.style.display = "block";
-
-    try {
-      const res = await fetch("/.netlify/functions/tambahSantri", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nama, nis, semester, kelas })
-      });
-
-      const data = await res.json();
-      loadingEl.style.display = "none";
-
-      if (res.ok) {
-        alert("Santri berhasil ditambahkan!");
-        tutupModal();
-        location.reload();
-      } else {
-        alert("Gagal menambahkan: " + data.error);
-      }
-    } catch (err) {
-      loadingEl.style.display = "none";
-      alert("Terjadi kesalahan: " + err.message);
-    }
-  }
 </script>
+
+
 
 <script>
   function bukaModalSantri() {
