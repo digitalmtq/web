@@ -2233,58 +2233,107 @@ async function submitTambahKelasBaru() {
 </script>
   
   <script>
-  function bukaModalSantri() {
-    document.getElementById("modalSantri").style.display = "block";
+  import fetch from "node-fetch";
+import { Buffer } from "buffer";
+
+export async function handler(event) {
+  const token = process.env.MTQ_TOKEN;
+
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Method not allowed. Gunakan POST." }),
+    };
   }
 
-  function tutupModal() {
-    document.getElementById("modalSantri").style.display = "none";
-    document.getElementById("inputNama").value = "";
-    document.getElementById("inputNis").value = "";
-    document.getElementById("inputSemester").value = "1";
-    document.getElementById("loadingTambahSantri").style.display = "none";
+  const { id, kelas } = JSON.parse(event.body || "{}");
+
+  if (!id || !kelas) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Parameter id dan kelas wajib diisi." }),
+    };
   }
 
-  async function simpanSantriBaru() {
-    const nama = document.getElementById("inputNama").value.trim();
-    const nis = document.getElementById("inputNis").value.trim();
-    const semester = document.getElementById("inputSemester").value;
-    const kelas = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
+  const fileName = `kelas_${kelas}.json`;
+  const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
 
-    if (!nama) {
-      alert("Nama tidak boleh kosong.");
-      return;
-    }
-    if (!nis) {
-      alert("NIS tidak boleh kosong.");
-      return;
-    }
+  try {
+    // Ambil file lama dari GitHub
+    let fileData;
+    let santriList = [];
+    const getRes = await fetch(githubApiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "NetlifyFunction",
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
 
-    const loadingEl = document.getElementById("loadingTambahSantri");
-    loadingEl.style.display = "block";
-
-    try {
-      const res = await fetch("/.netlify/functions/tambahSantri", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nama, nis, semester, kelas })
-      });
-
-      const data = await res.json();
-      loadingEl.style.display = "none";
-
-      if (res.ok) {
-        alert("Santri berhasil ditambahkan!");
-        tutupModal();
-        location.reload();
-      } else {
-        alert("Gagal menambahkan: " + data.error);
+    if (getRes.status === 404) {
+      console.log(`${fileName} belum ada, buat baru.`);
+    } else if (!getRes.ok) {
+      throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
+    } else {
+      fileData = await getRes.json();
+      try {
+        const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
+        santriList = JSON.parse(contentDecoded);
+      } catch (e) {
+        console.warn("JSON corrupt, pakai array kosong");
+        santriList = [];
       }
-    } catch (err) {
-      loadingEl.style.display = "none";
-      alert("Terjadi kesalahan: " + err.message);
     }
+
+    // Hapus santri sesuai ID atau NIS
+    const awalLength = santriList.length;
+    santriList = santriList.filter(
+      (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
+    );
+
+    if (santriList.length === awalLength) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: `Santri dengan ID ${id} tidak ditemukan.` }),
+      };
+    }
+
+    // Encode & update ke GitHub
+    const updatedContent = Buffer.from(JSON.stringify(santriList, null, 2)).toString("base64");
+
+    const putBody = {
+      message: `Menghapus santri ID ${id} dari ${fileName}`,
+      content: updatedContent,
+    };
+    if (fileData && fileData.sha) putBody.sha = fileData.sha; // tambahkan sha kalau ada
+
+    const putRes = await fetch(githubApiUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "NetlifyFunction",
+        Accept: "application/vnd.github.v3+json",
+      },
+      body: JSON.stringify(putBody),
+    });
+
+    if (!putRes.ok) {
+      const errorText = await putRes.text();
+      throw new Error(`Gagal simpan ke GitHub: ${putRes.status} ${errorText}`);
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true, message: `Santri ID ${id} berhasil dihapus` }),
+    };
+  } catch (err) {
+    console.error("Error hapusSantri:", err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message }),
+    };
   }
+}
 </script>
 
 <script>
