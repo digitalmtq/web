@@ -1,91 +1,81 @@
-import fetch from "node-fetch";
-import { Buffer } from "buffer";
-
-export async function handler(event) {
-  const token = process.env.MTQ_TOKEN;
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method not allowed. Gunakan POST." }),
-    };
-  }
-
-  const { id, kelas } = JSON.parse(event.body || "{}");
-
-  if (!id || !kelas) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Parameter id dan kelas wajib diisi." }),
-    };
-  }
-
-  // Pastikan format nama file benar (kelas_1.json, kelas_2.json, dst)
-  const fileName = `kelas_${kelas}.json`;
-  const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
-
+exports.handler = async (event) => {
   try {
-    // 1. Ambil file lama dari GitHub
-    const getRes = await fetch(githubApiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "NetlifyFunction",
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
-
-    if (!getRes.ok) throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
-
-    const fileData = await getRes.json();
-    const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
-    let santriList = JSON.parse(contentDecoded);
-
-    // 2. Hapus santri sesuai ID (handle tipe data number/string)
-    const awalLength = santriList.length;
-    santriList = santriList.filter(
-      (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
-    );
-
-    if (santriList.length === awalLength) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: `Santri dengan ID ${id} tidak ditemukan.` }),
-      };
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-    // 3. Encode & update ke GitHub
-    const updatedContent = Buffer.from(
-      JSON.stringify(santriList, null, 2)
-    ).toString("base64");
+    const { kelas, id } = JSON.parse(event.body);
+    const filename = `absensi/kelas_${kelas}.json`;
+    const url = `https://api.github.com/repos/dickymiswardi/usermtq/contents/${filename}`;
 
-    const putRes = await fetch(githubApiUrl, {
-      method: "PUT",
+    console.log("➡️ Hapus santri:", id, "di", filename);
+
+    // Ambil file + SHA
+    const res = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "NetlifyFunction",
-        Accept: "application/vnd.github.v3+json",
-      },
-      body: JSON.stringify({
-        message: `Menghapus santri ID ${id} dari ${fileName}`,
-        content: updatedContent,
-        sha: fileData.sha,
-      }),
+        Authorization: `token ${process.env.MTQ_TOKEN}`,
+        Accept: "application/vnd.github.v3.raw"
+      }
     });
 
-    if (!putRes.ok) {
-      const errorText = await putRes.text();
-      throw new Error(`Gagal simpan ke GitHub: ${putRes.status} ${errorText}`);
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("❌ Gagal ambil data GitHub:", res.status, text);
+      return { statusCode: 500, body: `Gagal ambil data GitHub (${res.status})` };
+    }
+
+    let santri;
+    try {
+      santri = await res.json();
+    } catch (parseErr) {
+      console.error("❌ Error parse JSON:", parseErr);
+      return { statusCode: 500, body: "Format JSON file tidak valid" };
+    }
+
+    console.log("✅ Data santri sebelum hapus:", santri.length);
+
+    // Hapus berdasarkan ID
+    const newSantri = santri.filter(s => String(s.id) !== String(id));
+    console.log("✅ Data santri sesudah hapus:", newSantri.length);
+
+    // Ambil SHA file (untuk update)
+    const fileInfoRes = await fetch(url, {
+      headers: { Authorization: `token ${process.env.MTQ_TOKEN}` }
+    });
+    const fileInfo = await fileInfoRes.json();
+
+    if (!fileInfo.sha) {
+      console.error("❌ Tidak ada SHA:", fileInfo);
+      return { statusCode: 500, body: "Gagal ambil SHA file" };
+    }
+
+    // Update file di GitHub
+    const updateRes = await fetch(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `token ${process.env.MTQ_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: `Hapus santri id ${id}`,
+        content: Buffer.from(JSON.stringify(newSantri, null, 2)).toString("base64"),
+        sha: fileInfo.sha
+      })
+    });
+
+    if (!updateRes.ok) {
+      const errText = await updateRes.text();
+      console.error("❌ Gagal update file:", updateRes.status, errText);
+      return { statusCode: 500, body: `Gagal update file (${updateRes.status})` };
     }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, message: `Santri ID ${id} berhasil dihapus` }),
+      body: JSON.stringify({ success: true, deletedId: id })
     };
+
   } catch (err) {
-    console.error("Error hapusSantri:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
-    };
+    console.error("❌ Error umum:", err);
+    return { statusCode: 500, body: `Internal Server Error: ${err.message}` };
   }
-}
+};
