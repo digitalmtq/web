@@ -2417,9 +2417,30 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 </script>
 
 	<script>
+async function muatDaftarSantri() {
+  const kelas = document.getElementById("kelas").value;
+  const pilihSantri = document.getElementById("pilihSantri");
+  pilihSantri.innerHTML = "<option>Loading...</option>";
+
+  try {
+    const res = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+    const data = await res.json(); // Pastikan getSantri.js sudah mengembalikan JSON
+
+    pilihSantri.innerHTML = "";
+    data.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = `${s.id} - ${s.nama} (Semester ${s.semester})`;
+      pilihSantri.appendChild(opt);
+    });
+
+  } catch (err) {
+    alert("Gagal memuat daftar santri: " + err.message);
+  }
+}
+
 function bukaModalHapusSantri() {
-  const modal = document.getElementById("modalHapusSantri");
-  modal.style.display = "block";
+  document.getElementById("modalHapusSantri").style.display = "flex";
   muatDaftarSantri();
 }
 
@@ -2427,35 +2448,13 @@ function tutupModal(id) {
   document.getElementById(id).style.display = "none";
 }
 
-async function muatDaftarSantri() {
-  const kelas = document.getElementById("kelas").value;
-  try {
-    const res = await fetch(`/.netlify/functions/getDataSantri?kelas=${kelas}`);
-    const data = await res.json();
-
-    const pilihSantri = document.getElementById("pilihSantri");
-    pilihSantri.innerHTML = "";
-
-    data.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.id; // Kirim ID sesuai tipe JSON
-      opt.textContent = `${s.id} - ${s.nama} (Semester ${s.semester})`;
-      pilihSantri.appendChild(opt);
-    });
-  } catch (err) {
-    alert("Gagal memuat daftar santri: " + err.message);
-  }
-}
-
 async function konfirmasiHapusSantri() {
-  const id = document.getElementById("pilihSantri").value; // kirim string langsung
+  const select = document.getElementById("pilihSantri");
+  const id = select.value;
   const kelas = document.getElementById("kelas").value;
   const loading = document.getElementById("loadingHapusSantri");
 
-  if (!id) {
-    alert("Pilih santri yang ingin dihapus!");
-    return;
-  }
+  if (!id) return alert("Pilih santri yang ingin dihapus!");
   if (!confirm("Yakin ingin menghapus santri ini?")) return;
 
   loading.style.display = "block";
@@ -2472,10 +2471,13 @@ async function konfirmasiHapusSantri() {
 
     if (res.ok && data.success) {
       alert("Santri berhasil dihapus!");
-      muatDaftarSantri(); // refresh dropdown tanpa reload
+      // Hapus option dari dropdown tanpa reload
+      const optionToRemove = Array.from(select.options).find(o => o.value == id);
+      if (optionToRemove) select.remove(optionToRemove.index);
     } else {
       alert("Gagal menghapus: " + (data.error || "Unknown error"));
     }
+
   } catch (err) {
     loading.style.display = "none";
     alert("Terjadi kesalahan: " + err.message);
