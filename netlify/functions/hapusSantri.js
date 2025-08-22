@@ -1,91 +1,96 @@
-import fetch from "node-fetch";
-import { Buffer } from "buffer";
+// netlify/functions/hapusSantri.js
+const fetch = require("node-fetch");
 
-export async function handler(event) {
-  const token = process.env.MTQ_TOKEN;
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method not allowed. Gunakan POST." }),
-    };
-  }
-
-  const { id, kelas } = JSON.parse(event.body || "{}");
-
-  if (!id || !kelas) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Parameter id dan kelas wajib diisi." }),
-    };
-  }
-
-  // Pastikan format nama file benar (kelas_1.json, kelas_2.json, dst)
-  const fileName = `kelas_${kelas}.json`;
-  const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
-
+exports.handler = async (event) => {
   try {
-    // 1. Ambil file lama dari GitHub
-    const getRes = await fetch(githubApiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "NetlifyFunction",
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
-
-    if (!getRes.ok) throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
-
-    const fileData = await getRes.json();
-    const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
-    let santriList = JSON.parse(contentDecoded);
-
-    // 2. Hapus santri sesuai ID (handle tipe data number/string)
-    const awalLength = santriList.length;
-    santriList = santriList.filter(
-      (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
-    );
-
-    if (santriList.length === awalLength) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: `Santri dengan ID ${id} tidak ditemukan.` }),
-      };
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
     }
 
-    // 3. Encode & update ke GitHub
-    const updatedContent = Buffer.from(
-      JSON.stringify(santriList, null, 2)
-    ).toString("base64");
+    const { kelas, id } = JSON.parse(event.body);
+    if (!kelas || !id) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Parameter 'kelas' dan 'id' wajib diisi" }) };
+    }
 
-    const putRes = await fetch(githubApiUrl, {
+    const filename = `kelas_${kelas}.json`;
+    const url = `https://api.github.com/repos/digitalmtq/server/contents/${filename}`;
+    const token = process.env.MTQ_TOKEN;
+
+    console.log("➡️ Hapus santri ID:", id, "di file:", filename);
+
+    // Ambil file dari GitHub
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json"
+      }
+    });
+
+    if (res.status === 404) {
+      console.warn("⚠️ File belum ada, buat file kosong []");
+      const createRes = await fetch(url, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Buat file ${filename} kosong`,
+          content: Buffer.from(JSON.stringify([], null, 2)).toString("base64")
+        })
+      });
+      if (!createRes.ok) {
+        const text = await createRes.text();
+        console.error("❌ Gagal membuat file kosong:", text);
+        return { statusCode: 500, body: JSON.stringify({ error: "Gagal buat file kosong" }) };
+      }
+      return { statusCode: 200, body: JSON.stringify({ success: true, note: "File baru dibuat kosong" }) };
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("❌ Gagal ambil file:", res.status, text);
+      return { statusCode: 500, body: JSON.stringify({ error: `Gagal ambil file GitHub (${res.status})` }) };
+    }
+
+    const fileData = await res.json();
+    let santriData;
+    try {
+      santriData = JSON.parse(Buffer.from(fileData.content, "base64").toString("utf-8"));
+    } catch (err) {
+      console.error("❌ JSON parsing error:", err);
+      return { statusCode: 500, body: JSON.stringify({ error: "JSON file tidak valid" }) };
+    }
+
+    console.log("✅ Data sebelum hapus:", santriData);
+
+    // Filter santri berdasarkan ID
+    const newSantri = santriData.filter(s => String(s.id) !== String(id));
+
+    if (newSantri.length === santriData.length) {
+      console.warn("⚠️ ID tidak ditemukan:", id);
+      return { statusCode: 400, body: JSON.stringify({ error: `ID ${id} tidak ditemukan` }) };
+    }
+
+    // Update file di GitHub
+    const updateRes = await fetch(url, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "NetlifyFunction",
-        Accept: "application/vnd.github.v3+json",
-      },
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: `Menghapus santri ID ${id} dari ${fileName}`,
-        content: updatedContent,
-        sha: fileData.sha,
-      }),
+        message: `Hapus santri ID ${id}`,
+        content: Buffer.from(JSON.stringify(newSantri, null, 2)).toString("base64"),
+        sha: fileData.sha
+      })
     });
 
-    if (!putRes.ok) {
-      const errorText = await putRes.text();
-      throw new Error(`Gagal simpan ke GitHub: ${putRes.status} ${errorText}`);
+    if (!updateRes.ok) {
+      const text = await updateRes.text();
+      console.error("❌ Gagal update file:", updateRes.status, text);
+      return { statusCode: 500, body: JSON.stringify({ error: `Gagal update file (${updateRes.status})` }) };
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, message: `Santri ID ${id} berhasil dihapus` }),
-    };
+    console.log("✅ Santri berhasil dihapus:", id);
+    return { statusCode: 200, body: JSON.stringify({ success: true, deletedId: id }) };
+
   } catch (err) {
-    console.error("Error hapusSantri:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
-    };
+    console.error("❌ Error umum:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: `Internal Server Error: ${err.message}` }) };
   }
-}
+};
