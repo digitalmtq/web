@@ -1049,7 +1049,7 @@ function aturDropdownKelas(user) {
       }, 500);
     });
 
-    async function loadSantriData() { 
+    async function loadSantriData() {
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
   overlay.style.display = "flex";
@@ -1087,16 +1087,17 @@ function aturDropdownKelas(user) {
     santriTableBody.innerHTML = "";
 
     santriData.forEach((santri) => {
-      const uniqueKey = santri.id || santri.nis; // identitas aman
-      const dataAbsensi = absensiData.find(a => (a.id || a.nis) === uniqueKey) || {};
-      const row = document.createElement("tr");
+      const dataAbsensi = absensiData.find(
+        a => (a.id && a.id === santri.id) || (a.nis && a.nis === santri.nis)
+      ) || {};
 
+      const row = document.createElement("tr");
       const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
       const dari = (dataAbsensi.dari || "1:1").split(":");
       const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
       row.innerHTML = `
-        <td>${uniqueKey}</td>
+        <td>${santri.id || santri.nis}</td>
         <td>${santri.nama}</td>
         <td>
           <select class="absensi">
@@ -1140,19 +1141,23 @@ function aturDropdownKelas(user) {
           <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
         </td>
         <td>
-          <button type="button" class="hapus-btn" data-kelas="${kelas}" data-key="${uniqueKey}">❌</button>
+          <button type="button" 
+            class="hapus-btn" 
+            data-kelas="${kelas}" 
+            data-id="${santri.id || ''}" 
+            data-nis="${santri.nis || ''}">❌</button>
         </td>
       `;
       santriTableBody.appendChild(row);
 
-      // Ganti gif kalau totalAllJuz = 0
+      // ganti gif kalau totalAllJuz = 0
       document.querySelectorAll("td.total-all-juz").forEach(td => {
         if (td.textContent.trim() === "0") {
           td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
         }
       });
 
-      // Set surah & ayat dropdown
+      // dropdown surah & ayat
       const surahDari = row.querySelector(".surah-dari");
       const ayatDari = row.querySelector(".ayat-dari");
       const surahSampai = row.querySelector(".surah-sampai");
@@ -1181,17 +1186,18 @@ function aturDropdownKelas(user) {
       });
     });
 
-    // Tambah event listener hapus setelah semua row dibuat
+    // tombol hapus
     document.querySelectorAll(".hapus-btn").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         const kelas = e.target.dataset.kelas;
-        const key = e.target.dataset.key;
+        const id = e.target.dataset.id;
+        const nis = e.target.dataset.nis;
         if (!confirm("Yakin ingin hapus santri ini?")) return;
         try {
           const res = await fetch("/.netlify/functions/hapusSantri", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kelas, uniqueKey: key })
+            body: JSON.stringify({ kelas, id, nis })
           });
           if (!res.ok) throw new Error(await res.text());
           alert("Santri berhasil dihapus");
@@ -1210,6 +1216,7 @@ function aturDropdownKelas(user) {
 
   overlay.style.display = "none";
 }
+
 
 
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
