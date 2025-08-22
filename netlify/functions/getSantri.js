@@ -1,6 +1,6 @@
 export async function handler(event) {
   const token = process.env.MTQ_TOKEN;
-  const kelas = event.queryStringParameters.kelas; // harus angka
+  const kelas = event.queryStringParameters.kelas;
 
   if (!kelas) {
     return {
@@ -9,12 +9,13 @@ export async function handler(event) {
     };
   }
 
-  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/kelas_${kelas}.json`;
+  // URL API GitHub (bukan raw)
+  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${kelas}.json`;
 
   try {
     const response = await fetch(apiUrl, {
       headers: {
-        Authorization: `token ${token}`,
+        Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json"
       }
     });
@@ -22,22 +23,24 @@ export async function handler(event) {
     if (!response.ok) {
       return {
         statusCode: response.status,
-        body: JSON.stringify({ error: `Gagal fetch data: ${response.status}` })
+        body: JSON.stringify({ error: `Gagal fetch data: ${response.status}` }),
       };
     }
 
     const result = await response.json();
+
+    // Decode base64 -> UTF-8
     const decoded = Buffer.from(result.content, 'base64').toString('utf-8');
-    const santriData = JSON.parse(decoded);
 
     return {
       statusCode: 200,
-      body: JSON.stringify(santriData)
+      body: decoded
     };
-  } catch (err) {
+
+  } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message })
+      body: JSON.stringify({ error: error.message })
     };
   }
 }
