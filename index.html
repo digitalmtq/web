@@ -426,7 +426,7 @@ button.lihat-quran-btn:hover::after {
     <label>Password Admin: <input type="password" id="adminPasswordInputDaftar"></label>
     <p id="adminErrorDaftar" style="color:red;"></p>
     <button onclick="cekPasswordAdminDaftar()">Submit</button>
-    <button class="close-btn" data-target="modalAdminDaftar")">Close</button>
+    <button onclick="tutupModal('modalAdminDaftar')">Close</button>
   </div>
 </div>
 
@@ -440,7 +440,7 @@ button.lihat-quran-btn:hover::after {
     <label><input type="checkbox" onclick="toggleLihatPasswordAdmin()"> Lihat Password</label><br><br>
 
     <button onclick="buatAdminBaru()">Create Admin</button>
-    <button class="close-btn" data-target="modalDaftarAdmin")">Close</button>
+    <button onclick="tutupModal('modalDaftarAdmin')">Close</button>
 
     <p id="daftarAdminError" style="color:red;"></p>
     <p id="daftarAdminSuccess" style="color:green;"></p>
@@ -532,11 +532,6 @@ async function buatAdminBaru() {
     errorEl.textContent = "Terjadi kesalahan saat menghubungi server.";
   }
 }
-
-// Fungsi tutup modal
-function tutupModal(id) {
-  document.getElementById(id).style.display = "none";
-}
 </script>
 
 
@@ -548,7 +543,7 @@ function tutupModal(id) {
      <label>Password Admin: <input type="password" id="adminPasswordInput"></label>
     <p id="adminError" style="color:red;"></p>
     <button onclick="cekPasswordAdmin()">Submit</button>
-    <button class="close-btn" data-target="modalAdmin")">Close</button>
+    <button onclick="tutupModal('modalAdmin')">Close</button>
   </div>
 </div>
 
@@ -564,7 +559,7 @@ function tutupModal(id) {
     <div id="kelasCheckboxContainer">🔄 Memuat daftar kelas...</div><br>
 
     <button onclick="buatAkunBaru()">Create Account</button>
-    <button class="close-btn" data-target="modalDaftar")">Close</button>
+    <button onclick="tutupModal('modalDaftar')">Close</button>
     <p id="daftarError" style="color:red;"></p>
     <p id="daftarSuccess" style="color:green;"></p>
   </div>
@@ -612,10 +607,6 @@ function bukaFormDaftar(adminPass) {
   ambilDaftarKelas(); // Load daftar kelas dari GitHub
 }
 
-// Tutup modal
-function tutupModal(id) {
-  document.getElementById(id).style.display = "none";
-}
 
 // Toggle lihat password
 function toggleLihatPassword() {
@@ -745,7 +736,7 @@ async function buatAkunBaru() {
     <label>Password Admin: <input type="password" id="adminPasswordInputNIS"></label>
     <p id="adminErrorNIS" style="color:red;"></p>
     <button onclick="cekPasswordAdminNIS()">Submit</button>
-    <button class="close-btn" data-target="modalAdminNIS")">Close</button>
+    <button onclick="tutupModal('modalAdminNIS')">Close</button>
   </div>
 </div>
 
@@ -763,7 +754,7 @@ async function buatAkunBaru() {
     <div id="nisCheckboxContainer">🔄 Pilih kelas dahulu...</div><br>
 
     <button onclick="buatUserNIS()">Create User NIS</button>
-    <button class="close-btn" data-target="modalDaftarNIS")">Close</button>
+    <button onclick="tutupModal('modalDaftarNIS')">Close</button>
     <p id="daftarNISError" style="color:red;"></p>
     <p id="daftarNISSuccess" style="color:green;"></p>
   </div>
@@ -812,8 +803,6 @@ function bukaFormDaftarNIS() {
   ambilDaftarKelasNIS();
 }
 
-// Tutup modal
-function tutupModal(id) { document.getElementById(id).style.display = "none"; }
 
 // Toggle password
 function toggleLihatPasswordNIS() {
@@ -903,7 +892,7 @@ async function buatUserNIS() {
     <label>Password Admin: <input type="password" id="inputPasswordTambahKelas"></label>
     <p id="statusPasswordTambahKelas" style="color:red;"></p>
     <button onclick="verifikasiAdminTambahKelas()">Submit</button>
-    <button class="close-btn" data-target="modalTambahKelasPassword")">Close</button>
+    <button onclick="tutupModal('modalTambahKelasPassword')">Close</button>
   </div>
 </div>
 
@@ -915,7 +904,7 @@ async function buatUserNIS() {
     <ul id="listKelasTersedia"></ul>
     <input type="number" id="inputNomorKelasBaruTambah" placeholder="Contoh: 7" />
     <button onclick="submitTambahKelasBaru()">Buat</button>
-    <button class="close-btn" data-target="modalFormTambahKelas")">Close</button>
+    <button onclick="tutupModal('modalFormTambahKelas')">Close</button>
     <p id="statusTambahKelasBaru" style="color:red;"></p>
   </div>
 </div>
@@ -926,10 +915,6 @@ let passwordTambahKelas = "";
 
 function bukaModalTambahKelas() {
   document.getElementById("modalTambahKelasPassword").style.display = "flex";
-}
-
-function tutupModal(id) {
-  document.getElementById(id).style.display = "none";
 }
 
 async function verifikasiAdminTambahKelas() {
@@ -1005,24 +990,6 @@ async function submitTambahKelasBaru() {
 </script>
 
 
-	<script>
-// SATU fungsi tutupModal global
-function tutupModal(id) {
-  const modal = document.getElementById(id);
-  if (modal) modal.style.display = "none";
-}
-
-// SATU event listener untuk semua tombol Close
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".close-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const target = btn.getAttribute("data-target");
-      tutupModal(target);
-    });
-  });
-});
-</script>
-
   
     <!-- Dashboard -->
     <div id="dashboard-card" class="card" style="display: none;">
@@ -1093,7 +1060,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     <div style="margin-top:10px; display:flex; justify-content:space-between;">
       <button onclick="simpanSantriBaru()">Simpan</button>
-    <button class="close-btn" data-target="modalSantri')">❌ Batal</button>
+    <button onclick="tutupModal('modalSantri')">❌ Batal</button>
     </div>
 
     <div id="loadingTambahSantri" style="display:none; margin-top:10px; color:blue;">
@@ -1114,7 +1081,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     <div style="margin-top:10px; display:flex; justify-content:space-between;">
       <button onclick="konfirmasiHapusSantri()">🗑️ Hapus</button>
-      <button class="close-btn" data-target="modalHapusSantri')">❌ Batal</button>
+      <button onclick="tutupModal('modalHapusSantri')">❌ Batal</button>
     </div>
 
     <div id="loadingHapusSantri" style="display:none; margin-top:10px; color:red;">
@@ -2888,30 +2855,10 @@ document.getElementById("btn-beri-nilai").onclick = function() {
 };
 </script>
 
-
-
-
-
-
-
-
-
-  
-
-  <script>
-  function tutupModal(id) {
-    const modal = document.getElementById(id);
-    if (modal) {
-      modal.style.display = "none";
-    }
-  }
-
-    function tutupModal(id) {
-  if (!id) return; // jika tidak ada ID, keluar saja
-  const modal = document.getElementById(id);
-  if (modal) {
-    modal.style.display = "none";
-  }
+<script>
+// Fungsi tutup modal
+function tutupModal(id) {
+  document.getElementById(id).style.display = "none";
 }
 </script>
 
