@@ -21,6 +21,41 @@ exports.handler = async (event) => {
       }
     });
 
+    // 🔹 Kalau file tidak ada (404) → buat file kosong
+    if (res.status === 404) {
+      console.warn("⚠️ File belum ada, buat file kosong []");
+
+      const createRes = await fetch(url, {
+        method: "PUT",
+        headers: {
+          Authorization: `token ${process.env.MTQ_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: `Buat file ${filename} kosong`,
+          content: Buffer.from(JSON.stringify([], null, 2)).toString("base64")
+        })
+      });
+
+      if (!createRes.ok) {
+        const errText = await createRes.text();
+        console.error("❌ Gagal membuat file kosong:", errText);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: "Gagal membuat file kosong" })
+        };
+      }
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          deletedId: id,
+          note: "File baru dibuat kosong"
+        })
+      };
+    }
+
     if (!res.ok) {
       const text = await res.text();
       console.error("❌ Gagal ambil data GitHub:", res.status, text);
@@ -43,11 +78,11 @@ exports.handler = async (event) => {
 
     console.log("✅ Data santri sebelum hapus:", santri.length);
 
-    // 🔹 Filter santri
+    // 🔹 Hapus berdasarkan ID
     const newSantri = santri.filter(s => String(s.id) !== String(id));
     console.log("✅ Data santri sesudah hapus:", newSantri.length);
 
-    // 🔹 Ambil SHA file
+    // 🔹 Ambil SHA file untuk update
     const fileInfoRes = await fetch(url, {
       headers: { Authorization: `token ${process.env.MTQ_TOKEN}` }
     });
@@ -61,7 +96,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 🔹 Update file di GitHub
+    // 🔹 Update file dengan data baru
     const updateRes = await fetch(url, {
       method: "PUT",
       headers: {
