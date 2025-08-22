@@ -1,79 +1,91 @@
-const fetch = require("node-fetch");
+import fetch from "node-fetch";
+import { Buffer } from "buffer";
 
-exports.handler = async (event) => {
+export async function handler(event) {
+  const token = process.env.MTQ_TOKEN;
+
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Method not allowed. Gunakan POST." }),
+    };
+  }
+
+  const { id, kelas } = JSON.parse(event.body || "{}");
+
+  if (!id || !kelas) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Parameter id dan kelas wajib diisi." }),
+    };
+  }
+
+  // Pastikan format nama file benar (kelas_1.json, kelas_2.json, dst)
+  const fileName = `kelas_${kelas}.json`;
+  const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
+
   try {
-    const { kelas, id, nis } = JSON.parse(event.body);
+    // 1. Ambil file lama dari GitHub
+    const getRes = await fetch(githubApiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "NetlifyFunction",
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
 
-    if (!kelas) {
-      return { statusCode: 400, body: "Kelas wajib diisi" };
-    }
-    if (!id && !nis) {
-      return { statusCode: 400, body: "ID atau NIS wajib diisi" };
-    }
+    if (!getRes.ok) throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
 
-    const GITHUB_TOKEN = process.env.MTQ_TOKEN;
-    const owner = "dickymiswardi";
-    const repo = "usermtq";
-    const path = `absensi/kelas_${kelas}.json`;
+    const fileData = await getRes.json();
+    const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
+    let santriList = JSON.parse(contentDecoded);
 
-    // ambil isi file dulu
-    const resFile = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-      {
-        headers: { Authorization: `token ${GITHUB_TOKEN}` },
-      }
+    // 2. Hapus santri sesuai ID (handle tipe data number/string)
+    const awalLength = santriList.length;
+    santriList = santriList.filter(
+      (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
     );
 
-    if (resFile.status === 404) {
-      return { statusCode: 404, body: `File kelas_${kelas}.json belum ada` };
+    if (santriList.length === awalLength) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: `Santri dengan ID ${id} tidak ditemukan.` }),
+      };
     }
 
-    const fileData = await resFile.json();
-    const sha = fileData.sha;
-    let santri = JSON.parse(
-      Buffer.from(fileData.content, "base64").toString("utf-8")
-    );
+    // 3. Encode & update ke GitHub
+    const updatedContent = Buffer.from(
+      JSON.stringify(santriList, null, 2)
+    ).toString("base64");
 
-    // filter data
-    const before = santri.length;
-    santri = santri.filter(
-      (s) =>
-        String(s.id) !== String(id) &&
-        String(s.nis || "") !== String(nis || "")
-    );
+    const putRes = await fetch(githubApiUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "NetlifyFunction",
+        Accept: "application/vnd.github.v3+json",
+      },
+      body: JSON.stringify({
+        message: `Menghapus santri ID ${id} dari ${fileName}`,
+        content: updatedContent,
+        sha: fileData.sha,
+      }),
+    });
 
-    if (before === santri.length) {
-      return { statusCode: 404, body: "Santri tidak ditemukan" };
-    }
-
-    // simpan perubahan
-    const updateRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: `Hapus santri id:${id} nis:${nis} dari kelas_${kelas}`,
-          content: Buffer.from(JSON.stringify(santri, null, 2)).toString("base64"),
-          sha,
-        }),
-      }
-    );
-
-    if (!updateRes.ok) {
-      const errText = await updateRes.text();
-      return { statusCode: updateRes.status, body: errText };
+    if (!putRes.ok) {
+      const errorText = await putRes.text();
+      throw new Error(`Gagal simpan ke GitHub: ${putRes.status} ${errorText}`);
     }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, message: "Santri berhasil dihapus" }),
+      body: JSON.stringify({ success: true, message: `Santri ID ${id} berhasil dihapus` }),
     };
   } catch (err) {
     console.error("Error hapusSantri:", err);
-    return { statusCode: 500, body: "Internal server error" };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message }),
+    };
   }
-};
+}
