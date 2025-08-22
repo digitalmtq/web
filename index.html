@@ -2428,9 +2428,7 @@ function tutupModal(id) {
 }
 
 async function muatDaftarSantri() {
-  const kelas = document.getElementById("kelas").value; // dropdown kelas utama
-  const tanggal = document.getElementById("tanggal").value; // kalau ada
-
+  const kelas = document.getElementById("kelas").value;
   try {
     const res = await fetch(`/.netlify/functions/getDataSantri?kelas=${kelas}`);
     const data = await res.json();
@@ -2440,7 +2438,7 @@ async function muatDaftarSantri() {
 
     data.forEach(s => {
       const opt = document.createElement("option");
-      opt.value = s.id;
+      opt.value = s.id; // Kirim ID sesuai tipe JSON
       opt.textContent = `${s.id} - ${s.nama} (Semester ${s.semester})`;
       pilihSantri.appendChild(opt);
     });
@@ -2450,7 +2448,7 @@ async function muatDaftarSantri() {
 }
 
 async function konfirmasiHapusSantri() {
-  const id = parseInt(document.getElementById("pilihSantri").value);
+  const id = document.getElementById("pilihSantri").value; // kirim string langsung
   const kelas = document.getElementById("kelas").value;
   const loading = document.getElementById("loadingHapusSantri");
 
@@ -2458,7 +2456,6 @@ async function konfirmasiHapusSantri() {
     alert("Pilih santri yang ingin dihapus!");
     return;
   }
-
   if (!confirm("Yakin ingin menghapus santri ini?")) return;
 
   loading.style.display = "block";
@@ -2473,12 +2470,11 @@ async function konfirmasiHapusSantri() {
     const data = await res.json();
     loading.style.display = "none";
 
-    if (res.ok) {
+    if (res.ok && data.success) {
       alert("Santri berhasil dihapus!");
-      tutupModal("modalHapusSantri");
-      location.reload();
+      muatDaftarSantri(); // refresh dropdown tanpa reload
     } else {
-      alert("Gagal menghapus: " + data.error);
+      alert("Gagal menghapus: " + (data.error || "Unknown error"));
     }
   } catch (err) {
     loading.style.display = "none";
