@@ -6,11 +6,11 @@ exports.handler = async (event) => {
 
     const { kelas, id } = JSON.parse(event.body);
     const filename = `absensi/kelas_${kelas}.json`;
-    const url = `https://api.github.com/repos/dickymiswardi/usermtq/contents/${filename}`;
+    const url = `https://api.github.com/repos/digitalmtq/server/contents/${filename}`;
 
     console.log("➡️ Hapus santri:", id, "di", filename);
 
-    // Ambil file + SHA
+    // 🔹 Ambil file + isi santri
     const res = await fetch(url, {
       headers: {
         Authorization: `token ${process.env.MTQ_TOKEN}`,
@@ -34,11 +34,11 @@ exports.handler = async (event) => {
 
     console.log("✅ Data santri sebelum hapus:", santri.length);
 
-    // Hapus berdasarkan ID
+    // 🔹 Hapus berdasarkan ID (pakai String biar aman)
     const newSantri = santri.filter(s => String(s.id) !== String(id));
     console.log("✅ Data santri sesudah hapus:", newSantri.length);
 
-    // Ambil SHA file (untuk update)
+    // 🔹 Ambil SHA file (wajib untuk update)
     const fileInfoRes = await fetch(url, {
       headers: { Authorization: `token ${process.env.MTQ_TOKEN}` }
     });
@@ -49,7 +49,7 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: "Gagal ambil SHA file" };
     }
 
-    // Update file di GitHub
+    // 🔹 Update file di GitHub
     const updateRes = await fetch(url, {
       method: "PUT",
       headers: {
