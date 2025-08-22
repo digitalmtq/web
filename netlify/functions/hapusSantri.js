@@ -24,7 +24,7 @@ export async function handler(event) {
   const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
 
   try {
-    // Ambil file lama dari GitHub
+    // Ambil file lama
     let fileData;
     let santriList = [];
     const getRes = await fetch(githubApiUrl, {
@@ -36,7 +36,10 @@ export async function handler(event) {
     });
 
     if (getRes.status === 404) {
-      console.log(`${fileName} belum ada, buat baru.`);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: `${fileName} belum ada.` }),
+      };
     } else if (!getRes.ok) {
       throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
     } else {
@@ -45,22 +48,21 @@ export async function handler(event) {
         const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
         santriList = JSON.parse(contentDecoded);
       } catch (e) {
-        console.warn("JSON corrupt, pakai array kosong");
         santriList = [];
       }
     }
 
-    // Kirim semua santri sebelum hapus ke response untuk info
+    // Info semua santri (debug)
     const allSantriInfo = santriList.map((s) => ({
-      id: s.id,
+      id: s.id || "",
       nis: s.nis || "",
       nama: s.nama,
     }));
 
-    // Hapus santri sesuai ID atau NIS
+    // Hapus santri sesuai id || nis
     const awalLength = santriList.length;
     santriList = santriList.filter(
-      (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
+      (s) => String(s.id || s.nis) !== String(id)
     );
 
     if (santriList.length === awalLength) {
@@ -79,8 +81,8 @@ export async function handler(event) {
     const putBody = {
       message: `Menghapus santri ID/NIS ${id} dari ${fileName}`,
       content: updatedContent,
+      sha: fileData.sha,
     };
-    if (fileData && fileData.sha) putBody.sha = fileData.sha;
 
     const putRes = await fetch(githubApiUrl, {
       method: "PUT",
