@@ -1,4 +1,4 @@
-coba kamu cek getSantri.js ini, barangkali ini penyebabnya: export async function handler(event) {
+export async function handler(event) {
   const token = process.env.MTQ_TOKEN;
   const kelas = event.queryStringParameters.kelas;
 
