@@ -1,7 +1,13 @@
+// hapusSantri.js
+const fetch = require("node-fetch"); // pastikan node-fetch ada
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
+      return {
+        statusCode: 405,
+        body: JSON.stringify({ error: "Method Not Allowed" })
+      };
     }
 
     const { kelas, id } = JSON.parse(event.body);
@@ -10,7 +16,7 @@ exports.handler = async (event) => {
 
     console.log("➡️ Hapus santri:", id, "di", filename);
 
-    // 🔹 Ambil isi file (RAW JSON)
+    // 🔹 Ambil file raw JSON
     const res = await fetch(url, {
       headers: {
         Authorization: `token ${process.env.MTQ_TOKEN}`,
@@ -36,20 +42,23 @@ exports.handler = async (event) => {
 
     console.log("✅ Jumlah santri sebelum hapus:", santri.length);
 
-    // 🔹 Hapus berdasarkan ID
-    const newSantri = santri.filter(s => String(s.id) !== String(id));
-    console.log("✅ Sesudah hapus:", newSantri.length);
+    // 🔹 Hapus santri berdasarkan ID
+    const newSantri = santri.filter(s => String(s.id).trim() !== String(id).trim());
+    console.log("Jumlah santri sesudah hapus:", newSantri.length);
+    console.log("Santri terhapus?", santri.length !== newSantri.length);
 
-    // 🔹 Ambil info SHA (tanpa raw)
+    // 🔹 Ambil SHA file untuk update
+    let sha;
     const fileInfoRes = await fetch(url, {
       headers: { Authorization: `token ${process.env.MTQ_TOKEN}` }
     });
-    const fileInfo = await fileInfoRes.json();
+    if (fileInfoRes.ok) {
+      const fileInfo = await fileInfoRes.json();
+      sha = fileInfo.sha;
+      console.log("SHA file:", sha);
+    }
 
-    // Kalau file belum ada, bikin baru
-    const sha = fileInfo.sha || undefined;
-
-    // 🔹 Update file
+    // 🔹 Update file (atau buat baru kalau belum ada)
     const updateRes = await fetch(url, {
       method: "PUT",
       headers: {
@@ -57,9 +66,9 @@ exports.handler = async (event) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        message: sha ? `Hapus santri id ${id}` : `Buat file ${filename}`,
+        message: `Hapus santri id ${id}`,
         content: Buffer.from(JSON.stringify(newSantri, null, 2)).toString("base64"),
-        sha
+        ...(sha ? { sha } : {}) // kirim SHA hanya kalau ada
       })
     });
 
