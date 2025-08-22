@@ -562,7 +562,6 @@ button.lihat-quran-btn:hover::after {
 <!-- Modal Delete Santri -->
 <div id="modalDeleteSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
   <div style="background:#fff; width:400px; margin:100px auto; padding:20px; border-radius:10px; position:relative;">
-    <!-- Tombol Close × -->
     <span id="closeModalDeleteSantri" style="position:absolute; top:10px; right:15px; cursor:pointer; font-size:18px;">&times;</span>
     <h2>Delete Santri</h2>
 
@@ -2321,70 +2320,71 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	
 <script>
-// Tombol buka modal
-document.getElementById("btnDeleteSantri").addEventListener("click", async () => {
-  const modal = document.getElementById("modalDeleteSantri");
+const btnDelete = document.getElementById("btnDeleteSantri");
+const modal = document.getElementById("modalDeleteSantri");
+const selectSantri = document.getElementById("selectSantri");
+const selectKelas = document.getElementById("kelas");
+const loading = document.getElementById("loadingDelete");
+
+// Buka modal
+btnDelete.addEventListener("click", async () => {
   modal.style.display = "block";
   await loadSantriList();
 });
 
-// Tombol close ×
+// Close modal ×
 document.getElementById("closeModalDeleteSantri").addEventListener("click", () => {
-  document.getElementById("modalDeleteSantri").style.display = "none";
+  modal.style.display = "none";
 });
 
-// Tombol Batal
+// Batal
 document.getElementById("cancelDelete").addEventListener("click", () => {
-  document.getElementById("modalDeleteSantri").style.display = "none";
+  modal.style.display = "none";
 });
 
 // Klik di luar modal
-window.addEventListener("click", function(event) {
-  const modal = document.getElementById("modalDeleteSantri");
-  if (event.target === modal) {
-    modal.style.display = "none";
-  }
+window.addEventListener("click", e => {
+  if (e.target === modal) modal.style.display = "none";
 });
 
-// Fungsi load daftar santri dari API
+// Load daftar santri dari kelas terpilih
 async function loadSantriList() {
-  const select = document.getElementById("selectSantri");
-  select.innerHTML = '<option value="">-- Pilih Santri --</option>';
+  selectSantri.innerHTML = '<option value="">-- Pilih Santri --</option>';
+  const kelas = selectKelas.value;
 
   try {
-    const kelas = document.getElementById("kelas").value; // dropdown kelas utama
-    const res = await fetch(`/.netlify/functions/getDataSantri?kelas=${kelas}`);
-    const data = await res.json();
-
-    data.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = `${s.id} - ${s.nama} (Semester ${s.semester})`;
-      select.appendChild(opt);
+    const res = await fetch(`/.netlify/functions/hapusSantri`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: -1, kelas }) // id=-1 supaya hanya return daftar santri
     });
+
+    const data = await res.json();
+    if (data.allSantriBeforeDelete) {
+      data.allSantriBeforeDelete.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = `${s.id} - ${s.nama}`;
+        selectSantri.appendChild(opt);
+      });
+    }
   } catch (err) {
-    alert("Gagal memuat daftar santri: " + err.message);
+    alert("Gagal load santri: " + err.message);
   }
 }
 
-// Tombol Hapus
+// Hapus santri
 document.getElementById("confirmDelete").addEventListener("click", async () => {
-  const select = document.getElementById("selectSantri");
-  const id = select.value;
-  const kelas = document.getElementById("kelas").value;
-  const loading = document.getElementById("loadingDelete");
-
-  if (!id) {
-    alert("Pilih santri yang ingin dihapus!");
-    return;
-  }
+  const id = selectSantri.value;
+  const kelas = selectKelas.value;
+  if (!id) return alert("Pilih santri untuk dihapus");
 
   if (!confirm("Yakin ingin menghapus santri ini?")) return;
 
   loading.style.display = "block";
 
   try {
-    const res = await fetch("/.netlify/functions/hapusSantri", {
+    const res = await fetch(`/.netlify/functions/hapusSantri`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, kelas })
@@ -2393,16 +2393,15 @@ document.getElementById("confirmDelete").addEventListener("click", async () => {
     const data = await res.json();
     loading.style.display = "none";
 
-    if (res.ok) {
-      alert("Santri berhasil dihapus!");
-      document.getElementById("modalDeleteSantri").style.display = "none";
-      await loadSantriList(); // refresh daftar santri
+    if (res.ok && data.success) {
+      alert(data.message);
+      await loadSantriList(); // refresh list
     } else {
-      alert("Gagal menghapus: " + data.error);
+      alert("Gagal hapus: " + (data.error || "Unknown error"));
     }
   } catch (err) {
     loading.style.display = "none";
-    alert("Terjadi kesalahan: " + err.message);
+    alert("Error: " + err.message);
   }
 });
 </script>
