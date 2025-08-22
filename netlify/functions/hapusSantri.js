@@ -1,13 +1,9 @@
-// hapusSantri.js
-const fetch = require("node-fetch"); // pastikan node-fetch ada
+const fetch = require("node-fetch");
 
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 405,
-        body: JSON.stringify({ error: "Method Not Allowed" })
-      };
+      return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
     }
 
     const { kelas, id } = JSON.parse(event.body);
@@ -42,23 +38,20 @@ exports.handler = async (event) => {
 
     console.log("✅ Jumlah santri sebelum hapus:", santri.length);
 
-    // 🔹 Hapus santri berdasarkan ID
+    // 🔹 Hapus berdasarkan ID
     const newSantri = santri.filter(s => String(s.id).trim() !== String(id).trim());
-    console.log("Jumlah santri sesudah hapus:", newSantri.length);
-    console.log("Santri terhapus?", santri.length !== newSantri.length);
+    console.log("Jumlah sesudah hapus:", newSantri.length);
 
     // 🔹 Ambil SHA file untuk update
     let sha;
-    const fileInfoRes = await fetch(url, {
-      headers: { Authorization: `token ${process.env.MTQ_TOKEN}` }
-    });
+    const fileInfoRes = await fetch(url, { headers: { Authorization: `token ${process.env.MTQ_TOKEN}` } });
     if (fileInfoRes.ok) {
       const fileInfo = await fileInfoRes.json();
       sha = fileInfo.sha;
       console.log("SHA file:", sha);
     }
 
-    // 🔹 Update file (atau buat baru kalau belum ada)
+    // 🔹 Update atau buat file baru
     const updateRes = await fetch(url, {
       method: "PUT",
       headers: {
@@ -68,7 +61,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         message: `Hapus santri id ${id}`,
         content: Buffer.from(JSON.stringify(newSantri, null, 2)).toString("base64"),
-        ...(sha ? { sha } : {}) // kirim SHA hanya kalau ada
+        ...(sha ? { sha } : {})
       })
     });
 
