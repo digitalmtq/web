@@ -1,15 +1,17 @@
 export async function handler(event) {
   const token = process.env.MTQ_TOKEN;
-  const kelas = event.queryStringParameters?.kelas;
+  const kelasParam = event.queryStringParameters?.kelas;
 
-  if (!kelas) {
+  if (!kelasParam) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: "Parameter 'kelas' wajib diisi" })
     };
   }
 
-  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/kelas_${kelas}.json`;
+  // Pastikan nama file sesuai GitHub: kelas_1.json, kelas_2.json, dll
+  const kelasFile = `kelas_${kelasParam}.json`;
+  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${kelasFile}`;
 
   try {
     const response = await fetch(apiUrl, {
@@ -19,10 +21,15 @@ export async function handler(event) {
       }
     });
 
-    if (!response.ok) {
-      // Kalau 404 → return array kosong
-      if (response.status === 404) return { statusCode: 200, body: JSON.stringify([]) };
+    // Kalau file tidak ada → return array kosong
+    if (response.status === 404) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify([])
+      };
+    }
 
+    if (!response.ok) {
       return {
         statusCode: response.status,
         body: JSON.stringify({ error: `Gagal fetch data: ${response.status}` })
@@ -31,25 +38,28 @@ export async function handler(event) {
 
     const result = await response.json();
 
-    // Decode base64 -> UTF-8
-    let decoded = [];
+    // Decode base64 → parse JSON
+    let santriData = [];
     try {
-      decoded = JSON.parse(Buffer.from(result.content, 'base64').toString('utf-8'));
+      santriData = JSON.parse(Buffer.from(result.content, "base64").toString("utf-8"));
     } catch (err) {
-      decoded = []; // fallback aman kalau JSON corrupt
+      console.error("JSON decode error:", err.message);
+      santriData = [];
     }
 
-    if (!Array.isArray(decoded)) decoded = [];
+    // Pastikan selalu array
+    if (!Array.isArray(santriData)) santriData = [];
 
     return {
       statusCode: 200,
-      body: JSON.stringify(decoded)
+      body: JSON.stringify(santriData)
     };
 
   } catch (error) {
+    console.error("Error ambilSantri:", error.message);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify([])
     };
   }
 }
