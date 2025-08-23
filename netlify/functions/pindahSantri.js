@@ -1,34 +1,30 @@
-import fetch from "node-fetch";
+const fetch = require("node-fetch");
 
-export async function handler(event) {
+exports.handler = async (event) => {
   try {
     const token = process.env.MTQ_TOKEN;
     const { kelasAsal, kelasTujuan, santri } = JSON.parse(event.body);
-
-    if (!kelasAsal || !kelasTujuan || !santri || !santri.length) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Parameter wajib diisi" }) };
-    }
-
-    const fileAsal = kelasAsal.toLowerCase().startsWith("kelas_") ? `${kelasAsal}.json` : `kelas_${kelasAsal}.json`;
-    const fileTujuan = kelasTujuan.toLowerCase().startsWith("kelas_") ? `${kelasTujuan}.json` : `kelas_${kelasTujuan}.json`;
+    if (!kelasAsal || !kelasTujuan || !santri?.length)
+      return { statusCode: 400, body: JSON.stringify({ error: "Parameter wajib" }) };
 
     const apiBase = "https://api.github.com/repos/digitalmtq/server/contents/";
+    const fileAsal = `${kelasAsal}.json`;
+    const fileTujuan = `${kelasTujuan}.json`;
 
-    // Ambil data kelas asal
-    const resAsal = await fetch(`${apiBase}${fileAsal}`, { headers: { Authorization: `Bearer ${token}`, Accept:"application/vnd.github.v3+json" } });
+    // Ambil kelas asal
+    const resAsal = await fetch(`${apiBase}${fileAsal}`, { headers: { Authorization:`Bearer ${token}`, Accept:"application/vnd.github.v3+json" } });
     const dataAsal = await resAsal.json();
-    const shaAsal = dataAsal.sha;
     let santriAsal = JSON.parse(Buffer.from(dataAsal.content,"base64").toString("utf-8"));
+    const shaAsal = dataAsal.sha;
 
-    // Ambil data kelas tujuan
-    const resTujuan = await fetch(`${apiBase}${fileTujuan}`, { headers: { Authorization: `Bearer ${token}`, Accept:"application/vnd.github.v3+json" } });
-    let dataTujuan = {};
-    let shaTujuan = null;
+    // Ambil kelas tujuan
     let santriTujuan = [];
+    let shaTujuan = null;
+    const resTujuan = await fetch(`${apiBase}${fileTujuan}`, { headers:{ Authorization:`Bearer ${token}`, Accept:"application/vnd.github.v3+json" } });
     if(resTujuan.ok){
-      dataTujuan = await resTujuan.json();
-      shaTujuan = dataTujuan.sha;
+      const dataTujuan = await resTujuan.json();
       santriTujuan = JSON.parse(Buffer.from(dataTujuan.content,"base64").toString("utf-8"));
+      shaTujuan = dataTujuan.sha;
     }
 
     // Pindahkan santri
@@ -66,4 +62,4 @@ export async function handler(event) {
     console.error(err);
     return { statusCode:500, body: JSON.stringify({ error: err.message }) };
   }
-}
+};
