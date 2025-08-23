@@ -2633,7 +2633,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
       const idMap = Array.isArray(o1.idMap) ? o1.idMap : [];
 
       // 2) absensi mulai tanggal, bawa idMap
-      const { res: r2, out: o2 } = await postJSON('/.netlify/functions/pindahKelasMulaiTanggal', {
+      const { res: r2, out: o2 } = await postJSON('/.netlify/functions/dataKelasMulaiTanggal', {
         kelasAsal, kelasTujuan, santriIds, startDate, idMap
       });
       if (!r2.ok || !o2.success) {
