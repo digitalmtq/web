@@ -1594,8 +1594,6 @@ function aturDropdownKelas(user) {
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
   overlay.style.display = "flex";
-  renderNilaiRingkasById(absensiData);
-
 
   try {
     // Ambil semua santri di kelas
@@ -3090,76 +3088,6 @@ function renderTabelPredikat() {
 }
 </script>
 
-<script>
-// ====== Helper normalisasi & lookup ID ======
-const _normIdStr = (v) => {
-  if (v == null) return '';
-  const s = String(v).trim();
-  if (s === '') return '';
-  // buang leading zero kecuali "0"
-  const t = s.replace(/^0+(\d)/, '$1');
-  return t;
-};
-const _toNum = (v) => {
-  const s = _normIdStr(v);
-  return /^\d+$/.test(s) ? Number(s) : null;
-};
-function _getByIdFlexible(mapRaw, mapNum, id, idMap) {
-  // translate id baru -> id lama bila ada idMap
-  let raw = _normIdStr(id);
-  if (idMap && Array.isArray(idMap)) {
-    const hit = idMap.find(m => _normIdStr(m.newId) === raw);
-    if (hit) raw = _normIdStr(hit.oldId);
-  }
-
-  // 1) coba raw string
-  if (mapRaw.has(raw)) return mapRaw.get(raw);
-
-  // 2) coba numeric
-  const n = _toNum(raw);
-  if (n != null && mapNum.has(n)) return mapNum.get(n);
-
-  // 3) fallback: coba raw->numeric->raw lain (leading zero / type mismatch)
-  // (sudah dicakup oleh norm di atas, jadi cukup return undefined)
-  return undefined;
-}
-
-// ====== Fungsi utama: render nilai-ringkas by ID ======
-function renderNilaiRingkasById(absensiData) {
-  // build index: by raw string & by numeric
-  const mapRaw = new Map();
-  const mapNum = new Map();
-  (Array.isArray(absensiData) ? absensiData : []).forEach(a => {
-    const kRaw = _normIdStr(a?.id);
-    if (kRaw) mapRaw.set(kRaw, a);
-    const kNum = _toNum(a?.id);
-    if (kNum != null) mapNum.set(kNum, a);
-  });
-
-  // optional idMap dari proses pindah (oldId <-> newId)
-  const idMap = Array.isArray(window.idMapPindahan) ? window.idMapPindahan : null;
-
-  // untuk tiap baris <tr id="row-XXX" data-id="XXX">
-  document.querySelectorAll('tr[id^="row-"]').forEach(tr => {
-    const cell = tr.querySelector('.nilai-ringkas');
-    if (!cell) return;
-
-    // ambil ID baris (data-id lebih presisi; fallback dari id)
-    const rowKey = tr.dataset.id || tr.id.replace(/^row-/, '');
-    const a = _getByIdFlexible(mapRaw, mapNum, rowKey, idMap);
-
-    const bc = a?.buttonCell || {};
-    const n  = Number(bc.nilai);
-    if (Number.isFinite(n)) {
-      const huruf = bc.predikatHuruf ?? '-';
-      const teks  = bc.predikatText  ?? '-';
-      cell.innerHTML = `<strong>${n.toFixed(1)}</strong> - ${bgHuruf(huruf, teks)}`;
-    } else {
-      cell.innerHTML = '';
-    }
-  });
-}
-</script>
 
 	
 </body>
