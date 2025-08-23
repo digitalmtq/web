@@ -2141,237 +2141,280 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
   overlay.style.display = "none";
 });
+ </script>
 
 
-async function hitungTotalAllJuzFromTable() {
-  const kelas = kelasSelect.value;
-  const dari = document.getElementById("rangeDari").value;
-  const sampaiInput = document.getElementById("rangeSampai");
-  const sampai = sampaiInput ? sampaiInput.value : null;
+<script>
+(() => {
+  // ===== Util umum =====
+  const normKelas = k => (k?.startsWith('kelas_') ? k : `kelas_${k}`);
+  const isISODate = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const toStrId = v => (v === null || v === undefined) ? "" : String(v).trim();
+  const fmt2 = n => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
 
-  if (!dari) {
-    alert("Mohon pilih tanggal Dari.");
-    return;
-  }
-  if (!sampai) {
-    alert("Mohon pilih tanggal Sampai.");
-    return;
-  }
-
-  // Tampilkan overlay loading
-  overlay.style.display = "flex";
-
-  try {
-    // Ambil data absensi rentang tanggal
-    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${dari}&end=${sampai}`);
-    if (!res.ok) throw new Error("Gagal ambil data absensi.");
-    const allData = await res.json();
-
-    const rows = santriTableBody.querySelectorAll("tr");
-    const rekap = {}; // id => { totalJuz, semester }
-
-    // Rekap total juz per santri dari data absensi
-    allData.forEach(item => {
-      const id = item.id;
-      if (!rekap[id]) {
-        rekap[id] = { totalJuz: 0, semester: item.semester || null };
+  async function fetchJSON(url, opt = {}, { retries = 1 } = {}) {
+    for (let i = 0; i <= retries; i++) {
+      const res = await fetch(url, opt);
+      if (res.ok) {
+        try { return { ok: true, data: await res.json() }; }
+        catch { return { ok: true, data: null }; }
       }
-      rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
-    });
-
-    // Batas ketuntasan per semester
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
-
-    // Update tabel dan siapkan data untuk disimpan
-    const dataToSave = [];
-
-    rows.forEach(row => {
-      const id = parseInt(row.children[0].textContent);
-      const cell = row.querySelector(".total-all-juz");
-
-      if (rekap[id]) {
-        const totalJuz = rekap[id].totalJuz.toFixed(2);
-        let semester = parseInt(row.querySelector(".semester")?.value);
-        if (!semester && rekap[id].semester) semester = rekap[id].semester;
-
-        const batas = batasSemester[semester] || 0;
-        let prosentase = batas > 0 ? Math.floor((rekap[id].totalJuz / batas) * 100) : 0;
-        if (prosentase > 100) prosentase = 100;
-
-        const tuntas = prosentase >= 100;
-        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
-
-        cell.innerHTML = `${totalJuz} <span style="color: ${tuntas ? "green" : "red"}; font-size: 12px;">${label}</span>`;
-
-        // Siapkan data untuk simpan ke file JSON
-        dataToSave.push({
-          id,
-          totalJuz: parseFloat(totalJuz),
-          semester,
-          tuntas
-        });
-      } else {
-        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+      // retry kecil utk 429/502
+      if (i < retries && (res.status === 429 || res.status === 502)) {
+        await new Promise(r => setTimeout(r, 400 + i * 250));
+        continue;
       }
-    });
-
-    // Kirim data hasil rekap ke backend Netlify Function untuk disimpan
-    const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fromDate: dari,
-        toDate: sampai,
-        kelas: kelas,
-        data: dataToSave
-      }),
-    });
-
-    if (!saveRes.ok) {
-      const errText = await saveRes.text();
-      throw new Error(`Gagal menyimpan data: ${errText}`);
-    }
-
-    alert("✅ Total All Juz berhasil dihitung dan disimpan.");
-  } catch (err) {
-    console.error(err);
-    alert("❌ Terjadi kesalahan: " + err.message);
-  } finally {
-    overlay.style.display = "none";
-  }
-}
-
-// Fungsi buka overlay dan set tanggal Dari maksimal hari ini, tapi tanggal Sampai bebas tanpa max dan enabled
-function bukaOverlayTotalAllJuz() {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  const todayStr = `${yyyy}-${mm}-${dd}`;
-
-  const rangeDari = document.getElementById("rangeDari");
-  const rangeSampai = document.getElementById("rangeSampai");
-
-  if (rangeDari) {
-    rangeDari.max = todayStr;
-    if (!rangeDari.value || rangeDari.value > todayStr) {
-      rangeDari.value = todayStr;
+      const text = await res.text().catch(() => "");
+      return { ok: false, status: res.status, error: text || `HTTP ${res.status}` };
     }
   }
 
-  if (rangeSampai) {
-    // Hapus pembatas max supaya bebas tanggal Sampai
-    rangeSampai.removeAttribute("max");
+  // ====== Bagian: Hitung Total All Juz Manual (dengan overlay) ======
+  window.hitungTotalAllJuzFromTable = async function () {
+    const kelasRaw = kelasSelect?.value;
+    const kelas = normKelas(kelasRaw);
+    const dari = document.getElementById("rangeDari")?.value || "";
+    const sampai = document.getElementById("rangeSampai")?.value || "";
 
-    // Enable supaya user bisa ubah tanggal Sampai
-    rangeSampai.disabled = false;
+    // Validasi tanggal dasar
+    if (!dari) { alert("Mohon pilih tanggal Dari."); return; }
+    if (!sampai) { alert("Mohon pilih tanggal Sampai."); return; }
+    if (!isISODate(dari) || !isISODate(sampai)) { alert("Format tanggal harus YYYY-MM-DD."); return; }
+    if (sampai < dari) { alert("Tanggal Sampai tidak boleh lebih awal dari tanggal Dari."); return; }
 
-    // Set default nilai tanggal Sampai ke hari ini jika kosong
-    if (!rangeSampai.value) {
-      rangeSampai.value = todayStr;
-    }
-  }
+    // Tampilkan overlay loading
+    overlay.style.display = "flex";
 
-  document.getElementById("juzOverlay").style.display = "flex";
-}
+    try {
+      const url = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}`;
+      const got = await fetchJSON(url, {}, { retries: 2 });
+      if (!got.ok) throw new Error(got.error || "Gagal ambil data absensi.");
+      const allData = Array.isArray(got.data) ? got.data : [];
 
-// Event listener tombol hitung
-document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTotalAllJuzFromTable);
-
-
-
-
-
-   async function hitungTotalAllJuzOtomatis() {
-  const kelas = kelasSelect.value;
-
-  // Tunggu tabel terisi
-  const rows = santriTableBody.querySelectorAll("tr");
-  if (rows.length === 0) {
-    setTimeout(hitungTotalAllJuzOtomatis, 200);
-    return;
-  }
-
-  // Ambil tanggal otomatis dari server
-  const rangeDari = document.getElementById("rangeDari");
-  const rangeSampai = document.getElementById("rangeSampai");
-  try {
-    const res = await fetch("/.netlify/functions/getAutoUpdateAllJuz");
-    const allData = await res.json();
-    const kelasData = allData.find(item => item.kelas === kelas);
-    if (kelasData) {
-      if (rangeDari) rangeDari.value = kelasData.fromDate || "";
-      if (rangeSampai) rangeSampai.value = kelasData.toDate || "";
-    }
-  } catch (err) {
-    console.error("Gagal ambil tanggal otomatis:", err);
-  }
-
-  const dari = rangeDari?.value;
-  const sampai = rangeSampai?.value;
-  if (!dari || !sampai) return;
-
-  // Ambil absensi & hitung total
-  try {
-    const resAbs = await fetch(
-      `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${dari}&end=${sampai}`
-    );
-    const allData = await resAbs.json();
-
-    const rekap = {};
-    allData.forEach(item => {
-      const id = item.id;
-      if (!rekap[id]) rekap[id] = { totalJuz: 0, semester: item.semester || null };
-      rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
-    });
-
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
-
-    rows.forEach(row => {
-      const id = parseInt(row.children[0].textContent);
-      const cell = row.querySelector(".total-all-juz");
-      if (rekap[id]) {
-        const totalJuz = rekap[id].totalJuz.toFixed(2);
-        let semester = parseInt(row.querySelector(".semester")?.value) || rekap[id].semester;
-        const target = batasSemester[semester] || 0;
-
-        let prosentase = target > 0 ? Math.floor((rekap[id].totalJuz / target) * 100) : 0;
-        if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
-
-        const tuntas = prosentase >= 100;
-        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
-
-        cell.innerHTML =
-          `${totalJuz} <span style="color:${tuntas ? 'green' : 'red'}; font-size:10px">` +
-          `${label}</span>`;
-      } else {
-        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+      // Rekap pakai key id (string)
+      const rekap = {}; // idStr => { totalJuz, semester }
+      for (const item of allData) {
+        const idStr = toStrId(item.id);
+        if (!idStr) continue;
+        if (!rekap[idStr]) rekap[idStr] = { totalJuz: 0, semester: item.semester ?? null };
+        const tj = parseFloat(item.totalJuz || 0);
+        rekap[idStr].totalJuz += (Number.isFinite(tj) ? tj : 0);
       }
-    });
-  } catch (err) {
-    console.error("Gagal ambil data absensi:", err);
+
+      // Batas ketuntasan per semester
+      const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+
+      // Update tabel & siapkan payload simpan
+      const rows = santriTableBody?.querySelectorAll("tr") || [];
+      const dataToSave = [];
+
+      rows.forEach(row => {
+        // Ambil id dari kolom pertama; pakai string untuk cocokkan dengan rekap
+        const firstCellText = toStrId(row.children?.[0]?.textContent);
+        if (!firstCellText) return;
+
+        const cell = row.querySelector(".total-all-juz");
+        if (!cell) return;
+
+        const rec = rekap[firstCellText];
+        if (rec) {
+          const totalJuzNum = Number(rec.totalJuz) || 0;
+          const totalJuzTxt = fmt2(totalJuzNum);
+
+          let semester = parseInt(row.querySelector(".semester")?.value, 10);
+          if (!Number.isInteger(semester) && rec.semester) semester = parseInt(rec.semester, 10);
+          if (!Number.isInteger(semester)) semester = 0;
+
+          const batas = batasSemester[semester] || 0;
+          let prosentase = batas > 0 ? Math.floor((totalJuzNum / batas) * 100) : 0;
+          if (prosentase > 100) prosentase = 100;
+
+          const tuntas = prosentase >= 100;
+          const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+          cell.innerHTML = `${totalJuzTxt} <span style="color:${tuntas ? 'green' : 'red'};font-size:12px">${label}</span>`;
+
+          // id untuk simpan: jika numerik, kirim angka; kalau bukan, kirim string id agar backend bisa handle
+          const idForSave = /^\d+$/.test(firstCellText) ? parseInt(firstCellText, 10) : firstCellText;
+
+          dataToSave.push({
+            id: idForSave,
+            totalJuz: Number(totalJuzNum.toFixed(2)),
+            semester,
+            tuntas
+          });
+        } else {
+          cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+        }
+      });
+
+      // Simpan rekap
+      const save = await fetch("/.netlify/functions/aksesAutoUpdateAllJuz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromDate: dari,
+          toDate: sampai,
+          kelas,
+          data: dataToSave
+        })
+      });
+
+      if (!save.ok) {
+        const errText = await save.text().catch(() => "");
+        throw new Error(`Gagal menyimpan data: ${errText || save.status}`);
+      }
+
+      alert("✅ Total All Juz berhasil dihitung dan disimpan.");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Terjadi kesalahan: " + (err.message || err));
+    } finally {
+      overlay.style.display = "none";
+    }
+  };
+
+  // ====== Buka overlay & set batas tanggal ======
+  window.bukaOverlayTotalAllJuz = function () {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    const rangeDari = document.getElementById("rangeDari");
+    const rangeSampai = document.getElementById("rangeSampai");
+
+    if (rangeDari) {
+      rangeDari.max = todayStr;
+      if (!rangeDari.value || rangeDari.value > todayStr) {
+        rangeDari.value = todayStr;
+      }
+    }
+
+    if (rangeSampai) {
+      // bebas memilih tanggal ke depan
+      rangeSampai.removeAttribute("max");
+      rangeSampai.disabled = false;
+      if (!rangeSampai.value) rangeSampai.value = todayStr;
+
+      // jaga-jaga: kalau user set sampai < dari, samakan ke dari
+      if (rangeDari?.value && rangeSampai.value < rangeDari.value) {
+        rangeSampai.value = rangeDari.value;
+      }
+    }
+
+    document.getElementById("juzOverlay").style.display = "flex";
+  };
+
+  // ====== Otomatis hitung ketika halaman & tabel siap ======
+  async function hitungTotalAllJuzOtomatis() {
+    const kelas = normKelas(kelasSelect?.value);
+    const rows = santriTableBody?.querySelectorAll("tr") || [];
+    if (rows.length === 0) return; // tabel belum siap, akan dipanggil ulang via afterTableRendered
+
+    // ambil tanggal otomatis
+    const rangeDari = document.getElementById("rangeDari");
+    const rangeSampai = document.getElementById("rangeSampai");
+    try {
+      const got = await fetchJSON("/.netlify/functions/getAutoUpdateAllJuz", {}, { retries: 1 });
+      if (got.ok && Array.isArray(got.data)) {
+        const kelasData = got.data.find(item => item.kelas === kelas);
+        if (kelasData) {
+          if (rangeDari) rangeDari.value = kelasData.fromDate || rangeDari.value || "";
+          if (rangeSampai) rangeSampai.value = kelasData.toDate || rangeSampai.value || "";
+        }
+      }
+    } catch (err) {
+      console.error("Gagal ambil tanggal otomatis:", err);
+    }
+
+    const dari = rangeDari?.value;
+    const sampai = rangeSampai?.value;
+    if (!dari || !sampai || !isISODate(dari) || !isISODate(sampai) || sampai < dari) return;
+
+    try {
+      const url = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}`;
+      const got = await fetchJSON(url, {}, { retries: 1 });
+      if (!got.ok) {
+        console.warn("Gagal ambil data absensi:", got.error || got.status);
+        return;
+      }
+      const allData = Array.isArray(got.data) ? got.data : [];
+
+      const rekap = {};
+      for (const item of allData) {
+        const idStr = toStrId(item.id);
+        if (!idStr) continue;
+        if (!rekap[idStr]) rekap[idStr] = { totalJuz: 0, semester: item.semester ?? null };
+        const tj = parseFloat(item.totalJuz || 0);
+        rekap[idStr].totalJuz += (Number.isFinite(tj) ? tj : 0);
+      }
+
+      const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+
+      rows.forEach(row => {
+        const idStr = toStrId(row.children?.[0]?.textContent);
+        const cell = row.querySelector(".total-all-juz");
+        if (!cell) return;
+
+        const rec = rekap[idStr];
+        if (rec) {
+          const totalJuzNum = Number(rec.totalJuz) || 0;
+          const totalJuzTxt = fmt2(totalJuzNum);
+
+          let semester = parseInt(row.querySelector(".semester")?.value, 10);
+          if (!Number.isInteger(semester) && rec.semester) semester = parseInt(rec.semester, 10);
+          if (!Number.isInteger(semester)) semester = 0;
+
+          const target = batasSemester[semester] || 0;
+          let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
+          if (prosentase > 100) prosentase = 100;
+
+          const tuntas = prosentase >= 100;
+          const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+          cell.innerHTML = `${totalJuzTxt} <span style="color:${tuntas ? 'green' : 'red'}; font-size:10px">${label}</span>`;
+        } else {
+          cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+        }
+      });
+    } catch (err) {
+      console.error("Gagal ambil data absensi:", err);
+    }
   }
-}
 
-// Jalankan saat pertama kali halaman selesai dimuat
-window.addEventListener("DOMContentLoaded", hitungTotalAllJuzOtomatis);
+  // panggil saat DOM siap
+  window.addEventListener("DOMContentLoaded", () => {
+    // jalankan sekali, sisanya akan dipanggil lagi setelah tabel render
+    hitungTotalAllJuzOtomatis();
+  });
 
-// Pastikan otomatis jalan lagi setelah tabel diperbarui
-function afterTableRendered() {
-  setTimeout(hitungTotalAllJuzOtomatis, 50);
-}
+  // debounce untuk after render
+  let renderTimer = null;
+  function afterTableRendered() {
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimer = setTimeout(hitungTotalAllJuzOtomatis, 120);
+  }
 
-// Integrasi ke loadSantriData atau fungsi render tabel
-const originalLoadSantriData = loadSantriData;
-window.loadSantriData = async function (...args) {
-  await originalLoadSantriData.apply(this, args);
-  afterTableRendered();
-};
+  // Integrasi ke loadSantriData (wrap)
+  if (typeof window.loadSantriData === 'function') {
+    const originalLoadSantriData = window.loadSantriData;
+    window.loadSantriData = async function (...args) {
+      await originalLoadSantriData.apply(this, args);
+      afterTableRendered();
+    };
+  }
 
-// Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
-tanggalInput?.addEventListener("change", () => loadSantriData());
-kelasSelect?.addEventListener("change", () => loadSantriData());
+  // Re-render saat tanggal/kelas berubah
+  tanggalInput?.addEventListener("change", () => loadSantriData());
+  kelasSelect?.addEventListener("change", () => loadSantriData());
+
+  // Tombol manual
+  document.getElementById("btnHitungTotalJuz")?.addEventListener("click", () => {
+    hitungTotalAllJuzFromTable();
+  });
+})();
 </script>
+
 
 
 
