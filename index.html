@@ -1590,8 +1590,12 @@ function aturDropdownKelas(user) {
       }, 500);
     });
 
-    // helper kecil: paksa ke number, kalau gagal -> null
-const toNumId = (v) => (v === 0 || (v && !Number.isNaN(Number(v)))) ? Number(v) : null;
+    // helper aman: cek apakah value berupa angka murni (string "005", "12", atau number)
+const isNumLike = (v) => typeof v === 'number'
+  ? Number.isFinite(v)
+  : (typeof v === 'string' && /^\s*\d+\s*$/.test(v));
+
+const numVal = (v) => isNumLike(v) ? Number(String(v).trim()) : null;
 
 async function loadSantriData() {
   const kelas = kelasSelect.value;
@@ -1599,45 +1603,44 @@ async function loadSantriData() {
   overlay.style.display = "flex";
 
   try {
-    // 1) fetch
     const santriRes   = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}`);
     let santriData    = await santriRes.json();
 
     const absensiRes  = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
     const absensiData = await absensiRes.json();
 
-    // 2) filter hak akses (biarkan punyamu seperti semula)
-    // ... (kode filter kamu di sini, tidak diubah)
+    // ==== JANGAN ubah s.id / a.id! Bangun index dgn 2 kunci: raw & numeric ====
+    const absensiByIdRaw = new Map();  // kunci: id apa adanya (string/number)
+    const absensiByIdNum = new Map();  // kunci: id number (jika bisa)
 
-    // 3) Normalisasi ID jadi number di KEDUA dataset
-    santriData.forEach(s => { s.id = toNumId(s.id); });
-    absensiData.forEach(a => { a.id = toNumId(a.id); });
+    for (const a of absensiData || []) {
+      if (a?.id !== undefined && a?.id !== null) {
+        absensiByIdRaw.set(String(a.id), a);
+        const n = numVal(a.id);
+        if (n !== null) absensiByIdNum.set(n, a);
+      }
+    }
 
-    // 4) Bangun map absensi by ID (O(1))
-    const absensiById = new Map(absensiData
-      .filter(a => a && a.id != null)
-      .map(a => [a.id, a])
-    );
-
-    // 5) Render
     santriTableBody.innerHTML = "";
-    santriData.forEach(santri => {
-      const dataAbsensi = (santri && santri.id != null) ? (absensiById.get(santri.id) || {}) : {};
-
-      const row = document.createElement("tr");
-      row.id = `row-${santri.id ?? ""}`;         // supaya fungsi lain tetap ketemu
-      row.dataset.id = santri.id ?? "";          // metadata bantu
-
-      const dari    = String(dataAbsensi.dari || "1:1").split(":");
-      const sampai  = String(dataAbsensi.sampai || "1:1").split(":");
+    for (const s of santriData || []) {
+      // cari absensi: coba numeric dulu, lalu raw
+      const n = numVal(s.id);
+      let dataAbsensi = null;
+      if (n !== null) dataAbsensi = absensiByIdNum.get(n);
+      if (!dataAbsensi && s.id != null) dataAbsensi = absensiByIdRaw.get(String(s.id));
+      if (!dataAbsensi) dataAbsensi = {};
 
       const bc        = dataAbsensi.buttonCell || {};
       const nilaiNum  = Number(bc.nilai);
       const nilaiView = Number.isFinite(nilaiNum) ? nilaiNum.toFixed(1) : "";
       const predHTML  = nilaiView ? ` - ${bgHuruf(bc.predikatHuruf ?? "-", bc.predikatText ?? "-")}` : "";
 
+      const row = document.createElement("tr");
+      row.id = `row-${s.id ?? ""}`;         // tetap pakai id asli
+      row.dataset.id = String(s.id ?? "");
+
       row.innerHTML = `
-        <td>${santri.id ?? "-"}</td>
+        <td>${s.id ?? "-"}</td>
         <td>${santri.nama || "-"}</td>
         <td>
           <select class="absensi">
