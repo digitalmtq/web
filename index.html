@@ -1878,34 +1878,17 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     kelasSelect.addEventListener("change", loadSantriData);
     tanggalInput.addEventListener("change", loadSantriData);
 
-    // panggil ini saat klik tombol "Simpan Data Mutaba'ah"
-// contoh: document.getElementById('btnSimpanMutabaah').onclick = (e)=>simpanDataMutabaah(e.target);
-async function simpanDataMutabaah(saveBtn) {
-  // ===== GUARD AGAR TIDAK MENGGANGGU LOGIN =====
-  const username = localStorage.getItem('username');
-  if (!username) { alert("Silakan login terlebih dahulu."); return; }
+    async function simpanDataMutabaah(saveBtn) {
+  const kelas   = kelasSelect.value;
+  const tanggal = tanggalInput.value;
 
-  const kelasEl   = window.kelasSelect;
-  const tanggalEl = window.tanggalInput;
-  const tbody     = window.santriTableBody;
-
-  if (!kelasEl || !tanggalEl || !tbody) { alert("Tabel belum siap."); return; }
-
-  const kelas   = kelasEl.value;
-  const tanggal = tanggalEl.value;
-
+  // Tabel harus sudah ter-render
+  const tbody = santriTableBody;
+  if (!tbody) { alert("Tabel belum siap."); return; }
   const rows = tbody.querySelectorAll("tr");
-  if (!rows || rows.length === 0) { alert("Tidak ada baris untuk disimpan."); return; }
+  if (!rows.length) { alert("Tidak ada baris untuk disimpan."); return; }
 
-  // ===== Ambil data lama untuk merge aman =====
-  let data = [];
-  try {
-    const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
-    if (resLama.ok) data = await resLama.json();
-  } catch (_) { /* lanjut dengan array kosong */ }
-  if (!Array.isArray(data)) data = [];
-
-  // ===== Helpers aman =====
+  // --- helper aman ---
   const txt = (el, sel, fb = "") => el.querySelector(sel)?.textContent?.trim() ?? fb;
   const val = (el, sel, fb = "") => el.querySelector(sel)?.value ?? fb;
   const num = (v, fb = 0) => {
@@ -1913,22 +1896,50 @@ async function simpanDataMutabaah(saveBtn) {
     return Number.isFinite(n) ? n : fb;
   };
 
-  // UI state tombol
+  // Parser nilai fallback (jika .nilai-ringkas tidak lengkap)
+  function parseNilaiStr(nilaiStr) {
+    if (!nilaiStr) return { nilai: null, predikatText: null, predikatHuruf: null };
+    const parts = nilaiStr.trim().split(/\s+/).filter(Boolean);
+    let numIdx = parts.findIndex(p => /^-?\d+(?:[.,]\d+)?$/.test(p));
+    if (numIdx === -1) numIdx = parts.findIndex(p => !Number.isNaN(parseFloat(p.replace(",", "."))));
+    const nilai = (numIdx !== -1) ? parseFloat(parts[numIdx].replace(",", ".")) : null;
+
+    const rest = parts
+      .filter((_, i) => i !== numIdx)
+      .map(p => p.replace(/[^\p{L}\p{N}\-]/gu, ""))
+      .filter(Boolean);
+
+    const gradeIdx = rest.findIndex(p => /^[A-E]$/i.test(p));
+    const predikatHuruf = gradeIdx !== -1 ? rest[gradeIdx].toUpperCase() : null;
+    const predikatText  = rest.filter((_, i) => i !== gradeIdx && rest[i] !== "-").join(" ") || null;
+    return { nilai, predikatText, predikatHuruf };
+  }
+
+  // UI state
   if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset.old = saveBtn.textContent; saveBtn.textContent = "⏳ Menyimpan..."; }
 
   try {
-    // ===== LOOP SEMUA BARIS & MERGE =====
+    // Ambil data lama untuk merge
+    let data = [];
+    try {
+      const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+      if (resLama.ok) data = await resLama.json();
+    } catch (_) { /* lanjut */ }
+    if (!Array.isArray(data)) data = [];
+
+    // ===== loop semua baris =====
     rows.forEach((row) => {
-      // Kunci stabil: NIS dulu, fallback ID
+      // 🔑 kunci stabil: NIS dulu, fallback ID (jangan dari teks sel!)
       const key = (row.dataset.nis || row.dataset.id || "").trim();
       if (!key) return;
 
+      // cari existing by NIS/ID (bandingkan sebagai string)
       const existingIdx = data.findIndex(d =>
         (d?.nis && String(d.nis) === key) || (d?.id && String(d.id) === key)
       );
       const existing = existingIdx !== -1 ? data[existingIdx] : {};
 
-      // Kolom UI
+      // Kolom inti
       const nama         = row.children[1]?.textContent?.trim() || existing.nama || "";
       const semester     = val(row, ".semester", existing.semester ?? "1");
       const absensi      = val(row, ".absensi",  existing.absensi ?? "Hadir");
@@ -1936,55 +1947,62 @@ async function simpanDataMutabaah(saveBtn) {
       const ayatDari     = val(row, ".ayat-dari", "");
       const surahSampai  = val(row, ".surah-sampai", "");
       const ayatSampai   = val(row, ".ayat-sampai", "");
+      const halaman      = txt(row, ".halaman-terbaca", existing.halaman ?? "-");              // Page (ranges)
+      const totalHalaman = num(txt(row, ".total-halaman", existing.totalHalaman ?? 0), 0);     // Total Page
+      const juzTerbaca   = txt(row, ".juz-terbaca", existing.juzTerbaca ?? "-");               // Juz (label)
+      const totalJuz     = num(txt(row, ".total-juz",  existing.totalJuz     ?? 0), 0);        // Total Juz
 
-      const halaman      = txt(row, ".halaman-terbaca", existing.halaman ?? "-");             // Page
-      const totalHalaman = num(txt(row, ".total-halaman", existing.totalHalaman ?? 0), 0);    // Total Page
-      const juzTerbaca   = txt(row, ".juz-terbaca", existing.juzTerbaca ?? "-");              // Juz
-      const totalJuz     = num(txt(row, ".total-juz", existing.totalJuz ?? 0), 0);            // Total Juz
-
-      // Nilai ringkas
-      const nilaiBox       = row.querySelector(".nilai-ringkas");
-      let nilai            = num(nilaiBox?.querySelector("strong")?.textContent, existing.buttonCell?.nilai ?? 0);
-      let predikatHuruf    = nilaiBox?.querySelector(".pred-huruf")?.textContent?.trim() || existing.buttonCell?.predikatHuruf || "-";
-      let predikatText     = (nilaiBox?.querySelector(".pred-text, .predikat-text")?.textContent?.trim()) || existing.buttonCell?.predikatText || "-";
-
-      // Fallback parser jika struktur nilai-ringkas tidak ada
+      // Nilai-ringkas (ambil dari DOM; fallback parser)
+      const nilaiBox    = row.querySelector(".nilai-ringkas");
+      let nilai         = num(nilaiBox?.querySelector("strong")?.textContent, existing.buttonCell?.nilai ?? 0);
+      let predHuruf     = nilaiBox?.querySelector(".pred-huruf")?.textContent?.trim() || existing.buttonCell?.predikatHuruf || "-";
+      let predText      = (nilaiBox?.querySelector(".pred-text, .predikat-text")?.textContent?.trim()) || existing.buttonCell?.predikatText || "-";
       if (!nilaiBox) {
         const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
         const nilaiStr  = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
-        if (typeof parseNilaiStr === "function") {
-          const parsed = parseNilaiStr(nilaiStr);
-          if (typeof parsed?.nilai === "number" && !Number.isNaN(parsed.nilai)) nilai = parsed.nilai;
-          if (parsed?.predikatHuruf && parsed.predikatHuruf !== '-') predikatHuruf = parsed.predikatHuruf;
-          if (parsed?.predikatText  && parsed.predikatText  !== '-') predikatText  = parsed.predikatText;
-        }
+        const parsed    = parseNilaiStr(nilaiStr);
+        if (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai)) nilai = parsed.nilai;
+        if (parsed.predikatHuruf && parsed.predikatHuruf !== "-") predHuruf = parsed.predikatHuruf;
+        if (parsed.predikatText  && parsed.predikatText  !== "-") predText  = parsed.predikatText;
       }
 
       const record = {
         ...existing,
         id:  row.dataset.id  || existing.id  || null,
         nis: row.dataset.nis || existing.nis || null,
+
         nama, kelas, tanggal,
         semester, absensi,
         dari:   `${surahDari}:${ayatDari}`,
         sampai: `${surahSampai}:${ayatSampai}`,
-        halaman, totalHalaman, juzTerbaca, totalJuz,
-        page: { ranges: halaman, totalPage: totalHalaman, totalJuz }, // opsional rapi
-        buttonCell: { nilai, predikatHuruf, predikatText },
+
+        // kolom yang WAJIB tersimpan
+        halaman,            // Page
+        totalHalaman,       // Total Page
+        juzTerbaca,         // Juz
+        totalJuz,           // Total Juz
+
+        // format rapi opsional (tetap simpan untuk konsistensi ke depan)
+        page: { ranges: halaman, totalPage: totalHalaman, totalJuz },
+
+        // nilai ringkas
+        buttonCell: { nilai, predikatHuruf: predHuruf, predikatText: predText },
+
+        // marks (jika row punya)
         marks: row.markData || existing.marks || { audio: [] },
       };
 
       if (existingIdx !== -1) data[existingIdx] = record; else data.push(record);
     });
 
-    // ===== KIRIM KE SERVER (JSON-only) =====
+    // Kirim ke server (JSON-only)
     const res = await fetch("/.netlify/functions/saveData", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tanggal, kelas, data })
     });
-
     const result = await res.json().catch(() => ({}));
+
     if (!res.ok || (result.success === false)) {
       throw new Error(result?.error || `HTTP ${res.status}`);
     }
@@ -2002,7 +2020,6 @@ async function simpanDataMutabaah(saveBtn) {
     }
   }
 }
-
 
 
 
