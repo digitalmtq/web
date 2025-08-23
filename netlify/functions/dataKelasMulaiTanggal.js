@@ -6,7 +6,6 @@ const ghHeaders = (token) => ({
   Accept: "application/vnd.github.v3+json",
   "Content-Type": "application/json",
 });
-
 const normKelas = (k) => (k?.startsWith("kelas_") ? k : `kelas_${k}`);
 
 async function readDir(dir, token) {
@@ -14,7 +13,6 @@ async function readDir(dir, token) {
   if (!res.ok) return { ok: false, status: res.status, error: await res.text().catch(()=>"") };
   return { ok: true, data: await res.json() };
 }
-
 async function readJsonFile(path, token) {
   const res = await fetch(`${API_BASE}/${path}`, { headers: ghHeaders(token) });
   if (res.status === 404) return { ok: true, exists: false, sha: null, data: [] };
@@ -25,7 +23,6 @@ async function readJsonFile(path, token) {
   if (!Array.isArray(arr)) arr = [];
   return { ok: true, exists: true, sha: json.sha, data: arr };
 }
-
 async function writeJsonFile(path, arrayData, token, sha=null, message="update") {
   const body = {
     message,
@@ -38,14 +35,12 @@ async function writeJsonFile(path, arrayData, token, sha=null, message="update")
   return { ok:true };
 }
 
-// remap id jika ada di idMap
+// Remap ID sesuai idMap
 function mapIdIfNeeded(row, idMap) {
   if (!Array.isArray(idMap) || idMap.length === 0) return row;
   const oldId = (row.id ?? "").toString();
   const found = idMap.find(m => String(m.oldId) === oldId);
-  if (found && found.newId) {
-    return { ...row, id: String(found.newId) };
-  }
+  if (found && found.newId) return { ...row, id: String(found.newId) };
   return row;
 }
 
@@ -74,17 +69,14 @@ exports.handler = async (event) => {
 
     const hasStart = !!startDate;
     const dateOk = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
-    if (hasStart && !dateOk(startDate)) {
+    if (hasStart && startDate && !dateOk(startDate)) {
       return { statusCode: 400, body: JSON.stringify({ error: "startDate harus format YYYY-MM-DD" }) };
     }
 
-    // 1) list semua file absensi
+    // 1) list file absensi kelas asal
     const dir = await readDir("absensi", token);
-    if (!dir.ok) {
-      return { statusCode: 500, body: JSON.stringify({ error: "Gagal baca folder absensi", detail: dir.error }) };
-    }
+    if (!dir.ok) return { statusCode: 500, body: JSON.stringify({ error: "Gagal baca folder absensi", detail: dir.error }) };
 
-    // 2) filter file kelas asal + tanggal >= startDate
     const asalFiles = dir.data
       .filter(f => f.type === "file" && new RegExp(`^${asal}_\\d{4}-\\d{2}-\\d{2}\\.json$`).test(f.name))
       .map(f => ({ name: f.name, path: `absensi/${f.name}`, date: f.name.replace(`${asal}_`, "").replace(".json","") }))
@@ -106,23 +98,22 @@ exports.handler = async (event) => {
       const src = await readJsonFile(srcPath, token);
       if (!src.ok || !src.exists) { report.push({ tanggal, moved:0, note:"asal tidak ada" }); continue; }
 
-      const toMove = src.data.filter(r => matchIds(r, idsSet));
-      if (toMove.length === 0) { report.push({ tanggal, moved:0, note:"tidak ada match" }); continue; }
+      const toMoveRaw = src.data.filter(r => matchIds(r, idsSet));
+      if (toMoveRaw.length === 0) { report.push({ tanggal, moved:0, note:"tidak ada match" }); continue; }
 
+      // Remap ID sesuai idMap (konsisten dg roster)
+      const toMove = toMoveRaw.map(r => mapIdIfNeeded(r, idMap));
       const remaining = src.data.filter(r => !matchIds(r, idsSet));
 
+      // baca tujuan
       const dst = await readJsonFile(dstPath, token);
       if (!dst.ok) { report.push({ tanggal, moved:0, note:"gagal baca tujuan" }); continue; }
-
       let dstArr = dst.data || [];
 
-      // remap id sesuai idMap sebelum append
-      const appendable = toMove.map(r => mapIdIfNeeded(r, idMap));
-
-      // hindari dupe di tujuan
+      // Hindari dupe (berdasarkan id/nis) — diasumsikan id sudah sinkron dg roster
       const idSet = new Set(dstArr.map(r => (r.id ?? "").toString()).filter(Boolean));
       const nisSet = new Set(dstArr.map(r => (r.nis ?? "").toString()).filter(Boolean));
-      const appendableFiltered = appendable.filter(r => {
+      const appendable = toMove.filter(r => {
         const rid = (r.id ?? "").toString();
         const rnis = (r.nis ?? "").toString();
         return !( (rid && idSet.has(rid)) || (rnis && nisSet.has(rnis)) );
@@ -131,11 +122,11 @@ exports.handler = async (event) => {
       // tulis tujuan
       const okDst = await writeJsonFile(
         dstPath,
-        [...dstArr, ...appendableFiltered],
+        [...dstArr, ...appendable],
         token,
         dst.exists ? dst.sha : null,
-        dst.exists ? `Append ${appendableFiltered.length} santri -> ${tujuan} (${tanggal})`
-                   : `Create ${tujuan} (${tanggal}) & seed ${appendableFiltered.length} santri`
+        dst.exists ? `Append ${appendable.length} santri -> ${tujuan} (${tanggal})`
+                   : `Create ${tujuan} (${tanggal}) & seed ${appendable.length} santri`
       );
       if (!okDst.ok) { report.push({ tanggal, moved:0, note:"gagal tulis tujuan" }); continue; }
 
@@ -145,12 +136,12 @@ exports.handler = async (event) => {
         remaining,
         token,
         src.sha,
-        `Remove ${toMove.length} santri pindah dari ${asal} (${tanggal})`
+        `Remove ${toMoveRaw.length} santri pindah dari ${asal} (${tanggal})`
       );
       if (!okSrc.ok) { report.push({ tanggal, moved:0, note:"gagal tulis asal" }); continue; }
 
-      totalMoved += appendableFiltered.length;
-      report.push({ tanggal, moved: appendableFiltered.length });
+      totalMoved += appendable.length;
+      report.push({ tanggal, moved: appendable.length });
     }
 
     return { statusCode: 200, body: JSON.stringify({ success:true, totalMoved, details: report }) };
