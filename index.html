@@ -1631,16 +1631,29 @@ function aturDropdownKelas(user) {
 
     santriTableBody.innerHTML = "";
 
-    santriData.forEach((santri, i) => {
-      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
-      const row = document.createElement("tr");
+    santriData.forEach((santri) => {
+  // kunci stabil: NIS dulu, fallback ID
+  const key = String(santri.nis ?? santri.id ?? "");
 
-      const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
-      const dari = (dataAbsensi.dari || "1:1").split(":");
-      const sampai = (dataAbsensi.sampai || "1:1").split(":");
+  // ambil absensi via map (dibuat sebelumnya: const absByKey = new Map(...))
+  const dataAbsensi = absByKey.get(key) || {};
 
-      row.innerHTML = `
-        <td>${santri.id || santri.nis}</td>
+  // siapkan <tr> dan dataset kunci untuk proses simpan
+  const row = document.createElement("tr");
+  row.dataset.id  = santri.id  != null ? String(santri.id)  : "";
+  row.dataset.nis = santri.nis != null ? String(santri.nis) : "";
+
+  // opsi dropdown surah
+  const surahOptions = surahList
+    .map(x => `<option value="${x.id}">${x.nama}</option>`)
+    .join("");
+
+  // pecah dari/sampai (fallback "1:1")
+  const [sd = "1", ad = "1"] = String(dataAbsensi.dari   || "1:1").split(":");
+  const [ss = "1", as = "1"] = String(dataAbsensi.sampai || "1:1").split(":");
+
+  row.innerHTML = `
+    <td>${santri.nis ?? santri.id ?? "-"}</td>
         <td>${santri.nama}</td>
         <td>
           <select class="absensi">
