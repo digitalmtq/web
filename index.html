@@ -2428,6 +2428,12 @@ btnHapusSantri.addEventListener("click", async () => {
     const res = await fetch(`/.netlify/functions/ambilSantri?kelas=${kelas}`);
     const santriData = await res.json();
 
+    if (!Array.isArray(santriData)) {
+      console.error("Santri data bukan array:", santriData);
+      listSantriHapus.innerHTML = "<li>Gagal load data</li>";
+      return;
+    }
+
     listSantriHapus.innerHTML = "";
     if (santriData.length === 0) {
       listSantriHapus.innerHTML = "<li>Tidak ada santri di kelas ini</li>";
@@ -2469,7 +2475,6 @@ btnHapusTerpilih.addEventListener("click", async () => {
     }
   }
 
-  // Setelah hapus, tutup modal
   modalHapusSantri.style.display = "none";
 
   // Refresh tabel utama
