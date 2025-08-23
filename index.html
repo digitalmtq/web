@@ -1041,7 +1041,7 @@ async function submitTambahKelasBaru() {
         <tbody></tbody>
       </table>
       <button onclick="bukaModalSantri()" style="margin-left:0px;">➕ Tambah Santri</button>
-      <button id="btnHapusSantri" style="margin-left:10px;" onclick="bukaModalHapusSantri()">🗑 Hapus Santri</button>
+      <button id="btnHapusSantri">Hapus Santri</button>
       <div class="actions">
         <button id="save-btn">Simpan Data Mutaba'ah</button>
         <button id="download-btn">Download PDF</button>
@@ -1052,22 +1052,13 @@ async function submitTambahKelasBaru() {
     </div>
   </div>
 
-
 <!-- Modal Overlay -->
-<div id="modalHapusSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; justify-content:center; align-items:center;">
-  <div style="background:#fff; padding:20px; border-radius:10px; width:350px; max-height:80%; overflow:auto;">
-    <h2>Hapus Santri</h2>
-    <label>Pilih Santri:</label>
-    <ul id="listSantriHapus" style="list-style:none; padding-left:0; margin-bottom:10px;"></ul>
-
-    <div style="margin-top:10px; display:flex; justify-content:space-between;">
-      <button id="btnHapusTerpilih" onclick="konfirmasiHapusSantri()">🗑️ Hapus</button>
-      <button id="btnTutupModal" onclick="tutupModal('modalHapusSantri')">❌ Batal</button>
-    </div>
-
-    <div id="loadingHapusSantri" style="display:none; margin-top:10px; color:red;">
-      ⏳ Menghapus...
-    </div>
+<div id="modalHapusSantri" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-height:80%; overflow:auto;">
+    <h3>Pilih Santri yang Akan Dihapus</h3>
+    <ul id="listSantriHapus" style="list-style:none; padding-left:0;"></ul>
+    <button id="btnHapusTerpilih">Hapus Terpilih</button>
+    <button id="btnTutupModal">Tutup</button>
   </div>
 </div>
 	
@@ -2416,42 +2407,81 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 
 <script>
-const modalHapus = document.getElementById("modalHapusSantri");
+const btnHapusSantri = document.getElementById("btnHapusSantri");
+const modalHapusSantri = document.getElementById("modalHapusSantri");
 const listSantriHapus = document.getElementById("listSantriHapus");
-const loadingHapus = document.getElementById("loadingHapusSantri");
+const btnHapusTerpilih = document.getElementById("btnHapusTerpilih");
+const btnTutupModal = document.getElementById("btnTutupModal");
 
-// Buka modal & load santri
-async function bukaModalHapusSantri() {
-  modalHapus.style.display = "flex";
+// Tombol untuk menutup modal
+btnTutupModal.addEventListener("click", () => {
+  modalHapusSantri.style.display = "none";
+});
+
+// Tombol untuk membuka modal dan load santri
+btnHapusSantri.addEventListener("click", async () => {
+  modalHapusSantri.style.display = "flex";
   listSantriHapus.innerHTML = "<li>Loading...</li>";
 
+  const kelas = kelasSelect.value; // Ambil kelas dari select
   try {
-    const kelas = kelasSelect.value;
     const res = await fetch(`/.netlify/functions/ambilSantri?kelas=${kelas}`);
     const santriData = await res.json();
 
-    if (!Array.isArray(santriData) || santriData.length === 0) {
-      listSantriHapus.innerHTML = "<li>Tidak ada santri di kelas ini</li>";
+    if (!Array.isArray(santriData)) {
+      console.error("Santri data bukan array:", santriData);
+      listSantriHapus.innerHTML = "<li>Gagal load data</li>";
       return;
     }
 
     listSantriHapus.innerHTML = "";
+    if (santriData.length === 0) {
+      listSantriHapus.innerHTML = "<li>Tidak ada santri di kelas ini</li>";
+      return;
+    }
+
     santriData.forEach(s => {
       const li = document.createElement("li");
-      li.innerHTML = `<label><input type="checkbox" value="${s.id || s.nis}"> ${s.nama} (${s.id || s.nis})</label>`;
+      li.style.marginBottom = "5px";
+      li.innerHTML = `<label>
+        <input type="checkbox" value="${s.id || s.nis}"> ${s.nama} (${s.id || s.nis})
+      </label>`;
       listSantriHapus.appendChild(li);
     });
   } catch (err) {
-    listSantriHapus.innerHTML = "<li>Gagal load santri</li>";
     console.error(err);
+    listSantriHapus.innerHTML = "<li>Gagal load data</li>";
   }
-}
+});
 
-// Tutup modal
-function tutupModal(modalId) {
-  document.getElementById(modalId).style.display = "none";
-  loadingHapus.style.display = "none";
-}
+// Tombol hapus terpilih
+btnHapusTerpilih.addEventListener("click", async () => {
+  const checked = listSantriHapus.querySelectorAll("input:checked");
+  if (checked.length === 0) return alert("Pilih santri terlebih dahulu");
+
+  const kelas = kelasSelect.value;
+  for (let c of checked) {
+    const identifier = c.value;
+    try {
+      const res = await fetch(`/.netlify/functions/hapusSantri`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kelas, identifier })
+      });
+      const result = await res.json();
+      console.log("Hasil hapus:", result);
+    } catch (err) {
+      console.error("Gagal hapus:", err);
+    }
+  }
+
+  modalHapusSantri.style.display = "none";
+
+  // Refresh tabel utama
+  if (typeof loadSantriData === "function") {
+    loadSantriData();
+  }
+});
 </script>
 	
 
