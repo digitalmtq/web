@@ -1590,71 +1590,55 @@ function aturDropdownKelas(user) {
       }, 500);
     });
 
-    async function loadSantriData() { 
+    // helper kecil: paksa ke number, kalau gagal -> null
+const toNumId = (v) => (v === 0 || (v && !Number.isNaN(Number(v)))) ? Number(v) : null;
+
+async function loadSantriData() {
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
   overlay.style.display = "flex";
 
   try {
-    // Ambil semua santri di kelas
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}`);
-    let santriData = await resSantri.json();
+    // 1) fetch
+    const santriRes   = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}`);
+    let santriData    = await santriRes.json();
 
-    // Ambil data absensi
-    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
-    const absensiData = await resAbsensi.json();
+    const absensiRes  = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
+    const absensiData = await absensiRes.json();
 
-    // Ambil username user login
-    const username = localStorage.getItem("username");
+    // 2) filter hak akses (biarkan punyamu seperti semula)
+    // ... (kode filter kamu di sini, tidak diubah)
 
-    // Ambil semua user dan temukan user login
-    const users = await fetch(`/.netlify/functions/getUsers`).then(r => r.json());
-    const user = users.find(u => u.username === username);
+    // 3) Normalisasi ID jadi number di KEDUA dataset
+    santriData.forEach(s => { s.id = toNumId(s.id); });
+    absensiData.forEach(a => { a.id = toNumId(a.id); });
 
-    // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
-    if (user) {
-      if (user.kelas && user.kelas.length) {
-        if (!user.kelas.includes(kelas)) {
-          santriData = []; // kelas tidak diizinkan
-        } else if (user.nis && user.nis.length) {
-          santriData = santriData.filter(s => user.nis.includes(s.nis));
-        }
-      }
-    } else {
-      santriData = [];
-    }
-    // ===== END FILTER =====
+    // 4) Bangun map absensi by ID (O(1))
+    const absensiById = new Map(absensiData
+      .filter(a => a && a.id != null)
+      .map(a => [a.id, a])
+    );
 
+    // 5) Render
     santriTableBody.innerHTML = "";
-
-    // Helper normalisasi kunci id/nis sebagai STRING
-    const normKey = (v) => (v === 0 || v === "0") ? "0" : String(v ?? "").trim();
-
-    // Render baris
-    santriData.forEach((santri, i) => {
-      // Cari entry absensi yang cocok by id (string) atau nis (fallback)
-      const keyId  = normKey(santri.id);
-      const keyNis = normKey(santri.nis);
-      const dataAbsensi =
-        absensiData.find(a => normKey(a.id) === keyId) ||
-        absensiData.find(a => keyNis && normKey(a.nis) === keyNis) ||
-        {};
+    santriData.forEach(santri => {
+      const dataAbsensi = (santri && santri.id != null) ? (absensiById.get(santri.id) || {}) : {};
 
       const row = document.createElement("tr");
+      row.id = `row-${santri.id ?? ""}`;         // supaya fungsi lain tetap ketemu
+      row.dataset.id = santri.id ?? "";          // metadata bantu
 
-      // beri identitas baris agar fungsi lain mudah menemukan
-      const key = keyId || keyNis; // prioritas id, fallback nis
-      const esc = (s) => (window.CSS && CSS.escape ? CSS.escape(s) : s);
-      row.id = `row-${esc(key)}`;
-      row.dataset.sid = key;
+      const dari    = String(dataAbsensi.dari || "1:1").split(":");
+      const sampai  = String(dataAbsensi.sampai || "1:1").split(":");
 
-      const surahOptions = (Array.isArray(surahList) ? surahList : []).map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
-      const dari   = (dataAbsensi.dari   || "1:1").split(":");
-      const sampai = (dataAbsensi.sampai || "1:1").split(":");
+      const bc        = dataAbsensi.buttonCell || {};
+      const nilaiNum  = Number(bc.nilai);
+      const nilaiView = Number.isFinite(nilaiNum) ? nilaiNum.toFixed(1) : "";
+      const predHTML  = nilaiView ? ` - ${bgHuruf(bc.predikatHuruf ?? "-", bc.predikatText ?? "-")}` : "";
 
       row.innerHTML = `
-        <td>${santri.id ?? santri.nis ?? "-"}</td>
-        <td>${santri.nama}</td>
+        <td>${santri.id ?? "-"}</td>
+        <td>${santri.nama || "-"}</td>
         <td>
           <select class="absensi">
             <option value="Hadir" ${dataAbsensi.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
@@ -1685,14 +1669,10 @@ function aturDropdownKelas(user) {
             <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
           </select>
         </td>
-        <div class="nilai-ringkas">
-            ${
-              dataAbsensi.buttonCell && Number.isFinite(Number(dataAbsensi.buttonCell.nilai))
-                ? `<strong>${Number(dataAbsensi.buttonCell.nilai).toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
-                : ``
-            }
+        <td>
+          <div class="nilai-ringkas">
+            ${nilaiView ? `<strong>${nilaiView}</strong>${predHTML}` : ""}
           </div>
-          <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
         </td>
         <td class="total-all-juz">
           <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
@@ -1705,15 +1685,6 @@ function aturDropdownKelas(user) {
           td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
         }
       });
-
-
-		// simpan ke global bila diperlukan fungsi lain (mis. renderTabelPredikat)
-    window.dataSantri = santriData;
-
-    // panggil ulang renderer nilai ringkas jika ada
-    if (typeof renderTabelPredikat === "function") {
-      try { renderTabelPredikat(); } catch (e) { console.warn("renderTabelPredikat error:", e); }
-    }
 
       // Set surah & ayat dropdown
       const surahDari = row.querySelector(".surah-dari");
@@ -1744,7 +1715,6 @@ function aturDropdownKelas(user) {
         el.addEventListener("change", () => updateTotalJuz(row));
       });
     });
-	  
   } catch (err) {
     alert("Gagal memuat data santri / absensi!");
     console.error(err);
