@@ -1597,11 +1597,11 @@ function aturDropdownKelas(user) {
 
   try {
     // Ambil semua santri di kelas
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}`);
     let santriData = await resSantri.json();
 
     // Ambil data absensi
-    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
     const absensiData = await resAbsensi.json();
 
     // Ambil username user login
@@ -1613,34 +1613,47 @@ function aturDropdownKelas(user) {
 
     // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
     if (user) {
-      // Superuser: tidak ada properti kelas → akses semua
       if (user.kelas && user.kelas.length) {
-        // Batasi ke kelas yang diizinkan
         if (!user.kelas.includes(kelas)) {
           santriData = []; // kelas tidak diizinkan
         } else if (user.nis && user.nis.length) {
-          // Batasi NIS hanya yang diizinkan
           santriData = santriData.filter(s => user.nis.includes(s.nis));
         }
       }
     } else {
-      // user tidak ditemukan → kosongkan tabel
       santriData = [];
     }
     // ===== END FILTER =====
 
     santriTableBody.innerHTML = "";
 
+    // Helper normalisasi kunci id/nis sebagai STRING
+    const normKey = (v) => (v === 0 || v === "0") ? "0" : String(v ?? "").trim();
+
+    // Render baris
     santriData.forEach((santri, i) => {
-      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
+      // Cari entry absensi yang cocok by id (string) atau nis (fallback)
+      const keyId  = normKey(santri.id);
+      const keyNis = normKey(santri.nis);
+      const dataAbsensi =
+        absensiData.find(a => normKey(a.id) === keyId) ||
+        absensiData.find(a => keyNis && normKey(a.nis) === keyNis) ||
+        {};
+
       const row = document.createElement("tr");
 
-      const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
-      const dari = (dataAbsensi.dari || "1:1").split(":");
+      // beri identitas baris agar fungsi lain mudah menemukan
+      const key = keyId || keyNis; // prioritas id, fallback nis
+      const esc = (s) => (window.CSS && CSS.escape ? CSS.escape(s) : s);
+      row.id = `row-${esc(key)}`;
+      row.dataset.sid = key;
+
+      const surahOptions = (Array.isArray(surahList) ? surahList : []).map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
+      const dari   = (dataAbsensi.dari   || "1:1").split(":");
       const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
       row.innerHTML = `
-        <td>${santri.id || santri.nis}</td>
+        <td>${santri.id ?? santri.nis ?? "-"}</td>
         <td>${santri.nama}</td>
         <td>
           <select class="absensi">
@@ -1672,11 +1685,12 @@ function aturDropdownKelas(user) {
             <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
           </select>
         </td>
-        <td>
-          <div class="nilai-ringkas">
-            ${dataAbsensi.buttonCell 
-               ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
-               : ''}
+        <div class="nilai-ringkas">
+            ${
+              dataAbsensi.buttonCell && Number.isFinite(Number(dataAbsensi.buttonCell.nilai))
+                ? `<strong>${Number(dataAbsensi.buttonCell.nilai).toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+                : ``
+            }
           </div>
           <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
         </td>
@@ -1691,6 +1705,15 @@ function aturDropdownKelas(user) {
           td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
         }
       });
+
+
+		// simpan ke global bila diperlukan fungsi lain (mis. renderTabelPredikat)
+    window.dataSantri = santriData;
+
+    // panggil ulang renderer nilai ringkas jika ada
+    if (typeof renderTabelPredikat === "function") {
+      try { renderTabelPredikat(); } catch (e) { console.warn("renderTabelPredikat error:", e); }
+    }
 
       // Set surah & ayat dropdown
       const surahDari = row.querySelector(".surah-dari");
@@ -1721,6 +1744,7 @@ function aturDropdownKelas(user) {
         el.addEventListener("change", () => updateTotalJuz(row));
       });
     });
+	  
   } catch (err) {
     alert("Gagal memuat data santri / absensi!");
     console.error(err);
