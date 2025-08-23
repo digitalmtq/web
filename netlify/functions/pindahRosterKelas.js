@@ -1,19 +1,32 @@
 // netlify/functions/pindahRosterKelas.js
+// Pakai fetch bawaan Netlify runtime
+
 const API_BASE = "https://api.github.com/repos/digitalmtq/server/contents";
+
 const ghHeaders = (token) => ({
   Authorization: `Bearer ${token}`,
   Accept: "application/vnd.github.v3+json",
   "Content-Type": "application/json",
 });
+
 const normKelas = (k) => (k && k.startsWith("kelas_") ? k : `kelas_${k}`);
 
 async function readJsonFile(path, token) {
   const res = await fetch(`${API_BASE}/${path}`, { headers: ghHeaders(token) });
-  if (res.status === 404) return { ok: true, exists: false, sha: null, data: [] };
-  if (!res.ok) return { ok: false, status: res.status, error: await res.text().catch(()=>"") };
+  if (res.status === 404) {
+    return { ok: true, exists: false, sha: null, data: [] };
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, status: res.status, error: text };
+  }
   const json = await res.json();
   let arr = [];
-  try { arr = JSON.parse(Buffer.from(json.content, "base64").toString("utf-8")); } catch { arr = []; }
+  try {
+    arr = JSON.parse(Buffer.from(json.content, "base64").toString("utf-8"));
+  } catch {
+    arr = [];
+  }
   if (!Array.isArray(arr)) arr = [];
   return { ok: true, exists: true, sha: json.sha, data: arr };
 }
@@ -25,26 +38,18 @@ async function writeJsonFile(path, arrayData, token, sha = null, message = "upda
     committer: { name: "admin", email: "admin@local" },
   };
   if (sha) body.sha = sha;
-  const res = await fetch(`${API_BASE}/${path}`, { method: "PUT", headers: ghHeaders(token), body: JSON.stringify(body) });
-  if (!res.ok) return { ok: false, status: res.status, error: await res.text().catch(()=>"") };
-  return { ok: true };
-}
 
-// Kumpulkan ID numerik valid (positif)
-function collectUsedIdsNumeric(arr) {
-  const set = new Set();
-  for (const r of arr) {
-    const n = parseInt((r.id ?? "").toString(), 10);
-    if (Number.isInteger(n) && n > 0) set.add(String(n));
+  const res = await fetch(`${API_BASE}/${path}`, {
+    method: "PUT",
+    headers: ghHeaders(token),
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, status: res.status, error: text };
   }
-  return set;
-}
-
-// Ambil ID kosong terkecil; kalau penuh 1..max, kembalikan max+1
-function allocNextIdGapFirst(usedSet) {
-  let i = 1;
-  while (usedSet.has(String(i))) i++;
-  return String(i);
+  return { ok: true };
 }
 
 exports.handler = async (event) => {
@@ -52,10 +57,17 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") {
       return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
     }
-    const token = process.env.MTQ_TOKEN;
-    if (!token) return { statusCode: 500, body: JSON.stringify({ error: "MTQ_TOKEN tidak tersedia" }) };
 
-    let { kelasAsal, kelasTujuan, identifiers } = JSON.parse(event.body || "{}");
+    const token = process.env.MTQ_TOKEN;
+    if (!token) {
+      return { statusCode: 500, body: JSON.stringify({ error: "MTQ_TOKEN tidak tersedia di environment Netlify" }) };
+    }
+
+    let payload = {};
+    try { payload = JSON.parse(event.body || "{}"); } catch {}
+
+    let { kelasAsal, kelasTujuan, identifiers } = payload;
+    // identifiers: array berisi id atau nis atau nama (bebas campur), contoh: ["3","1234112","moro"]
     if (!kelasAsal || !kelasTujuan || !Array.isArray(identifiers) || identifiers.length === 0) {
       return { statusCode: 400, body: JSON.stringify({ error: "Wajib: kelasAsal, kelasTujuan, identifiers[]" }) };
     }
@@ -65,81 +77,88 @@ exports.handler = async (event) => {
     const asalPath = `${asal}.json`;
     const tujuanPath = `${tujuan}.json`;
 
-    // baca sumber & tujuan
+    // 1) Baca file asal & tujuan
     const src = await readJsonFile(asalPath, token);
-    if (!src.ok || !src.exists) return { statusCode: 404, body: JSON.stringify({ error: "File kelas asal tidak ditemukan" }) };
-    const dst = await readJsonFile(tujuanPath, token);
-    if (!dst.ok) return { statusCode: 500, body: JSON.stringify({ error: "Gagal baca kelas tujuan", detail: dst.error }) };
+    if (!src.ok) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal baca file kelas asal", detail: src.error, status: src.status }) };
+    }
+    if (!src.exists) {
+      return { statusCode: 404, body: JSON.stringify({ error: "File kelas asal tidak ditemukan" }) };
+    }
 
-    const pick = new Set(identifiers.map(v => String(v).trim()).filter(Boolean));
-    const match = (row) => {
-      const id = (row.id ?? "").toString();
-      const nis = (row.nis ?? "").toString();
-      const nm = (row.nama ?? "").toLowerCase();
-      return pick.has(id) || (nis && pick.has(nis)) || (nm && pick.has(nm));
+    const dst = await readJsonFile(tujuanPath, token);
+    if (!dst.ok) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal baca file kelas tujuan", detail: dst.error, status: dst.status }) };
+    }
+
+    // 2) Siapkan set untuk pencocokan & deduplikasi
+    const pickSet = new Set(identifiers.map((v) => v.toString().trim()).filter(Boolean));
+
+    const matchRow = (row) => {
+      const idStr = (row.id ?? "").toString();
+      const nisStr = (row.nis ?? "").toString();
+      const namaStr = (row.nama ?? "").toString().toLowerCase();
+      return pickSet.has(idStr) || (nisStr && pickSet.has(nisStr)) || (namaStr && pickSet.has(namaStr));
     };
 
-    const toMove = src.data.filter(match);
-    if (toMove.length === 0) return { statusCode: 404, body: JSON.stringify({ error: "Santri tidak ditemukan di kelas asal" }) };
+    // 3) Ambil yang dipindah & sisakan yang lain
+    const toMove = src.data.filter(matchRow);
+    const remaining = src.data.filter((r) => !matchRow(r));
 
-    // siapkan set ID terpakai di tujuan (numerik)
-    const dstArr = Array.isArray(dst.data) ? [...dst.data] : [];
-    const usedIds = collectUsedIdsNumeric(dstArr);
+    if (toMove.length === 0) {
+      return { statusCode: 404, body: JSON.stringify({ error: "Santri tidak ditemukan di kelas asal" }) };
+    }
 
-    // buang duplikat target dulu (upsert by id/nis/nama)
-    const cleanedDst = dstArr.filter(r => {
+    // 4) Deduplikasi di tujuan (berdasarkan id/nis) — upsert (hapus duplikat lama, tambah yang baru)
+    let dstArr = dst.data || [];
+    const dstIdSet = new Set(dstArr.map((r) => (r.id ?? "").toString()).filter(Boolean));
+    const dstNisSet = new Set(dstArr.map((r) => (r.nis ?? "").toString()).filter(Boolean));
+
+    // buang yang bentrok dulu
+    dstArr = dstArr.filter((r) => {
       const rid = (r.id ?? "").toString();
       const rnis = (r.nis ?? "").toString();
-      const rnm = (r.nama ?? "").toLowerCase();
-      return !(pick.has(rid) || (rnis && pick.has(rnis)) || (rnm && pick.has(rnm)));
+      return !( (rid && pickSet.has(rid)) || (rnis && pickSet.has(rnis)) || (r.nama && pickSet.has(r.nama.toString().toLowerCase())) );
     });
 
-    // Map ID: kalau id bentrok/invalid -> pakai gap terkecil; kalau bebas -> pakai id asli
-    const idMap = []; // { oldId, newId, nis, nama }
-    const movedWithIds = toMove.map(orig => {
-      const row = { ...orig };
-      const oldIdStr = (row.id ?? "").toString();
-      const oldIdNum = parseInt(oldIdStr, 10);
-      let keepOld = Number.isInteger(oldIdNum) && oldIdNum > 0 && !usedIds.has(String(oldIdNum));
+    // tambahkan yang dipindah (upsert)
+    const newDst = [...dstArr, ...toMove];
 
-      let newIdStr;
-      if (keepOld) {
-        newIdStr = String(oldIdNum);
-      } else {
-        newIdStr = allocNextIdGapFirst(usedIds);
-      }
-
-      if (!keepOld) {
-        idMap.push({ oldId: oldIdStr, newId: newIdStr, nis: row.nis ?? "", nama: row.nama ?? "" });
-      }
-
-      usedIds.add(newIdStr);
-      row.id = newIdStr;
-      return row;
-    });
-
-    const newDst = [...cleanedDst, ...movedWithIds];
-
-    // tulis tujuan lalu asal
-    const wDst = await writeJsonFile(
-      tujuanPath, newDst, token, dst.exists ? dst.sha : null,
-      dst.exists ? `Upsert ${movedWithIds.length} santri (gap-ID) ke ${tujuan}`
-                 : `Create ${tujuan} & seed ${movedWithIds.length} santri (gap-ID)`
+    // 5) Tulis tujuan (buat baru kalau belum ada)
+    const writeDst = await writeJsonFile(
+      tujuanPath,
+      newDst,
+      token,
+      dst.exists ? dst.sha : null,
+      dst.exists
+        ? `Upsert ${toMove.length} santri ke ${tujuan}`
+        : `Create ${tujuan} & seed ${toMove.length} santri (pindah)`
     );
-    if (!wDst.ok) return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis kelas tujuan" }) };
+    if (!writeDst.ok) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis file kelas tujuan" }) };
+    }
 
-    const remaining = src.data.filter(r => !match(r));
-    const wSrc = await writeJsonFile(
-      asalPath, remaining, token, src.sha,
-      `Remove ${toMove.length} santri pindah dari ${asal}`
+    // 6) Tulis asal (hapus yang dipindah)
+    const writeSrc = await writeJsonFile(
+      asalPath,
+      remaining,
+      token,
+      src.sha,
+      `Remove ${toMove.length} santri dari ${asal} (pindah kelas)`
     );
-    if (!wSrc.ok) return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis kelas asal" }) };
+    if (!writeSrc.ok) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis file kelas asal" }) };
+    }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, moved: toMove.length, idMap })
+      body: JSON.stringify({
+        success: true,
+        moved: toMove.length,
+        from: asal,
+        to: tujuan,
+      }),
     };
-
   } catch (e) {
     return { statusCode: 500, body: JSON.stringify({ error: "Unhandled error", detail: e.message }) };
   }
