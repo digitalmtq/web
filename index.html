@@ -1634,6 +1634,8 @@ function aturDropdownKelas(user) {
     santriData.forEach((santri, i) => {
       const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
       const row = document.createElement("tr");
+	  row.dataset.id  = s.id  != null ? String(s.id)  : "";
+      row.dataset.nis = s.nis != null ? String(s.nis) : "";
 
       const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
       const dari = (dataAbsensi.dari || "1:1").split(":");
@@ -1932,85 +1934,108 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     // buat salinan awal (agar ID yang tidak disentuh tetap ada)
     const data = Array.isArray(dataLama) ? [...dataLama] : [];
 
-    rows.forEach((row) => {
-      const id = parseInt(row.children[0].textContent, 10);
-      const existing = data.find(d => d.id === id) || {};
+    // helper ringkas & aman
+const txt = (el, sel, fb = "") => el.querySelector(sel)?.textContent?.trim() ?? fb;
+const val = (el, sel, fb = "") => el.querySelector(sel)?.value ?? fb;
+const num = (v, fb = 0) => {
+  const n = Number(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : fb;
+};
 
-      const nama = row.children[1].textContent;
-      const semester = row.querySelector(".semester")?.value ?? existing.semester ?? "";
-      const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
-      const surahDari = row.querySelector(".surah-dari")?.value ?? "";
-      const ayatDari = row.querySelector(".ayat-dari")?.value ?? "";
-      const surahSampai = row.querySelector(".surah-sampai")?.value ?? "";
-      const ayatSampai = row.querySelector(".ayat-sampai")?.value ?? "";
-      const totalJuz = row.querySelector(".total-juz")?.textContent ?? existing.totalJuz ?? "0";
-      const halaman = row.querySelector(".halaman-terbaca")?.textContent ?? existing.halaman ?? "";
-      const totalHalaman = row.querySelector(".total-halaman")?.textContent ?? existing.totalHalaman ?? "";
-      const juzTerbaca = row.querySelector(".juz-terbaca")?.textContent ?? existing.juzTerbaca ?? "";
+// ====== LOOP SEMUA BARIS & MERGE DENGAN DATA LAMA ======
+rows.forEach((row) => {
+  // 🔑 Kunci stabil: utamakan NIS, fallback ID; JANGAN ambil dari teks sel!
+  const key = (row.dataset.nis || row.dataset.id || "").trim();
+  if (!key) return; // baris tanpa kunci → skip agar tidak merusak data
 
-      // ambil string nilai dari tombol/sel
-      const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
-      const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
+  // cari existing by NIS lalu ID (bandingkan sebagai string)
+  const existingIdx = data.findIndex(d =>
+    (d?.nis && String(d.nis) === key) || (d?.id && String(d.id) === key)
+  );
+  const existing = existingIdx !== -1 ? data[existingIdx] : {};
 
-      // gunakan parser cerdas
-      const parsed = parseNilaiStr(nilaiStr);
+  // --------- ambil kolom-kolom UI ---------
+  const nama         = row.children[1]?.textContent?.trim() || existing.nama || "";
+  const semester     = val(row, ".semester", existing.semester ?? "1");
+  const absensi      = val(row, ".absensi",  existing.absensi ?? "Hadir");
+  const surahDari    = val(row, ".surah-dari", "");
+  const ayatDari     = val(row, ".ayat-dari", "");
+  const surahSampai  = val(row, ".surah-sampai", "");
+  const ayatSampai   = val(row, ".ayat-sampai", "");
 
-      // ambil nilai/ predikat dari parser, jika parser tidak menemukan nilai/predikat, fall back ke existing
-      const nilai = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai)) ? parsed.nilai : (existing.buttonCell?.nilai ?? 0);
+  const halaman      = txt(row, ".halaman-terbaca", existing.halaman ?? "-");             // Page (ranges)
+  const totalHalaman = num(txt(row, ".total-halaman", existing.totalHalaman ?? 0), 0);    // Total Page
+  const juzTerbaca   = txt(row, ".juz-terbaca", existing.juzTerbaca ?? "-");              // Juz (label)
+  const totalJuz     = num(txt(row, ".total-juz", existing.totalJuz ?? 0), 0);            // Total Juz
+  // ----------------------------------------
 
-      // Jika parser menghasilkan '-' / null kita pertahankan existing (lebih aman)
-      const predikatText = (parsed.predikatText && parsed.predikatText !== '-') ? parsed.predikatText : (existing.buttonCell?.predikatText ?? "-");
-      const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-') ? parsed.predikatHuruf : (existing.buttonCell?.predikatHuruf ?? "-");
+  // nilai-ringkas (prioritas ambil dari struktur .nilai-ringkas)
+  const nilaiBox       = row.querySelector(".nilai-ringkas");
+  let nilai            = num(nilaiBox?.querySelector("strong")?.textContent, existing.buttonCell?.nilai ?? 0);
+  let predikatHuruf    = nilaiBox?.querySelector(".pred-huruf")?.textContent?.trim() || existing.buttonCell?.predikatHuruf || "-";
+  let predikatText     = (nilaiBox?.querySelector(".pred-text, .predikat-text")?.textContent?.trim()) || existing.buttonCell?.predikatText || "-";
 
-      const marks = row.markData || existing.marks || { audio: [] };
-
-      const newData = {
-        ...existing, // jaga semua field lain supaya tidak hilang
-        id,
-        nama,
-        semester,
-        absensi,
-        dari: `${surahDari}:${ayatDari}`,
-        sampai: `${surahSampai}:${ayatSampai}`,
-        totalJuz,
-        halaman,
-        totalHalaman,
-        juzTerbaca,
-        buttonCell: { nilai, predikatText, predikatHuruf },
-        marks
-      };
-
-      const idx = data.findIndex(d => d.id === id);
-      if (idx !== -1) data[idx] = newData; else data.push(newData);
-    });
-
-    // kirim merged data ke server
-    const res = await fetch("/.netlify/functions/saveData", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tanggal, kelas, data })
-    });
-
-    const result = await res.json();
-    if (result.success) {
-      saveBtn.textContent = "✅ Tersimpan";
-      setTimeout(() => {
-        saveBtn.textContent = "Simpan Data Mutaba'ah";
-        saveBtn.disabled = false;
-      }, 2000);
-    } else {
-      alert("❌ Gagal menyimpan data!");
-      saveBtn.disabled = false;
-      saveBtn.textContent = "Simpan Data Mutaba'ah";
-    }
-
-  } catch (err) {
-    console.error(err);
-    alert("⚠️ Error menyimpan data!");
-    saveBtn.disabled = false;
-    saveBtn.textContent = "Simpan Data Mutaba'ah";
+  // fallback jika struktur tidak tersedia → pakai parser yang sudah kamu punya
+  if (!nilaiBox) {
+    const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
+    const nilaiStr  = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
+    const parsed    = parseNilaiStr(nilaiStr);
+    if (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai)) nilai = parsed.nilai;
+    if (parsed.predikatHuruf && parsed.predikatHuruf !== '-') predikatHuruf = parsed.predikatHuruf;
+    if (parsed.predikatText  && parsed.predikatText  !== '-') predikatText  = parsed.predikatText;
   }
+
+  const newData = {
+    ...existing, // jaga field lain agar tidak hilang
+    // simpan kedua kunci agar backend fleksibel
+    id:  row.dataset.id  || existing.id  || null,
+    nis: row.dataset.nis || existing.nis || null,
+
+    nama,
+    semester,
+    absensi,
+    dari:   `${surahDari}:${ayatDari}`,
+    sampai: `${surahSampai}:${ayatSampai}`,
+
+    // kolom-kolom utama yang wajib tersimpan
+    halaman,                  // Page
+    totalHalaman,             // Total Page
+    juzTerbaca,               // Juz
+    totalJuz,                 // Total Juz
+
+    // format rapi opsional (berguna ke depan)
+    page: { ranges: halaman, totalPage: totalHalaman, totalJuz },
+
+    // nilai ringkas
+    buttonCell: { nilai, predikatText, predikatHuruf },
+
+    // marks (jika ada disisipkan di row)
+    marks: row.markData || existing.marks || { audio: [] },
+  };
+
+  if (existingIdx !== -1) data[existingIdx] = newData; else data.push(newData);
+});
+
+// ====== KIRIM MERGED DATA KE SERVER (JSON-ONLY) ======
+const res = await fetch("/.netlify/functions/saveData", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ tanggal, kelas, data })
+});
+
+const result = await res.json();
+if (res.ok && (result.success ?? true)) {
+  saveBtn.textContent = "✅ Tersimpan";
+  setTimeout(() => {
+    saveBtn.textContent = "Simpan Data Mutaba'ah";
+    saveBtn.disabled = false;
+  }, 2000);
+} else {
+  alert("❌ Gagal menyimpan data! " + (result?.error || `HTTP ${res.status}`));
+  saveBtn.disabled = false;
+  saveBtn.textContent = "Simpan Data Mutaba'ah";
 }
+
 
 
 
