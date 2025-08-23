@@ -2522,6 +2522,22 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
   const normKelas = (k) => (k?.startsWith('kelas_') ? k : `kelas_${k}`);
 
+  // siapkan input tanggal jika belum ada di modal (biar ga perlu ubah HTML)
+  let elStart = document.getElementById('startDateMove');
+  function ensureStartDateInput() {
+    if (!elStart) {
+      const holder = document.createElement('div');
+      holder.style.margin = '8px 0';
+      holder.innerHTML = `
+        <label><b>Mulai dari tanggal (opsional):</b></label><br/>
+        <input type="date" id="startDateMove" style="width:100%;max-width:260px;">
+      `;
+      // taruh sebelum tombol pindah (tepat di atas status)
+      elDo.parentElement.insertBefore(holder, elDo);
+      elStart = holder.querySelector('#startDateMove');
+    }
+  }
+
   // buka modal
   elBtnOpen.addEventListener('click', openModal);
   elClose.addEventListener('click', () => elModal.style.display = 'none');
@@ -2530,6 +2546,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
     elModal.style.display = 'flex';
     elStatus.textContent = '';
     elDo.disabled = false;
+    ensureStartDateInput();
 
     // 1) load santri kelas asal
     const kelasAsal = normKelas(kelasSelect.value); // contoh: "kelas_1"
@@ -2566,7 +2583,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
     }
   }
 
-  // util: fetch JSON dengan error handling ringkas
+  // util: fetch JSON + ringkas error
   async function postJSON(url, payload) {
     const res = await fetch(url, {
       method: 'POST',
@@ -2578,7 +2595,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
     return { res, out };
   }
 
-  // eksekusi pindah SEMUA TANGGAL + pindah roster
+  // eksekusi pindah: ABSENSI (mulai tanggal) -> ROSTER
   elDo.addEventListener('click', async () => {
     const kelasAsal   = normKelas(kelasSelect.value);
     const kelasTujuan = normKelas(document.querySelector('input[name="kelasTujuan"]:checked')?.value || '');
@@ -2587,24 +2604,27 @@ btnHapusTerpilih.addEventListener("click", async () => {
     if (!selected.length) { alert('Pilih minimal satu santri.'); return; }
     if (!kelasTujuan)     { alert('Pilih kelas tujuan.'); return; }
 
-    // siapkan santriIds (dipakai untuk pindah absensi)
+    // siapkan santriIds (untuk pindah absensi)
     const santriIds = selected.map(o => o.dataset.id || o.value); // prioritaskan id jika ada
+    // siapkan identifiers (untuk pindah roster)
+    const idSet   = new Set(selected.map(o => (o.dataset.id   || '').trim()).filter(Boolean));
+    const nisSet  = new Set(selected.map(o => (o.dataset.nis  || '').trim()).filter(Boolean));
+    const nameSet = new Set(selected.map(o => (o.dataset.nama || '').trim().toLowerCase()).filter(Boolean));
+    const identifiers = Array.from(new Set([...idSet, ...nisSet, ...nameSet]));
 
-    // siapkan identifiers (dipakai untuk pindah roster)
-    const idSet  = new Set(selected.map(o => (o.dataset.id  || '').trim()).filter(Boolean));
-    const nisSet = new Set(selected.map(o => (o.dataset.nis || '').trim()).filter(Boolean));
-    const nameSet= new Set(selected.map(o => (o.dataset.nama|| '').trim().toLowerCase()).filter(Boolean));
-    const identifiers = Array.from(new Set([...idSet, ...nisSet, ...nameSet])); // gabungkan unik
+    const startDate = (elStart?.value || '').trim(); // optional
 
     elDo.disabled = true;
     elStatus.style.color = '#333';
-    elStatus.textContent = 'Memproses semua tanggal…';
+    elStatus.textContent = startDate
+      ? `Memproses mulai ${startDate}…`
+      : 'Memproses…';
 
     try {
-      // 1) pindahkan seluruh entri absensi lintas tanggal
+      // 1) pindahkan absensi dari startDate (jika kosong => dari awal)
       {
-        const { res, out } = await postJSON('/.netlify/functions/pindahKelasSemuaTanggal', {
-          kelasAsal, kelasTujuan, santriIds
+        const { res, out } = await postJSON('/.netlify/functions/pindahKelasMulaiTanggal', {
+          kelasAsal, kelasTujuan, santriIds, startDate
         });
         if (!res.ok || !out.success) {
           elStatus.style.color = 'red';
@@ -2612,12 +2632,11 @@ btnHapusTerpilih.addEventListener("click", async () => {
           elDo.disabled = false;
           return;
         }
-        // info sukses absensi
         elStatus.style.color = 'green';
-        elStatus.textContent = `Absensi: pindah ${out.totalMoved} entri lintas tanggal. Lanjut pindah roster…`;
+        elStatus.textContent = `Absensi: pindah ${out.totalMoved} entri. Lanjut pindah roster…`;
       }
 
-      // 2) pindahkan roster (kelas_X.json)
+      // 2) pindahkan roster (kelas_X.json) sekali saja
       {
         const { res, out } = await postJSON('/.netlify/functions/pindahRosterKelas', {
           kelasAsal, kelasTujuan, identifiers
@@ -2632,7 +2651,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
       // sukses seluruh proses
       elStatus.style.color = 'green';
-      elStatus.textContent = 'Selesai. Data absensi & roster berhasil dipindahkan.';
+      elStatus.textContent = `Selesai. Absensi ${startDate ? 'sejak ' + startDate : 'semua tanggal'} & roster berhasil dipindahkan.`;
       if (typeof loadSantriData === 'function') loadSantriData();
       setTimeout(() => { elModal.style.display = 'none'; }, 700);
 
@@ -2644,6 +2663,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
   });
 })();
 </script>
+
 
 	
 
