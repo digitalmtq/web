@@ -1,5 +1,4 @@
 // netlify/functions/pindahRosterKelas.js
-
 const API_BASE = "https://api.github.com/repos/digitalmtq/server/contents";
 const ghHeaders = (token) => ({
   Authorization: `Bearer ${token}`,
@@ -31,10 +30,20 @@ async function writeJsonFile(path, arrayData, token, sha = null, message = "upda
   return { ok: true };
 }
 
-// cari ID terkecil yang belum dipakai
-function allocNextId(used) {
+// Kumpulkan ID numerik valid (positif)
+function collectUsedIdsNumeric(arr) {
+  const set = new Set();
+  for (const r of arr) {
+    const n = parseInt((r.id ?? "").toString(), 10);
+    if (Number.isInteger(n) && n > 0) set.add(String(n));
+  }
+  return set;
+}
+
+// Ambil ID kosong terkecil; kalau penuh 1..max, kembalikan max+1
+function allocNextIdGapFirst(usedSet) {
   let i = 1;
-  while (used.has(String(i))) i++;
+  while (usedSet.has(String(i))) i++;
   return String(i);
 }
 
@@ -73,14 +82,11 @@ exports.handler = async (event) => {
     const toMove = src.data.filter(match);
     if (toMove.length === 0) return { statusCode: 404, body: JSON.stringify({ error: "Santri tidak ditemukan di kelas asal" }) };
 
-    // siapkan set ID terpakai di tujuan
+    // siapkan set ID terpakai di tujuan (numerik)
     const dstArr = Array.isArray(dst.data) ? [...dst.data] : [];
-    const usedIds = new Set(dstArr.map(r => (r.id ?? "").toString()).filter(Boolean));
+    const usedIds = collectUsedIdsNumeric(dstArr);
 
-    // buat idMap agar konsisten dengan absensi
-    const idMap = []; // { oldId, newId, nis?, nama? }
-
-    // upsert + auto-assign ID jika bentrok/ kosong
+    // buang duplikat target dulu (upsert by id/nis/nama)
     const cleanedDst = dstArr.filter(r => {
       const rid = (r.id ?? "").toString();
       const rnis = (r.nis ?? "").toString();
@@ -88,13 +94,27 @@ exports.handler = async (event) => {
       return !(pick.has(rid) || (rnis && pick.has(rnis)) || (rnm && pick.has(rnm)));
     });
 
+    // Map ID: kalau id bentrok/invalid -> pakai gap terkecil; kalau bebas -> pakai id asli
+    const idMap = []; // { oldId, newId, nis, nama }
     const movedWithIds = toMove.map(orig => {
       const row = { ...orig };
-      const oldId = (row.id ?? "").toString();
-      let targetId = oldId && !usedIds.has(oldId) ? oldId : allocNextId(usedIds);
-      usedIds.add(targetId);
-      if (oldId !== targetId) idMap.push({ oldId, newId: targetId, nis: row.nis ?? "", nama: row.nama ?? "" });
-      row.id = targetId;
+      const oldIdStr = (row.id ?? "").toString();
+      const oldIdNum = parseInt(oldIdStr, 10);
+      let keepOld = Number.isInteger(oldIdNum) && oldIdNum > 0 && !usedIds.has(String(oldIdNum));
+
+      let newIdStr;
+      if (keepOld) {
+        newIdStr = String(oldIdNum);
+      } else {
+        newIdStr = allocNextIdGapFirst(usedIds);
+      }
+
+      if (!keepOld) {
+        idMap.push({ oldId: oldIdStr, newId: newIdStr, nis: row.nis ?? "", nama: row.nama ?? "" });
+      }
+
+      usedIds.add(newIdStr);
+      row.id = newIdStr;
       return row;
     });
 
@@ -103,8 +123,8 @@ exports.handler = async (event) => {
     // tulis tujuan lalu asal
     const wDst = await writeJsonFile(
       tujuanPath, newDst, token, dst.exists ? dst.sha : null,
-      dst.exists ? `Upsert ${movedWithIds.length} santri + auto-ID ke ${tujuan}` :
-                   `Create ${tujuan} & seed ${movedWithIds.length} santri (auto-ID)`
+      dst.exists ? `Upsert ${movedWithIds.length} santri (gap-ID) ke ${tujuan}`
+                 : `Create ${tujuan} & seed ${movedWithIds.length} santri (gap-ID)`
     );
     if (!wDst.ok) return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis kelas tujuan" }) };
 
