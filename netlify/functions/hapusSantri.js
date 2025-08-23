@@ -1,54 +1,50 @@
-import { Octokit } from "@octokit/rest";
+import fetch from "node-fetch";
 
 export async function handler(event) {
   try {
+    const token = process.env.MTQ_TOKEN;
     const { kelas, identifier } = JSON.parse(event.body);
+
     if (!kelas || !identifier) {
-      return { statusCode: 400, body: "Parameter kelas dan identifier dibutuhkan" };
+      return { statusCode: 400, body: JSON.stringify({ error: "kelas & identifier wajib" }) };
     }
 
-    const octokit = new Octokit({ auth: process.env.MTQ_TOKEN });
-    const owner = "digitalmtq";
-    const repo = "server";
-    const path = `kelas_${kelas}.json`;
+    const filePath = kelas.toLowerCase().startsWith("kelas_") ? `${kelas}.json` : `kelas_${kelas}.json`;
+    const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${filePath}`;
 
-    let file;
-    try {
-      file = await octokit.repos.getContent({ owner, repo, path });
-    } catch (err) {
-      // File belum ada → buat kosong
-      const emptyData = [];
-      await octokit.repos.createOrUpdateFileContents({
-        owner,
-        repo,
-        path,
-        message: `Auto-create ${path}`,
-        content: Buffer.from(JSON.stringify(emptyData, null, 2)).toString("base64"),
-        committer: { name: "server", email: "server@local" },
-        author: { name: "server", email: "server@local" },
-      });
-      file = await octokit.repos.getContent({ owner, repo, path });
-    }
-
-    const content = Buffer.from(file.data.content, "base64").toString();
-    const data = JSON.parse(content);
-
-    // Hapus santri yang cocok dengan id atau nis
-    const filtered = data.filter(s => s.id != identifier && s.nis != identifier);
-
-    await octokit.repos.createOrUpdateFileContents({
-      owner,
-      repo,
-      path,
-      message: `Hapus santri ${identifier}`,
-      content: Buffer.from(JSON.stringify(filtered, null, 2)).toString("base64"),
-      sha: file.data.sha,
-      committer: { name: "server", email: "server@local" },
-      author: { name: "server", email: "server@local" },
+    // Ambil file terbaru
+    const getRes = await fetch(apiUrl, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" }
     });
 
-    return { statusCode: 200, body: JSON.stringify({ success: true }) };
+    if (!getRes.ok) return { statusCode: getRes.status, body: JSON.stringify({ error: "Gagal ambil file" }) };
+
+    const fileData = await getRes.json();
+    const sha = fileData.sha;
+    const content = Buffer.from(fileData.content, "base64").toString("utf-8");
+    let santriData = JSON.parse(content);
+
+    // Hapus santri berdasarkan id atau nis
+    santriData = santriData.filter(s => s.id != identifier && s.nis != identifier);
+
+    // Update file ke GitHub
+    const updateRes = await fetch(apiUrl, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" },
+      body: JSON.stringify({
+        message: `Hapus santri ${identifier}`,
+        content: Buffer.from(JSON.stringify(santriData, null, 2)).toString("base64"),
+        sha,
+        committer: { name: "admin", email: "admin@local" }
+      })
+    });
+
+    if (!updateRes.ok) return { statusCode: updateRes.status, body: JSON.stringify({ error: "Gagal update file" }) };
+
+    return { statusCode: 200, body: JSON.stringify({ success: true, deleted: identifier }) };
+
   } catch (err) {
+    console.error(err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 }
