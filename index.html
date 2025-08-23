@@ -1,1 +1,3094 @@
-<!DOCTYPE html><html><head><title>Hello World</title></head><body><h1>Hello World</h1></body></html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Absensi & Hafalan Santri</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f4f6f8;
+  font-size: 12px; /* ini akan kecilkan semua font */
+}
+
+    button.lihat-quran-btn {
+  all: unset; /* reset semua style bawaan */
+  display: inline-block;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  color: #1E88E5;
+  padding: 2px 4px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.00s ease;
+}
+
+/* underline animasi halus */
+button.lihat-quran-btn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 0%;
+  height: 2px;
+  background-color: currentColor;
+  transition: width 0.00s ease;
+}
+
+button.lihat-quran-btn:hover {
+  color: #ffffff;
+}
+
+button.lihat-quran-btn:hover::after {
+  width: 100%;
+}
+
+#santri-table th:first-child,
+#santri-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 5;
+  border-right: 1px solid #ccc; /* opsional, biar ada garis pembatas */
+}
+
+    .password-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-wrapper input {
+  width: 100%;
+  padding-right: 40px; /* ruang untuk icon 👁 */
+  box-sizing: border-box;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+}
+
+    .password-login-group {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* jarak antara password dan tombol login */
+}
+
+.password-login-group button {
+  white-space: nowrap; /* biar tulisan "Login" nggak pecah */
+}
+
+    #username {
+  width: 314px; /* atur lebar sesuai kebutuhan */
+  max-width: 100%; /* biar tetap responsif di layar kecil */
+  box-sizing: border-box; /* supaya padding ikut hitung lebar */
+}
+
+
+   .modal {
+  position: fixed;
+  z-index: 999;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px; /* Tambahan: agar konten modal tidak nempel di tepi */
+  box-sizing: border-box;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 300px; /* Batasi ukuran maksimum di desktop */
+  box-sizing: border-box;
+}
+
+/* Responsif tambahan (opsional) */
+@media (max-width: 400px) {
+  .modal-content {
+    padding: 15px;
+    font-size: 12px;
+  }
+}
+
+    .login-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+
+@media (max-width: 600px) {
+  .login-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .login-actions button {
+    width: 100%;
+  }
+}
+
+.dashboard-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-header-row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dashboard-header label {
+  font-size: 12px;
+}
+
+.dashboard-header select,
+.dashboard-header input[type="date"] {
+  padding: 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  min-width: 140px;
+}
+
+/* 🌐 Tambahkan ini untuk mobile */
+@media (max-width: 600px) {
+  .dashboard-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dashboard-header label {
+    text-align: left;
+    width: 100%;
+  }
+}
+    
+    .total-all-juz span {
+  font-weight: bold;
+  background: #e0f2f1;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+    .container {
+      max-width: 1400px;
+      margin: auto;
+      padding: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      margin-top: 0px;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    form, .dashboard-header {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      margin-top: 0px;
+    }
+    input, select, button {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    button {
+      background: #1e88e5;
+      color: white;
+      cursor: pointer;
+      margin: 2px;
+    }
+    button:hover {
+      background: #1565c0;
+    }
+    .logout-btn {
+      background: #e53935;
+    }
+    .logout-btn:hover {
+      background: #b71c1c;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #1e88e5;
+      color: white;
+    }
+    .actions {
+      text-align: center;
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .password-group {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    .toggle-btn {
+      background: #6c757d;
+      font-size: 12px;
+      padding: 10px 14px;
+    }
+    .toggle-btn:hover {
+      background: #495057;
+    }
+    /* Overlay Loading */
+    #overlay {
+      position: fixed;
+      display: none;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #overlay span {
+      background: #fff;
+      padding: 15px 25px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #333;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    @media (max-width: 768px) {
+      .dashboard-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .actions {
+        flex-direction: column;
+      }
+      .password-group {
+        flex-direction: row;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay"><span>⏳ Loading...</span></div>
+
+<div class="container"> 
+  <!-- Halaman Login -->
+  <div id="login-card" class="card">
+    <h1>Portal Mutaba'ah Tahfidz</h1>
+    <form id="login-form" onsubmit="event.preventDefault(); login();">
+      <input type="text" id="username" placeholder="Username" required />
+      <div class="password-group" style="display: flex; align-items: center;">
+   <div class="password-wrapper">
+    <input type="password" id="password" placeholder="Password" required />
+    <span class="toggle-password" onclick="togglePassword()">👁</span>
+  </div>
+  <button type="submit">Login</button>
+</div>
+
+
+
+      <div class="login-actions">
+        <button type="button" onclick="toggleChangePassword()">Ganti Password</button>
+        <button type="button" onclick="munculkanModalDaftarAdmin()">Daftar Admin</button>
+        <button type="button" onclick="munculkanValidasiAdmin()">Daftar User Kelas</button>
+		<button type="button" onclick="munculkanValidasiAdminNIS()">Daftar User NIS</button>
+        <button type="button" onclick="bukaModalTambahKelas()">Tambah Kelas</button>
+      </div>
+    </form>
+
+
+
+	  <!-- Overlay Ganti Password -->
+<div id="change-password-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:300px; position:relative;">
+    <h3 style="margin-top:0;">Ganti Password</h3>
+    <input type="text" id="change-username" placeholder="Username" required style="width:80%; margin-bottom:8px;" />
+    <input type="password" id="old-password" placeholder="Password Lama" required style="width:80%; margin-bottom:8px;" />
+<input type="password" id="new-password" placeholder="Password Baru" required style="width:80%; margin-bottom:8px;" />
+
+<label style="display:block; margin-bottom:10px;">
+  <input type="checkbox" onclick="togglePasswordVisibility()"> Lihat Password
+</label>
+    <button id="save-password-btn" type="button" onclick="submitPasswordChange()" style="width:90%;">Simpan</button>
+    <p id="change-password-msg" style="color:red; margin-top:10px;"></p>
+    <button onclick="toggleChangePassword()" style="position:absolute; top:5px; right:10px;">✖</button>
+  </div>
+</div>
+
+    <p id="login-error" style="color: red; display: none;">Username atau password salah!</p>
+    
+  </div>
+</div>
+
+	<script>
+  function toggleChangePassword() {
+    const overlay = document.getElementById("change-password-overlay");
+    overlay.style.display = overlay.style.display === "flex" ? "none" : "flex";
+    document.getElementById("change-password-msg").textContent = "";
+  }
+
+  async function submitPasswordChange() {
+    const username = document.getElementById("change-username").value.trim();
+    const oldPassword = document.getElementById("old-password").value;
+    const newPassword = document.getElementById("new-password").value;
+    const msgEl = document.getElementById("change-password-msg");
+    const saveBtn = document.getElementById("save-password-btn");
+
+    if (!username || !oldPassword || !newPassword) {
+      msgEl.textContent = "Semua kolom wajib diisi.";
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Menyimpan...";
+
+    try {
+      const res = await fetch("/.netlify/functions/changePassword", {
+        method: "POST",
+        body: JSON.stringify({ username, oldPassword, newPassword })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        msgEl.style.color = "green";
+        msgEl.textContent = data.message || "Berhasil mengganti password.";
+        setTimeout(() => {
+          toggleChangePassword(); // tutup overlay
+        }, 1000);
+      } else {
+        msgEl.style.color = "red";
+        msgEl.textContent = data.message || "Gagal mengganti password.";
+      }
+    } catch (err) {
+      msgEl.textContent = "Terjadi kesalahan.";
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Simpan";
+  }
+
+    function togglePasswordVisibility() {
+    const oldPass = document.getElementById("old-password");
+    const newPass = document.getElementById("new-password");
+
+    const type = oldPass.type === "password" ? "text" : "password";
+    oldPass.type = type;
+    newPass.type = type;
+  }
+</script>
+
+<!-- Daftar Admin -->
+<!-- Modal Validasi Admin -->
+<div id="modalAdminDaftar" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Masukkan Password Admin</h3>
+    <label>Password Admin: <input type="password" id="adminPasswordInputDaftar"></label>
+    <p id="adminErrorDaftar" style="color:red;"></p>
+    <button onclick="cekPasswordAdminDaftar()">Submit</button>
+    <button onclick="tutupModal('modalAdminDaftar')">Close</button>
+  </div>
+</div>
+
+<!-- Modal Form Daftar Admin -->
+<div id="modalDaftarAdmin" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Daftar Admin</h3>
+
+    <label>Username: <input type="text" id="usernameAdmin"></label><br>
+    <label>Password: <input type="password" id="passwordAdmin"></label><br>
+    <label><input type="checkbox" onclick="toggleLihatPasswordAdmin()"> Lihat Password</label><br><br>
+
+    <button onclick="buatAdminBaru()">Create Admin</button>
+    <button onclick="tutupModal('modalDaftarAdmin')">Close</button>
+
+    <p id="daftarAdminError" style="color:red;"></p>
+    <p id="daftarAdminSuccess" style="color:green;"></p>
+  </div>
+</div>
+
+	<script>
+function munculkanModalDaftarAdmin() {
+  document.getElementById("modalAdminDaftar").style.display = "flex";
+}
+
+// Toggle password
+function toggleLihatPasswordAdmin() {
+  const input = document.getElementById("passwordAdmin");
+  input.type = input.type === "password" ? "text" : "password";
+}
+
+// Validasi password admin
+async function cekPasswordAdminDaftar() {
+  const password = document.getElementById("adminPasswordInputDaftar").value.trim();
+  const errorEl = document.getElementById("adminErrorDaftar");
+  errorEl.textContent = "";
+
+  if (!password) {
+    errorEl.textContent = "Password admin wajib diisi.";
+    return;
+  }
+
+  try {
+    const res = await fetch("/.netlify/functions/cek-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.message || "Password admin salah.";
+      return;
+    }
+
+    // Sembunyikan modal validasi dan tampilkan modal daftar admin
+    tutupModal("modalAdminDaftar");
+    document.getElementById("modalDaftarAdmin").style.display = "flex";
+
+  } catch (err) {
+    console.error(err);
+    errorEl.textContent = "Terjadi kesalahan saat menghubungi server.";
+  }
+}
+
+// Fungsi membuat admin baru
+async function buatAdminBaru() {
+  const username = document.getElementById("usernameAdmin").value.trim();
+  const password = document.getElementById("passwordAdmin").value;
+  const errorEl = document.getElementById("daftarAdminError");
+  const successEl = document.getElementById("daftarAdminSuccess");
+
+  errorEl.textContent = "";
+  successEl.textContent = "";
+
+  if (!username || !password) {
+    errorEl.textContent = "Username dan password wajib diisi.";
+    return;
+  }
+
+  const konfirmasi = confirm(`Yakin ingin mendaftar admin baru: ${username}?`);
+  if (!konfirmasi) return;
+
+  try {
+    const res = await fetch("/.netlify/functions/daftar-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, role: "admin" }),
+    });
+
+    const hasil = await res.json();
+
+    if (res.ok) {
+      successEl.textContent = "🎉 Pendaftaran berhasil! Silakan login.";
+      document.getElementById("usernameAdmin").value = "";
+      document.getElementById("passwordAdmin").value = "";
+    } else {
+      errorEl.textContent = hasil.message || "Gagal mendaftar.";
+    }
+
+  } catch (err) {
+    console.error(err);
+    errorEl.textContent = "Terjadi kesalahan saat menghubungi server.";
+  }
+}
+
+// Fungsi tutup modal
+function tutupModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+</script>
+
+
+
+	<!-- Daftar User Kelas -->
+<div id="modalAdmin" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Masukkan Password Admin</h3>
+     <label>Password Admin: <input type="password" id="adminPasswordInput"></label>
+    <p id="adminError" style="color:red;"></p>
+    <button onclick="cekPasswordAdmin()">Submit</button>
+    <button onclick="tutupModal('modalAdmin')">Close</button>
+  </div>
+</div>
+
+<!-- Modal Form Daftar Akun -->
+<div id="modalDaftar" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Daftar User Kelas</h3>
+    <label>Username: <input type="text" id="newUsername"></label><br>
+    <label>Password: <input type="password" id="newPassword"></label>
+    <br></br>
+    <label><input type="checkbox" onclick="toggleLihatPassword()"> Lihat Password</label><br><br>
+
+    <div id="kelasCheckboxContainer">🔄 Memuat daftar kelas...</div><br>
+
+    <button onclick="buatAkunBaru()">Create Account</button>
+    <button onclick="tutupModal('modalDaftar')">Close</button>
+    <p id="daftarError" style="color:red;"></p>
+    <p id="daftarSuccess" style="color:green;"></p>
+  </div>
+</div>
+
+	<script>
+function munculkanValidasiAdmin() {
+  document.getElementById("modalAdmin").style.display = "flex";
+  document.getElementById("adminPasswordInput").value = "";
+  document.getElementById("adminError").textContent = "";
+}
+
+// Fungsi untuk cek password admin
+async function cekPasswordAdmin() {
+  const password = document.getElementById("adminPasswordInput").value;
+
+  if (!password) {
+    document.getElementById("adminError").textContent = "Password wajib diisi.";
+    return;
+  }
+
+  const response = await fetch('/.netlify/functions/cek-admin', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ password })
+  });
+
+  const result = await response.json();
+
+  if (response.status === 200) {
+    tutupModal("modalAdmin");
+    bukaFormDaftar(password); // password disimpan sementara
+  } else {
+    document.getElementById("adminError").textContent = result.message || "Gagal validasi.";
+  }
+}
+
+// Buka modal daftar setelah validasi admin sukses
+let adminPasswordGlobal = "";
+function bukaFormDaftar(adminPass) {
+  adminPasswordGlobal = adminPass;
+  document.getElementById("modalDaftar").style.display = "flex";
+  document.getElementById("daftarError").textContent = "";
+  document.getElementById("daftarSuccess").textContent = "";
+  ambilDaftarKelas(); // Load daftar kelas dari GitHub
+}
+
+// Tutup modal
+function tutupModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+// Toggle lihat password
+function toggleLihatPassword() {
+  const pwField = document.getElementById("newPassword");
+  pwField.type = pwField.type === "password" ? "text" : "password";
+}
+</script>
+
+  <script>
+async function ambilDaftarKelas() {
+  const container = document.getElementById("kelasCheckboxContainer");
+  container.innerHTML = "🔄 Memuat daftar kelas...";
+
+  try {
+    const res = await fetch("https://api.github.com/repos/digitalmtq/server/contents");
+    const data = await res.json();
+
+    // Filter nama file seperti: kelas_1.json
+    const kelasFiles = data.filter(file => /^kelas_\d+\.json$/.test(file.name));
+
+    if (kelasFiles.length === 0) {
+      container.innerHTML = "❌ Tidak ada file kelas_{}.json ditemukan.";
+      return;
+    }
+
+    container.innerHTML = ""; // Bersihkan
+
+    kelasFiles.forEach(file => {
+      const kelas = file.name.replace(".json", ""); // contoh: kelas_1
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" value="${kelas}"> ${kelas}<br>`;
+      container.appendChild(label);
+    });
+  } catch (err) {
+    container.innerHTML = "❌ Gagal memuat kelas.";
+    console.error("Gagal fetch kelas:", err);
+  }
+}
+</script>
+  
+  <script>
+    async function ambilDaftarKelas() {
+  const container = document.getElementById("kelasCheckboxContainer");
+  container.innerHTML = "🔄 Memuat daftar kelas...";
+
+  try {
+    const res = await fetch("/.netlify/functions/ambil-kelas");
+    const kelasList = await res.json();
+
+    if (!Array.isArray(kelasList) || kelasList.length === 0) {
+      container.innerHTML = "❌ Tidak ada kelas ditemukan.";
+      return;
+    }
+
+    container.innerHTML = ""; // Bersihkan
+
+    kelasList.forEach(kelas => {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" value="${kelas}"> ${kelas}<br>`;
+      container.appendChild(label);
+    });
+  } catch (err) {
+    container.innerHTML = "❌ Gagal memuat kelas.";
+    console.error("Gagal fetch kelas:", err);
+  }
+}
+  </script>
+
+  <script>
+async function buatAkunBaru() {
+  const username = document.getElementById("newUsername").value.trim();
+  const password = document.getElementById("newPassword").value.trim();
+  const kelasChecked = Array.from(
+    document.querySelectorAll('#kelasCheckboxContainer input:checked')
+  ).map(cb => cb.value);
+
+  const errorEl = document.getElementById("daftarError");
+  const successEl = document.getElementById("daftarSuccess");
+
+  errorEl.textContent = "";
+  successEl.textContent = "";
+
+  if (!username || !password || kelasChecked.length === 0) {
+    errorEl.textContent = "Semua kolom dan kelas wajib diisi.";
+    return;
+  }
+
+  const payload = {
+    username,
+    password,
+    kelas: kelasChecked,
+    adminPassword: adminPasswordGlobal
+  };
+
+  try {
+    const res = await fetch('/.netlify/functions/daftar-khusus', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+
+    if (res.status === 200) {
+      successEl.textContent = "✅ Akun berhasil dibuat.";
+      // Reset form
+      document.getElementById("newUsername").value = "";
+      document.getElementById("newPassword").value = "";
+      document.querySelectorAll('#kelasCheckboxContainer input:checked')
+              .forEach(cb => cb.checked = false);
+    } else {
+      errorEl.textContent = result.message || "❌ Gagal membuat akun.";
+    }
+  } catch (err) {
+    console.error("Gagal kirim data:", err);
+    errorEl.textContent = "Terjadi kesalahan jaringan.";
+  }
+}
+</script>
+
+
+<!-- Tombol Daftar User NIS -->
+<!-- Modal Validasi Admin -->
+<div id="modalAdminNIS" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Validasi Admin</h3>
+    <label>Password Admin: <input type="password" id="adminPasswordInputNIS"></label>
+    <p id="adminErrorNIS" style="color:red;"></p>
+    <button onclick="cekPasswordAdminNIS()">Submit</button>
+    <button onclick="tutupModal('modalAdminNIS')">Close</button>
+  </div>
+</div>
+
+
+	  
+<!-- Modal Daftar User NIS -->
+<div id="modalDaftarNIS" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Daftar User NIS</h3>
+    <label>Username: <input type="text" id="newUsernameNIS"></label><br>
+    <label>Password: <input type="password" id="newPasswordNIS"></label><br>
+    <label><input type="checkbox" onclick="toggleLihatPasswordNIS()"> Lihat Password</label><br><br>
+
+    <div id="kelasCheckboxContainerNIS">🔄 Memuat daftar kelas...</div><br>
+    <div id="nisCheckboxContainer">🔄 Pilih kelas dahulu...</div><br>
+
+    <button onclick="buatUserNIS()">Create User NIS</button>
+    <button onclick="tutupModal('modalDaftarNIS')">Close</button>
+    <p id="daftarNISError" style="color:red;"></p>
+    <p id="daftarNISSuccess" style="color:green;"></p>
+  </div>
+</div>
+
+
+	<script>
+let adminPasswordGlobalNIS = "";
+
+// Tampilkan modal validasi admin
+function munculkanValidasiAdminNIS() {
+  document.getElementById("modalAdminNIS").style.display = "flex";
+  document.getElementById("adminPasswordInputNIS").value = "";
+  document.getElementById("adminErrorNIS").textContent = "";
+}
+
+// Cek password admin
+async function cekPasswordAdminNIS() {
+  const password = document.getElementById("adminPasswordInputNIS").value;
+  if (!password) { 
+    document.getElementById("adminErrorNIS").textContent = "Password wajib diisi."; 
+    return; 
+  }
+
+  const res = await fetch('/.netlify/functions/cek-admin', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ password })
+  });
+  const result = await res.json();
+
+  if (res.status === 200) {
+    adminPasswordGlobalNIS = password;
+    tutupModal("modalAdminNIS");
+    bukaFormDaftarNIS();
+  } else {
+    document.getElementById("adminErrorNIS").textContent = result.message || "Gagal validasi.";
+  }
+}
+
+// Buka modal daftar NIS
+function bukaFormDaftarNIS() {
+  document.getElementById("modalDaftarNIS").style.display = "flex";
+  document.getElementById("daftarNISError").textContent = "";
+  document.getElementById("daftarNISSuccess").textContent = "";
+  ambilDaftarKelasNIS();
+}
+
+// Tutup modal
+function tutupModal(id) { document.getElementById(id).style.display = "none"; }
+
+// Toggle password
+function toggleLihatPasswordNIS() {
+  const pwField = document.getElementById("newPasswordNIS");
+  pwField.type = pwField.type === "password" ? "text" : "password";
+}
+
+// Ambil daftar kelas
+async function ambilDaftarKelasNIS() {
+  const container = document.getElementById("kelasCheckboxContainerNIS");
+  container.innerHTML = "🔄 Memuat daftar kelas...";
+  try {
+    const res = await fetch("/.netlify/functions/ambil-kelas");
+    const kelasList = await res.json();
+    container.innerHTML = "";
+
+    kelasList.forEach(kelas => {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" value="${kelas}" onchange="ambilDaftarNIS('${kelas}')"> ${kelas}<br>`;
+      container.appendChild(label);
+    });
+  } catch(err) {
+    container.innerHTML = "❌ Gagal memuat kelas.";
+    console.error(err);
+  }
+}
+
+// Ambil daftar NIS dari kelas tertentu
+async function ambilDaftarNIS(kelas) {
+  const container = document.getElementById("nisCheckboxContainer");
+  container.innerHTML = "🔄 Memuat NIS...";
+  try {
+    const res = await fetch(`/.netlify/functions/ambil-kelas-nis?kelas=${kelas}`);
+    const data = await res.json(); // array objek {id, nis, nama}
+    container.innerHTML = "";
+    data.forEach(santri => {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" value="${santri.nis}"> ${santri.nis} - ${santri.nama}<br>`;
+      container.appendChild(label);
+    });
+  } catch(err) {
+    container.innerHTML = "❌ Gagal memuat NIS.";
+    console.error(err);
+  }
+}
+
+// Buat user NIS
+async function buatUserNIS() {
+  const username = document.getElementById("newUsernameNIS").value;
+  const password = document.getElementById("newPasswordNIS").value;
+
+  const kelasCheckboxes = document.querySelectorAll("#kelasCheckboxContainerNIS input[type=checkbox]:checked");
+  const nisCheckboxes = document.querySelectorAll("#nisCheckboxContainer input[type=checkbox]:checked");
+
+  if (!username || !password) { 
+    document.getElementById("daftarNISError").textContent = "Username & Password wajib diisi."; 
+    return; 
+  }
+  if (nisCheckboxes.length === 0) { 
+    document.getElementById("daftarNISError").textContent = "Pilih minimal 1 NIS."; 
+    return; 
+  }
+
+  const kelas = Array.from(kelasCheckboxes).map(c => c.value);
+  const nis = Array.from(nisCheckboxes).map(n => n.value);
+
+  const res = await fetch('/.netlify/functions/daftar-nis', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ username, password, kelas, nis, adminPassword: adminPasswordGlobalNIS })
+  });
+  const result = await res.json();
+  if (res.status === 200) {
+    document.getElementById("daftarNISSuccess").textContent = result.message;
+    document.getElementById("daftarNISError").textContent = "";
+  } else {
+    document.getElementById("daftarNISError").textContent = result.message || "Gagal membuat user NIS.";
+  }
+}
+</script>
+
+
+<!-- Tambah Kelas -->
+    <div id="modalTambahKelasPassword" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Verifikasi Admin</h3>
+    <label>Password Admin: <input type="password" id="inputPasswordTambahKelas"></label>
+    <p id="statusPasswordTambahKelas" style="color:red;"></p>
+    <button onclick="verifikasiAdminTambahKelas()">Submit</button>
+    <button onclick="tutupModal('modalTambahKelasPassword')">Close</button>
+  </div>
+</div>
+
+
+    <div id="modalFormTambahKelas" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Tambah Kelas Baru</h3>
+    <p>Kelas yang sudah ada:</p>
+    <ul id="listKelasTersedia"></ul>
+    <input type="number" id="inputNomorKelasBaruTambah" placeholder="Contoh: 7" />
+    <button onclick="submitTambahKelasBaru()">Buat</button>
+    <button onclick="tutupModal('modalFormTambahKelas')">Close</button>
+    <p id="statusTambahKelasBaru" style="color:red;"></p>
+  </div>
+</div>
+
+
+	<script>
+let passwordTambahKelas = "";
+
+function bukaModalTambahKelas() {
+  document.getElementById("modalTambahKelasPassword").style.display = "flex";
+}
+
+function tutupModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+async function verifikasiAdminTambahKelas() {
+  const passInput = document.getElementById("inputPasswordTambahKelas").value;
+  const status = document.getElementById("statusPasswordTambahKelas");
+  status.textContent = "⏳ Mengecek...";
+
+  const res = await fetch("/.netlify/functions/cek-admin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: passInput })
+  });
+
+  const result = await res.json();
+  if (res.ok) {
+    passwordTambahKelas = passInput;
+    tutupModal("modalTambahKelasPassword");
+    tampilkanFormTambahKelasBaru();
+  } else {
+    status.textContent = result.message || "❌ Password salah.";
+  }
+}
+
+async function tampilkanFormTambahKelasBaru() {
+  const list = document.getElementById("listKelasTersedia");
+  const status = document.getElementById("statusTambahKelasBaru");
+  document.getElementById("inputNomorKelasBaruTambah").value = "";
+  list.innerHTML = "<li>🔄 Mengambil data kelas...</li>";
+  status.textContent = "";
+
+  try {
+    const res = await fetch("/.netlify/functions/ambil-kelas");
+    const kelas = await res.json();
+    list.innerHTML = "";
+    kelas.forEach(nama => {
+      const li = document.createElement("li");
+      li.textContent = nama;
+      list.appendChild(li);
+    });
+
+    document.getElementById("modalFormTambahKelas").style.display = "flex";
+  } catch (err) {
+    list.innerHTML = "<li>❌ Gagal mengambil daftar kelas.</li>";
+  }
+}
+
+async function submitTambahKelasBaru() {
+  const nomor = document.getElementById("inputNomorKelasBaruTambah").value.trim();
+  const status = document.getElementById("statusTambahKelasBaru");
+
+  if (!nomor) {
+    status.textContent = "❗ Nomor kelas harus diisi.";
+    return;
+  }
+
+  status.textContent = "⏳ Mengirim permintaan...";
+  const res = await fetch("/.netlify/functions/buat-kelas-baru", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ namaFile: `kelas_${nomor}.json` })
+  });
+
+  const result = await res.json();
+  if (res.ok) {
+    status.style.color = "green";
+    status.textContent = "✅ Kelas berhasil dibuat.";
+    setTimeout(() => tutupModal("modalFormTambahKelas"), 1500);
+  } else {
+    status.style.color = "red";
+    status.textContent = result.message || "❌ Gagal membuat kelas.";
+  }
+}
+</script>
+
+
+  
+    <!-- Dashboard -->
+    <div id="dashboard-card" class="card" style="display: none;">
+      <h1>Mutaba'ah Hafalan Santri</h1>
+      <h2>Selamat datang, <span id="namaUser"></span>!</h2>
+
+      <div class="dashboard-header">
+  <div class="dashboard-header-row">
+    <label for="kelas">Kelas:</label>
+    <select id="kelas"></select>
+
+    <label for="tanggal">Tanggal:</label>
+    <input type="date" id="tanggal" />
+  </div>
+</div>
+
+      <table id="santri-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama</th>
+            <th>Absensi</th>
+            <th>Setoran Dari</th>
+            <th>Setoran Sampai</th>
+			<th>Page</th>
+			<th>Total Page</th>
+			<th>Juz</th>
+            <th>Total Juz</th>
+            <th>Semester</th>
+            <th>Nilai</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
+      <button id="btnHapusSantri">Hapus Santri</button>
+	  <button id="btnPindahKelas">Pindah Kelas</button>
+      <div class="actions">
+        <button id="save-btn">Simpan Data Mutaba'ah</button>
+        <button id="download-btn">Download PDF</button>
+        <label>Dari: <input type="date" id="start-date" /></label>
+        <label>Sampai: <input type="date" id="end-date" /></label>
+        <button class="logout-btn" id="logout-btn">Logout</button>
+      </div>
+    </div>
+  </div>
+
+
+	<!-- Modal Sederhana -->
+<div id="modalPindahKelas" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center;z-index:9999;">
+  <div style="background:#fff;padding:16px;border-radius:10px;max-width:520px;width:92%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 style="margin:0;">Pindah Kelas</h3>
+      <button id="closePindah" title="Tutup">✕</button>
+    </div>
+
+    <label><b>Pilih Santri (multi pilih):</b></label>
+    <select id="selectSantriPindah" multiple size="8" style="width:100%;margin:6px 0;"></select>
+
+    <div style="margin:8px 0;">
+      <label><b>Pilih Kelas Tujuan:</b></label>
+      <div id="listKelasTujuan" style="margin-top:6px;"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+      <button id="doPindah" style="padding:8px 12px;">Pindahkan</button>
+      <span id="statusPindah" style="font-size:.95rem;"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Overlay -->
+<div id="modalHapusSantri" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-height:80%; overflow:auto;">
+    <h3>Pilih Santri yang Akan Dihapus</h3>
+    <ul id="listSantriHapus" style="list-style:none; padding-left:0;"></ul>
+    <button id="btnHapusTerpilih">Hapus</button>
+    <button id="btnTutupModal">Tutup</button>
+  </div>
+</div>
+	
+
+  <div id="modalSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
+  <div style="background:#fff; width:320px; margin:100px auto; padding:20px; border-radius:10px;">
+    <h2>Tambah Santri</h2>
+
+    <label>Nama:</label><br>
+    <input type="text" id="inputNama" style="width:90%; margin-bottom:10px;" />
+
+    <label>NIS:</label><br>
+    <input type="text" id="inputNis" style="width:90%; margin-bottom:10px;" />
+
+    <label>Semester:</label><br>
+    <select id="inputSemester" style="width:90%; margin-bottom:10px;">
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+    </select>
+
+    <div style="margin-top:10px; display:flex; justify-content:space-between;">
+      <button onclick="simpanSantriBaru()">Simpan</button>
+    <button onclick="tutupModal('modalSantri')">❌ Batal</button>
+    </div>
+
+    <div id="loadingTambahSantri" style="display:none; margin-top:10px; color:blue;">
+      ⏳ Menyimpan...
+    </div>
+  </div>
+</div>
+  
+  
+  <div id="overlay-quran" style="display:none; position:fixed; top:0; left:0;
+     width:100%; height:100%; background:rgba(0,0,0,0.5);
+     z-index:10000; justify-content:center; align-items:center;">
+  <div style="background:white; padding:20px; border-radius:8px;
+       max-width:800px; max-height:80%; overflow:auto;">
+       
+    <h3>Ayat Al-Qur'an</h3>
+    <div id="quran-text" style="white-space:pre-wrap; line-height:2.2; direction:rtl; font-size:30px;"></div>
+    <hr>
+	  <div>
+  Nama Santri: <span id="modal-nama-santri" style="font-weight:bold; font-size:18px;"></span>
+</div>
+
+    <div>
+      Nilai: <span id="nilai-akhir">100</span> — <span id="predikat-akhir">MUMTAZ</span>
+    </div>
+	<div>
+  <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:70px;">
+  <button id="btn-beri-nilai">Beri Nilai Manual</button>
+</div>
+
+	  <!-- Tempat jumlah warna mark -->
+<div id="modal-mark-warna" style="margin-top:8px; font-weight:bold; font-size:16px;"></div>
+
+<br>
+	  <!-- Tombol untuk menampilkan keterangan warna -->
+<button id="toggle-keterangan" class="keterangan-toggle">Lihat Keterangan Warna</button>
+
+<!-- Box keterangan -->
+<div id="keterangan-box" class="keterangan-box">
+  <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.25</b>)<br>
+     Contoh: meninggalkan tajwid seperti <i>Ikhfa, Tebal, Tipis, Hukum Ra, Qalqalah, Ghunnah, Mad Munfashil, Mad Iwad, Shafir, Dhod, Hams, Mim Sakinah</i>, dan lain-lain.</p>
+     
+  <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>0.5</b>)<br>
+     Contoh: salah hafalan tapi bisa memperbaiki sendiri, <i>waqof</i> dan <i>ibtida'</i> kurang tepat, dan lain-lain.</p>
+     
+  <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>1</b>)<br>
+     Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
+</div>
+    <br>
+    
+<!-- ===== AUDIO RECORDING ===== -->
+<h4>Rekam Audio</h4>
+
+<select id="encodingTypeSelect">
+  <option value="mp3">MP3 (.mp3)</option>
+</select>
+
+<div id="controls" style="margin-top:10px;">
+    <button id="recordButton" class="rec-btn">● Record</button>
+    <button id="stopButton" class="stop-btn" disabled>■ Stop</button>
+    <span id="recordDuration" style="margin-left:15px; font-weight:bold;">00:00</span>
+</div>
+
+<!-- Loading spinner -->
+<div id="loadingIndicator" style="display:none; margin-top:10px;">
+  <div class="spinner"></div>
+  <span style="margin-left:10px; font-style:italic; color:#007bff;">Membuat file audio...</span>
+</div>
+
+<ul id="recordingsList"></ul>
+
+<style>
+
+
+	/* Box keterangan */
+.keterangan-box {
+  display: none;
+  background: #f9f9f9;
+  border-left: 4px solid #007bff;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.keterangan-toggle {
+  all: unset; /* reset semua style bawaan */
+  display: inline-block;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+  color: #1E88E5;
+  padding: 2px 4px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.00s ease;
+}
+.keterangan-toggle:hover {
+  color: #ffffff;
+}
+
+/* Spinner CSS */
+.spinner {
+  border: 4px solid #f3f3f3; /* light grey */
+  border-top: 4px solid #007bff; /* blue */
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+/* Tombol Rekam */
+.rec-btn { background: linear-gradient(135deg, #ff4b5c, #ff0000); color:white; font-weight:bold; font-size:10px; border:none; border-radius:50px; padding:10px 25px; cursor:pointer; transition:transform 0.1s, box-shadow 0.1s; margin-right:10px;}
+.rec-btn.pulsing { animation: pulse 1s infinite; }
+@keyframes pulse { 0% { transform: scale(1); box-shadow:0 0 15px rgba(255,0,0,0.6);} 50%{transform:scale(1.08); box-shadow:0 0 25px rgba(255,0,0,0.8);} 100%{transform:scale(1); box-shadow:0 0 15px rgba(255,0,0,0.6);}}
+
+.stop-btn { background:linear-gradient(135deg,#555,#333); color:white; font-weight:bold; font-size:10px; border:none; border-radius:50px; padding:10px 25px; cursor:pointer; transition:transform 0.1s, box-shadow 0.1s; }
+.stop-btn:hover { transform:scale(1.05); box-shadow:0 0 10px rgba(0,0,0,0.5); }
+</style>
+
+<script>
+const recBtn = document.getElementById('recordButton');
+const stopBtn = document.getElementById('stopButton');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const durationSpan = document.getElementById('recordDuration');
+
+let recording = false;
+let duration = 0;
+let durationInterval = null;
+
+// Fungsi format durasi mm:ss
+function formatTime(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2,'0');
+    const s = (sec % 60).toString().padStart(2,'0');
+    return `${m}:${s}`;
+}
+
+// Tombol Record
+recBtn.addEventListener('click', () => {
+    recording = true;
+    recBtn.classList.add('pulsing');
+    recBtn.disabled = true;
+    stopBtn.disabled = false;
+
+    // reset durasi
+    duration = 0;
+    durationSpan.textContent = "00:00";
+
+    // start timer
+    durationInterval = setInterval(() => {
+        duration++;
+        durationSpan.textContent = formatTime(duration);
+    }, 1000);
+});
+
+// Tombol Stop
+stopBtn.addEventListener('click', () => {
+    recording = false;
+    recBtn.classList.remove('pulsing');
+    recBtn.disabled = false;
+    stopBtn.disabled = true;
+
+    // stop timer
+    clearInterval(durationInterval);
+
+    // tampilkan spinner
+    loadingIndicator.style.display = "flex";
+    loadingIndicator.style.alignItems = "center";
+
+    if (recorder) {
+        recorder.onComplete = function(recorderInstance, blob) {
+            loadingIndicator.style.display = "none";
+            createDownloadLink(blob, recorderInstance.encoding);
+        };
+        recorder.finishRecording();
+    }
+});
+
+	document.getElementById("toggle-keterangan").addEventListener("click", () => {
+  const box = document.getElementById("keterangan-box");
+  if (box.style.display === "block") {
+    box.style.display = "none";
+  } else {
+    box.style.display = "block";
+  }
+});
+</script>
+
+
+
+
+
+
+
+<!-- Info format (opsional) -->
+<div id="formats" style="margin-top:10px;"></div>
+
+<ol id="recordingsList"></ol>
+
+<!-- ===== CSS Tombol + Indikator Kedap-kedip ===== -->
+<style>
+/* Tombol Record */
+.rec-btn {
+    background: linear-gradient(135deg, #ff4b5c, #ff0000);
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 25px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin-right: 10px;
+}
+
+.rec-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(255,0,0,0.6);
+}
+
+/* Tombol Stop */
+.stop-btn {
+    background: linear-gradient(135deg, #555, #333);
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 25px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.stop-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Indikator REC */
+#recordingIndicator {
+    display: none;
+    color: red;
+    font-weight: bold;
+    margin-left: 15px;
+    animation: blink 1s infinite;
+}
+
+/* Animasi kedap-kedip */
+@keyframes blink {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75% { opacity: 0; }
+}
+</style>
+
+    <!-- ===== BUTTON ===== -->
+    <button id="save-btn-modal">Simpan Data Mutaba'ah</button>
+    <button onclick="document.getElementById('overlay-quran').style.display='none'">Tutup</button>
+  </div>
+</div>
+<!-- inserting these scripts at the end to be able to use all the elements in the DOM -->
+	<script src="js/WebAudioRecorder.min.js"></script>
+	<script src="js/app.js"></script>
+
+
+
+<!-- Overlay Hitung Total All Juz -->
+<div id="juzOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center;">
+  <div style="background:white; padding:20px; border-radius:8px; min-width:300px;">
+    <h3>Hitung Total All Juz</h3>
+    <label>Dari: <input type="date" id="rangeDari"></label><br><br>
+    <label>Sampai: <input type="date" id="rangeSampai" disabled></label><br><br>
+    <button id="btnHitungTotalJuz">Hitung Total All Juz</button>
+    <button onclick="document.getElementById('juzOverlay').style.display='none'">Close</button>
+  </div>
+</div>
+
+  
+ <script>
+  // === Deklarasi elemen ===
+  const loginCard = document.getElementById("login-card");
+  const dashboardCard = document.getElementById("dashboard-card");
+  const loginForm = document.getElementById("login-form");
+  const loginError = document.getElementById("login-error");
+  const logoutBtn = document.getElementById("logout-btn");
+  const togglePasswordBtn = document.getElementById("toggle-password");
+  const passwordInput = document.getElementById("password");
+  const overlay = document.getElementById("overlay");
+  const kelasSelect = document.getElementById("kelas");
+  const tanggalInput = document.getElementById("tanggal");
+  const santriTableBody = document.querySelector("#santri-table tbody");
+  const saveBtn = document.getElementById("save-btn");
+  const downloadBtn = document.getElementById("download-btn");
+  const totalAllJuzHeader = document.getElementById("totalAllJuzHeader");
+  const namaUserSpan = document.getElementById("namaUser");
+
+  let surahList = [];
+  let pagesMap = {};
+
+  
+
+  // === Fungsi atur dropdown kelas ===
+function aturDropdownKelas(user) {
+  const semuaKelas = ["kelas_1", "kelas_2", "kelas_3", "kelas_4", "kelas_5", "kelas_6"];
+
+  // Mapping custom nama
+  const namaKelasCustom = {
+    kelas_1: "Kelompok Lebah",
+    kelas_2: "Kelompok Semut",
+    kelas_3: "Kelompok Burung",
+    kelas_4: "Kelompok Ikan",
+    kelas_5: "Kelompok Harimau",
+    kelas_6: "Kelompok Gajah"
+  };
+
+  kelasSelect.innerHTML = "";
+
+  const kelasDiizinkan = user?.kelas?.length ? user.kelas : semuaKelas;
+
+  semuaKelas.forEach(kls => {
+    const opt = document.createElement("option");
+    opt.value = kls;
+    opt.textContent = namaKelasCustom[kls] || kls; // pakai custom kalau ada
+    opt.disabled = !kelasDiizinkan.includes(kls);
+    kelasSelect.appendChild(opt);
+  });
+
+  // Pilih kelas aktif pertama
+  const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
+  if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
+}
+
+  // === Tampilkan dashboard ===
+  function showDashboard() {
+    loginCard.style.display = "none";
+    dashboardCard.style.display = "block";
+  }
+
+  // === Login form ===
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("username").value;
+    const password = passwordInput.value;
+
+    overlay.style.display = "flex";
+
+    try {
+      const res = await fetch("/.netlify/functions/getUsers");
+      const users = await res.json();
+      const user = users.find(u => u.username === username && u.password === password);
+
+      if (user) {
+        localStorage.setItem("isLoggedIn", true);
+        localStorage.setItem("username", username);
+        localStorage.setItem("kelasDiizinkan", JSON.stringify(user.kelas || []));
+        namaUserSpan.textContent = username;
+
+        aturDropdownKelas(user);
+        showDashboard();
+        loadDataSantri(); // langsung load data sesuai kelas terpilih
+      } else {
+        loginError.style.display = "block";
+      }
+    } catch (err) {
+      loginError.textContent = "Gagal memuat data user!";
+      loginError.style.display = "block";
+    }
+
+    overlay.style.display = "none";
+  });
+
+  // === Load data santri ===
+  async function loadDataSantri() {
+    const kelas = kelasSelect.value;
+    if (!kelas) return; // jaga-jaga
+
+    try {
+      const res = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+      if (!res.ok) throw new Error("Gagal memuat data santri");
+      const data = await res.json();
+      console.log("Data santri:", data);
+      // TODO: render ke tabel
+    } catch (err) {
+      console.error(err);
+      alert("Gagal memuat data santri / absensi!");
+    }
+  }
+
+  // === Saat halaman dibuka ===
+  window.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const resSurah = await fetch("/.netlify/functions/getAyat");
+      surahList = await resSurah.json();
+
+      const resPages = await fetch("/.netlify/functions/getPagesMap");
+      pagesMap = await resPages.json();
+    } catch (err) {
+      console.error("Gagal load surah/pagesMap:", err);
+    }
+
+    const isLoggedIn = localStorage.getItem("isLoggedIn");
+    if (isLoggedIn) {
+      const storedKelas = JSON.parse(localStorage.getItem("kelasDiizinkan") || "[]");
+      const storedUsername = localStorage.getItem("username") || "";
+      namaUserSpan.textContent = storedUsername;
+
+      aturDropdownKelas({ kelas: storedKelas });
+      showDashboard();
+      loadDataSantri();
+    }
+  });
+
+  // === Event ganti kelas ===
+  kelasSelect.addEventListener("change", loadDataSantri);
+
+  // === Header total juz click ===
+  totalAllJuzHeader.addEventListener("click", bukaOverlayTotalAllJuz);
+
+
+
+    
+
+    function showDashboard() {
+  loginCard.style.display = "none";
+  dashboardCard.style.display = "block";
+
+  const today = new Date().toLocaleDateString('sv-SE'); // Format: YYYY-MM-DD
+  const tanggalInput = document.getElementById("tanggal");
+  const startDate = document.getElementById("start-date");
+  const endDate = document.getElementById("end-date");
+
+  // Set batas maksimum hari ini
+  if (tanggalInput) tanggalInput.max = today;
+  if (startDate) startDate.max = today;
+  if (endDate) endDate.max = today;
+
+  // Ambil dari localStorage jika ada
+  const savedTanggal = localStorage.getItem("tanggalTerakhir");
+  const savedStart = localStorage.getItem("startDateTerakhir");
+  const savedEnd = localStorage.getItem("endDateTerakhir");
+
+  if (tanggalInput) {
+    tanggalInput.value = savedTanggal || today;
+    tanggalInput.addEventListener("change", () => {
+      localStorage.setItem("tanggalTerakhir", tanggalInput.value);
+    });
+  }
+
+  if (startDate) {
+    startDate.value = savedStart || today;
+    startDate.addEventListener("change", () => {
+      localStorage.setItem("startDateTerakhir", startDate.value);
+    });
+  }
+
+  if (endDate) {
+    endDate.value = savedEnd || today;
+    endDate.addEventListener("change", () => {
+      localStorage.setItem("endDateTerakhir", endDate.value);
+    });
+  }
+
+  loadSantriData();
+}
+
+
+    logoutBtn.addEventListener("click", () => {
+      overlay.style.display = "flex";
+      setTimeout(() => {
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("username");
+        loginCard.style.display = "block";
+        dashboardCard.style.display = "none";
+        overlay.style.display = "none";
+      }, 500);
+    });
+
+    async function loadSantriData() { 
+  const kelas = kelasSelect.value;
+  const tanggal = tanggalInput.value;
+  overlay.style.display = "flex";
+
+  try {
+    // Ambil semua santri di kelas
+    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+    let santriData = await resSantri.json();
+
+    // Ambil data absensi
+    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+    const absensiData = await resAbsensi.json();
+
+    // Ambil username user login
+    const username = localStorage.getItem("username");
+
+    // Ambil semua user dan temukan user login
+    const users = await fetch(`/.netlify/functions/getUsers`).then(r => r.json());
+    const user = users.find(u => u.username === username);
+
+    // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
+    if (user) {
+      // Superuser: tidak ada properti kelas → akses semua
+      if (user.kelas && user.kelas.length) {
+        // Batasi ke kelas yang diizinkan
+        if (!user.kelas.includes(kelas)) {
+          santriData = []; // kelas tidak diizinkan
+        } else if (user.nis && user.nis.length) {
+          // Batasi NIS hanya yang diizinkan
+          santriData = santriData.filter(s => user.nis.includes(s.nis));
+        }
+      }
+    } else {
+      // user tidak ditemukan → kosongkan tabel
+      santriData = [];
+    }
+    // ===== END FILTER =====
+
+    santriTableBody.innerHTML = "";
+
+    santriData.forEach((santri, i) => {
+      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
+      const row = document.createElement("tr");
+
+      const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
+      const dari = (dataAbsensi.dari || "1:1").split(":");
+      const sampai = (dataAbsensi.sampai || "1:1").split(":");
+
+      row.innerHTML = `
+        <td>${santri.id || santri.nis}</td>
+        <td>${santri.nama}</td>
+        <td>
+          <select class="absensi">
+            <option value="Hadir" ${dataAbsensi.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
+            <option value="Alpha" ${dataAbsensi.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
+            <option value="Sakit" ${dataAbsensi.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
+            <option value="Izin" ${dataAbsensi.absensi === "Izin" ? "selected" : ""}>Izin</option>
+          </select>
+        </td>
+        <td>
+          <select class="surah-dari">${surahOptions}</select>
+          <select class="ayat-dari"></select>
+        </td>
+        <td>
+          <select class="surah-sampai">${surahOptions}</select>
+          <select class="ayat-sampai"></select>
+        </td>
+        <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
+        <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
+        <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
+        <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
+        <td>
+          <select class="semester">
+            <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
+            <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
+            <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
+            <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
+            <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
+            <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
+          </select>
+        </td>
+        <td>
+          <div class="nilai-ringkas">
+            ${dataAbsensi.buttonCell 
+               ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+               : ''}
+          </div>
+          <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+        </td>
+        <td class="total-all-juz">
+          <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
+        </td>
+      `;
+      santriTableBody.appendChild(row);
+
+      document.querySelectorAll("td.total-all-juz").forEach(td => {
+        if (td.textContent.trim() === "0") {
+          td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
+        }
+      });
+
+      // Set surah & ayat dropdown
+      const surahDari = row.querySelector(".surah-dari");
+      const ayatDari = row.querySelector(".ayat-dari");
+      const surahSampai = row.querySelector(".surah-sampai");
+      const ayatSampai = row.querySelector(".ayat-sampai");
+
+      surahDari.value = dari[0];
+      surahSampai.value = sampai[0];
+
+      fillAyatOptions(ayatDari, surahDari.value, dari[1]);
+      fillAyatOptions(ayatSampai, surahSampai.value, sampai[1]);
+
+      surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
+      surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
+
+      // Sinkronisasi otomatis kolom Sampai ketika Dari berubah
+      surahDari.addEventListener("change", () => {
+        surahSampai.value = surahDari.value;
+        fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
+      });
+
+      ayatDari.addEventListener("change", () => {
+        ayatSampai.value = ayatDari.value;
+      });
+
+      [ayatDari, ayatSampai, surahDari, surahSampai].forEach(el => {
+        el.addEventListener("change", () => updateTotalJuz(row));
+      });
+    });
+  } catch (err) {
+    alert("Gagal memuat data santri / absensi!");
+    console.error(err);
+  }
+
+  overlay.style.display = "none";
+}
+
+
+    function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
+      const surah = surahList.find(s => s.id == surahId);
+      if (!surah) return;
+      selectEl.innerHTML = "";
+      for (let i = 1; i <= surah.jumlah_ayat; i++) {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = i;
+        if (i == selectedAyat) opt.selected = true;
+        selectEl.appendChild(opt);
+      }
+    }
+
+    const jumlahAyatPerHalaman = {"1":7,"2":5,"3":11,"4":8,"5":5,"6":8,"7":11,"8":9,"9":4,"10":8,"11":7,"12":7,"13":5,"14":5,"15":8,"16":4,"17":7,"18":7,"19":7,"20":8,"21":7,"22":4,"23":8,"24":10,"25":6,"26":7,"27":5,"28":5,"29":4,"30":6,"31":6,"32":8,"33":5,"34":4,"35":5,"36":6,"37":3,"38":4,"39":8,"40":3,"41":4,"42":4,"43":3,"44":5,"45":5,"46":5,"47":7,"48":1,"49":4,"50":9,"51":6,"52":7,"53":7,"54":8,"55":8,"56":7,"57":9,"58":9,"59":7,"60":6,"61":8,"62":9,"63":8,"64":7,"65":6,"66":11,"67":8,"68":8,"69":5,"70":4,"71":8,"72":8,"73":7,"74":6,"75":8,"76":6,"77":6,"78":5,"79":3,"80":5,"81":4,"82":3,"83":7,"84":4,"85":7,"86":7,"87":8,"88":6,"89":9,"90":5,"91":7,"92":5,"93":3,"94":7,"95":4,"96":8,"97":8,"98":6,"99":7,"100":6,"101":7,"102":7,"103":8,"104":8,"105":5,"106":3,"107":3,"108":4,"109":4,"110":4,"111":6,"112":8,"113":5,"114":5,"115":4,"116":5,"117":7,"118":7,"119":6,"120":6,"121":6,"122":7,"123":6,"124":8,"125":5,"126":5,"127":7,"128":8,"129":10,"130":9,"131":8,"132":9,"133":8,"134":7,"135":9,"136":5,"137":8,"138":9,"139":4,"140":7,"141":9,"142":8,"143":6,"144":7,"145":6,"146":5,"147":4,"148":5,"149":6,"150":8,"151":11,"152":11,"153":8,"154":7,"155":6,"156":8,"157":6,"158":10,"159":6,"160":8,"161":6,"162":8,"163":9,"164":16,"165":10,"166":7,"167":6,"168":6,"169":6,"170":4,"171":4,"172":7,"173":8,"174":9,"175":8,"176":11,"177":8,"178":8,"179":9,"180":8,"181":7,"182":5,"183":7,"184":9,"185":8,"186":6,"187":6,"188":7,"189":7,"190":6,"191":5,"192":5,"193":4,"194":7,"195":7,"196":7,"197":7,"198":4,"199":7,"200":7,"201":7,"202":6,"203":7,"204":5,"205":6,"206":5,"207":7,"208":6,"209":8,"210":6,"211":5,"212":8,"213":9,"214":11,"215":8,"216":9,"217":8,"218":10,"219":9,"220":9,"221":8,"222":7,"223":7,"224":9,"225":9,"226":8,"227":8,"228":9,"229":9,"230":10,"231":7,"232":9,"233":11,"234":9,"235":10,"236":10,"237":8,"238":8,"239":7,"240":6,"241":9,"242":11,"243":6,"244":9,"245":8,"246":9,"247":8,"248":8,"249":5,"250":8,"251":5,"252":10,"253":6,"254":8,"255":6,"256":5,"257":8,"258":6,"259":9,"260":9,"261":10,"262":15,"263":16,"264":20,"265":19,"266":20,"267":15,"268":8,"269":12,"270":8,"271":8,"272":12,"273":10,"274":8,"275":7,"276":8,"277":6,"278":9,"279":8,"280":8,"281":10,"282":7,"283":10,"284":10,"285":11,"286":11,"287":9,"288":8,"289":9,"290":11,"291":10,"292":8,"293":11,"294":11,"295":5,"296":7,"297":7,"298":11,"299":8,"300":8,"301":13,"302":9,"303":14,"304":13,"305":11,"306":14,"307":13,"308":13,"309":13,"310":12,"311":19,"312":15,"313":25,"314":14,"315":13,"316":12,"317":11,"318":11,"319":15,"320":12,"321":10,"322":10,"323":14,"324":11,"325":9,"326":13,"327":15,"328":9,"329":9,"330":11,"331":11,"332":5,"333":10,"334":8,"335":7,"336":8,"337":8,"338":9,"339":9,"340":8,"341":6,"342":17,"343":10,"344":15,"345":17,"346":15,"347":15,"348":15,"349":14,"350":10,"351":10,"352":7,"353":4,"354":5,"355":7,"356":10,"357":5,"358":3,"359":5,"360":9,"361":9,"362":12,"363":11,"364":12,"365":12,"366":10,"367":19,"368":20,"369":21,"370":23,"371":28,"372":25,"373":23,"374":24,"375":23,"376":21,"377":13,"378":9,"379":13,"380":9,"381":11,"382":8,"383":13,"384":12,"385":10,"386":8,"387":8,"388":7,"389":7,"390":8,"391":7,"392":9,"393":11,"394":7,"395":7,"396":10,"397":8,"398":9,"399":7,"400":8,"401":7,"402":7,"403":11,"404":11,"405":10,"406":9,"407":8,"408":9,"409":9,"410":10,"411":11,"412":8,"413":9,"414":6,"415":11,"416":9,"417":10,"418":6,"419":9,"420":7,"421":8,"422":5,"423":8,"424":7,"425":4,"426":8,"427":11,"428":7,"429":7,"430":8,"431":9,"432":8,"433":9,"434":9,"435":8,"436":7,"437":12,"438":8,"439":6,"440":13,"441":15,"442":13,"443":14,"444":16,"445":13,"446":24,"447":27,"448":25,"449":26,"450":24,"451":27,"452":29,"453":16,"454":10,"455":16,"456":19,"457":22,"458":10,"459":5,"460":11,"461":10,"462":9,"463":7,"464":9,"465":11,"466":7,"467":8,"468":9,"469":9,"470":8,"471":7,"472":9,"473":9,"474":8,"475":11,"476":8,"477":11,"478":9,"479":9,"480":9,"481":8,"482":8,"483":10,"484":5,"485":7,"486":9,"487":13,"488":7,"489":12,"490":12,"491":11,"492":14,"493":13,"494":13,"495":16,"496":18,"497":21,"498":20,"499":13,"500":9,"501":10,"502":10,"503":9,"504":6,"505":8,"506":7,"507":11,"508":8,"509":10,"510":9,"511":9,"512":6,"513":8,"514":5,"515":5,"516":7,"517":7,"518":15,"519":20,"520":16,"521":24,"522":21,"523":23,"524":17,"525":18,"526":26,"527":18,"528":24,"529":21,"530":22,"531":22,"532":24,"533":27,"534":27,"535":34,"536":26,"537":23,"538":8,"539":7,"540":6,"541":5,"542":6,"543":5,"544":10,"545":4,"546":6,"547":7,"548":8,"549":5,"550":6,"551":7,"552":9,"553":8,"554":7,"555":7,"556":9,"557":9,"558":5,"559":7,"560":7,"561":5,"562":12,"563":14,"564":19,"565":27,"566":18,"567":26,"568":28,"569":29,"570":15,"571":18,"572":13,"573":15,"574":19,"575":18,"576":30,"577":28,"578":26,"579":20,"580":25,"581":31,"582":30,"583":25,"584":31,"585":42,"586":29,"587":25,"588":28,"589":27,"590":22,"591":32,"592":30,"593":23,"594":27,"595":29,"596":26,"597":27,"598":12,"599":18,"600":21,"601":17,"602":14,"603":14,"604":15
+};
+
+function updateTotalJuz(row) {
+  const surahDari = row.querySelector(".surah-dari").value.trim();
+  const ayatDari = Number(row.querySelector(".ayat-dari").value.trim());
+  const surahSampai = row.querySelector(".surah-sampai").value.trim();
+  const ayatSampai = Number(row.querySelector(".ayat-sampai").value.trim());
+
+  const halamanAwalJuz = [
+    1, 22, 42, 62, 82, 102, 122, 142, 162, 182,
+    202, 222, 242, 262, 282, 302, 322, 342, 362, 382,
+    402, 422, 442, 462, 482, 502, 522, 542, 562, 582, 602
+  ];
+
+  let totalJuz = 0;
+  const halamanValid = [];
+
+  // Loop dari surahDari:ayatDari → surahSampai:ayatSampai per ayat
+  for (let s = Number(surahDari); s <= Number(surahSampai); s++) {
+    const surah = surahList.find(x => Number(x.id) === s);
+    if (!surah) continue;
+    const totalAyatSurah = surah.jumlah_ayat;
+
+    const startAyat = (s === Number(surahDari)) ? ayatDari : 1;
+    const endAyat = (s === Number(surahSampai)) ? ayatSampai : totalAyatSurah;
+
+    for (let a = startAyat; a <= endAyat; a++) {
+      const key = `${s}:${a}`;
+      const halaman = pagesMap[key];
+      if (!halaman || (halaman >= 602 && halaman <= 604) || halaman === 21) continue;
+
+      halamanValid.push(halaman);
+
+      const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
+      if (!ayatDiHalaman) {
+        console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
+        continue;
+      }
+
+      totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
+    }
+  }
+
+  totalJuz = totalJuz.toFixed(2);
+
+ // Hilangkan halaman duplikat untuk perhitungan juz tercakup
+  const halamanUnik = [...new Set(halamanValid)].sort((a, b) => a - b);
+
+  const juzTercakup = [];
+  for (let i = 0; i < halamanAwalJuz.length; i++) {
+    const awalJuz = halamanAwalJuz[i];
+    const akhirJuz = i < halamanAwalJuz.length - 1 ? halamanAwalJuz[i + 1] - 1 : 604;
+
+    if (akhirJuz >= 602 && awalJuz <= 604) continue;
+
+    for (let h of halamanUnik) {
+      if (h >= awalJuz && h <= akhirJuz) {
+        juzTercakup.push(i + 1);
+        break;
+      }
+    }
+  }
+
+  function compressJuzRanges(list) {
+    if (list.length === 0) return "";
+    list.sort((a, b) => a - b);
+    const ranges = [];
+    let start = list[0], end = start;
+    for (let i = 1; i < list.length; i++) {
+      if (list[i] === end + 1) {
+        end = list[i];
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = end = list[i];
+      }
+    }
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    return ranges.join(", ");
+  }
+
+	const juzTerbacaFormatted = compressJuzRanges(juzTercakup);
+
+	 // Hitung pages quran
+	function calculateHalamanTerbaca(halamanList) {
+  if (!halamanList || halamanList.length === 0) return { ranges: "-", total: 0 };
+
+  const halamanCountMap = {}; // key: halaman, value: jumlah ayat terbaca
+  for (let h of halamanList) {
+    halamanCountMap[h] = (halamanCountMap[h] || 0) + 1;
+  }
+
+  const uniqueHalaman = Object.keys(halamanCountMap)
+                             .map(Number)
+                             .sort((a, b) => a - b);
+
+  const ranges = [];
+  let totalHalaman = 0;
+
+  let start = uniqueHalaman[0];
+  let end = start;
+
+  for (let i = 0; i < uniqueHalaman.length; i++) {
+    const h = uniqueHalaman[i];
+    const ayatTerbaca = halamanCountMap[h];
+    const ayatTotal = jumlahAyatPerHalaman[h] || 1;
+    totalHalaman += ayatTerbaca / ayatTotal;
+
+    if (i > 0) {
+      if (h === end + 1) {
+        end = h;
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = end = h;
+      }
+    }
+  }
+
+  ranges.push(start === end ? `${start}` : `${start}-${end}`);
+
+  return { ranges: ranges.join(", "), total: totalHalaman };
+}
+
+// Pemakaian di tabel
+const result = calculateHalamanTerbaca(halamanValid);
+row.querySelector(".halaman-terbaca").textContent = result.ranges;
+row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
+  
+  row.querySelector(".juz-terbaca").textContent = juzTerbacaFormatted;
+  row.querySelector(".total-juz").textContent = totalJuz;
+}
+
+    kelasSelect.addEventListener("change", loadSantriData);
+    tanggalInput.addEventListener("change", loadSantriData);
+
+    async function simpanDataMutabaah(saveBtn) {
+  const kelas = kelasSelect.value;
+  const tanggal = tanggalInput.value;
+  const rows = santriTableBody.querySelectorAll("tr");
+
+  // Helper: parse nilaiStr secara robust
+  function parseNilaiStr(nilaiStr) {
+    if (!nilaiStr) return { nilai: null, predikatText: null, predikatHuruf: null };
+
+    const parts = nilaiStr.trim().split(/\s+/).filter(Boolean);
+    // temukan index numeric (angka)
+    let numIdx = parts.findIndex(p => {
+      const v = p.replace(',', '.');
+      return /^-?\d+(\.\d+)?$/.test(v) || !Number.isNaN(parseFloat(v));
+    });
+
+    if (numIdx === -1) {
+      // kalau tidak ada angka jelas, cari token yg bisa di-parse
+      numIdx = parts.findIndex(p => !Number.isNaN(parseFloat(p.replace(',', '.'))));
+    }
+
+    let nilai = null;
+    if (numIdx !== -1) {
+      nilai = parseFloat(parts[numIdx].replace(',', '.'));
+    }
+
+    // sisa token (kemungkinan predikat)
+    const rest = parts.filter((_, i) => i !== numIdx).map(p => p.replace(/[^\p{L}\p{N}\-]/gu, '')).filter(Boolean);
+    // cari grade huruf tunggal A..E
+    const gradeIdx = rest.findIndex(p => /^[A-E]$/i.test(p));
+    const predikatHuruf = gradeIdx !== -1 ? rest[gradeIdx].toUpperCase() : null;
+    // ambil semua selain gradeIndex dan '-' sebagai text
+    const textParts = rest.filter((_, i) => i !== gradeIdx && rest[i] !== '-');
+    const predikatText = textParts.length ? textParts.join(' ') : null;
+
+    return { nilai, predikatText, predikatHuruf };
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = "⏳ Menyimpan...";
+
+  try {
+    // Ambil data lama supaya kita bisa merge (dan tidak kehilangan field lain)
+    let dataLama = [];
+    try {
+      const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+      if (resLama.ok) dataLama = await resLama.json();
+    } catch (e) {
+      console.warn("Tidak bisa ambil data lama, lanjut dengan array kosong.", e);
+    }
+
+    // buat salinan awal (agar ID yang tidak disentuh tetap ada)
+    const data = Array.isArray(dataLama) ? [...dataLama] : [];
+
+    rows.forEach((row) => {
+      const id = parseInt(row.children[0].textContent, 10);
+      const existing = data.find(d => d.id === id) || {};
+
+      const nama = row.children[1].textContent;
+      const semester = row.querySelector(".semester")?.value ?? existing.semester ?? "";
+      const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
+      const surahDari = row.querySelector(".surah-dari")?.value ?? "";
+      const ayatDari = row.querySelector(".ayat-dari")?.value ?? "";
+      const surahSampai = row.querySelector(".surah-sampai")?.value ?? "";
+      const ayatSampai = row.querySelector(".ayat-sampai")?.value ?? "";
+      const totalJuz = row.querySelector(".total-juz")?.textContent ?? existing.totalJuz ?? "0";
+      const halaman = row.querySelector(".halaman-terbaca")?.textContent ?? existing.halaman ?? "";
+      const totalHalaman = row.querySelector(".total-halaman")?.textContent ?? existing.totalHalaman ?? "";
+      const juzTerbaca = row.querySelector(".juz-terbaca")?.textContent ?? existing.juzTerbaca ?? "";
+
+      // ambil string nilai dari tombol/sel
+      const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
+      const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
+
+      // gunakan parser cerdas
+      const parsed = parseNilaiStr(nilaiStr);
+
+      // ambil nilai/ predikat dari parser, jika parser tidak menemukan nilai/predikat, fall back ke existing
+      const nilai = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai)) ? parsed.nilai : (existing.buttonCell?.nilai ?? 0);
+
+      // Jika parser menghasilkan '-' / null kita pertahankan existing (lebih aman)
+      const predikatText = (parsed.predikatText && parsed.predikatText !== '-') ? parsed.predikatText : (existing.buttonCell?.predikatText ?? "-");
+      const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-') ? parsed.predikatHuruf : (existing.buttonCell?.predikatHuruf ?? "-");
+
+      const marks = row.markData || existing.marks || { audio: [] };
+
+      const newData = {
+        ...existing, // jaga semua field lain supaya tidak hilang
+        id,
+        nama,
+        semester,
+        absensi,
+        dari: `${surahDari}:${ayatDari}`,
+        sampai: `${surahSampai}:${ayatSampai}`,
+        totalJuz,
+        halaman,
+        totalHalaman,
+        juzTerbaca,
+        buttonCell: { nilai, predikatText, predikatHuruf },
+        marks
+      };
+
+      const idx = data.findIndex(d => d.id === id);
+      if (idx !== -1) data[idx] = newData; else data.push(newData);
+    });
+
+    // kirim merged data ke server
+    const res = await fetch("/.netlify/functions/saveData", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tanggal, kelas, data })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      saveBtn.textContent = "✅ Tersimpan";
+      setTimeout(() => {
+        saveBtn.textContent = "Simpan Data Mutaba'ah";
+        saveBtn.disabled = false;
+      }, 2000);
+    } else {
+      alert("❌ Gagal menyimpan data!");
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Simpan Data Mutaba'ah";
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("⚠️ Error menyimpan data!");
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Simpan Data Mutaba'ah";
+  }
+}
+
+
+
+// Pasang event listener ke dua tombol Save
+document.getElementById("save-btn").addEventListener("click", function () {
+  simpanDataMutabaah(this);
+});
+document.getElementById("save-btn-modal").addEventListener("click", function () {
+  simpanDataMutabaah(this);
+});
+
+
+    downloadBtn.addEventListener("click", async () => {
+  const kelas = kelasSelect.value;
+  const startDate = document.getElementById("start-date").value;
+  const endDate = document.getElementById("end-date").value;
+
+  if (!startDate || !endDate) {
+    alert("Mohon pilih tanggal mulai dan tanggal akhir.");
+    return;
+  }
+
+  overlay.style.display = "flex";
+
+  try {
+    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`);
+    const allData = await res.json();
+
+    if (allData.length === 0) {
+      alert("Tidak ada data pada rentang tanggal tersebut.");
+      overlay.style.display = "none";
+      return;
+    }
+
+    // Hitung rekap
+    const rekap = {};
+    let totalJuz = 0;
+
+    allData.forEach(item => {
+      if (!rekap[item.nama]) {
+        rekap[item.nama] = {
+          hadir: 0,
+          alpha: 0,
+          sakit: 0,
+          izin: 0,
+          totalJuz: 0,
+          juzTerbacaSet: new Set()
+        };
+      }
+
+      rekap[item.nama][item.absensi.toLowerCase()]++;
+      const juz = parseFloat(item.totalJuz || 0);
+      rekap[item.nama].totalJuz += juz;
+      totalJuz += juz;
+
+      // Ekstrak Juz ke dalam Set angka
+      if (item.juzTerbaca) {
+        const matches = item.juzTerbaca.match(/Juz (\d+)(?:-(\d+))?/g);
+        if (matches) {
+          matches.forEach(match => {
+            const parts = match.match(/Juz (\d+)(?:-(\d+))?/);
+            if (parts) {
+              const start = parseInt(parts[1]);
+              const end = parseInt(parts[2] || parts[1]);
+              for (let i = start; i <= end; i++) {
+                rekap[item.nama].juzTerbacaSet.add(i);
+              }
+            }
+          });
+        }
+      }
+    });
+
+    // Fungsi untuk meringkas Juz ke bentuk: Juz 2-4; Juz 10
+    function ringkasJuzTerbaca(set) {
+      const arr = Array.from(set).sort((a, b) => a - b);
+      if (arr.length === 0) return "-";
+
+      const result = [];
+      let start = arr[0];
+      let prev = arr[0];
+
+      for (let i = 1; i <= arr.length; i++) {
+        const curr = arr[i];
+        if (curr === prev + 1) {
+          prev = curr;
+          continue;
+        }
+        if (start === prev) {
+          result.push(`Juz ${start}`);
+        } else {
+          result.push(`Juz ${start}-${prev}`);
+        }
+        start = curr;
+        prev = curr;
+      }
+
+      return result.join("; ");
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text(`Rekap Absensi & Hafalan`, 14, 15);
+    doc.setFontSize(11);
+    doc.text(`Kelas: ${kelas} | Tanggal: ${startDate} - ${endDate}`, 14, 23);
+
+    let y = 35;
+    Object.entries(rekap).forEach(([nama, data], i) => {
+      const juzList = ringkasJuzTerbaca(data.juzTerbacaSet);
+      const text = `${i + 1}. ${nama} | Hadir: ${data.hadir || 0}, | Alpha: ${data.alpha || 0}, Sakit: ${data.sakit || 0}, Izin: ${data.izin || 0} | Juz Terbaca: ${juzList} | Total Juz: ${data.totalJuz.toFixed(2)}`;
+      doc.text(text, 14, y);
+      y += 8;
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+    y += 10;
+    doc.setFontSize(12);
+    doc.text(`Total Juz Keseluruhan: ${totalJuz.toFixed(2)}`, 14, y);
+    doc.save(`Rekap_${kelas}_${startDate}_sd_${endDate}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert("Gagal mengunduh PDF!");
+  }
+
+  overlay.style.display = "none";
+});
+
+
+async function hitungTotalAllJuzFromTable() {
+  const kelas = kelasSelect.value;
+  const dari = document.getElementById("rangeDari").value;
+  const sampaiInput = document.getElementById("rangeSampai");
+  const sampai = sampaiInput ? sampaiInput.value : null;
+
+  if (!dari) {
+    alert("Mohon pilih tanggal Dari.");
+    return;
+  }
+  if (!sampai) {
+    alert("Mohon pilih tanggal Sampai.");
+    return;
+  }
+
+  // Tampilkan overlay loading
+  overlay.style.display = "flex";
+
+  try {
+    // Ambil data absensi rentang tanggal
+    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${dari}&end=${sampai}`);
+    if (!res.ok) throw new Error("Gagal ambil data absensi.");
+    const allData = await res.json();
+
+    const rows = santriTableBody.querySelectorAll("tr");
+    const rekap = {}; // id => { totalJuz, semester }
+
+    // Rekap total juz per santri dari data absensi
+    allData.forEach(item => {
+      const id = item.id;
+      if (!rekap[id]) {
+        rekap[id] = { totalJuz: 0, semester: item.semester || null };
+      }
+      rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
+    });
+
+    // Batas ketuntasan per semester
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+
+    // Update tabel dan siapkan data untuk disimpan
+    const dataToSave = [];
+
+    rows.forEach(row => {
+      const id = parseInt(row.children[0].textContent);
+      const cell = row.querySelector(".total-all-juz");
+
+      if (rekap[id]) {
+        const totalJuz = rekap[id].totalJuz.toFixed(2);
+        let semester = parseInt(row.querySelector(".semester")?.value);
+        if (!semester && rekap[id].semester) semester = rekap[id].semester;
+
+        const batas = batasSemester[semester] || 0;
+        let prosentase = batas > 0 ? Math.floor((rekap[id].totalJuz / batas) * 100) : 0;
+        if (prosentase > 100) prosentase = 100;
+
+        const tuntas = prosentase >= 100;
+        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+
+        cell.innerHTML = `${totalJuz} <span style="color: ${tuntas ? "green" : "red"}; font-size: 12px;">${label}</span>`;
+
+        // Siapkan data untuk simpan ke file JSON
+        dataToSave.push({
+          id,
+          totalJuz: parseFloat(totalJuz),
+          semester,
+          tuntas
+        });
+      } else {
+        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+      }
+    });
+
+    // Kirim data hasil rekap ke backend Netlify Function untuk disimpan
+    const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromDate: dari,
+        toDate: sampai,
+        kelas: kelas,
+        data: dataToSave
+      }),
+    });
+
+    if (!saveRes.ok) {
+      const errText = await saveRes.text();
+      throw new Error(`Gagal menyimpan data: ${errText}`);
+    }
+
+    alert("✅ Total All Juz berhasil dihitung dan disimpan.");
+  } catch (err) {
+    console.error(err);
+    alert("❌ Terjadi kesalahan: " + err.message);
+  } finally {
+    overlay.style.display = "none";
+  }
+}
+
+// Fungsi buka overlay dan set tanggal Dari maksimal hari ini, tapi tanggal Sampai bebas tanpa max dan enabled
+function bukaOverlayTotalAllJuz() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  const rangeDari = document.getElementById("rangeDari");
+  const rangeSampai = document.getElementById("rangeSampai");
+
+  if (rangeDari) {
+    rangeDari.max = todayStr;
+    if (!rangeDari.value || rangeDari.value > todayStr) {
+      rangeDari.value = todayStr;
+    }
+  }
+
+  if (rangeSampai) {
+    // Hapus pembatas max supaya bebas tanggal Sampai
+    rangeSampai.removeAttribute("max");
+
+    // Enable supaya user bisa ubah tanggal Sampai
+    rangeSampai.disabled = false;
+
+    // Set default nilai tanggal Sampai ke hari ini jika kosong
+    if (!rangeSampai.value) {
+      rangeSampai.value = todayStr;
+    }
+  }
+
+  document.getElementById("juzOverlay").style.display = "flex";
+}
+
+// Event listener tombol hitung
+document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTotalAllJuzFromTable);
+
+
+
+
+
+   async function hitungTotalAllJuzOtomatis() {
+  const kelas = kelasSelect.value;
+
+  // Tunggu tabel terisi
+  const rows = santriTableBody.querySelectorAll("tr");
+  if (rows.length === 0) {
+    setTimeout(hitungTotalAllJuzOtomatis, 200);
+    return;
+  }
+
+  // Ambil tanggal otomatis dari server
+  const rangeDari = document.getElementById("rangeDari");
+  const rangeSampai = document.getElementById("rangeSampai");
+  try {
+    const res = await fetch("/.netlify/functions/getAutoUpdateAllJuz");
+    const allData = await res.json();
+    const kelasData = allData.find(item => item.kelas === kelas);
+    if (kelasData) {
+      if (rangeDari) rangeDari.value = kelasData.fromDate || "";
+      if (rangeSampai) rangeSampai.value = kelasData.toDate || "";
+    }
+  } catch (err) {
+    console.error("Gagal ambil tanggal otomatis:", err);
+  }
+
+  const dari = rangeDari?.value;
+  const sampai = rangeSampai?.value;
+  if (!dari || !sampai) return;
+
+  // Ambil absensi & hitung total
+  try {
+    const resAbs = await fetch(
+      `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${dari}&end=${sampai}`
+    );
+    const allData = await resAbs.json();
+
+    const rekap = {};
+    allData.forEach(item => {
+      const id = item.id;
+      if (!rekap[id]) rekap[id] = { totalJuz: 0, semester: item.semester || null };
+      rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
+    });
+
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+
+    rows.forEach(row => {
+      const id = parseInt(row.children[0].textContent);
+      const cell = row.querySelector(".total-all-juz");
+      if (rekap[id]) {
+        const totalJuz = rekap[id].totalJuz.toFixed(2);
+        let semester = parseInt(row.querySelector(".semester")?.value) || rekap[id].semester;
+        const target = batasSemester[semester] || 0;
+
+        let prosentase = target > 0 ? Math.floor((rekap[id].totalJuz / target) * 100) : 0;
+        if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
+
+        const tuntas = prosentase >= 100;
+        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+
+        cell.innerHTML =
+          `${totalJuz} <span style="color:${tuntas ? 'green' : 'red'}; font-size:10px">` +
+          `${label}</span>`;
+      } else {
+        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+      }
+    });
+  } catch (err) {
+    console.error("Gagal ambil data absensi:", err);
+  }
+}
+
+// Jalankan saat pertama kali halaman selesai dimuat
+window.addEventListener("DOMContentLoaded", hitungTotalAllJuzOtomatis);
+
+// Pastikan otomatis jalan lagi setelah tabel diperbarui
+function afterTableRendered() {
+  setTimeout(hitungTotalAllJuzOtomatis, 50);
+}
+
+// Integrasi ke loadSantriData atau fungsi render tabel
+const originalLoadSantriData = loadSantriData;
+window.loadSantriData = async function (...args) {
+  await originalLoadSantriData.apply(this, args);
+  afterTableRendered();
+};
+
+// Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
+tanggalInput?.addEventListener("change", () => loadSantriData());
+kelasSelect?.addEventListener("change", () => loadSantriData());
+</script>
+
+
+
+<script>
+  function bukaModalSantri() {
+    document.getElementById("modalSantri").style.display = "block";
+  }
+
+  function tutupModal() {
+    document.getElementById("modalSantri").style.display = "none";
+    document.getElementById("inputNama").value = "";
+    document.getElementById("inputNis").value = "";
+    document.getElementById("inputSemester").value = "1";
+    document.getElementById("loadingTambahSantri").style.display = "none";
+  }
+
+  async function simpanSantriBaru() {
+    const nama = document.getElementById("inputNama").value.trim();
+    const nis = document.getElementById("inputNis").value.trim();
+    const semester = document.getElementById("inputSemester").value;
+    const kelas = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
+
+    if (!nama) {
+      alert("Nama tidak boleh kosong.");
+      return;
+    }
+    if (!nis) {
+      alert("NIS tidak boleh kosong.");
+      return;
+    }
+
+    const loadingEl = document.getElementById("loadingTambahSantri");
+    loadingEl.style.display = "block";
+
+    try {
+      const res = await fetch("/.netlify/functions/tambahSantri", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama, nis, semester, kelas })
+      });
+
+      const data = await res.json();
+      loadingEl.style.display = "none";
+
+      if (res.ok) {
+        alert("Santri berhasil ditambahkan!");
+        tutupModal();
+        location.reload();
+      } else {
+        alert("Gagal menambahkan: " + data.error);
+      }
+    } catch (err) {
+      loadingEl.style.display = "none";
+      alert("Terjadi kesalahan: " + err.message);
+    }
+  }
+</script>
+
+
+<script>
+const btnHapusSantri = document.getElementById("btnHapusSantri");
+const modalHapusSantri = document.getElementById("modalHapusSantri");
+const listSantriHapus = document.getElementById("listSantriHapus");
+const btnHapusTerpilih = document.getElementById("btnHapusTerpilih");
+const btnTutupModal = document.getElementById("btnTutupModal");
+
+// Tombol untuk menutup modal
+btnTutupModal.addEventListener("click", () => {
+  modalHapusSantri.style.display = "none";
+});
+
+// Tombol untuk membuka modal dan load santri
+btnHapusSantri.addEventListener("click", async () => {
+  modalHapusSantri.style.display = "flex";
+  listSantriHapus.innerHTML = "<li>Loading...</li>";
+
+  const kelas = kelasSelect.value; // Ambil kelas dari select
+  try {
+    const res = await fetch(`/.netlify/functions/ambilSantri?kelas=${kelas}`);
+    const santriData = await res.json();
+
+    if (!Array.isArray(santriData)) {
+      console.error("Santri data bukan array:", santriData);
+      listSantriHapus.innerHTML = "<li>Gagal load data</li>";
+      return;
+    }
+
+    listSantriHapus.innerHTML = "";
+    if (santriData.length === 0) {
+      listSantriHapus.innerHTML = "<li>Tidak ada santri di kelas ini</li>";
+      return;
+    }
+
+    santriData.forEach(s => {
+      const li = document.createElement("li");
+      li.style.marginBottom = "5px";
+      li.innerHTML = `<label>
+        <input type="checkbox" value="${s.id || s.nis}"> ${s.nama} (${s.id || s.nis})
+      </label>`;
+      listSantriHapus.appendChild(li);
+    });
+  } catch (err) {
+    console.error(err);
+    listSantriHapus.innerHTML = "<li>Gagal load data</li>";
+  }
+});
+
+// Tombol hapus terpilih
+btnHapusTerpilih.addEventListener("click", async () => {
+  const checked = listSantriHapus.querySelectorAll("input:checked");
+  if (checked.length === 0) return alert("Pilih santri terlebih dahulu");
+
+  const kelas = kelasSelect.value;
+  for (let c of checked) {
+    const identifier = c.value;
+    try {
+      const res = await fetch(`/.netlify/functions/hapusSantri`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kelas, identifier })
+      });
+      const result = await res.json();
+      console.log("Hasil hapus:", result);
+    } catch (err) {
+      console.error("Gagal hapus:", err);
+    }
+  }
+
+  modalHapusSantri.style.display = "none";
+
+  // Refresh tabel utama
+  if (typeof loadSantriData === "function") {
+    loadSantriData();
+  }
+});
+</script>
+
+
+<script>
+(() => {
+  const elBtnOpen   = document.getElementById('btnPindahKelas');
+  const elModal     = document.getElementById('modalPindahKelas');
+  const elClose     = document.getElementById('closePindah');
+  const elSantriSel = document.getElementById('selectSantriPindah');
+  const elKelasWrap = document.getElementById('listKelasTujuan');
+  const elDo        = document.getElementById('doPindah');
+  const elStatus    = document.getElementById('statusPindah');
+
+  const normKelas = (k) => (k?.startsWith('kelas_') ? k : `kelas_${k}`);
+
+  // tambahkan input tanggal (sekali saja)
+  let elStart = document.getElementById('startDateMove');
+  function ensureStartDateInput() {
+    if (!elStart) {
+      const holder = document.createElement('div');
+      holder.style.margin = '8px 0';
+      holder.innerHTML = `
+        <label><b>Mulai dari tanggal (opsional):</b></label><br/>
+        <input type="date" id="startDateMove" style="width:100%;max-width:260px;">
+      `;
+      elDo.parentElement.insertBefore(holder, elDo);
+      elStart = holder.querySelector('#startDateMove');
+    }
+  }
+
+  // buka modal
+  elBtnOpen.addEventListener('click', openModal);
+  elClose.addEventListener('click', () => elModal.style.display = 'none');
+
+  async function openModal() {
+    elModal.style.display = 'flex';
+    elStatus.textContent = '';
+    elDo.disabled = false;
+    ensureStartDateInput();
+
+    const kelasAsal = normKelas(kelasSelect.value);
+
+    // 1) load santri
+    try {
+      const r = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}`);
+      const data = await r.json();
+      elSantriSel.innerHTML = (Array.isArray(data) ? data : []).map(s => {
+        const id = s.id ?? '';
+        const nis = s.nis ?? '';
+        const nama = s.nama ?? '';
+        const value = id || nis || nama;
+        return `<option value="${String(value)}" data-id="${String(id)}" data-nis="${String(nis)}" data-nama="${String(nama)}">
+          ${nama} (${id || nis || '-'})
+        </option>`;
+      }).join('');
+    } catch {
+      elSantriSel.innerHTML = '';
+    }
+
+    // 2) load kelas tujuan
+    try {
+      const rK = await fetch(`/.netlify/functions/ambilKelas`);
+      const kelasList = await rK.json();
+      elKelasWrap.innerHTML = (Array.isArray(kelasList) ? kelasList : [])
+        .map(normKelas)
+        .filter(k => k !== kelasAsal)
+        .map(k => `<label style="display:block;margin:4px 0;">
+            <input type="radio" name="kelasTujuan" value="${k}"> ${k}
+          </label>`).join('');
+    } catch {
+      elKelasWrap.innerHTML = '<em>Gagal memuat daftar kelas.</em>';
+    }
+  }
+
+  // util post JSON
+  async function postJSON(url, payload) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    let out = {};
+    try { out = await res.json(); } catch { out = {}; }
+    return { res, out };
+  }
+
+  // klik Pindah
+  elDo.addEventListener('click', async () => {
+    const kelasAsal   = normKelas(kelasSelect.value);
+    const kelasTujuan = normKelas(document.querySelector('input[name="kelasTujuan"]:checked')?.value || '');
+    const selected    = Array.from(elSantriSel.selectedOptions);
+
+    if (!selected.length) { alert('Pilih minimal satu santri.'); return; }
+    if (!kelasTujuan)     { alert('Pilih kelas tujuan.'); return; }
+
+    // ids untuk absensi
+    const santriIds = selected.map(o => o.dataset.id || o.value);
+
+    // identifiers untuk roster
+    const idSet   = new Set(selected.map(o => (o.dataset.id   || '').trim()).filter(Boolean));
+    const nisSet  = new Set(selected.map(o => (o.dataset.nis  || '').trim()).filter(Boolean));
+    const nameSet = new Set(selected.map(o => (o.dataset.nama || '').trim().toLowerCase()).filter(Boolean));
+    const identifiers = Array.from(new Set([...idSet, ...nisSet, ...nameSet]));
+
+    const startDate = (elStart?.value || '').trim();
+
+    elDo.disabled = true;
+    elStatus.style.color = '#333';
+    elStatus.textContent = startDate
+      ? `Memproses mulai ${startDate}…`
+      : 'Memproses semua tanggal…';
+
+    try {
+      // 1) roster dulu (supaya idMap siap)
+      const { res: r1, out: o1 } = await postJSON('/.netlify/functions/pindahRosterKelas', {
+        kelasAsal, kelasTujuan, identifiers
+      });
+      if (!r1.ok || !o1.success) {
+        elStatus.style.color = 'red';
+        elStatus.textContent = (o1.error || `HTTP ${r1.status}`) + (o1.detail ? `: ${o1.detail}` : '');
+        elDo.disabled = false;
+        return;
+      }
+      const idMap = Array.isArray(o1.idMap) ? o1.idMap : [];
+
+      // 2) absensi mulai tanggal, bawa idMap
+      const { res: r2, out: o2 } = await postJSON('/.netlify/functions/pindahKelasMulaiTanggal', {
+        kelasAsal, kelasTujuan, santriIds, startDate, idMap
+      });
+      if (!r2.ok || !o2.success) {
+        elStatus.style.color = 'red';
+        elStatus.textContent = (o2.error || `HTTP ${r2.status}`) + (o2.detail ? `: ${o2.detail}` : '');
+        elDo.disabled = false;
+        return;
+      }
+
+      // sukses
+      elStatus.style.color = 'green';
+      elStatus.textContent = `Selesai. Roster & absensi (${o2.totalMoved} entri) sudah dipindahkan${startDate ? ' sejak ' + startDate : ''}.`;
+      if (typeof loadSantriData === 'function') loadSantriData();
+      setTimeout(() => { elModal.style.display = 'none'; }, 800);
+
+    } catch (e) {
+      elStatus.style.color = 'red';
+      elStatus.textContent = 'Kesalahan jaringan/servis.';
+      elDo.disabled = false;
+    }
+  });
+})();
+</script>
+
+	
+
+<script>
+let quranData = {};
+let ayahPageMap = {};
+let markData = {};
+let currentIdSiswa = null;
+let recordingsList = document.getElementById("recordingsList");
+
+
+// ======================
+// AMBIL DATA MARKS + AUDIO DARI NETLIFY FUNCTION
+// ======================
+async function ambilMarksDariNetlify(id, kelas, tanggal) {
+  try {
+    const res = await fetch(`/.netlify/functions/getMarksAudio?id=${id}&kelas=${kelas}&tanggal=${tanggal}`);
+    if (!res.ok) throw new Error('Gagal ambil marks dari server');
+    const data = await res.json();
+    return data.marks || {};
+  } catch(err) {
+    console.error(err);
+    return {};
+  }
+}
+
+// ======================
+// TAMPILKAN AUDIO
+// ======================
+function tampilkanAudioDariMarks(marks) {
+  recordingsList.innerHTML = '';
+
+  if (marks && marks.audio && marks.audio.length > 0) {
+    marks.audio.forEach((filename, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <audio controls preload="metadata">
+          <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
+          Browser Anda tidak mendukung audio.
+        </audio>
+        <span> Rekaman ${i + 1}</span>
+      `;
+      recordingsList.appendChild(li);
+    });
+  } else {
+    recordingsList.innerHTML = '<li>Tidak ada rekaman audio.</li>';
+  }
+}
+
+function getMimeType(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  if (ext === 'mp3') return 'audio/mpeg';
+  if (ext === 'ogg') return 'audio/ogg';
+  return 'audio/wav';
+}
+
+// ======================
+// STORAGE
+// ======================
+function getStorageKey() {
+  const kelas = document.getElementById('kelas')?.value || 'default';
+  const tanggal = document.getElementById('tanggal')?.value || 'default';
+  return `marks_${kelas}_${tanggal}_${currentIdSiswa}`;
+}
+
+function simpanKeStorage() {
+  if (!currentIdSiswa) return;
+  const key = getStorageKey();
+  localStorage.setItem(key, JSON.stringify(markData));
+}
+
+function ambilDariStorage() {
+  if (!currentIdSiswa) return;
+  const key = getStorageKey();
+  const saved = localStorage.getItem(key);
+  if (saved) markData = JSON.parse(saved);
+  else markData = {};
+}
+
+// ======================
+// AMBIL MARK DARI SERVER
+// ======================
+async function ambilMarksDariServer(idSiswa, kelas, tanggal) {
+  try {
+    const res = await fetch(`/.netlify/functions/getMarkData?kelas=${kelas}&tanggal=${tanggal}`);
+    if (!res.ok) throw new Error("Gagal ambil data santri dari server");
+    const data = await res.json();
+    const santri = data.find(s => s.id === idSiswa);
+    return santri?.marks || {};
+  } catch(err) {
+    console.error(err);
+    return {};
+  }
+}
+
+
+// ======================
+// HITUNG NILAI
+// ======================
+function hitungNilai() {
+  let totalMinus = 0;
+  let hijau = 0, kuning = 0, merah = 0;
+  let adaMark = false;
+
+  // Hitung total minus dan jumlah warna
+  for (let ayat in markData) {
+    for (let idx in markData[ayat]) {
+      const mark = markData[ayat][idx];
+      if (!mark) continue;
+      adaMark = true;
+
+      switch (mark) {
+        case "green":
+          totalMinus += 0.5;
+          hijau++;
+          break;
+        case "yellow":
+          totalMinus += 1;
+          kuning++;
+          break;
+        case "red":
+          totalMinus += 2;
+          merah++;
+          break;
+      }
+    }
+  }
+
+  // Tentukan nilai dan predikat
+  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
+
+  const predikatMap = [
+    { max: 59, text: "ROSIB", huruf: "E" },
+    { max: 69, text: "MAQBUL", huruf: "D" },
+    { max: 79, text: "JAYYID", huruf: "C" },
+    { max: 89, text: "JAYYID JIDDAN", huruf: "B" },
+    { max: 100, text: "MUMTAZ", huruf: "A" }
+  ];
+
+  let predikat = "-";
+  if (adaMark) {
+    const p = predikatMap.find(p => nilai <= p.max);
+
+    // Fungsi memberi background warna huruf
+    function bgHuruf(huruf) {
+      const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+      return `<span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+    }
+
+    predikat = `${p.text} ${bgHuruf(p.huruf)}`;
+  }
+
+  // Update modal overlay
+  const nilaiEl = document.getElementById("nilai-akhir");
+  const predikatEl = document.getElementById("predikat-akhir");
+  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
+  if (predikatEl) predikatEl.innerHTML = predikat; // gunakan innerHTML agar span bisa tampil
+
+  // Update jumlah mark warna di modal overlay
+  const warnaDiv = document.getElementById("modal-mark-warna");
+  if (warnaDiv) {
+    warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
+  }
+
+  return { nilai, predikat, hijau, kuning, merah };
+}
+
+
+// ======================
+// UPDATE TABEL (tanpa warna mark)
+// ======================
+function updateNilaiDiTabel({ nilai, predikat }) {
+  if (!currentIdSiswa) return;
+
+  const row = [...document.querySelectorAll("table tbody tr")]
+    .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
+
+  if (row) {
+    const buttonCell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
+    if (buttonCell) {
+      buttonCell.innerHTML = `
+        <div><strong>${nilai.toFixed(1)}</strong> ${predikat}</div>
+        <button class="lihat-quran-btn">Lembar Penilaian</button>
+      `;
+      // tetap simpan markData untuk modal
+      row.markData = JSON.parse(JSON.stringify(markData));
+    }
+  }
+}
+
+// ======================
+// BUAT KATA KLIK
+// ======================
+function buatKataKlik(surah, ayat, teks) {
+  return teks.split(" ").map((kata, idx) => {
+    const span = document.createElement("span");
+    span.innerText = kata + " ";
+    span.style.cursor = "pointer";
+    span.dataset.key = `${surah}:${ayat}`;
+    span.dataset.idx = idx;
+
+    span.onclick = () => {
+      const warnaSekarang = markData[surah+":"+ayat]?.[idx] || null;
+      let warnaBaru = null;
+      if (warnaSekarang === null) warnaBaru = "green";
+      else if (warnaSekarang === "green") warnaBaru = "yellow";
+      else if (warnaSekarang === "yellow") warnaBaru = "red";
+      else warnaBaru = null;
+
+      if (!markData[surah+":"+ayat]) markData[surah+":"+ayat] = {};
+      if (warnaBaru) markData[surah+":"+ayat][idx] = warnaBaru;
+      else delete markData[surah+":"+ayat][idx];
+
+      // Update background kata
+      span.style.backgroundColor = warnaBaru || "";
+
+      // Hitung nilai & update tabel + modal
+      const hasil = hitungNilai();
+      updateNilaiDiTabel(hasil);
+    };
+
+    // Set warna awal kata jika sudah ada mark
+    if (markData[surah+":"+ayat]?.[idx]) {
+      span.style.backgroundColor = markData[surah+":"+ayat][idx];
+    }
+
+    return span;
+  });
+}
+
+
+// ======================
+// LOAD DATA QURAN
+// ======================
+let dataSiap = Promise.all([
+  fetch('https://raw.githubusercontent.com/dickymiswardi/mtq/refs/heads/main/symbol1.json')
+    .then(res => {
+      if (!res.ok) throw new Error("Gagal fetch symbol1.json");
+      return res.json();
+    })
+    .then(data => { quranData = data; }),
+
+  fetch('https://raw.githubusercontent.com/dickymiswardi/tadabbur/refs/heads/main/ayah_page_map.json')
+    .then(res => {
+      if (!res.ok) throw new Error("Gagal fetch ayah_page_map.json");
+      return res.json();
+    })
+    .then(data => { ayahPageMap = data; })
+])
+.then(() => {
+  console.log("✅ Data Quran siap dipakai", quranData, ayahPageMap);
+})
+.catch(err => console.error('❌ Gagal memuat data Quran:', err));
+
+// ======================
+// EVENT CLICK "LEMBAR PENILAIAN"
+// ======================
+document.addEventListener('click', async function(e) {
+  if (e.target.classList.contains('lihat-quran-btn')) {
+    const overlay = document.getElementById('overlay-quran');
+    overlay.style.display = 'flex';
+
+    const row = e.target.closest('tr');
+    currentIdSiswa = parseInt(row.cells[0].innerText.trim());
+
+    // Ambil nama santri dari kolom 1 (asumsi kolom 1 adalah nama)
+    const namaSantri = row.cells[1].innerText.trim();
+    const namaSpan = document.getElementById('modal-nama-santri');
+    if (namaSpan) {
+      namaSpan.innerText = namaSantri;
+    }
+
+    const kelas = document.getElementById('kelas')?.value || 'default';
+    const tanggal = document.getElementById('tanggal')?.value || 'default';
+
+    // Ambil marks + audio
+    markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
+    tampilkanAudioDariMarks(markData);
+
+    // Load Quran
+    await dataSiap;
+
+    const surahDari = parseInt(row.querySelector('.surah-dari').value);
+    const ayatDari = parseInt(row.querySelector('.ayat-dari').value);
+    const surahSampai = parseInt(row.querySelector('.surah-sampai').value);
+    const ayatSampai = parseInt(row.querySelector('.ayat-sampai').value);
+
+    let halamanMap = {};
+    for (let s = surahDari; s <= surahSampai; s++) {
+      const ayatMulai = (s === surahDari) ? ayatDari : 1;
+      const ayatAkhir = (s === surahSampai) ? ayatSampai : 300;
+      for (let a = ayatMulai; a <= ayatAkhir; a++) {
+        const key = `${s}:${a}`;
+        if (quranData[key]) {
+          const page = ayahPageMap[key];
+          if (!page) continue;
+          if (!halamanMap[page]) halamanMap[page] = [];
+          halamanMap[page].push({ surah: s, ayat: a, teks: quranData[key].replace(/\|/g, ' ') });
+        }
+      }
+    }
+
+    const halamanUrut = Object.keys(halamanMap).sort((a,b) => a-b);
+    const quranText = document.getElementById('quran-text');
+    quranText.innerHTML = '';
+
+    for (let page of halamanUrut) {
+      const pageStr = String(page).padStart(3,'0');
+      const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/refs/heads/main/fonts/QCF_P${pageStr}.TTF`;
+
+      try {
+        const font = new FontFace(`QCF_P${pageStr}`, `url(${fontUrl})`);
+        await font.load();
+        document.fonts.add(font);
+      } catch(err) {
+        console.warn(`Gagal load font page ${pageStr}`, err);
+      }
+
+      const pageDiv = document.createElement('div');
+      pageDiv.style.fontFamily = `QCF_P${pageStr}, serif`;
+      pageDiv.style.fontSize = '30px';
+      pageDiv.style.lineHeight = '2.2';
+      pageDiv.style.direction = 'rtl';
+      pageDiv.style.marginBottom = '20px';
+
+      halamanMap[page].forEach(item => {
+        buatKataKlik(item.surah, item.ayat, item.teks).forEach(k => pageDiv.appendChild(k));
+        pageDiv.appendChild(document.createElement('br'));
+      });
+
+      quranText.appendChild(pageDiv);
+    }
+
+    const hasil = hitungNilai();
+    updateNilaiDiTabel(hasil);
+  }
+});
+
+// ======================
+// TOMBOL NILAI MANUAL
+// ======================
+document.getElementById("btn-beri-nilai").onclick = function() {
+  if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
+
+  // Ambil nilai dari input
+  const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
+  if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) {
+    return alert("Masukkan nilai antara 0 dan 100.");
+  }
+
+  // Tentukan predikat berdasarkan input nilai
+  let predikat = "-";
+  if (inputNilai <= 59) predikat = "ROSIB (E)";
+  else if (inputNilai <= 69) predikat = "MAQBUL (D)";
+  else if (inputNilai <= 79) predikat = "JAYYID (C)";
+  else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
+  else predikat = "MUMTAZ (A)";
+
+  // Reset markData
+  markData = {};
+
+  // Update modal overlay
+  document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
+  document.getElementById("predikat-akhir").innerText = predikat;
+  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
+
+  // Update tabel (tanpa warna mark)
+  updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
+};
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+  <script>
+  function tutupModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+      modal.style.display = "none";
+    }
+  }
+
+    function tutupModal(id) {
+  if (!id) return; // jika tidak ada ID, keluar saja
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.style.display = "none";
+  }
+}
+</script>
+
+	  <script>
+document.getElementById("login-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const username = document.getElementById("username").value;
+  const password = document.getElementById("password").value;
+  console.log("Login:", username, password);
+  // proses login
+});
+</script>
+
+
+
+<script>
+// 1. Fungsi untuk memberi warna hanya huruf predikat
+function bgHuruf(huruf, predikatText = "") {
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  // huruf diberi background, predikatText normal
+  return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
+}
+
+// 2. Data dari server / dataSantri
+let dataSantri = []; // nanti diisi fetch atau data.push
+
+// 3. Fungsi render tabel
+function renderTabelPredikat() {
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
+  });
+}
+</script>
+
+
+	
+</body>
+</html>
