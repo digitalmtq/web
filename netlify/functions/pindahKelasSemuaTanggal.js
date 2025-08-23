@@ -1,4 +1,7 @@
 // netlify/functions/pindahKelasMulaiTanggal.js
+// Pindah data absensi dari kelas asal ke tujuan mulai startDate (opsional),
+// remap ID sesuai idMap dari roster, urutkan hasil by ID sebelum commit.
+
 const API_BASE = "https://api.github.com/repos/digitalmtq/server/contents";
 
 const ghHeaders = (token) => ({
@@ -14,7 +17,6 @@ async function readDir(dir, token) {
   if (!res.ok) return { ok: false, status: res.status, error: await res.text().catch(()=>"") };
   return { ok: true, data: await res.json() };
 }
-
 async function readJsonFile(path, token) {
   const res = await fetch(`${API_BASE}/${path}`, { headers: ghHeaders(token) });
   if (res.status === 404) return { ok: true, exists: false, sha: null, data: [] };
@@ -25,7 +27,6 @@ async function readJsonFile(path, token) {
   if (!Array.isArray(arr)) arr = [];
   return { ok: true, exists: true, sha: json.sha, data: arr };
 }
-
 async function writeJsonFile(path, arrayData, token, sha=null, message="update") {
   const body = {
     message,
@@ -38,14 +39,11 @@ async function writeJsonFile(path, arrayData, token, sha=null, message="update")
   return { ok:true };
 }
 
-// remap id jika ada di idMap
 function mapIdIfNeeded(row, idMap) {
   if (!Array.isArray(idMap) || idMap.length === 0) return row;
   const oldId = (row.id ?? "").toString();
   const found = idMap.find(m => String(m.oldId) === oldId);
-  if (found && found.newId) {
-    return { ...row, id: String(found.newId) };
-  }
+  if (found && found.newId) return { ...row, id: String(found.newId) };
   return row;
 }
 
@@ -54,6 +52,15 @@ const matchIds = (row, idsOrNisSet) => {
   const nisStr = (row.nis ?? "").toString();
   return idsOrNisSet.has(idStr) || (nisStr && idsOrNisSet.has(nisStr));
 };
+
+// Sort array by numeric id ascending
+function sortByIdNumeric(arr) {
+  return [...arr].sort((a, b) => {
+    const ai = parseInt((a.id ?? 0), 10) || 0;
+    const bi = parseInt((b.id ?? 0), 10) || 0;
+    return ai - bi;
+  });
+}
 
 exports.handler = async (event) => {
   try {
@@ -74,17 +81,14 @@ exports.handler = async (event) => {
 
     const hasStart = !!startDate;
     const dateOk = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
-    if (hasStart && !dateOk(startDate)) {
+    if (hasStart && startDate && !dateOk(startDate)) {
       return { statusCode: 400, body: JSON.stringify({ error: "startDate harus format YYYY-MM-DD" }) };
     }
 
-    // 1) list semua file absensi
+    // list file absensi kelas asal
     const dir = await readDir("absensi", token);
-    if (!dir.ok) {
-      return { statusCode: 500, body: JSON.stringify({ error: "Gagal baca folder absensi", detail: dir.error }) };
-    }
+    if (!dir.ok) return { statusCode: 500, body: JSON.stringify({ error: "Gagal baca folder absensi", detail: dir.error }) };
 
-    // 2) filter file kelas asal + tanggal >= startDate
     const asalFiles = dir.data
       .filter(f => f.type === "file" && new RegExp(`^${asal}_\\d{4}-\\d{2}-\\d{2}\\.json$`).test(f.name))
       .map(f => ({ name: f.name, path: `absensi/${f.name}`, date: f.name.replace(`${asal}_`, "").replace(".json","") }))
@@ -106,51 +110,53 @@ exports.handler = async (event) => {
       const src = await readJsonFile(srcPath, token);
       if (!src.ok || !src.exists) { report.push({ tanggal, moved:0, note:"asal tidak ada" }); continue; }
 
-      const toMove = src.data.filter(r => matchIds(r, idsSet));
-      if (toMove.length === 0) { report.push({ tanggal, moved:0, note:"tidak ada match" }); continue; }
+      const toMoveRaw = src.data.filter(r => matchIds(r, idsSet));
+      if (toMoveRaw.length === 0) { report.push({ tanggal, moved:0, note:"tidak ada match" }); continue; }
 
-      const remaining = src.data.filter(r => !matchIds(r, idsSet));
+      // remap ID sesuai idMap dari roster
+      const toMove = toMoveRaw.map(r => mapIdIfNeeded(r, idMap));
+      const remaining = src.data.filter(r => !matchIds(r, idsOrNisSet=idsSet)); // tetap gunakan id/nis asal untuk filter hapus
 
       const dst = await readJsonFile(dstPath, token);
       if (!dst.ok) { report.push({ tanggal, moved:0, note:"gagal baca tujuan" }); continue; }
-
       let dstArr = dst.data || [];
 
-      // remap id sesuai idMap sebelum append
-      const appendable = toMove.map(r => mapIdIfNeeded(r, idMap));
-
-      // hindari dupe di tujuan
-      const idSet = new Set(dstArr.map(r => (r.id ?? "").toString()).filter(Boolean));
-      const nisSet = new Set(dstArr.map(r => (r.nis ?? "").toString()).filter(Boolean));
-      const appendableFiltered = appendable.filter(r => {
-        const rid = (r.id ?? "").toString();
+      // hindari dupe (id/nis) setelah remap
+      const idSetDest  = new Set(dstArr.map(r => (r.id ?? "").toString()).filter(Boolean));
+      const nisSetDest = new Set(dstArr.map(r => (r.nis ?? "").toString()).filter(Boolean));
+      const appendable = toMove.filter(r => {
+        const rid  = (r.id ?? "").toString();
         const rnis = (r.nis ?? "").toString();
-        return !( (rid && idSet.has(rid)) || (rnis && nisSet.has(rnis)) );
+        return !( (rid && idSetDest.has(rid)) || (rnis && nisSetDest.has(rnis)) );
       });
 
-      // tulis tujuan
+      // gabung + sort by id
+      const combined = [...dstArr, ...appendable];
+      const sortedCombined = sortByIdNumeric(combined);
+
       const okDst = await writeJsonFile(
         dstPath,
-        [...dstArr, ...appendableFiltered],
+        sortedCombined,
         token,
         dst.exists ? dst.sha : null,
-        dst.exists ? `Append ${appendableFiltered.length} santri -> ${tujuan} (${tanggal})`
-                   : `Create ${tujuan} (${tanggal}) & seed ${appendableFiltered.length} santri`
+        dst.exists ? `Append ${appendable.length} santri -> ${tujuan} (${tanggal}, sorted)`
+                   : `Create ${tujuan} (${tanggal}) & seed ${appendable.length} santri (sorted)`
       );
       if (!okDst.ok) { report.push({ tanggal, moved:0, note:"gagal tulis tujuan" }); continue; }
 
-      // tulis sumber (hapus pindahan)
+      // sumber (hapus pindahan) + sort
+      const sortedRemaining = sortByIdNumeric(remaining);
       const okSrc = await writeJsonFile(
         srcPath,
-        remaining,
+        sortedRemaining,
         token,
         src.sha,
-        `Remove ${toMove.length} santri pindah dari ${asal} (${tanggal})`
+        `Remove ${toMoveRaw.length} santri pindah dari ${asal} (${tanggal}, sorted)`
       );
       if (!okSrc.ok) { report.push({ tanggal, moved:0, note:"gagal tulis asal" }); continue; }
 
-      totalMoved += appendableFiltered.length;
-      report.push({ tanggal, moved: appendableFiltered.length });
+      totalMoved += appendable.length;
+      report.push({ tanggal, moved: appendable.length });
     }
 
     return { statusCode: 200, body: JSON.stringify({ success:true, totalMoved, details: report }) };
