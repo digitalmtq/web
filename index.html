@@ -1590,58 +1590,60 @@ function aturDropdownKelas(user) {
       }, 500);
     });
 
-    // helper aman: cek apakah value berupa angka murni (string "005", "12", atau number)
-const isNumLike = (v) => typeof v === 'number'
-  ? Number.isFinite(v)
-  : (typeof v === 'string' && /^\s*\d+\s*$/.test(v));
-
-const numVal = (v) => isNumLike(v) ? Number(String(v).trim()) : null;
-
-async function loadSantriData() {
+    async function loadSantriData() { 
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
   overlay.style.display = "flex";
+  renderNilaiRingkasById(absensiData);
+
 
   try {
-    const santriRes   = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}`);
-    let santriData    = await santriRes.json();
+    // Ambil semua santri di kelas
+    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+    let santriData = await resSantri.json();
 
-    const absensiRes  = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
-    const absensiData = await absensiRes.json();
+    // Ambil data absensi
+    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+    const absensiData = await resAbsensi.json();
 
-    // ==== JANGAN ubah s.id / a.id! Bangun index dgn 2 kunci: raw & numeric ====
-    const absensiByIdRaw = new Map();  // kunci: id apa adanya (string/number)
-    const absensiByIdNum = new Map();  // kunci: id number (jika bisa)
+    // Ambil username user login
+    const username = localStorage.getItem("username");
 
-    for (const a of absensiData || []) {
-      if (a?.id !== undefined && a?.id !== null) {
-        absensiByIdRaw.set(String(a.id), a);
-        const n = numVal(a.id);
-        if (n !== null) absensiByIdNum.set(n, a);
+    // Ambil semua user dan temukan user login
+    const users = await fetch(`/.netlify/functions/getUsers`).then(r => r.json());
+    const user = users.find(u => u.username === username);
+
+    // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
+    if (user) {
+      // Superuser: tidak ada properti kelas → akses semua
+      if (user.kelas && user.kelas.length) {
+        // Batasi ke kelas yang diizinkan
+        if (!user.kelas.includes(kelas)) {
+          santriData = []; // kelas tidak diizinkan
+        } else if (user.nis && user.nis.length) {
+          // Batasi NIS hanya yang diizinkan
+          santriData = santriData.filter(s => user.nis.includes(s.nis));
+        }
       }
+    } else {
+      // user tidak ditemukan → kosongkan tabel
+      santriData = [];
     }
+    // ===== END FILTER =====
 
     santriTableBody.innerHTML = "";
-    for (const s of santriData || []) {
-      // cari absensi: coba numeric dulu, lalu raw
-      const n = numVal(s.id);
-      let dataAbsensi = null;
-      if (n !== null) dataAbsensi = absensiByIdNum.get(n);
-      if (!dataAbsensi && s.id != null) dataAbsensi = absensiByIdRaw.get(String(s.id));
-      if (!dataAbsensi) dataAbsensi = {};
 
-      const bc        = dataAbsensi.buttonCell || {};
-      const nilaiNum  = Number(bc.nilai);
-      const nilaiView = Number.isFinite(nilaiNum) ? nilaiNum.toFixed(1) : "";
-      const predHTML  = nilaiView ? ` - ${bgHuruf(bc.predikatHuruf ?? "-", bc.predikatText ?? "-")}` : "";
-
+    santriData.forEach((santri, i) => {
+      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
       const row = document.createElement("tr");
-      row.id = `row-${s.id ?? ""}`;         // tetap pakai id asli
-      row.dataset.id = String(s.id ?? "");
+
+      const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
+      const dari = (dataAbsensi.dari || "1:1").split(":");
+      const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
       row.innerHTML = `
-        <td>${s.id ?? "-"}</td>
-        <td>${santri.nama || "-"}</td>
+        <td>${santri.id || santri.nis}</td>
+        <td>${santri.nama}</td>
         <td>
           <select class="absensi">
             <option value="Hadir" ${dataAbsensi.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
@@ -1674,8 +1676,11 @@ async function loadSantriData() {
         </td>
         <td>
           <div class="nilai-ringkas">
-            ${nilaiView ? `<strong>${nilaiView}</strong>${predHTML}` : ""}
+            ${dataAbsensi.buttonCell 
+               ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+               : ''}
           </div>
+          <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
         </td>
         <td class="total-all-juz">
           <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
@@ -3085,6 +3090,76 @@ function renderTabelPredikat() {
 }
 </script>
 
+<script>
+// ====== Helper normalisasi & lookup ID ======
+const _normIdStr = (v) => {
+  if (v == null) return '';
+  const s = String(v).trim();
+  if (s === '') return '';
+  // buang leading zero kecuali "0"
+  const t = s.replace(/^0+(\d)/, '$1');
+  return t;
+};
+const _toNum = (v) => {
+  const s = _normIdStr(v);
+  return /^\d+$/.test(s) ? Number(s) : null;
+};
+function _getByIdFlexible(mapRaw, mapNum, id, idMap) {
+  // translate id baru -> id lama bila ada idMap
+  let raw = _normIdStr(id);
+  if (idMap && Array.isArray(idMap)) {
+    const hit = idMap.find(m => _normIdStr(m.newId) === raw);
+    if (hit) raw = _normIdStr(hit.oldId);
+  }
+
+  // 1) coba raw string
+  if (mapRaw.has(raw)) return mapRaw.get(raw);
+
+  // 2) coba numeric
+  const n = _toNum(raw);
+  if (n != null && mapNum.has(n)) return mapNum.get(n);
+
+  // 3) fallback: coba raw->numeric->raw lain (leading zero / type mismatch)
+  // (sudah dicakup oleh norm di atas, jadi cukup return undefined)
+  return undefined;
+}
+
+// ====== Fungsi utama: render nilai-ringkas by ID ======
+function renderNilaiRingkasById(absensiData) {
+  // build index: by raw string & by numeric
+  const mapRaw = new Map();
+  const mapNum = new Map();
+  (Array.isArray(absensiData) ? absensiData : []).forEach(a => {
+    const kRaw = _normIdStr(a?.id);
+    if (kRaw) mapRaw.set(kRaw, a);
+    const kNum = _toNum(a?.id);
+    if (kNum != null) mapNum.set(kNum, a);
+  });
+
+  // optional idMap dari proses pindah (oldId <-> newId)
+  const idMap = Array.isArray(window.idMapPindahan) ? window.idMapPindahan : null;
+
+  // untuk tiap baris <tr id="row-XXX" data-id="XXX">
+  document.querySelectorAll('tr[id^="row-"]').forEach(tr => {
+    const cell = tr.querySelector('.nilai-ringkas');
+    if (!cell) return;
+
+    // ambil ID baris (data-id lebih presisi; fallback dari id)
+    const rowKey = tr.dataset.id || tr.id.replace(/^row-/, '');
+    const a = _getByIdFlexible(mapRaw, mapNum, rowKey, idMap);
+
+    const bc = a?.buttonCell || {};
+    const n  = Number(bc.nilai);
+    if (Number.isFinite(n)) {
+      const huruf = bc.predikatHuruf ?? '-';
+      const teks  = bc.predikatText  ?? '-';
+      cell.innerHTML = `<strong>${n.toFixed(1)}</strong> - ${bgHuruf(huruf, teks)}`;
+    } else {
+      cell.innerHTML = '';
+    }
+  });
+}
+</script>
 
 	
 </body>
