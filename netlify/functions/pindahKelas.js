@@ -1,65 +1,82 @@
+// pindahKelas.js
 const fetch = require("node-fetch");
+
+const GITHUB_API = "https://api.github.com/repos/digitalmtq/server/contents";
+const TOKEN = process.env.MTQ_TOKEN;
+
+async function fetchGitHub(filePath) {
+  const res = await fetch(`${GITHUB_API}/${filePath}`, {
+    headers: { Authorization: `Bearer ${TOKEN}`, Accept: "application/vnd.github.v3+json" },
+  });
+  if (!res.ok) return { ok: false };
+  const data = await res.json();
+  return { ok: true, data };
+}
+
+async function updateGitHub(filePath, content, sha) {
+  const body = {
+    message: `Update file ${filePath}`,
+    content: Buffer.from(JSON.stringify(content, null, 2)).toString("base64"),
+    committer: { name: "admin", email: "admin@local" },
+  };
+  if (sha) body.sha = sha;
+
+  const res = await fetch(`${GITHUB_API}/${filePath}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${TOKEN}`, Accept: "application/vnd.github.v3+json" },
+    body: JSON.stringify(body),
+  });
+  return res.ok;
+}
 
 exports.handler = async (event) => {
   try {
-    const token = process.env.MTQ_TOKEN;
-    const { kelasAsal, kelasTujuan, santri } = JSON.parse(event.body);
-    if (!kelasAsal || !kelasTujuan || !santri?.length)
-      return { statusCode: 400, body: JSON.stringify({ error: "Parameter wajib" }) };
+    const { kelasAsal, kelasTujuan, santriIds, tanggal } = JSON.parse(event.body);
 
-    const apiBase = "https://api.github.com/repos/digitalmtq/server/contents/";
-    const fileAsal = `${kelasAsal}.json`;
-    const fileTujuan = `${kelasTujuan}.json`;
-
-    // Ambil kelas asal
-    const resAsal = await fetch(`${apiBase}${fileAsal}`, { headers: { Authorization:`Bearer ${token}`, Accept:"application/vnd.github.v3+json" } });
-    const dataAsal = await resAsal.json();
-    let santriAsal = JSON.parse(Buffer.from(dataAsal.content,"base64").toString("utf-8"));
-    const shaAsal = dataAsal.sha;
-
-    // Ambil kelas tujuan
-    let santriTujuan = [];
-    let shaTujuan = null;
-    const resTujuan = await fetch(`${apiBase}${fileTujuan}`, { headers:{ Authorization:`Bearer ${token}`, Accept:"application/vnd.github.v3+json" } });
-    if(resTujuan.ok){
-      const dataTujuan = await resTujuan.json();
-      santriTujuan = JSON.parse(Buffer.from(dataTujuan.content,"base64").toString("utf-8"));
-      shaTujuan = dataTujuan.sha;
+    if (!kelasAsal || !kelasTujuan || !santriIds?.length || !tanggal) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Parameter wajib: kelasAsal, kelasTujuan, santriIds, tanggal" }) };
     }
 
-    // Pindahkan santri
-    const toMove = santriAsal.filter(s => santri.includes(s.id.toString()) || santri.includes(s.nis));
-    santriAsal = santriAsal.filter(s => !santri.includes(s.id.toString()) && !santri.includes(s.nis));
-    santriTujuan.push(...toMove);
+    const fileAsal = `absensi/${kelasAsal}_${tanggal}.json`;
+    const fileTujuan = `absensi/${kelasTujuan}_${tanggal}.json`;
 
-    // Update kelas asal
-    await fetch(`${apiBase}${fileAsal}`, {
-      method: "PUT",
-      headers:{ Authorization:`Bearer ${token}`, Accept:"application/vnd.github.v3+json" },
-      body: JSON.stringify({
-        message:`Hapus santri pindah kelas`,
-        content: Buffer.from(JSON.stringify(santriAsal,null,2)).toString("base64"),
-        sha: shaAsal,
-        committer:{ name:"admin", email:"admin@local" }
-      })
-    });
+    // Ambil file asal
+    const resAsal = await fetchGitHub(fileAsal);
+    if (!resAsal.ok) return { statusCode: 404, body: JSON.stringify({ error: "File kelas asal tidak ditemukan" }) };
+    let dataAsal = JSON.parse(Buffer.from(resAsal.data.content, "base64").toString("utf-8"));
+    const shaAsal = resAsal.data.sha;
 
-    // Update kelas tujuan
-    await fetch(`${apiBase}${fileTujuan}`, {
-      method:"PUT",
-      headers:{ Authorization:`Bearer ${token}`, Accept:"application/vnd.github.v3+json" },
-      body: JSON.stringify({
-        message:`Tambah santri pindah kelas`,
-        content: Buffer.from(JSON.stringify(santriTujuan,null,2)).toString("base64"),
-        sha: shaTujuan,
-        committer:{ name:"admin", email:"admin@local" }
-      })
-    });
+    // Ambil file tujuan
+    const resTujuan = await fetchGitHub(fileTujuan);
+    let dataTujuan = [];
+    let shaTujuan = null;
+    if (resTujuan.ok) {
+      dataTujuan = JSON.parse(Buffer.from(resTujuan.data.content, "base64").toString("utf-8"));
+      shaTujuan = resTujuan.data.sha;
+    }
 
-    return { statusCode: 200, body: JSON.stringify({ success:true }) };
+    // Filter santri yang dipindahkan
+    const pindah = dataAsal.filter(s => santriIds.includes(s.id.toString()) || santriIds.includes(s.nis));
+    if (!pindah.length) return { statusCode: 404, body: JSON.stringify({ error: "Santri tidak ditemukan di kelas asal" }) };
 
-  } catch(err){
+    // Hapus dari kelas asal
+    dataAsal = dataAsal.filter(s => !santriIds.includes(s.id.toString()) && !santriIds.includes(s.nis));
+
+    // Tambahkan ke kelas tujuan
+    dataTujuan.push(...pindah);
+
+    // Update GitHub
+    const okAsal = await updateGitHub(fileAsal, dataAsal, shaAsal);
+    const okTujuan = await updateGitHub(fileTujuan, dataTujuan, shaTujuan);
+
+    if (okAsal && okTujuan) {
+      return { statusCode: 200, body: JSON.stringify({ success: true, message: "Santri berhasil dipindahkan" }) };
+    } else {
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal update file di GitHub" }) };
+    }
+
+  } catch (err) {
     console.error(err);
-    return { statusCode:500, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
