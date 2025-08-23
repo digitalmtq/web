@@ -1,51 +1,55 @@
-import { Octokit } from "@octokit/rest";
-
 export async function handler(event) {
-  const kelas = event.queryStringParameters?.kelas;
-  if (!kelas) return { statusCode: 400, body: "Parameter kelas dibutuhkan" };
-
   const token = process.env.MTQ_TOKEN;
-  if (!token) return { statusCode: 500, body: JSON.stringify([]) };
+  const kelas = event.queryStringParameters?.kelas;
 
-  const octokit = new Octokit({ auth: token });
-  const owner = "digitalmtq";
-  const repo = "server";
-  const path = `kelas_${kelas}.json`;
+  if (!kelas) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Parameter 'kelas' wajib diisi" })
+    };
+  }
+
+  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/kelas_${kelas}.json`;
 
   try {
-    let file;
-    try {
-      file = await octokit.repos.getContent({ owner, repo, path });
-    } catch (err) {
-      // File tidak ada → buat kosong
-      console.log("File tidak ada, auto-create:", path);
-      const emptyData = [];
-      await octokit.repos.createOrUpdateFileContents({
-        owner,
-        repo,
-        path,
-        message: `Auto-create ${path}`,
-        content: Buffer.from(JSON.stringify(emptyData, null, 2)).toString("base64"),
-        committer: { name: "server", email: "server@local" },
-        author: { name: "server", email: "server@local" },
-      });
-      return { statusCode: 200, body: JSON.stringify([]) };
+    const response = await fetch(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json"
+      }
+    });
+
+    if (!response.ok) {
+      // Kalau 404 → return array kosong
+      if (response.status === 404) return { statusCode: 200, body: JSON.stringify([]) };
+
+      return {
+        statusCode: response.status,
+        body: JSON.stringify({ error: `Gagal fetch data: ${response.status}` })
+      };
     }
 
-    const content = file?.data?.content || "";
-    let santriData = [];
+    const result = await response.json();
+
+    // Decode base64 -> UTF-8
+    let decoded = [];
     try {
-      santriData = JSON.parse(Buffer.from(content, "base64").toString());
+      decoded = JSON.parse(Buffer.from(result.content, 'base64').toString('utf-8'));
     } catch (err) {
-      console.log("JSON corrupt, return empty array:", err.message);
-      santriData = [];
+      decoded = []; // fallback aman kalau JSON corrupt
     }
 
-    if (!Array.isArray(santriData)) santriData = [];
-    return { statusCode: 200, body: JSON.stringify(santriData) };
+    if (!Array.isArray(decoded)) decoded = [];
 
-  } catch (err) {
-    console.error("Error ambilSantri:", err.message);
-    return { statusCode: 200, body: JSON.stringify([]) }; // selalu return array
+    return {
+      statusCode: 200,
+      body: JSON.stringify(decoded)
+    };
+
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    };
   }
 }
