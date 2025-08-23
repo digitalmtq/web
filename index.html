@@ -1040,8 +1040,9 @@ async function submitTambahKelasBaru() {
         </thead>
         <tbody></tbody>
       </table>
-      <button onclick="bukaModalSantri()" style="margin-left:0px;">➕ Tambah Santri</button>
+      <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
       <button id="btnHapusSantri">Hapus Santri</button>
+	  <button id="btnPindahKelas">Pindah Kelas</button>
       <div class="actions">
         <button id="save-btn">Simpan Data Mutaba'ah</button>
         <button id="download-btn">Download PDF</button>
@@ -1052,12 +1053,36 @@ async function submitTambahKelasBaru() {
     </div>
   </div>
 
+
+	<!-- Modal Sederhana -->
+<div id="modalPindahKelas" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center;z-index:9999;">
+  <div style="background:#fff;padding:16px;border-radius:10px;max-width:520px;width:92%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 style="margin:0;">Pindah Kelas</h3>
+      <button id="closePindah" title="Tutup">✕</button>
+    </div>
+
+    <label><b>Pilih Santri (multi pilih):</b></label>
+    <select id="selectSantriPindah" multiple size="8" style="width:100%;margin:6px 0;"></select>
+
+    <div style="margin:8px 0;">
+      <label><b>Pilih Kelas Tujuan:</b></label>
+      <div id="listKelasTujuan" style="margin-top:6px;"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+      <button id="doPindah" style="padding:8px 12px;">Pindahkan</button>
+      <span id="statusPindah" style="font-size:.95rem;"></span>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Overlay -->
 <div id="modalHapusSantri" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
   <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-height:80%; overflow:auto;">
     <h3>Pilih Santri yang Akan Dihapus</h3>
     <ul id="listSantriHapus" style="list-style:none; padding-left:0;"></ul>
-    <button id="btnHapusTerpilih">Hapus Terpilih</button>
+    <button id="btnHapusTerpilih">Hapus</button>
     <button id="btnTutupModal">Tutup</button>
   </div>
 </div>
@@ -1615,7 +1640,7 @@ function aturDropdownKelas(user) {
       const sampai = (dataAbsensi.sampai || "1:1").split(":");
 
       row.innerHTML = `
-        <td>${santri.id || santri.id}</td>
+        <td>${santri.id || santri.nis}</td>
         <td>${santri.nama}</td>
         <td>
           <select class="absensi">
@@ -2483,6 +2508,143 @@ btnHapusTerpilih.addEventListener("click", async () => {
   }
 });
 </script>
+
+
+<script>
+(() => {
+  const elBtnOpen   = document.getElementById('btnPindahKelas');
+  const elModal     = document.getElementById('modalPindahKelas');
+  const elClose     = document.getElementById('closePindah');
+  const elSantriSel = document.getElementById('selectSantriPindah');
+  const elKelasWrap = document.getElementById('listKelasTujuan');
+  const elDo        = document.getElementById('doPindah');
+  const elStatus    = document.getElementById('statusPindah');
+
+  const normKelas = (k) => (k?.startsWith('kelas_') ? k : `kelas_${k}`);
+
+  // buka modal
+  elBtnOpen.addEventListener('click', openModal);
+  elClose.addEventListener('click', () => elModal.style.display = 'none');
+
+  async function openModal() {
+    elModal.style.display = 'flex';
+    elStatus.textContent = '';
+    elDo.disabled = false;
+
+    // 1) load santri kelas asal
+    const kelasAsal = normKelas(kelasSelect.value); // contoh: "kelas_1"
+    try {
+      const r = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}`);
+      const data = await r.json();
+      const arr = Array.isArray(data) ? data : [];
+      elSantriSel.innerHTML = arr.map(s => {
+        const id = s.id ?? '';
+        const nis = s.nis ?? '';
+        const nama = s.nama ?? '';
+        const value = id || nis || nama; // fallback
+        return `<option value="${String(value)}" data-id="${String(id)}" data-nis="${String(nis)}" data-nama="${String(nama)}">
+          ${nama} (${id || nis || '-'})
+        </option>`;
+      }).join('');
+    } catch {
+      elSantriSel.innerHTML = '';
+    }
+
+    // 2) load daftar kelas tujuan
+    try {
+      const rK = await fetch(`/.netlify/functions/ambilKelas`);
+      const kelasList = await rK.json();
+      const asalNow = normKelas(kelasSelect.value);
+      elKelasWrap.innerHTML = (Array.isArray(kelasList) ? kelasList : [])
+        .map(normKelas)
+        .filter(k => k !== asalNow)
+        .map(k => `<label style="display:block;margin:4px 0;">
+            <input type="radio" name="kelasTujuan" value="${k}"> ${k}
+          </label>`).join('');
+    } catch {
+      elKelasWrap.innerHTML = '<em>Gagal memuat daftar kelas.</em>';
+    }
+  }
+
+  // util: fetch JSON dengan error handling ringkas
+  async function postJSON(url, payload) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    let out = {};
+    try { out = await res.json(); } catch { out = {}; }
+    return { res, out };
+  }
+
+  // eksekusi pindah SEMUA TANGGAL + pindah roster
+  elDo.addEventListener('click', async () => {
+    const kelasAsal   = normKelas(kelasSelect.value);
+    const kelasTujuan = normKelas(document.querySelector('input[name="kelasTujuan"]:checked')?.value || '');
+    const selected    = Array.from(elSantriSel.selectedOptions);
+
+    if (!selected.length) { alert('Pilih minimal satu santri.'); return; }
+    if (!kelasTujuan)     { alert('Pilih kelas tujuan.'); return; }
+
+    // siapkan santriIds (dipakai untuk pindah absensi)
+    const santriIds = selected.map(o => o.dataset.id || o.value); // prioritaskan id jika ada
+
+    // siapkan identifiers (dipakai untuk pindah roster)
+    const idSet  = new Set(selected.map(o => (o.dataset.id  || '').trim()).filter(Boolean));
+    const nisSet = new Set(selected.map(o => (o.dataset.nis || '').trim()).filter(Boolean));
+    const nameSet= new Set(selected.map(o => (o.dataset.nama|| '').trim().toLowerCase()).filter(Boolean));
+    const identifiers = Array.from(new Set([...idSet, ...nisSet, ...nameSet])); // gabungkan unik
+
+    elDo.disabled = true;
+    elStatus.style.color = '#333';
+    elStatus.textContent = 'Memproses semua tanggal…';
+
+    try {
+      // 1) pindahkan seluruh entri absensi lintas tanggal
+      {
+        const { res, out } = await postJSON('/.netlify/functions/pindahKelasSemuaTanggal', {
+          kelasAsal, kelasTujuan, santriIds
+        });
+        if (!res.ok || !out.success) {
+          elStatus.style.color = 'red';
+          elStatus.textContent = (out.error || `HTTP ${res.status}`) + (out.detail ? `: ${out.detail}` : '');
+          elDo.disabled = false;
+          return;
+        }
+        // info sukses absensi
+        elStatus.style.color = 'green';
+        elStatus.textContent = `Absensi: pindah ${out.totalMoved} entri lintas tanggal. Lanjut pindah roster…`;
+      }
+
+      // 2) pindahkan roster (kelas_X.json)
+      {
+        const { res, out } = await postJSON('/.netlify/functions/pindahRosterKelas', {
+          kelasAsal, kelasTujuan, identifiers
+        });
+        if (!res.ok || !out.success) {
+          elStatus.style.color = 'red';
+          elStatus.textContent = (out.error || `HTTP ${res.status}`) + (out.detail ? `: ${out.detail}` : '');
+          elDo.disabled = false;
+          return;
+        }
+      }
+
+      // sukses seluruh proses
+      elStatus.style.color = 'green';
+      elStatus.textContent = 'Selesai. Data absensi & roster berhasil dipindahkan.';
+      if (typeof loadSantriData === 'function') loadSantriData();
+      setTimeout(() => { elModal.style.display = 'none'; }, 700);
+
+    } catch (e) {
+      elStatus.style.color = 'red';
+      elStatus.textContent = 'Kesalahan jaringan/servis.';
+      elDo.disabled = false;
+    }
+  });
+})();
+</script>
+
 	
 
 <script>
