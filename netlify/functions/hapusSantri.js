@@ -1,91 +1,54 @@
-import fetch from "node-fetch";
-import { Buffer } from "buffer";
+import { Octokit } from "@octokit/rest";
 
 export async function handler(event) {
-  const token = process.env.MTQ_TOKEN;
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method not allowed. Gunakan POST." }),
-    };
-  }
-
-  const { id, kelas } = JSON.parse(event.body || "{}");
-
-  if (!id || !kelas) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Parameter id dan kelas wajib diisi." }),
-    };
-  }
-
-  // Pastikan format nama file benar (kelas_1.json, kelas_2.json, dst)
-  const fileName = `kelas_${kelas}.json`;
-  const githubApiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${fileName}`;
-
   try {
-    // 1. Ambil file lama dari GitHub
-    const getRes = await fetch(githubApiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "NetlifyFunction",
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
-
-    if (!getRes.ok) throw new Error(`Gagal ambil data GitHub: ${getRes.statusText}`);
-
-    const fileData = await getRes.json();
-    const contentDecoded = Buffer.from(fileData.content, "base64").toString("utf-8");
-    let santriList = JSON.parse(contentDecoded);
-
-    // 2. Hapus santri sesuai ID (handle tipe data number/string)
-    const awalLength = santriList.length;
-    santriList = santriList.filter(
-      (s) => String(s.id) !== String(id) && String(s.nis || "") !== String(id)
-    );
-
-    if (santriList.length === awalLength) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: `Santri dengan ID ${id} tidak ditemukan.` }),
-      };
+    const { kelas, identifier } = JSON.parse(event.body);
+    if (!kelas || !identifier) {
+      return { statusCode: 400, body: "Parameter kelas dan identifier dibutuhkan" };
     }
 
-    // 3. Encode & update ke GitHub
-    const updatedContent = Buffer.from(
-      JSON.stringify(santriList, null, 2)
-    ).toString("base64");
+    const octokit = new Octokit({ auth: process.env.MTQ_TOKEN });
+    const owner = "digitalmtq";
+    const repo = "server";
+    const path = `kelas_${kelas}.json`;
 
-    const putRes = await fetch(githubApiUrl, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "NetlifyFunction",
-        Accept: "application/vnd.github.v3+json",
-      },
-      body: JSON.stringify({
-        message: `Menghapus santri ID ${id} dari ${fileName}`,
-        content: updatedContent,
-        sha: fileData.sha,
-      }),
-    });
-
-    if (!putRes.ok) {
-      const errorText = await putRes.text();
-      throw new Error(`Gagal simpan ke GitHub: ${putRes.status} ${errorText}`);
+    let file;
+    try {
+      file = await octokit.repos.getContent({ owner, repo, path });
+    } catch (err) {
+      // File belum ada → buat kosong
+      const emptyData = [];
+      await octokit.repos.createOrUpdateFileContents({
+        owner,
+        repo,
+        path,
+        message: `Auto-create ${path}`,
+        content: Buffer.from(JSON.stringify(emptyData, null, 2)).toString("base64"),
+        committer: { name: "server", email: "server@local" },
+        author: { name: "server", email: "server@local" },
+      });
+      file = await octokit.repos.getContent({ owner, repo, path });
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, message: `Santri ID ${id} berhasil dihapus` }),
-    };
+    const content = Buffer.from(file.data.content, "base64").toString();
+    const data = JSON.parse(content);
+
+    // Hapus santri yang cocok dengan id atau nis
+    const filtered = data.filter(s => s.id != identifier && s.nis != identifier);
+
+    await octokit.repos.createOrUpdateFileContents({
+      owner,
+      repo,
+      path,
+      message: `Hapus santri ${identifier}`,
+      content: Buffer.from(JSON.stringify(filtered, null, 2)).toString("base64"),
+      sha: file.data.sha,
+      committer: { name: "server", email: "server@local" },
+      author: { name: "server", email: "server@local" },
+    });
+
+    return { statusCode: 200, body: JSON.stringify({ success: true }) };
   } catch (err) {
-    console.error("Error hapusSantri:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 }
