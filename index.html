@@ -2522,6 +2522,21 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
   const normKelas = (k) => (k?.startsWith('kelas_') ? k : `kelas_${k}`);
 
+  // tambahkan input tanggal (sekali saja)
+  let elStart = document.getElementById('startDateMove');
+  function ensureStartDateInput() {
+    if (!elStart) {
+      const holder = document.createElement('div');
+      holder.style.margin = '8px 0';
+      holder.innerHTML = `
+        <label><b>Mulai dari tanggal (opsional):</b></label><br/>
+        <input type="date" id="startDateMove" style="width:100%;max-width:260px;">
+      `;
+      elDo.parentElement.insertBefore(holder, elDo);
+      elStart = holder.querySelector('#startDateMove');
+    }
+  }
+
   // buka modal
   elBtnOpen.addEventListener('click', openModal);
   elClose.addEventListener('click', () => elModal.style.display = 'none');
@@ -2530,18 +2545,19 @@ btnHapusTerpilih.addEventListener("click", async () => {
     elModal.style.display = 'flex';
     elStatus.textContent = '';
     elDo.disabled = false;
+    ensureStartDateInput();
 
-    // 1) load santri kelas asal
-    const kelasAsal = normKelas(kelasSelect.value); // contoh: "kelas_1"
+    const kelasAsal = normKelas(kelasSelect.value);
+
+    // 1) load santri
     try {
       const r = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}`);
       const data = await r.json();
-      const arr = Array.isArray(data) ? data : [];
-      elSantriSel.innerHTML = arr.map(s => {
+      elSantriSel.innerHTML = (Array.isArray(data) ? data : []).map(s => {
         const id = s.id ?? '';
         const nis = s.nis ?? '';
         const nama = s.nama ?? '';
-        const value = id || nis || nama; // fallback
+        const value = id || nis || nama;
         return `<option value="${String(value)}" data-id="${String(id)}" data-nis="${String(nis)}" data-nama="${String(nama)}">
           ${nama} (${id || nis || '-'})
         </option>`;
@@ -2550,14 +2566,13 @@ btnHapusTerpilih.addEventListener("click", async () => {
       elSantriSel.innerHTML = '';
     }
 
-    // 2) load daftar kelas tujuan
+    // 2) load kelas tujuan
     try {
       const rK = await fetch(`/.netlify/functions/ambilKelas`);
       const kelasList = await rK.json();
-      const asalNow = normKelas(kelasSelect.value);
       elKelasWrap.innerHTML = (Array.isArray(kelasList) ? kelasList : [])
         .map(normKelas)
-        .filter(k => k !== asalNow)
+        .filter(k => k !== kelasAsal)
         .map(k => `<label style="display:block;margin:4px 0;">
             <input type="radio" name="kelasTujuan" value="${k}"> ${k}
           </label>`).join('');
@@ -2566,7 +2581,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
     }
   }
 
-  // util: fetch JSON dengan error handling ringkas
+  // util post JSON
   async function postJSON(url, payload) {
     const res = await fetch(url, {
       method: 'POST',
@@ -2578,7 +2593,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
     return { res, out };
   }
 
-  // eksekusi pindah SEMUA TANGGAL + pindah roster
+  // klik Pindah
   elDo.addEventListener('click', async () => {
     const kelasAsal   = normKelas(kelasSelect.value);
     const kelasTujuan = normKelas(document.querySelector('input[name="kelasTujuan"]:checked')?.value || '');
@@ -2587,54 +2602,52 @@ btnHapusTerpilih.addEventListener("click", async () => {
     if (!selected.length) { alert('Pilih minimal satu santri.'); return; }
     if (!kelasTujuan)     { alert('Pilih kelas tujuan.'); return; }
 
-    // siapkan santriIds (dipakai untuk pindah absensi)
-    const santriIds = selected.map(o => o.dataset.id || o.value); // prioritaskan id jika ada
+    // ids untuk absensi
+    const santriIds = selected.map(o => o.dataset.id || o.value);
 
-    // siapkan identifiers (dipakai untuk pindah roster)
-    const idSet  = new Set(selected.map(o => (o.dataset.id  || '').trim()).filter(Boolean));
-    const nisSet = new Set(selected.map(o => (o.dataset.nis || '').trim()).filter(Boolean));
-    const nameSet= new Set(selected.map(o => (o.dataset.nama|| '').trim().toLowerCase()).filter(Boolean));
-    const identifiers = Array.from(new Set([...idSet, ...nisSet, ...nameSet])); // gabungkan unik
+    // identifiers untuk roster
+    const idSet   = new Set(selected.map(o => (o.dataset.id   || '').trim()).filter(Boolean));
+    const nisSet  = new Set(selected.map(o => (o.dataset.nis  || '').trim()).filter(Boolean));
+    const nameSet = new Set(selected.map(o => (o.dataset.nama || '').trim().toLowerCase()).filter(Boolean));
+    const identifiers = Array.from(new Set([...idSet, ...nisSet, ...nameSet]));
+
+    const startDate = (elStart?.value || '').trim();
 
     elDo.disabled = true;
     elStatus.style.color = '#333';
-    elStatus.textContent = 'Memproses semua tanggal…';
+    elStatus.textContent = startDate
+      ? `Memproses mulai ${startDate}…`
+      : 'Memproses semua tanggal…';
 
     try {
-      // 1) pindahkan seluruh entri absensi lintas tanggal
-      {
-        const { res, out } = await postJSON('/.netlify/functions/pindahKelasSemuaTanggal', {
-          kelasAsal, kelasTujuan, santriIds
-        });
-        if (!res.ok || !out.success) {
-          elStatus.style.color = 'red';
-          elStatus.textContent = (out.error || `HTTP ${res.status}`) + (out.detail ? `: ${out.detail}` : '');
-          elDo.disabled = false;
-          return;
-        }
-        // info sukses absensi
-        elStatus.style.color = 'green';
-        elStatus.textContent = `Absensi: pindah ${out.totalMoved} entri lintas tanggal. Lanjut pindah roster…`;
+      // 1) roster dulu (supaya idMap siap)
+      const { res: r1, out: o1 } = await postJSON('/.netlify/functions/pindahRosterKelas', {
+        kelasAsal, kelasTujuan, identifiers
+      });
+      if (!r1.ok || !o1.success) {
+        elStatus.style.color = 'red';
+        elStatus.textContent = (o1.error || `HTTP ${r1.status}`) + (o1.detail ? `: ${o1.detail}` : '');
+        elDo.disabled = false;
+        return;
+      }
+      const idMap = Array.isArray(o1.idMap) ? o1.idMap : [];
+
+      // 2) absensi mulai tanggal, bawa idMap
+      const { res: r2, out: o2 } = await postJSON('/.netlify/functions/pindahKelasMulaiTanggal', {
+        kelasAsal, kelasTujuan, santriIds, startDate, idMap
+      });
+      if (!r2.ok || !o2.success) {
+        elStatus.style.color = 'red';
+        elStatus.textContent = (o2.error || `HTTP ${r2.status}`) + (o2.detail ? `: ${o2.detail}` : '');
+        elDo.disabled = false;
+        return;
       }
 
-      // 2) pindahkan roster (kelas_X.json)
-      {
-        const { res, out } = await postJSON('/.netlify/functions/pindahRosterKelas', {
-          kelasAsal, kelasTujuan, identifiers
-        });
-        if (!res.ok || !out.success) {
-          elStatus.style.color = 'red';
-          elStatus.textContent = (out.error || `HTTP ${res.status}`) + (out.detail ? `: ${out.detail}` : '');
-          elDo.disabled = false;
-          return;
-        }
-      }
-
-      // sukses seluruh proses
+      // sukses
       elStatus.style.color = 'green';
-      elStatus.textContent = 'Selesai. Data absensi & roster berhasil dipindahkan.';
+      elStatus.textContent = `Selesai. Roster & absensi (${o2.totalMoved} entri) sudah dipindahkan${startDate ? ' sejak ' + startDate : ''}.`;
       if (typeof loadSantriData === 'function') loadSantriData();
-      setTimeout(() => { elModal.style.display = 'none'; }, 700);
+      setTimeout(() => { elModal.style.display = 'none'; }, 800);
 
     } catch (e) {
       elStatus.style.color = 'red';
@@ -2644,6 +2657,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
   });
 })();
 </script>
+
 
 	
 
