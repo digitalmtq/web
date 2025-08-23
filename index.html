@@ -1634,6 +1634,8 @@ function aturDropdownKelas(user) {
     santriData.forEach((santri, i) => {
       const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
       const row = document.createElement("tr");
+	  row.id = `row-${santri.id}`;       // WAJIB
+	  row.dataset.id = String(santri.id); // WAJIB
 
       const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
       const dari = (dataAbsensi.dari || "1:1").split(":");
@@ -3079,11 +3081,31 @@ function bgHuruf(huruf, predikatText = "") {
 let dataSantri = []; // nanti diisi fetch atau data.push
 
 // 3. Fungsi render tabel
-function renderTabelPredikat() {
-  dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+// Normalisasi id agar "05" == "5"
+const idStr = v => (v == null ? "" : String(v).trim().replace(/^0+(\d)/, "$1"));
+
+// PAKAI INI: render nilai-ringkas berbasis ID & absensi server
+function renderTabelPredikat(absensiData) {
+  // index absensi by id (string yang sudah dinormalisasi)
+  const byId = new Map();
+  (Array.isArray(absensiData) ? absensiData : []).forEach(a => {
+    const k = idStr(a?.id);
+    if (k) byId.set(k, a);
+  });
+
+  // isi tiap baris berdasarkan id baris
+  document.querySelectorAll('tr[id^="row-"]').forEach(tr => {
+    const cell = tr.querySelector('.nilai-ringkas');
     if (!cell) return;
-    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
+
+    const k = idStr(tr.dataset.id || tr.id.replace(/^row-/, ""));
+    const a = byId.get(k);
+    const bc = a?.buttonCell || {};
+    const n  = Number(bc.nilai);
+
+    cell.innerHTML = Number.isFinite(n)
+      ? `<strong>${n.toFixed(1)}</strong> - ${bgHuruf(bc.predikatHuruf ?? "-", bc.predikatText ?? "-")}`
+      : "";
   });
 }
 </script>
