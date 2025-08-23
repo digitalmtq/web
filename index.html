@@ -2623,7 +2623,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
     try {
       // 1) pindahkan absensi dari startDate (jika kosong => dari awal)
       {
-        const { res, out } = await postJSON('/.netlify/functions/pindahKelasMulaiTanggal', {
+        const { res, out } = await postJSON('/.netlify/functions/dataKelasMulaiTanggal', {
           kelasAsal, kelasTujuan, santriIds, startDate
         });
         if (!res.ok || !out.success) {
