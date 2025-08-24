@@ -1596,57 +1596,44 @@ function aturDropdownKelas(user) {
   overlay.style.display = "flex";
 
   try {
-    // Ambil semua santri di kelas
+    // 1) Ambil semua santri di kelas
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
     let santriData = await resSantri.json();
 
-    // Ambil data absensi
+    // 2) Ambil data absensi (tanggal aktif)
     const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
     const absensiData = await resAbsensi.json();
 
-    // Ambil username user login
+    // 3) Ambil username user login & data user
     const username = localStorage.getItem("username");
-
-    // Ambil semua user dan temukan user login
     const users = await fetch(`/.netlify/functions/getUsers`).then(r => r.json());
     const user = users.find(u => u.username === username);
 
     // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
     if (user) {
-      // Superuser: tidak ada properti kelas → akses semua
       if (user.kelas && user.kelas.length) {
-        // Batasi ke kelas yang diizinkan
         if (!user.kelas.includes(kelas)) {
           santriData = []; // kelas tidak diizinkan
         } else if (user.nis && user.nis.length) {
-          // Batasi NIS hanya yang diizinkan
           santriData = santriData.filter(s => user.nis.includes(s.nis));
         }
       }
     } else {
-      // user tidak ditemukan → kosongkan tabel
-      santriData = [];
+      santriData = []; // user tidak ditemukan → kosongkan tabel
     }
     // ===== END FILTER =====
 
+    // 4) Ambil peta ayat terpakai (exclude tanggal aktif agar tetap bisa pilih di hari ini)
+    const usedResp = await fetch(
+      `/.netlify/functions/getUsedAyat?kelas=${encodeURIComponent(kelas)}&excludeTanggal=${encodeURIComponent(tanggal)}&username=${encodeURIComponent(username || "")}`
+    ).then(r => r.json()).catch(() => ({}));
+    const usedMap = usedResp?.used || {};
+
+    // 5) Render tabel
     santriTableBody.innerHTML = "";
 
-	  const kelas = kelasSelect.value;
-const tanggal = tanggalInput.value;              // ini tanggal aktif (lagi diedit)
-const username = localStorage.getItem("username");
-
-const { used } = await fetch(
-  `/.netlify/functions/getUsedAyat?kelas=${encodeURIComponent(kelas)}&excludeTanggal=${encodeURIComponent(tanggal)}&username=${encodeURIComponent(username)}`
-).then(r => r.json());
-
-// contoh pakai:
-const idKey = String(santri.id ?? santri.nis ?? '');
-const usedForSantri = new Set((used?.[idKey] || []).map(String));
-// lalu disable opsi ayat yang ada di usedForSantri saat isi dropdown
-
-
-    santriData.forEach((santri, i) => {
-      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
+    santriData.forEach((santri) => {
+      const dataAbsensi = absensiData.find(a => String(a.id) === String(santri.id)) || {};
       const row = document.createElement("tr");
 
       const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
