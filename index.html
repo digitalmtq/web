@@ -1414,11 +1414,8 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 
   
 
-  // === Fungsi atur dropdown kelas (ingat pilihan terakhir) ===
+  // === Fungsi atur dropdown kelas ===
 function aturDropdownKelas(user) {
-  // Pastikan elemennya ada
-  if (typeof kelasSelect === "undefined" || !kelasSelect) return;
-
   const semuaKelas = ["kelas_1", "kelas_2", "kelas_3", "kelas_4", "kelas_5", "kelas_6"];
 
   // Mapping custom nama
@@ -1431,11 +1428,10 @@ function aturDropdownKelas(user) {
     kelas_6: "Kelompok Gajah"
   };
 
-  // Tentukan kelas yang diizinkan (kalau user.kelas kosong → semua)
-  const kelasDiizinkan = (user?.kelas?.length ? user.kelas : semuaKelas);
-
-  // Bangun ulang opsi
   kelasSelect.innerHTML = "";
+
+  const kelasDiizinkan = user?.kelas?.length ? user.kelas : semuaKelas;
+
   semuaKelas.forEach(kls => {
     const opt = document.createElement("option");
     opt.value = kls;
@@ -1444,32 +1440,10 @@ function aturDropdownKelas(user) {
     kelasSelect.appendChild(opt);
   });
 
-  // ===== PRIORITAS: pakai yang terakhir dipilih (jika valid & tidak disabled) =====
-  // (gunakan key per-user agar tidak ketuker antar login)
-  const username = localStorage.getItem("username") || "anon";
-  const STORAGE_KEY = `lastKelas:${username}`;
-  const saved = localStorage.getItem(STORAGE_KEY);
-
-  const opsi = Array.from(kelasSelect.options);
-  const savedValid = saved && opsi.some(o => o.value === saved && !o.disabled);
-
-  if (savedValid) {
-    kelasSelect.value = saved; // pakai kelas terakhir
-  } else {
-    // Fallback: pilih kelas aktif pertama
-    const pertamaAktif = opsi.find(o => !o.disabled);
-    if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
-  }
-
-  // Simpan tiap kali user mengubah pilihan (pasang sekali saja)
-  if (!kelasSelect.dataset.boundSaveLast) {
-    kelasSelect.addEventListener("change", () => {
-      localStorage.setItem(STORAGE_KEY, kelasSelect.value);
-    });
-    kelasSelect.dataset.boundSaveLast = "1";
-  }
+  // Pilih kelas aktif pertama
+  const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
+  if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
 }
-
 
   // === Tampilkan dashboard ===
   function showDashboard() {
