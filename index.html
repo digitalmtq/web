@@ -1440,9 +1440,15 @@ function aturDropdownKelas(user) {
     kelasSelect.appendChild(opt);
   });
 
-  // Pilih kelas aktif pertama
-  const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
-  if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
+ // Ambil dari localStorage dulu
+const saved = localStorage.getItem("lastKelas");
+const opsi = Array.from(kelasSelect.options);
+
+if (saved && opsi.some(o => o.value === saved && !o.disabled)) {
+  kelasSelect.value = saved;   // pakai kelas terakhir
+} else {
+  const pertamaAktif = opsi.find(o => !o.disabled);
+  if (pertamaAktif) kelasSelect.value = pertamaAktif.value; // fallback
 }
 
   // === Tampilkan dashboard ===
