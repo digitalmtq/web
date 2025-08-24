@@ -1414,18 +1414,12 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 
   
 
- // === Fungsi atur dropdown kelas (dengan memory & auto-restore) ===
-// Cara pakai:
-// aturDropdownKelas(user);                        // auto panggil loadSantriData() setelah set value
-// aturDropdownKelas(user, { autoLoad: false });   // kalau tidak mau auto load
-function aturDropdownKelas(user, { autoLoad = true } = {}) {
-  const kelasSelect = document.getElementById("kelas");
-  if (!kelasSelect) return;
+  // === Fungsi atur dropdown kelas ===
+function aturDropdownKelas(user) {
+  const semuaKelas = ["kelas_1", "kelas_2", "kelas_3", "kelas_4", "kelas_5", "kelas_6"];
 
-  // --- Konstanta & util ---
-  const SEMUA_KELAS = ["kelas_1", "kelas_2", "kelas_3", "kelas_4", "kelas_5", "kelas_6"];
-
-  const NAMA_KELAS_CUSTOM = {
+  // Mapping custom nama
+  const namaKelasCustom = {
     kelas_1: "Kelompok Lebah",
     kelas_2: "Kelompok Semut",
     kelas_3: "Kelompok Burung",
@@ -1434,62 +1428,22 @@ function aturDropdownKelas(user, { autoLoad = true } = {}) {
     kelas_6: "Kelompok Gajah"
   };
 
-  // Key penyimpanan per-user (biar tidak ketuker antar login)
-  const username = localStorage.getItem("username") || "anon";
-  const STORAGE_KEY = `mtq:lastKelas:${username}`;
-
-  // Kelas yang diizinkan (jika user.kelas kosong/undefined → semua diizinkan)
-  const kelasDiizinkan = (user && Array.isArray(user.kelas) && user.kelas.length)
-    ? user.kelas
-    : SEMUA_KELAS;
-
-  // --- Bangun ulang opsi ---
   kelasSelect.innerHTML = "";
-  SEMUA_KELAS.forEach(kls => {
+
+  const kelasDiizinkan = user?.kelas?.length ? user.kelas : semuaKelas;
+
+  semuaKelas.forEach(kls => {
     const opt = document.createElement("option");
     opt.value = kls;
-    opt.textContent = NAMA_KELAS_CUSTOM[kls] || kls;
+    opt.textContent = namaKelasCustom[kls] || kls; // pakai custom kalau ada
     opt.disabled = !kelasDiizinkan.includes(kls);
     kelasSelect.appendChild(opt);
   });
 
-  // --- Tentukan value final (prioritas: saved -> pertama yang aktif) ---
-  const saved = localStorage.getItem(STORAGE_KEY);
-  const opsi = Array.from(kelasSelect.options);
-
-  // helper: cari opsi aktif (tidak disabled)
-  const firstActive = opsi.find(o => !o.disabled);
-
-  if (saved && opsi.some(o => o.value === saved && !o.disabled)) {
-    // Saved valid & diizinkan → gunakan
-    kelasSelect.value = saved;
-  } else if (firstActive) {
-    // Fallback ke opsi aktif pertama
-    kelasSelect.value = firstActive.value;
-    // Sinkronkan storage dengan fallback terbaru
-    localStorage.setItem(STORAGE_KEY, kelasSelect.value);
-  } else {
-    // Edge case: semua opsi disabled (harusnya tidak terjadi)
-    // biarkan value apa adanya dan jangan write storage
-  }
-
-  // --- Pasang listener 'change' sekali saja ---
-  if (!kelasSelect.dataset.boundSaveLast) {
-    kelasSelect.addEventListener("change", () => {
-      localStorage.setItem(STORAGE_KEY, kelasSelect.value);
-      if (autoLoad && typeof loadSantriData === "function") {
-        loadSantriData();
-      }
-    });
-    kelasSelect.dataset.boundSaveLast = "1";
-  }
-
-  // --- Auto load setelah value final ditetapkan ---
-  if (autoLoad && typeof loadSantriData === "function") {
-    loadSantriData();
-  }
+  // Pilih kelas aktif pertama
+  const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
+  if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
 }
-
 
   // === Tampilkan dashboard ===
   function showDashboard() {
