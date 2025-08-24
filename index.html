@@ -1483,20 +1483,21 @@ function aturDropdownKelas(user) {
   }
 
   if (startDateInput) {
-    startDateInput.value = savedStart || today;
-    startDateInput.addEventListener("change", () => {
-      localStorage.setItem("startDateTerakhir", startDateInput.value);
-      loadSantriData(); // 🔹 langsung refresh data
-    });
-  }
+  startDateInput.value = savedStart || today;
+  startDateInput.addEventListener("change", () => {
+    localStorage.setItem("startDateTerakhir", startDateInput.value);
+    loadSantriData();  // 🔹 PENTING: refresh tabel
+  });
+}
 
-  if (endDateInput) {
-    endDateInput.value = savedEnd || today;
-    endDateInput.addEventListener("change", () => {
-      localStorage.setItem("endDateTerakhir", endDateInput.value);
-      loadSantriData(); // 🔹 langsung refresh data
-    });
-  }
+if (endDateInput) {
+  endDateInput.value = savedEnd || today;
+  endDateInput.addEventListener("change", () => {
+    localStorage.setItem("endDateTerakhir", endDateInput.value);
+    loadSantriData();  // 🔹 PENTING: refresh tabel
+  });
+}
+
 
   // 🟢 Tampilkan data awal saat dashboard dibuka
   loadSantriData();
