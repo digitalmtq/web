@@ -1016,9 +1016,13 @@ async function submitTambahKelasBaru() {
     <label for="kelas">Kelas:</label>
     <select id="kelas"></select>
 
-     <!-- Input tanggal awal (lama, tetap dipakai) -->
-      <label for="tanggal">Tanggal:</label>
-      <input type="date" id="tanggal" />
+     <label for="tanggal">Tanggal:</label>
+<input type="date" id="tanggal" />
+
+<!-- 🔹 TAMBAHAN: input tanggal kedua khusus filter tabel -->
+<label for="tanggal-filter-akhir" style="margin-left:8px;">s/d</label>
+<input type="date" id="tanggal-filter-akhir" />
+
   </div>
 </div>
 
@@ -1540,6 +1544,20 @@ function aturDropdownKelas(user) {
 
   const today = new Date().toLocaleDateString('sv-SE'); // Format YYYY-MM-DD
 
+  // 🔹 batas maksimal untuk tanggal filter akhir (hanya bila elemen ada)
+if (tanggalFilterAkhir) tanggalFilterAkhir.max = today;
+
+// 🔹 ambil & set nilai terakhir tanggal filter akhir
+const savedTanggalAkhirFilter = localStorage.getItem("tanggalFilterAkhirTerakhir") || "";
+if (tanggalFilterAkhir) {
+  tanggalFilterAkhir.value = savedTanggalAkhirFilter;
+  tanggalFilterAkhir.addEventListener("change", () => {
+    localStorage.setItem("tanggalFilterAkhirTerakhir", tanggalFilterAkhir.value);
+    loadSantriData(); // langsung refresh tabel
+  });
+}
+
+
   // 🟢 Atur batas tanggal maksimal supaya tidak bisa pilih ke depan
   if (tanggalInput) tanggalInput.max = today;
   if (startDateInput) startDateInput.max = today; // 🔹 TAMBAHAN
@@ -1604,22 +1622,23 @@ function aturDropdownKelas(user) {
 
     // Ambil data absensi
     let absensiData = [];
-const startDate = startDateInput.value;
-const endDate = endDateInput.value;
+const endFilter = tanggalFilterAkhir ? tanggalFilterAkhir.value : "";
 
-// Jika user memilih rentang tanggal
-if (startDate && endDate && startDate !== endDate) {
+// Jika user memilih tanggal akhir berbeda → pakai rentang
+if (endFilter && endFilter !== tanggal) {
   const resAbsensiRange = await fetch(
-    `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`
+    `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${tanggal}&end=${endFilter}`
   );
   absensiData = await resAbsensiRange.json();
 } else {
-  // Jika hanya satu tanggal (atau tanggal sama)
+  // Jika kosong / sama → satu tanggal seperti biasa
   const resAbsensi = await fetch(
     `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`
   );
   absensiData = await resAbsensi.json();
 }
+
+
 
 
     // Ambil username user login
