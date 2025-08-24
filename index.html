@@ -1570,20 +1570,21 @@ if (tanggalFilterAkhir) {
 
   // 🟢 Set tanggal default + auto-simpan saat user ubah
   if (tanggalInput) {
-    tanggalInput.value = savedTanggal || today;
-    tanggalInput.addEventListener("change", () => {
-      localStorage.setItem("tanggalTerakhir", tanggalInput.value);
-      loadSantriData(); // 🔹 langsung refresh data
-    });
-  }
+  tanggalInput.value = savedTanggal || today;
+  tanggalInput.addEventListener("change", () => {
+    // simpan tanggal awal
+    localStorage.setItem("tanggalTerakhir", tanggalInput.value);
 
-  if (startDateInput) {
-    startDateInput.value = savedStart || today;
-    startDateInput.addEventListener("change", () => {
-      localStorage.setItem("startDateTerakhir", startDateInput.value);
-      loadSantriData(); // 🔹 langsung refresh data
-    });
-  }
+    // 🔹 reset tanggal akhir agar default kembali ke "single date"
+    if (tanggalFilterAkhir) {
+      tanggalFilterAkhir.value = "";
+      localStorage.removeItem("tanggalFilterAkhirTerakhir");
+    }
+
+    // muat ulang tabel
+    loadSantriData();
+  });
+}
 
   if (endDateInput) {
     endDateInput.value = savedEnd || today;
