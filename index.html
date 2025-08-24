@@ -2446,41 +2446,33 @@ document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTot
       rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
     });
 
-    // ⛑ Jangan jalan kalau rows/rekap belum ada (mis. di halaman login)
-if (typeof rows !== "undefined" && rows && typeof rekap !== "undefined" && rekap) {
-  const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
-  rows.forEach(row => {
-    const idCell = row.children && row.children[0] ? row.children[0].textContent : "";
-    const id = parseInt(idCell, 10);
-    const cell = row.querySelector(".total-all-juz");
-    if (!Number.isFinite(id) || !cell) return; // aman kalau baris/sel belum siap
+    rows.forEach(row => {
+      const id = parseInt(row.children[0].textContent);
+      const cell = row.querySelector(".total-all-juz");
+      if (rekap[id]) {
+        const totalJuz = rekap[id].totalJuz.toFixed(2);
+        let semester = parseInt(row.querySelector(".semester")?.value) || rekap[id].semester;
+        const target = batasSemester[semester] || 0;
 
-    if (rekap[id]) {
-      const totalJuzNum = Number(rekap[id].totalJuz) || 0;
-      const totalJuz = totalJuzNum.toFixed(2);
+        let prosentase = target > 0 ? Math.floor((rekap[id].totalJuz / target) * 100) : 0;
+        if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
 
-      let semester = parseInt(row.querySelector(".semester")?.value, 10) || rekap[id].semester;
-      const target = batasSemester[semester] || 0;
+        const tuntas = prosentase >= 100;
+        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
 
-      let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
-      if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
-
-      // 🔑 Prioritas KHATAM bila ≥ 30 juz
-      const isKhatam = totalJuzNum >= 30;
-      const tuntas = !isKhatam && prosentase >= 100;
-
-      const label = isKhatam ? "KHATAM" : (tuntas ? "TUNTAS" : `${prosentase}%`);
-      const warna = isKhatam ? "#6a1b9a" : (tuntas ? "green" : "red");
-
-      cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:10px">${label}</span>`;
-    } else {
-      cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
-    }
-  });
+        cell.innerHTML =
+          `${totalJuz} <span style="color:${tuntas ? 'green' : 'red'}; font-size:10px">` +
+          `${label}</span>`;
+      } else {
+        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+      }
+    });
+  } catch (err) {
+    console.error("Gagal ambil data absensi:", err);
+  }
 }
-
-
 
 
 // Jalankan saat pertama kali halaman selesai dimuat
