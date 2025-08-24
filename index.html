@@ -2403,182 +2403,68 @@ document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTot
 
 
 
-   // =========================
-// Hitung Total All Juz Otomatis (AMAN)
-// =========================
-async function hitungTotalAllJuzOtomatis() {
+   async function hitungTotalAllJuzOtomatis() {
+  const kelas = kelasSelect.value;
+
+  // Tunggu tabel terisi
+  const rows = santriTableBody.querySelectorAll("tr");
+  if (rows.length === 0) {
+    setTimeout(hitungTotalAllJuzOtomatis, 200);
+    return;
+  }
+
+  // Ambil tanggal otomatis dari server
+  const rangeDari = document.getElementById("rangeDari");
+  const rangeSampai = document.getElementById("rangeSampai");
   try {
-    // Pastikan elemen-elemen kunci ada
-    const kelasSelect = window.kelasSelect || document.getElementById("kelas");
-    const santriTableBody = window.santriTableBody || document.querySelector("#tabelSantri tbody");
-    const rangeDari = document.getElementById("rangeDari");
-    const rangeSampai = document.getElementById("rangeSampai");
-
-    if (!kelasSelect || !santriTableBody) {
-      // Halaman belum siap / bukan halaman tabel → aman keluar
-      return;
+    const res = await fetch("/.netlify/functions/getAutoUpdateAllJuz");
+    const allData = await res.json();
+    const kelasData = allData.find(item => item.kelas === kelas);
+    if (kelasData) {
+      if (rangeDari) rangeDari.value = kelasData.fromDate || "";
+      if (rangeSampai) rangeSampai.value = kelasData.toDate || "";
     }
+  } catch (err) {
+    console.error("Gagal ambil tanggal otomatis:", err);
+  }
 
-    const kelas = kelasSelect.value;
+  const dari = rangeDari?.value;
+  const sampai = rangeSampai?.value;
+  if (!dari || !sampai) return;
 
-    // Tunggu tabel terisi (maks. 20x cek)
-    let tries = 0;
-    while (santriTableBody.querySelectorAll("tr").length === 0 && tries < 20) {
-      await new Promise(r => setTimeout(r, 150));
-      tries++;
-    }
-    const rows = santriTableBody.querySelectorAll("tr");
-    if (rows.length === 0) return; // tetap aman keluar jika tabel memang kosong
-
-    // Ambil tanggal otomatis dari server
-    try {
-      const res = await fetch("/.netlify/functions/getAutoUpdateAllJuz");
-      if (res.ok) {
-        const allData = await res.json();
-        const kelasData = Array.isArray(allData) ? allData.find(item => item.kelas === kelas) : null;
-        if (kelasData) {
-          if (rangeDari) rangeDari.value = kelasData.fromDate || "";
-          if (rangeSampai) rangeSampai.value = kelasData.toDate || "";
-        }
-      }
-    } catch (err) {
-      console.warn("Gagal ambil tanggal otomatis:", err);
-      // lanjut saja, mungkin user isi manual
-    }
-
-    const dari = rangeDari?.value;
-    const sampai = rangeSampai?.value;
-    if (!dari || !sampai) return; // belum ada rentang tanggal → aman keluar
-
-    // Ambil absensi rentang & susun rekap lokal
-    const resAbs = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}`);
-    if (!resAbs.ok) {
-      console.warn("Gagal ambil absensi range:", await resAbs.text());
-      return;
-    }
+  // Ambil absensi & hitung total
+  try {
+    const resAbs = await fetch(
+      `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${dari}&end=${sampai}`
+    );
     const allData = await resAbs.json();
 
     const rekap = {};
-    (Array.isArray(allData) ? allData : []).forEach(item => {
-      const id = Number(item.id);
-      if (!Number.isFinite(id)) return;
+    allData.forEach(item => {
+      const id = item.id;
       if (!rekap[id]) rekap[id] = { totalJuz: 0, semester: item.semester || null };
       rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
-      if (item.semester && !rekap[id].semester) rekap[id].semester = item.semester;
     });
 
-    // Render label ke tabel (tanpa ganggu halaman lain)
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
-    rows.forEach(row => {
-      const idText = row?.children?.[0]?.textContent?.trim();
-      const id = Number(idText);
-      const cell = row.querySelector(".total-all-juz");
-      if (!Number.isFinite(id) || !cell) return;
+// Jalankan saat pertama kali halaman selesai dimuat
+window.addEventListener("DOMContentLoaded", hitungTotalAllJuzOtomatis);
 
-      const r = rekap[id];
-      if (!r) {
-        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
-        return;
-      }
-
-      const totalJuzNum = Number(r.totalJuz) || 0;
-      const totalJuz = totalJuzNum.toFixed(2);
-
-      // 🔑 KHATAM jika ≥ 30 juz
-      if (totalJuzNum >= 30) {
-        cell.innerHTML = `${totalJuz} <span style="color:#6a1b9a; font-size:10px">KHATAM</span>`;
-        return;
-      }
-
-      // Hitung tuntas per semester
-      const semesterDrop = row.querySelector(".semester");
-      const semester = Number(semesterDrop?.value) || Number(r.semester) || 0;
-      const target = batasSemester[semester] || 0;
-
-      let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
-      if (prosentase > 100) prosentase = 100;
-
-      const tuntas = prosentase >= 100;
-      const label = tuntas ? "TUNTAS" : `${prosentase}%`;
-      const warna = tuntas ? "green" : "red";
-
-      cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:10px">${label}</span>`;
-    });
-  } catch (err) {
-    // Jangan biarkan error mematikan login/fitur lain
-    console.warn("hitungTotalAllJuzOtomatis() di-skip:", err);
-  }
+// Pastikan otomatis jalan lagi setelah tabel diperbarui
+function afterTableRendered() {
+  setTimeout(hitungTotalAllJuzOtomatis, 50);
 }
 
-
-// =========================
-// Pengait yang AMAN
-// =========================
-
-// 1) Jalankan sekali saat halaman siap (kalau memang ada tabelnya)
-(function safeAttachDOMContentLoaded() {
-  if (typeof document === "undefined") return;
-  const run = () => {
-    // panggil sekali; fungsi sudah aman kalau tabel/elemen tidak ada
-    hitungTotalAllJuzOtomatis();
-  };
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", run, { once: true });
-  } else {
-    // sudah siap
-    run();
-  }
-})();
-
-// 2) Sediakan helper untuk dipanggil setelah render tabel
-window.afterTableRendered = function () {
-  // jeda kecil agar DOM terpasang sempurna
-  setTimeout(() => { hitungTotalAllJuzOtomatis(); }, 50);
+// Integrasi ke loadSantriData atau fungsi render tabel
+const originalLoadSantriData = loadSantriData;
+window.loadSantriData = async function (...args) {
+  await originalLoadSantriData.apply(this, args);
+  afterTableRendered();
 };
 
-// 3) Jika ada loadSantriData, patch sekali saja agar menghitung ulang setelah render
-(function safePatchLoadSantriData() {
-  if (typeof window === "undefined") return;
-  if (window.__patchLoadSantriDataDone) return; // hindari patch ganda
-  if (typeof window.loadSantriData !== "function") return;
-
-  const original = window.loadSantriData;
-  window.loadSantriData = async function (...args) {
-    const result = await original.apply(this, args);
-    // setelah data & tabel terbarui
-    window.afterTableRendered();
-    return result;
-  };
-  window.__patchLoadSantriDataDone = true;
-})();
-
-// 4) Auto-recalc saat ganti kelas/tanggal (jika elemennya ada)
-(function safeBindInputs() {
-  const tanggalInput = window.tanggalInput || document.getElementById("tanggal");
-  const kelasSelect = window.kelasSelect || document.getElementById("kelas");
-
-  if (tanggalInput && typeof tanggalInput.addEventListener === "function") {
-    tanggalInput.addEventListener("change", () => {
-      if (typeof window.loadSantriData === "function") {
-        window.loadSantriData();
-      } else {
-        hitungTotalAllJuzOtomatis();
-      }
-    });
-  }
-
-  if (kelasSelect && typeof kelasSelect.addEventListener === "function") {
-    kelasSelect.addEventListener("change", () => {
-      if (typeof window.loadSantriData === "function") {
-        window.loadSantriData();
-      } else {
-        hitungTotalAllJuzOtomatis();
-      }
-    });
-  }
-})();
-
+// Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
+tanggalInput?.addEventListener("change", () => loadSantriData());
+kelasSelect?.addEventListener("change", () => loadSantriData());
 </script>
 
 
