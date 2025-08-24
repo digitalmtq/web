@@ -1961,137 +1961,161 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
     async function simpanDataMutabaah(saveBtn) {
   const kelas = kelasSelect.value;
-  const tanggal = tanggalInput.value;
+  const tanggalUtama = tanggalInput.value; // tanggal di kolom 1
   const rows = santriTableBody.querySelectorAll("tr");
 
-  // Helper: parse nilaiStr secara robust
+  // ===== Helper: parse nilai ringkas di sel =====
   function parseNilaiStr(nilaiStr) {
     if (!nilaiStr) return { nilai: null, predikatText: null, predikatHuruf: null };
 
     const parts = nilaiStr.trim().split(/\s+/).filter(Boolean);
-    // temukan index numeric (angka)
     let numIdx = parts.findIndex(p => {
       const v = p.replace(',', '.');
       return /^-?\d+(\.\d+)?$/.test(v) || !Number.isNaN(parseFloat(v));
     });
-
     if (numIdx === -1) {
-      // kalau tidak ada angka jelas, cari token yg bisa di-parse
       numIdx = parts.findIndex(p => !Number.isNaN(parseFloat(p.replace(',', '.'))));
     }
 
     let nilai = null;
-    if (numIdx !== -1) {
-      nilai = parseFloat(parts[numIdx].replace(',', '.'));
-    }
+    if (numIdx !== -1) nilai = parseFloat(parts[numIdx].replace(',', '.'));
 
-    // sisa token (kemungkinan predikat)
-    const rest = parts.filter((_, i) => i !== numIdx).map(p => p.replace(/[^\p{L}\p{N}\-]/gu, '')).filter(Boolean);
-    // cari grade huruf tunggal A..E
+    const rest = parts
+      .filter((_, i) => i !== numIdx)
+      .map(p => p.replace(/[^\p{L}\p{N}\-]/gu, ''))
+      .filter(Boolean);
+
     const gradeIdx = rest.findIndex(p => /^[A-E]$/i.test(p));
     const predikatHuruf = gradeIdx !== -1 ? rest[gradeIdx].toUpperCase() : null;
-    // ambil semua selain gradeIndex dan '-' sebagai text
     const textParts = rest.filter((_, i) => i !== gradeIdx && rest[i] !== '-');
     const predikatText = textParts.length ? textParts.join(' ') : null;
 
     return { nilai, predikatText, predikatHuruf };
   }
 
+  // ===== UI lock =====
   saveBtn.disabled = true;
+  const originalText = saveBtn.textContent;
   saveBtn.textContent = "⏳ Menyimpan...";
 
   try {
-    // Ambil data lama supaya kita bisa merge (dan tidak kehilangan field lain)
-    let dataLama = [];
-    try {
-      const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
-      if (resLama.ok) dataLama = await resLama.json();
-    } catch (e) {
-      console.warn("Tidak bisa ambil data lama, lanjut dengan array kosong.", e);
-    }
-
-    // buat salinan awal (agar ID yang tidak disentuh tetap ada)
-    const data = Array.isArray(dataLama) ? [...dataLama] : [];
-
+    // ===== 1) Kelompokkan baris per-tanggal baris =====
+    // Gunakan row.dataset.tanggal jika ada (mode rentang), jika tidak gunakan tanggalUtama
+    const groupByTanggal = new Map(); // key: YYYY-MM-DD, val: array<row>
     rows.forEach((row) => {
-      const id = parseInt(row.children[0].textContent, 10);
-      const existing = data.find(d => d.id === id) || {};
-
-      const nama = row.children[1].textContent;
-      const semester = row.querySelector(".semester")?.value ?? existing.semester ?? "";
-      const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
-      const surahDari = row.querySelector(".surah-dari")?.value ?? "";
-      const ayatDari = row.querySelector(".ayat-dari")?.value ?? "";
-      const surahSampai = row.querySelector(".surah-sampai")?.value ?? "";
-      const ayatSampai = row.querySelector(".ayat-sampai")?.value ?? "";
-      const totalJuz = row.querySelector(".total-juz")?.textContent ?? existing.totalJuz ?? "0";
-      const halaman = row.querySelector(".halaman-terbaca")?.textContent ?? existing.halaman ?? "";
-      const totalHalaman = row.querySelector(".total-halaman")?.textContent ?? existing.totalHalaman ?? "";
-      const juzTerbaca = row.querySelector(".juz-terbaca")?.textContent ?? existing.juzTerbaca ?? "";
-
-      // ambil string nilai dari tombol/sel
-      const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
-      const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
-
-      // gunakan parser cerdas
-      const parsed = parseNilaiStr(nilaiStr);
-
-      // ambil nilai/ predikat dari parser, jika parser tidak menemukan nilai/predikat, fall back ke existing
-      const nilai = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai)) ? parsed.nilai : (existing.buttonCell?.nilai ?? 0);
-
-      // Jika parser menghasilkan '-' / null kita pertahankan existing (lebih aman)
-      const predikatText = (parsed.predikatText && parsed.predikatText !== '-') ? parsed.predikatText : (existing.buttonCell?.predikatText ?? "-");
-      const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-') ? parsed.predikatHuruf : (existing.buttonCell?.predikatHuruf ?? "-");
-
-      const marks = row.markData || existing.marks || { audio: [] };
-
-      const newData = {
-        ...existing, // jaga semua field lain supaya tidak hilang
-        id,
-        nama,
-        semester,
-        absensi,
-        dari: `${surahDari}:${ayatDari}`,
-        sampai: `${surahSampai}:${ayatSampai}`,
-        totalJuz,
-        halaman,
-        totalHalaman,
-        juzTerbaca,
-        buttonCell: { nilai, predikatText, predikatHuruf },
-        marks
-      };
-
-      const idx = data.findIndex(d => d.id === id);
-      if (idx !== -1) data[idx] = newData; else data.push(newData);
+      const tglBaris = row.dataset?.tanggal && row.dataset.tanggal.trim()
+        ? row.dataset.tanggal.trim()
+        : tanggalUtama;
+      if (!groupByTanggal.has(tglBaris)) groupByTanggal.set(tglBaris, []);
+      groupByTanggal.get(tglBaris).push(row);
     });
 
-    // kirim merged data ke server
-    const res = await fetch("/.netlify/functions/saveData", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tanggal, kelas, data })
-    });
+    // ===== 2) Untuk setiap tanggal, ambil data lama lalu merge =====
+    const hasilKirim = [];
 
-    const result = await res.json();
-    if (result.success) {
-      saveBtn.textContent = "✅ Tersimpan";
-      setTimeout(() => {
-        saveBtn.textContent = "Simpan Data Mutaba'ah";
-        saveBtn.disabled = false;
-      }, 2000);
-    } else {
-      alert("❌ Gagal menyimpan data!");
-      saveBtn.disabled = false;
-      saveBtn.textContent = "Simpan Data Mutaba'ah";
+    for (const [tanggal, rowsTanggal] of groupByTanggal.entries()) {
+      // -- ambil data lama untuk tanggal ini (agar merge aman)
+      let dataLama = [];
+      try {
+        const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${encodeURIComponent(tanggal)}`);
+        if (resLama.ok) dataLama = await resLama.json();
+      } catch (e) {
+        console.warn(`Tidak bisa ambil data lama untuk ${tanggal}`, e);
+      }
+      const dataMerged = Array.isArray(dataLama) ? [...dataLama] : [];
+
+      // -- susun payload per baris (untuk tanggal ini saja)
+      rowsTanggal.forEach((row) => {
+        const id = parseInt(row.children[0].textContent, 10);
+        const existing = dataMerged.find(d => d.id === id) || {};
+
+        const nama = row.children[1].textContent.replace(/\s*\d{4}-\d{2}-\d{2}\s*$/, "").trim(); // jika ada sub label tanggal kecil
+        const semester = row.querySelector(".semester")?.value ?? existing.semester ?? "";
+        const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
+        const surahDari = row.querySelector(".surah-dari")?.value ?? "";
+        const ayatDari  = row.querySelector(".ayat-dari")?.value ?? "";
+        const surahSampai = row.querySelector(".surah-sampai")?.value ?? "";
+        const ayatSampai  = row.querySelector(".ayat-sampai")?.value ?? "";
+        const totalJuz = row.querySelector(".total-juz")?.textContent ?? existing.totalJuz ?? "0";
+        const halaman = row.querySelector(".halaman-terbaca")?.textContent ?? existing.halaman ?? "";
+        const totalHalaman = row.querySelector(".total-halaman")?.textContent ?? existing.totalHalaman ?? "";
+        const juzTerbaca = row.querySelector(".juz-terbaca")?.textContent ?? existing.juzTerbaca ?? "";
+
+        // nilai ringkas di sel (div pertama pada sel tombol)
+        const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
+        const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
+        const parsed = parseNilaiStr(nilaiStr);
+
+        const nilai = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai))
+          ? parsed.nilai
+          : (existing.buttonCell?.nilai ?? 0);
+
+        const predikatText = (parsed.predikatText && parsed.predikatText !== '-')
+          ? parsed.predikatText
+          : (existing.buttonCell?.predikatText ?? "-");
+
+        const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-')
+          ? parsed.predikatHuruf
+          : (existing.buttonCell?.predikatHuruf ?? "-");
+
+        // marks per baris (sudah kamu tempel ke row.markData saat edit modal)
+        const marks = row.markData || existing.marks || { audio: [] };
+
+        const newData = {
+          ...existing,
+          id,
+          nama,
+          semester,
+          absensi,
+          dari: `${surahDari}:${ayatDari}`,
+          sampai: `${surahSampai}:${ayatSampai}`,
+          totalJuz,
+          halaman,
+          totalHalaman,
+          juzTerbaca,
+          buttonCell: { nilai, predikatText, predikatHuruf },
+          marks
+        };
+
+        const idx = dataMerged.findIndex(d => d.id === id);
+        if (idx !== -1) dataMerged[idx] = newData;
+        else dataMerged.push(newData);
+      });
+
+      // ===== 3) Kirim per-tanggal (tetap pakai endpoint yang sama) =====
+      const res = await fetch("/.netlify/functions/saveData", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tanggal, kelas, data: dataMerged })
+      });
+
+      const result = await res.json().catch(() => ({}));
+      hasilKirim.push({ tanggal, ok: !!result?.success, result });
     }
+
+    // ===== 4) Feedback UI =====
+    const gagal = hasilKirim.filter(h => !h.ok);
+    if (gagal.length === 0) {
+      saveBtn.textContent = "✅ Tersimpan";
+    } else {
+      const daftarGagal = gagal.map(g => g.tanggal).join(", ");
+      alert(`❌ Sebagian tanggal gagal disimpan: ${daftarGagal}`);
+      saveBtn.textContent = "❌ Gagal Sebagian";
+    }
+
+    setTimeout(() => {
+      saveBtn.textContent = originalText;
+      saveBtn.disabled = false;
+    }, 1800);
 
   } catch (err) {
     console.error(err);
     alert("⚠️ Error menyimpan data!");
     saveBtn.disabled = false;
-    saveBtn.textContent = "Simpan Data Mutaba'ah";
+    saveBtn.textContent = originalText;
   }
 }
+
 
 
 
@@ -3010,96 +3034,124 @@ let dataSiap = Promise.all([
 .catch(err => console.error('❌ Gagal memuat data Quran:', err));
 
 // ======================
-// EVENT CLICK "LEMBAR PENILAIAN"
+// EVENT CLICK "LEMBAR PENILAIAN"  (REVISI PENUH - anti reset 0)
 // ======================
-document.addEventListener('click', async function(e) {
-  if (e.target.classList.contains('lihat-quran-btn')) {
-    const overlay = document.getElementById('overlay-quran');
-    overlay.style.display = 'flex';
+document.addEventListener('click', async function (e) {
+  if (!e.target.classList.contains('lihat-quran-btn')) return;
 
-    // 🔹 simpan baris yang diklik + id siswa
-    const row = e.target.closest('tr');
-    currentRowEl = row; // <<< penting untuk mode rentang
-    currentIdSiswa = parseInt(row.cells[0].innerText.trim());
+  const overlay = document.getElementById('overlay-quran');
+  overlay.style.display = 'flex';
 
-    // Ambil nama santri dari kolom 1 (asumsi kolom 1 adalah nama)
-    const namaSantri = row.cells[1].innerText.trim();
-    const namaSpan = document.getElementById('modal-nama-santri');
-    if (namaSpan) {
-      namaSpan.innerText = namaSantri;
-    }
+  // baris yang diklik
+  const row = e.target.closest('tr');
+  currentIdSiswa = parseInt(row.cells[0].innerText.trim(), 10);
 
-    const kelas = document.getElementById('kelas')?.value || 'default';
-    // 🔹 gunakan tanggal baris (jika ada), fallback ke input tanggal
-    const tanggalBaris = row?.dataset?.tanggal;
-    const tanggal = tanggalBaris || (document.getElementById('tanggal')?.value || 'default');
+  // tampilkan nama (buang label tanggal kecil kalau ada)
+  const namaSantri = row.cells[1].innerText.replace(/\d{4}-\d{2}-\d{2}/, '').trim();
+  const namaSpan = document.getElementById('modal-nama-santri');
+  if (namaSpan) namaSpan.innerText = namaSantri;
 
-    // Ambil marks + audio (per-baris/per-tanggal)
-    markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
-    tampilkanAudioDariMarks(markData);
+  // pakai tanggal per-baris jika ada (mode rentang), jika tidak pakai tanggal utama
+  const kelas = document.getElementById('kelas')?.value || 'default';
+  const tanggalBaris = row.dataset?.tanggal || document.getElementById('tanggal')?.value || 'default';
 
-    // (opsional) muat dari storage lokal per tanggal
-    ambilDariStorage();
+  // 1) ambil marks dari server untuk (id, kelas, tanggalBaris)
+  let serverMarks = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggalBaris);
 
-    // Load Quran
-    await dataSiap;
+  // markData global jadi referensi editor
+  markData = serverMarks && typeof serverMarks === 'object' ? serverMarks : {};
 
-    const surahDari = parseInt(row.querySelector('.surah-dari').value);
-    const ayatDari = parseInt(row.querySelector('.ayat-dari').value);
-    const surahSampai = parseInt(row.querySelector('.surah-sampai').value);
-    const ayatSampai = parseInt(row.querySelector('.ayat-sampai').value);
-
-    let halamanMap = {};
-    for (let s = surahDari; s <= surahSampai; s++) {
-      const ayatMulai = (s === surahDari) ? ayatDari : 1;
-      const ayatAkhir = (s === surahSampai) ? ayatSampai : 300;
-      for (let a = ayatMulai; a <= ayatAkhir; a++) {
-        const key = `${s}:${a}`;
-        if (quranData[key]) {
-          const page = ayahPageMap[key];
-          if (!page) continue;
-          if (!halamanMap[page]) halamanMap[page] = [];
-          halamanMap[page].push({ surah: s, ayat: a, teks: quranData[key].replace(/\|/g, ' ') });
-        }
+  // helper cek apakah ada setidaknya satu mark berwarna
+  const adaMarkBerwarna = (() => {
+    for (const k in markData) {
+      if (k === 'audio') continue; // lewati array audio
+      const obj = markData[k];
+      if (!obj || typeof obj !== 'object') continue;
+      for (const idx in obj) {
+        const v = obj[idx];
+        if (v === 'green' || v === 'yellow' || v === 'red') return true;
       }
     }
+    return false;
+  })();
 
-    const halamanUrut = Object.keys(halamanMap).sort((a,b) => a-b);
-    const quranText = document.getElementById('quran-text');
-    quranText.innerHTML = '';
+  // 2) tampilkan daftar audio sesuai data
+  tampilkanAudioDariMarks(markData);
 
-    for (let page of halamanUrut) {
-      const pageStr = String(page).padStart(3,'0');
-      const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/refs/heads/main/fonts/QCF_P${pageStr}.TTF`;
+  // 3) load data quran (font + teks)
+  await dataSiap;
 
-      try {
-        const font = new FontFace(`QCF_P${pageStr}`, `url(${fontUrl})`);
-        await font.load();
-        document.fonts.add(font);
-      } catch(err) {
-        console.warn(`Gagal load font page ${pageStr}`, err);
-      }
+  const surahDari   = parseInt(row.querySelector('.surah-dari').value, 10);
+  const ayatDari    = parseInt(row.querySelector('.ayat-dari').value, 10);
+  const surahSampai = parseInt(row.querySelector('.surah-sampai').value, 10);
+  const ayatSampai  = parseInt(row.querySelector('.ayat-sampai').value, 10);
 
-      const pageDiv = document.createElement('div');
-      pageDiv.style.fontFamily = `QCF_P${pageStr}, serif`;
-      pageDiv.style.fontSize = '30px';
-      pageDiv.style.lineHeight = '2.2';
-      pageDiv.style.direction = 'rtl';
-      pageDiv.style.marginBottom = '20px';
-
-      halamanMap[page].forEach(item => {
-        buatKataKlik(item.surah, item.ayat, item.teks).forEach(k => pageDiv.appendChild(k));
-        pageDiv.appendChild(document.createElement('br'));
-      });
-
-      quranText.appendChild(pageDiv);
+  // bangun peta halaman -> daftar ayat
+  let halamanMap = {};
+  for (let s = surahDari; s <= surahSampai; s++) {
+    const ayatMulai = (s === surahDari)   ? ayatDari   : 1;
+    const ayatAkhir = (s === surahSampai) ? ayatSampai : 300;
+    for (let a = ayatMulai; a <= ayatAkhir; a++) {
+      const key = `${s}:${a}`;
+      const teks = quranData[key];
+      if (!teks) continue;
+      const page = ayahPageMap[key];
+      if (!page) continue;
+      if (!halamanMap[page]) halamanMap[page] = [];
+      halamanMap[page].push({ surah: s, ayat: a, teks: teks.replace(/\|/g, ' ') });
     }
+  }
 
-    const hasil = hitungNilai();
+  // render ke container modal
+  const quranText = document.getElementById('quran-text');
+  quranText.innerHTML = '';
+  const halamanUrut = Object.keys(halamanMap).sort((a,b) => a - b);
+
+  for (const page of halamanUrut) {
+    const pageStr = String(page).padStart(3,'0');
+    const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/refs/heads/main/fonts/QCF_P${pageStr}.TTF`;
+    try {
+      const font = new FontFace(`QCF_P${pageStr}`, `url(${fontUrl})`);
+      await font.load();
+      document.fonts.add(font);
+    } catch (_) { /* jika font gagal, lanjut saja */ }
+
+    const pageDiv = document.createElement('div');
+    pageDiv.style.fontFamily = `QCF_P${pageStr}, serif`;
+    pageDiv.style.fontSize = '30px';
+    pageDiv.style.lineHeight = '2.2';
+    pageDiv.style.direction = 'rtl';
+    pageDiv.style.marginBottom = '20px';
+
+    halamanMap[page].forEach(item => {
+      buatKataKlik(item.surah, item.ayat, item.teks).forEach(el => pageDiv.appendChild(el));
+      pageDiv.appendChild(document.createElement('br'));
+    });
+
+    quranText.appendChild(pageDiv);
+  }
+
+  // 4) hitung nilai berdasarkan markData yang ada
+  const hasil = hitungNilai && typeof hitungNilai === 'function' ? hitungNilai() : null;
+
+  // 5) JANGAN update tabel jika belum ada mark berwarna (anti reset 0)
+  if (hasil && adaMarkBerwarna) {
     updateNilaiDiTabel(hasil);
+  } else {
+    // seed tampilan modal dari nilai ringkas yang sudah ada di tabel (biar konsisten)
+    const ringkas = row.querySelector('.nilai-ringkas');
+    const nilaiLabel = document.getElementById('nilai-akhir');
+    const predikatLabel = document.getElementById('predikat-akhir');
+    if (ringkas && nilaiLabel && predikatLabel) {
+      const strong = ringkas.querySelector('strong');
+      const angka = strong ? parseFloat(String(strong.textContent).replace(',', '.')) : NaN;
+      if (!Number.isNaN(angka)) nilaiLabel.textContent = angka.toFixed(1);
+      // sisanya sebagai predikat (aman walau kosong)
+      const teksPred = ringkas.textContent.replace(strong?.textContent || '', '').trim();
+      predikatLabel.textContent = teksPred || '-';
+    }
   }
 });
-
 // ======================
 // TOMBOL NILAI MANUAL
 // ======================
