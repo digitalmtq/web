@@ -2300,52 +2300,6 @@ async function hitungTotalAllJuzFromTable() {
       rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
     });
 
-    // Batas ketuntasan per semester
-const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
-
-// Update tabel dan siapkan data untuk disimpan
-const dataToSave = [];
-
-rows.forEach(row => {
-  const id = parseInt(row.children[0].textContent);
-  const cell = row.querySelector(".total-all-juz");
-
-  if (rekap[id]) {
-    const totalJuz = rekap[id].totalJuz.toFixed(2);
-    let semester = parseInt(row.querySelector(".semester")?.value);
-    if (!semester && rekap[id].semester) semester = rekap[id].semester;
-
-    const batas = batasSemester[semester] || 0;
-    let prosentase = batas > 0 ? Math.floor((rekap[id].totalJuz / batas) * 100) : 0;
-    if (prosentase > 100) prosentase = 100;
-
-    let label = `${prosentase}%`;
-    let warna = "red";
-
-    if (rekap[id].totalJuz >= 30) {
-      // ✅ Jika 30 juz atau lebih → KHATAM
-      label = "KHATAM";
-      warna = "purple";
-    } else if (prosentase >= 100) {
-      // ✅ Jika tuntas per semester
-      label = "TUNTAS";
-      warna = "green";
-    }
-
-    cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:12px;">${label}</span>`;
-
-    // Simpan data
-    dataToSave.push({
-      id,
-      totalJuz: parseFloat(totalJuz),
-      semester,
-      tuntas: prosentase >= 100 || rekap[id].totalJuz >= 30
-    });
-  } else {
-    cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
-  }
-});
-
 
     // Kirim data hasil rekap ke backend Netlify Function untuk disimpan
     const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
