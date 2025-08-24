@@ -1440,16 +1440,23 @@ function aturDropdownKelas(user) {
     kelasSelect.appendChild(opt);
   });
 
- // Ambil dari localStorage dulu
-const saved = localStorage.getItem("lastKelas");
-const opsi = Array.from(kelasSelect.options);
+ (function setKelasDariStorage() {
+  const kelasSelect = document.getElementById("kelas");
+  if (!kelasSelect) return;                      // belum di dashboard → jangan ganggu login
 
-if (saved && opsi.some(o => o.value === saved && !o.disabled)) {
-  kelasSelect.value = saved;   // pakai kelas terakhir
-} else {
-  const pertamaAktif = opsi.find(o => !o.disabled);
-  if (pertamaAktif) kelasSelect.value = pertamaAktif.value; // fallback
-}
+  const opsi = Array.from(kelasSelect.options || []);
+  if (opsi.length === 0) return;                 // opsi belum dimuat (mis. masih fetch) → tunggu
+
+  const saved = localStorage.getItem("lastKelas");
+
+  if (saved && opsi.some(o => o.value === saved && !o.disabled)) {
+    kelasSelect.value = saved;                   // pakai pilihan terakhir (valid & diizinkan)
+  } else {
+    const pertamaAktif = opsi.find(o => !o.disabled);
+    if (pertamaAktif) kelasSelect.value = pertamaAktif.value;  // fallback
+  }
+})();
+
 
   // === Tampilkan dashboard ===
   function showDashboard() {
