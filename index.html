@@ -1589,6 +1589,16 @@ if (endDateInput) {
   });
 }
 
+	  if (endDateInput) {
+  endDateInput.value = savedEnd || today;
+  endDateInput.addEventListener("change", () => {
+    console.log("✅ End date diubah:", endDateInput.value);
+    localStorage.setItem("endDateTerakhir", endDateInput.value);
+    loadSantriData();
+  });
+}
+
+
   // Tampilkan data awal
   loadSantriData();
 }
