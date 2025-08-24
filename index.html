@@ -2446,33 +2446,50 @@ document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTot
       rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
     });
 
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
-
-    rows.forEach(row => {
-      const id = parseInt(row.children[0].textContent);
-      const cell = row.querySelector(".total-all-juz");
-      if (rekap[id]) {
-        const totalJuz = rekap[id].totalJuz.toFixed(2);
-        let semester = parseInt(row.querySelector(".semester")?.value) || rekap[id].semester;
-        const target = batasSemester[semester] || 0;
-
-        let prosentase = target > 0 ? Math.floor((rekap[id].totalJuz / target) * 100) : 0;
-        if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
-
-        const tuntas = prosentase >= 100;
-        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
-
-        cell.innerHTML =
-          `${totalJuz} <span style="color:${tuntas ? 'green' : 'red'}; font-size:10px">` +
-          `${label}</span>`;
-      } else {
-        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
-      }
-    });
-  } catch (err) {
-    console.error("Gagal ambil data absensi:", err);
-  }
+    // Guard biar tidak jalan saat rows/rekap belum ada (mis. di halaman login)
+if (typeof rows === "undefined" || !rows || !window.rekap) {
+  return;
 }
+
+const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+
+rows.forEach(row => {
+  const idText = row?.children?.[0]?.textContent?.trim();
+  const id = Number(idText);
+  const cell = row.querySelector(".total-all-juz");
+
+  // Skip aman kalau id/cell tidak valid
+  if (!Number.isFinite(id) || !cell) return;
+
+  const r = rekap[id];
+
+  if (r) {
+    const totalJuzNum = Number(r.totalJuz) || 0;
+    const totalJuz = totalJuzNum.toFixed(2);
+
+    // 🔑 Prioritas KHATAM bila ≥ 30 juz
+    if (totalJuzNum >= 30) {
+      cell.innerHTML = `${totalJuz} <span style="color:#6a1b9a; font-size:10px">KHATAM</span>`;
+      return; // jangan lanjut ke logika TUNTAS/persen
+    }
+
+    // Ambil semester dari dropdown, fallback ke data rekap
+    let semester = Number(row.querySelector(".semester")?.value) || Number(r.semester) || 0;
+    const target = batasSemester[semester] || 0;
+
+    let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
+    if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
+
+    const tuntas = prosentase >= 100;
+    const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+
+    cell.innerHTML =
+      `${totalJuz} <span style="color:${tuntas ? 'green' : 'red'}; font-size:10px">${label}</span>`;
+  } else {
+    cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+  }
+});
+
 
 
 // Jalankan saat pertama kali halaman selesai dimuat
