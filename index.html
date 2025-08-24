@@ -1575,28 +1575,19 @@ if (startDateInput) {
   startDateInput.value = savedStart || today;
   startDateInput.addEventListener("change", () => {
     localStorage.setItem("startDateTerakhir", startDateInput.value);
-    // Jika end-date kosong → set sama dengan start-date
-    if (!endDateInput.value) endDateInput.value = startDateInput.value;
+    tanggalInput.value = startDateInput.value;  // sinkron default
     loadSantriData();
   });
 }
 
 if (endDateInput) {
-  endDateInput.value = savedEnd || today;
+  endDateInput.value = savedEnd || "";
   endDateInput.addEventListener("change", () => {
-    localStorage.setItem("endDateTerakhir", endDateInput.value);
-    loadSantriData(); // 🔹 Pastikan tabel di-refresh saat end-date berubah
-  });
-}
-
-	  if (endDateInput) {
-  endDateInput.value = savedEnd || today;
-  endDateInput.addEventListener("change", () => {
-    console.log("✅ End date diubah:", endDateInput.value);
     localStorage.setItem("endDateTerakhir", endDateInput.value);
     loadSantriData();
   });
 }
+
 
 
   // Tampilkan data awal
@@ -1630,25 +1621,24 @@ if (endDateInput) {
 
     // === Ambil data absensi ===
     let absensiData = [];
-    if (startDate && endDate && (startDate !== endDate)) {
-      // Kalau rentang tanggal dipilih → PRIORITAS
-      const resAbsensiRange = await fetch(
-        `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`
-      );
-      absensiData = await resAbsensiRange.json();
-    } else if (startDate) {
-      // Kalau cuma start-date → anggap tanggal tunggal
-      const resAbsensi = await fetch(
-        `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${startDate}`
-      );
-      absensiData = await resAbsensi.json();
-    } else {
-      // Fallback terakhir → pakai tanggalInput
-      const resAbsensi = await fetch(
-        `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`
-      );
-      absensiData = await resAbsensi.json();
-    }
+const startDate = startDateInput.value;
+const endDate = endDateInput.value || startDate;
+
+if (startDate && endDate && startDate !== endDate) {
+  // Ambil data rentang tanggal
+  const resAbsensiRange = await fetch(
+    `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`
+  );
+  absensiData = await resAbsensiRange.json();
+} else {
+  // Ambil data satu tanggal
+  const tanggal = startDate || tanggalInput.value;
+  const resAbsensi = await fetch(
+    `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`
+  );
+  absensiData = await resAbsensi.json();
+}
+
 
     // ... kode filter akses dan render tabel tetap sama
 
