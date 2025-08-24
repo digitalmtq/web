@@ -1692,147 +1692,98 @@ function aturDropdownKelas(user) {
         }
       });
 
-      // ================== SIAP TEMPEL — BLOK LENGKAP ==================
-
-// Set surah & ayat dropdown
-const surahDari   = row.querySelector(".surah-dari");
-const ayatDari    = row.querySelector(".ayat-dari");
+      // Set surah & ayat dropdown
+const surahDari = row.querySelector(".surah-dari");
+const ayatDari = row.querySelector(".ayat-dari");
 const surahSampai = row.querySelector(".surah-sampai");
-const ayatSampai  = row.querySelector(".ayat-sampai");
+const ayatSampai = row.querySelector(".ayat-sampai");
 
-// Inisialisasi nilai awal dari data {dari: [surah, ayat], sampai: [surah, ayat]}
-surahDari.value   = String(dari[0]);
-surahSampai.value = String(sampai[0]);
+surahDari.value = dari[0];
+surahSampai.value = sampai[0];
 
-fillAyatOptions(ayatDari,    surahDari.value,   Number(dari[1]));
-fillAyatOptions(ayatSampai,  surahSampai.value, Number(sampai[1]));
+fillAyatOptions(ayatDari, surahDari.value, dari[1]);
+fillAyatOptions(ayatSampai, surahSampai.value, sampai[1]);
 
-// Ketika surah berubah, refill daftar ayat
-surahDari.addEventListener("change", () => fillAyatOptions(ayatDari,   surahDari.value));
+surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
 surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
 
-// Sinkronisasi otomatis kolom "Sampai" saat "Dari" berubah
+// Sinkronisasi otomatis kolom Sampai ketika Dari berubah
 surahDari.addEventListener("change", () => {
   surahSampai.value = surahDari.value;
-  // default-kan ayat sampai mengikuti ayat dari jika ada
-  fillAyatOptions(ayatSampai, surahSampai.value, Number(ayatDari.value) || 1);
+  fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
 });
 
-// Jika ayat "Dari" berubah, set "Sampai" = "Dari" (bisa disesuaikan)
 ayatDari.addEventListener("change", () => {
   ayatSampai.value = ayatDari.value;
 });
 
-// Hitung ulang setiap ada perubahan
 [ayatDari, ayatSampai, surahDari, surahSampai].forEach(el => {
   el.addEventListener("change", () => updateTotalJuz(row));
 });
+});
+} catch (err) {
+  alert("Gagal memuat data santri / absensi!");
+  console.error(err);
+}
 
-// ---------------------------------------------------------------
-// Helper: isi options ayat berdasarkan surah terpilih
+overlay.style.display = "none";
+}
+
+
 function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
-  const surah = surahList.find(s => String(s.id) === String(surahId));
+  const surah = surahList.find(s => s.id == surahId);
   if (!surah) return;
   selectEl.innerHTML = "";
   for (let i = 1; i <= surah.jumlah_ayat; i++) {
     const opt = document.createElement("option");
     opt.value = i;
     opt.textContent = i;
-    if (i === Number(selectedAyat)) opt.selected = true;
+    if (i == selectedAyat) opt.selected = true;
     selectEl.appendChild(opt);
   }
 }
 
-// ---------------------------------------------------------------
-// Mapping jumlah ayat per halaman (pakai punyamu yang sudah ada)
 const jumlahAyatPerHalaman = {/* ... punyamu yang sangat panjang itu tetap, tidak diubah ... */};
 
-// ---------------------------------------------------------------
-// Helper display-only: hitung rentang halaman & total halaman fraksional
-function calculateHalamanTerbaca(halamanList) {
-  if (!halamanList || halamanList.length === 0) {
-    return { ranges: "-", total: 0 };
-  }
-
-  const pages = Array.from(halamanList, Number)
-    .filter(n => Number.isFinite(n))
-    .sort((a, b) => a - b);
-  if (pages.length === 0) return { ranges: "-", total: 0 };
-
-  // Hitung jumlah "ayat terbaca" per halaman (tiap entry halamanList = 1 ayat)
-  const countPerPage = new Map();
-  for (const p of pages) countPerPage.set(p, (countPerPage.get(p) || 0) + 1);
-
-  const uniquePages = [...countPerPage.keys()].sort((a, b) => a - b);
-
-  // Total halaman fraksional (maks 1.0 per halaman)
-  let total = 0;
-  for (const p of uniquePages) {
-    const ayatTotal   = (jumlahAyatPerHalaman && jumlahAyatPerHalaman[p]) || 1;
-    const ayatTerbaca = Math.min(countPerPage.get(p), ayatTotal);
-    total += ayatTerbaca / ayatTotal;
-  }
-
-  // Kompres jadi rentang "x, y-z, ..."
-  const rangesArr = [];
-  let start = uniquePages[0];
-  let prev  = start;
-  for (let i = 1; i < uniquePages.length; i++) {
-    const cur = uniquePages[i];
-    if (cur === prev + 1) {
-      prev = cur;
-    } else {
-      rangesArr.push(start === prev ? `${start}` : `${start}-${prev}`);
-      start = prev = cur;
-    }
-  }
-  rangesArr.push(start === prev ? `${start}` : `${start}-${prev}`);
-
-  return { ranges: rangesArr.join(", "), total };
-}
-
-// ---------------------------------------------------------------
-// Hitung total juz (skip halaman tertentu), + tampilkan page & total page (display only)
 function updateTotalJuz(row) {
-  const surahDariVal   = row.querySelector(".surah-dari").value.trim();
-  const ayatDariVal    = Number(row.querySelector(".ayat-dari").value.trim());
-  const surahSampaiVal = row.querySelector(".surah-sampai").value.trim();
-  const ayatSampaiVal  = Number(row.querySelector(".ayat-sampai").value.trim());
+  const surahDari = row.querySelector(".surah-dari").value.trim();
+  const ayatDari = Number(row.querySelector(".ayat-dari").value.trim());
+  const surahSampai = row.querySelector(".surah-sampai").value.trim();
+  const ayatSampai = Number(row.querySelector(".ayat-sampai").value.trim());
 
-  // Penanda awal halaman tiap juz (Mushaf Madinah)
   const halamanAwalJuz = [
     1, 22, 42, 62, 82, 102, 122, 142, 162, 182,
     202, 222, 242, 262, 282, 302, 322, 342, 362, 382,
     402, 422, 442, 462, 482, 502, 522, 542, 562, 582, 602
   ];
 
-  // HANYA untuk hitungan JUZ (display tidak terpengaruh)
+  // ➜ Tambahan: pengecualian untuk perhitungan JUZ saja
   const EXCLUDED_PAGES_FOR_JUZ = new Set([21, 602, 603, 604]);
 
   let totalJuz = 0;
 
-  // Keranjang halaman
-  const halamanInfoAll = [];  // DISPLAY: termasuk 21 & 602–604
-  const halamanJuzOnly = [];  // PERHITUNGAN JUZ: exclude 21 & 602–604
+  // ➜ Baru: pisahkan keranjang halaman
+  const halamanInfoAll = [];     // untuk DISPLAY (termasuk 21 & 602–604)
+  const halamanValidJuz = [];    // untuk perhitungan JUZ (exclude 21 & 602–604)
 
-  // Iter ayat dari titik awal ke akhir
-  for (let s = Number(surahDariVal); s <= Number(surahSampaiVal); s++) {
+  // Loop dari surahDari:ayatDari → surahSampai:ayatSampai per ayat
+  for (let s = Number(surahDari); s <= Number(surahSampai); s++) {
     const surah = surahList.find(x => Number(x.id) === s);
     if (!surah) continue;
-
     const totalAyatSurah = surah.jumlah_ayat;
-    const startAyat = (s === Number(surahDariVal))   ? ayatDariVal   : 1;
-    const endAyat   = (s === Number(surahSampaiVal)) ? ayatSampaiVal : totalAyatSurah;
+
+    const startAyat = (s === Number(surahDari)) ? ayatDari : 1;
+    const endAyat = (s === Number(surahSampai)) ? ayatSampai : totalAyatSurah;
 
     for (let a = startAyat; a <= endAyat; a++) {
       const key = `${s}:${a}`;
       const halaman = pagesMap[key];
       if (!halaman) continue;
 
-      // simpan untuk display (apa adanya)
+      // selalu simpan untuk info (agar 21 & 602–604 tetap tampil)
       halamanInfoAll.push(halaman);
 
-      // skip khusus untuk perhitungan juz
+      // untuk perhitungan juz, skip halaman khusus
       if (EXCLUDED_PAGES_FOR_JUZ.has(halaman)) continue;
 
       const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
@@ -1841,21 +1792,22 @@ function updateTotalJuz(row) {
         continue;
       }
 
-      totalJuz += (0.05 / ayatDiHalaman); // 1 halaman ≈ 0.05 juz, dibagi ayat/halaman
-      halamanJuzOnly.push(halaman);
+      totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
+      halamanValidJuz.push(halaman);
     }
   }
 
-  const totalJuzFixed = Number(totalJuz.toFixed(2));
+  totalJuz = Number(totalJuz.toFixed(2));
 
-  // Hitung juz tercakup (berdasarkan halaman JUZ saja)
-  const halamanUnikJuz = [...new Set(halamanJuzOnly)].sort((a, b) => a - b);
+  // Hilangkan duplikat untuk deteksi juz tercakup (pakai halamanValidJuz)
+  const halamanUnik = [...new Set(halamanValidJuz)].sort((a, b) => a - b);
+
   const juzTercakup = [];
   for (let i = 0; i < halamanAwalJuz.length; i++) {
-    const awalJuz  = halamanAwalJuz[i];
-    const akhirJuz = (i < halamanAwalJuz.length - 1) ? (halamanAwalJuz[i + 1] - 1) : 604;
+    const awalJuz = halamanAwalJuz[i];
+    const akhirJuz = i < halamanAwalJuz.length - 1 ? halamanAwalJuz[i + 1] - 1 : 604;
 
-    for (const h of halamanUnikJuz) {
+    for (let h of halamanUnik) {
       if (h >= awalJuz && h <= akhirJuz) {
         juzTercakup.push(i + 1);
         break;
@@ -1863,42 +1815,81 @@ function updateTotalJuz(row) {
     }
   }
 
-  // Kompresi list juz jadi "x, y-z"
   function compressJuzRanges(list) {
-    if (!list || list.length === 0) return "";
-    const arr = [...list].sort((a, b) => a - b);
-    const out = [];
-    let start = arr[0], prev = start;
-    for (let i = 1; i < arr.length; i++) {
-      const cur = arr[i];
-      if (cur === prev + 1) prev = cur;
-      else {
-        out.push(start === prev ? `${start}` : `${start}-${prev}`);
+    if (list.length === 0) return "";
+    list.sort((a, b) => a - b);
+    const ranges = [];
+    let start = list[0], end = start;
+    for (let i = 1; i < list.length; i++) {
+      if (list[i] === end + 1) {
+        end = list[i];
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = end = list[i];
+      }
+    }
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    return ranges.join(", ");
+  }
+
+  const juzTerbacaFormatted = compressJuzRanges(juzTercakup);
+
+  // ➜ Display PAGE (pakai halamanInfoAll yang tidak difilter)
+  function calculateHalamanTerbaca(halamanList) {
+    if (!halamanList || halamanList.length === 0) return { ranges: "-", total: 0 };
+
+    // Normalisasi & urutkan
+    const pages = Array.from(halamanList, Number)
+      .filter(n => Number.isFinite(n))
+      .sort((a, b) => a - b);
+    if (pages.length === 0) return { ranges: "-", total: 0 };
+
+    // Hitung jumlah ayat terbaca per halaman
+    const countMap = new Map();
+    for (const p of pages) countMap.set(p, (countMap.get(p) || 0) + 1);
+
+    const uniquePages = [...countMap.keys()].sort((a, b) => a - b);
+
+    // Total halaman fraksional (maks 1.0 per halaman)
+    let total = 0;
+    for (const p of uniquePages) {
+      const ayatTotal = (jumlahAyatPerHalaman && jumlahAyatPerHalaman[p]) || 1;
+      const ayatTerbaca = Math.min(countMap.get(p), ayatTotal);
+      total += ayatTerbaca / ayatTotal;
+    }
+
+    // Kompresi ke "x, y-z, ..."
+    const rangesArr = [];
+    let start = uniquePages[0];
+    let prev = start;
+    for (let i = 1; i < uniquePages.length; i++) {
+      const cur = uniquePages[i];
+      if (cur === prev + 1) {
+        prev = cur;
+      } else {
+        rangesArr.push(start === prev ? `${start}` : `${start}-${prev}`);
         start = prev = cur;
       }
     }
-    out.push(start === prev ? `${start}` : `${start}-${prev}`);
-    return out.join(", ");
+    rangesArr.push(start === prev ? `${start}` : `${start}-${prev}`);
+
+    return { ranges: rangesArr.join(", "), total };
   }
-  const juzTerbacaFormatted = compressJuzRanges(juzTercakup);
 
-  // === Display PAGE & TOTAL PAGE (pakai halamanInfoAll tanpa filter) ===
-  const { ranges: pageRanges, total: totalHalaman } = calculateHalamanTerbaca(halamanInfoAll);
+  const { ranges: pageRanges, total: totalHalamanFloat } = calculateHalamanTerbaca(halamanInfoAll);
+  const totalHalaman = Number(totalHalamanFloat.toFixed(2));
 
-  // Tulis ke DOM (elemen <td> sudah ada di baris ini)
-  const elPages        = row.querySelector(".info-pages");
-  const elTotalPages   = row.querySelector(".info-total-pages");
-  const elTotalJuz     = row.querySelector(".info-juz");
-  const elJuzTercakup  = row.querySelector(".info-juz-terbaca");
+  // Tulis ke DOM jika elemen tersedia (kamu bilang <td> sudah ada)
+  const elPages = row.querySelector(".info-pages");
+  const elTotalPages = row.querySelector(".info-total-pages");
+  const elTotalJuz = row.querySelector(".info-juz");
+  const elJuzTercakup = row.querySelector(".info-juz-terbaca");
 
-  if (elPages)       elPages.textContent       = pageRanges || "-";
-  if (elTotalPages)  elTotalPages.textContent  = isNaN(totalHalaman) ? "0" : totalHalaman.toFixed(2);
-  if (elTotalJuz)    elTotalJuz.textContent    = isNaN(totalJuzFixed) ? "0.00" : totalJuzFixed.toFixed(2);
+  if (elPages) elPages.textContent = pageRanges || "-";
+  if (elTotalPages) elTotalPages.textContent = isNaN(totalHalaman) ? "0" : `${totalHalaman}`;
+  if (elTotalJuz) elTotalJuz.textContent = isNaN(totalJuz) ? "0.00" : totalJuz.toFixed(2);
   if (elJuzTercakup) elJuzTercakup.textContent = juzTerbacaFormatted || "-";
 }
-
-// ================== /SIAP TEMPEL — BLOK LENGKAP ==================
-
 
 // Pemakaian di tabel
 const result = calculateHalamanTerbaca(halamanValid);
