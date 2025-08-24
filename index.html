@@ -1007,51 +1007,60 @@ async function submitTambahKelasBaru() {
 
   
     <!-- Dashboard -->
-    <div id="dashboard-card" class="card" style="display: none;">
-      <h1>Mutaba'ah Hafalan Santri</h1>
-      <h2>Selamat datang, <span id="namaUser"></span>!</h2>
+<div id="dashboard-card" class="card" style="display: none;">
+  <h1>Mutaba'ah Hafalan Santri</h1>
+  <h2>Selamat datang, <span id="namaUser"></span>!</h2>
 
-      <div class="dashboard-header">
-  <div class="dashboard-header-row">
-    <label for="kelas">Kelas:</label>
-    <select id="kelas"></select>
+  <div class="dashboard-header">
+    <div class="dashboard-header-row">
+      <label for="kelas">Kelas:</label>
+      <select id="kelas"></select>
 
-    <label for="tanggal">Tanggal:</label>
-    <input type="date" id="tanggal" />
+      <!-- Input tanggal awal (lama, tetap dipakai) -->
+      <label for="tanggal">Tanggal:</label>
+      <input type="date" id="tanggal" />
+
+      <!-- Tambahan input baru khusus filter tabel -->
+      <label for="tanggal-filter-akhir" style="margin-left:10px;">s/d</label>
+      <input type="date" id="tanggal-filter-akhir" />
+    </div>
+  </div>
+
+  <table id="santri-table">
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>Nama</th>
+        <th>Absensi</th>
+        <th>Setoran Dari</th>
+        <th>Setoran Sampai</th>
+        <th>Page</th>
+        <th>Total Page</th>
+        <th>Juz</th>
+        <th>Total Juz</th>
+        <th>Semester</th>
+        <th>Nilai</th>
+        <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
+  <button id="btnHapusSantri">Hapus Santri</button>
+  <button id="btnPindahKelas">Pindah Kelas</button>
+  <div class="actions">
+    <button id="save-btn">Simpan Data Mutaba'ah</button>
+    <button id="download-btn">Download PDF</button>
+
+    <!-- Jangan diubah: ini khusus untuk rentang PDF -->
+    <label>Dari: <input type="date" id="start-date" /></label>
+    <label>Sampai: <input type="date" id="end-date" /></label>
+
+    <button class="logout-btn" id="logout-btn">Logout</button>
   </div>
 </div>
 
-      <table id="santri-table">
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Nama</th>
-            <th>Absensi</th>
-            <th>Setoran Dari</th>
-            <th>Setoran Sampai</th>
-			<th>Page</th>
-			<th>Total Page</th>
-			<th>Juz</th>
-            <th>Total Juz</th>
-            <th>Semester</th>
-            <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
-      <button id="btnHapusSantri">Hapus Santri</button>
-	  <button id="btnPindahKelas">Pindah Kelas</button>
-      <div class="actions">
-        <button id="save-btn">Simpan Data Mutaba'ah</button>
-        <button id="download-btn">Download PDF</button>
-        <label>Dari: <input type="date" id="start-date" /></label>
-        <label>Sampai: <input type="date" id="end-date" /></label>
-        <button class="logout-btn" id="logout-btn">Logout</button>
-      </div>
-    </div>
-  </div>
 
 
 	<!-- Modal Sederhana -->
@@ -1402,7 +1411,9 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   const passwordInput = document.getElementById("password");
   const overlay = document.getElementById("overlay");
   const kelasSelect = document.getElementById("kelas");
-  const tanggalInput = document.getElementById("tanggal");
+  const tanggalInput = document.getElementById("tanggal");  
+  const startDateInput = document.getElementById("start-date");  // 🔹 TAMBAHAN
+  const endDateInput = document.getElementById("end-date");      // 🔹 TAMBAHAN
   const santriTableBody = document.querySelector("#santri-table tbody");
   const saveBtn = document.getElementById("save-btn");
   const downloadBtn = document.getElementById("download-btn");
@@ -1447,9 +1458,49 @@ function aturDropdownKelas(user) {
 
   // === Tampilkan dashboard ===
   function showDashboard() {
-    loginCard.style.display = "none";
-    dashboardCard.style.display = "block";
+  loginCard.style.display = "none";
+  dashboardCard.style.display = "block";
+
+  const today = new Date().toLocaleDateString('sv-SE'); // Format YYYY-MM-DD
+
+  // 🟢 Atur batas tanggal maksimal supaya tidak bisa pilih ke depan
+  if (tanggalInput) tanggalInput.max = today;
+  if (startDateInput) startDateInput.max = today; // 🔹 TAMBAHAN
+  if (endDateInput) endDateInput.max = today;     // 🔹 TAMBAHAN
+
+  // 🟢 Ambil tanggal terakhir dari localStorage atau default hari ini
+  const savedTanggal = localStorage.getItem("tanggalTerakhir");
+  const savedStart = localStorage.getItem("startDateTerakhir");
+  const savedEnd = localStorage.getItem("endDateTerakhir");
+
+  // 🟢 Set tanggal default + auto-simpan saat user ubah
+  if (tanggalInput) {
+    tanggalInput.value = savedTanggal || today;
+    tanggalInput.addEventListener("change", () => {
+      localStorage.setItem("tanggalTerakhir", tanggalInput.value);
+      loadSantriData(); // 🔹 langsung refresh data
+    });
   }
+
+  if (startDateInput) {
+    startDateInput.value = savedStart || today;
+    startDateInput.addEventListener("change", () => {
+      localStorage.setItem("startDateTerakhir", startDateInput.value);
+      loadSantriData(); // 🔹 langsung refresh data
+    });
+  }
+
+  if (endDateInput) {
+    endDateInput.value = savedEnd || today;
+    endDateInput.addEventListener("change", () => {
+      localStorage.setItem("endDateTerakhir", endDateInput.value);
+      loadSantriData(); // 🔹 langsung refresh data
+    });
+  }
+
+  // 🟢 Tampilkan data awal saat dashboard dibuka
+  loadSantriData();
+}
 
   // === Login form ===
   loginForm.addEventListener("submit", async (e) => {
@@ -1601,8 +1652,23 @@ function aturDropdownKelas(user) {
     let santriData = await resSantri.json();
 
     // Ambil data absensi
-    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
-    const absensiData = await resAbsensi.json();
+    let absensiData = [];
+const startDate = startDateInput.value;
+const endDate = endDateInput.value;
+
+// Jika user memilih rentang tanggal
+if (startDate && endDate && startDate !== endDate) {
+  const resAbsensiRange = await fetch(
+    `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`
+  );
+  absensiData = await resAbsensiRange.json();
+} else {
+  // Jika hanya satu tanggal (atau tanggal sama)
+  const resAbsensi = await fetch(
+    `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`
+  );
+  absensiData = await resAbsensi.json();
+}
 
     // Ambil username user login
     const username = localStorage.getItem("username");
