@@ -2962,47 +2962,127 @@ let dataSiap = Promise.all([
 ]);
 
 // ======================
-// EVENT CLICK "LEMBAR PENILAIAN"
+// EVENT CLICK "LEMBAR PENILAIAN"  (full render + anti reset + tepat baris)
 // ======================
+const fontLoadedPages = new Set(); // cache font per halaman
+
 document.addEventListener('click', async function (e) {
   if (!e.target.classList.contains('lihat-quran-btn')) return;
+
   const overlay = document.getElementById('overlay-quran');
   overlay.style.display = 'flex';
 
+  // baris yang diklik
   const row = e.target.closest('tr');
-  currentRowEl = row; // simpan baris aktif
-  currentIdSiswa = row.cells[0].innerText.trim();
+  currentRowEl = row;                              // <— penting untuk multi tanggal
+  currentIdSiswa = row.cells[0].innerText.trim();  // <— STRING, jangan parseInt (hindari leading zero hilang)
 
-  const namaSantri = row.cells[1].childNodes[0]?.textContent.trim() || row.cells[1].innerText.trim();
+  // tampilkan nama (buang label tanggal kecil kalau ada)
+  const namaSantri = row.cells[1].childNodes[0]?.textContent.trim()
+                  || row.cells[1].innerText.replace(/\d{4}-\d{2}-\d{2}/,'').trim();
   const namaSpan = document.getElementById('modal-nama-santri');
   if (namaSpan) namaSpan.innerText = namaSantri;
 
+  // gunakan tanggal per-baris jika ada (mode rentang)
   const kelas = document.getElementById('kelas')?.value || 'default';
   const tanggalBaris = row.dataset?.tanggal || document.getElementById('tanggal')?.value || 'default';
 
-  markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggalBaris) || {};
+  // 1) ambil marks + audio untuk kombinasi (id, kelas, tanggal)
+  let serverMarks = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggalBaris);
+  markData = (serverMarks && typeof serverMarks === 'object') ? serverMarks : {};
   tampilkanAudioDariMarks(markData);
+
+  // helper: cek ada mark berwarna
+  const adaMarkBerwarna = Object.keys(markData).some(k =>
+    k !== 'audio' &&
+    markData[k] &&
+    typeof markData[k] === 'object' &&
+    Object.values(markData[k]).some(v => v === 'green' || v === 'yellow' || v === 'red')
+  );
+
+  // 2) pastikan data Quran siap
   await dataSiap;
 
-  // ... (render Quran seperti sebelumnya)
-  // terakhir:
-  const hasil = hitungNilai();
-  // hanya update tabel jika memang ada mark berwarna
-  const adaMark = Object.values(markData).some(obj =>
-    obj && typeof obj === "object" && Object.values(obj).some(v => ["green","yellow","red"].includes(v))
-  );
-  if (hasil && adaMark) {
-    updateNilaiDiTabel(hasil);
+  // 3) ambil range dari baris
+  const surahDari   = parseInt(row.querySelector('.surah-dari').value, 10);
+  const ayatDari    = parseInt(row.querySelector('.ayat-dari').value, 10);
+  const surahSampai = parseInt(row.querySelector('.surah-sampai').value, 10);
+  const ayatSampai  = parseInt(row.querySelector('.ayat-sampai').value, 10);
+
+  // 4) bangun peta halaman -> daftar ayat
+  const halamanMap = {};
+  for (let s = surahDari; s <= surahSampai; s++) {
+    const aStart = (s === surahDari) ? ayatDari : 1;
+    const aEnd   = (s === surahSampai) ? ayatSampai : 300;
+    for (let a = aStart; a <= aEnd; a++) {
+      const key = `${s}:${a}`;
+      const teks = quranData[key];
+      const page = ayahPageMap[key];
+      if (!teks || !page) continue;
+      (halamanMap[page] ||= []).push({
+        surah: s,
+        ayat: a,
+        teks: String(teks).replace(/\|/g, ' ')
+      });
+    }
+  }
+
+  // 5) render ke overlay
+  const quranText = document.getElementById('quran-text');
+  quranText.innerHTML = '';
+  const halamanUrut = Object.keys(halamanMap).map(Number).sort((x,y)=>x-y);
+
+  for (const page of halamanUrut) {
+    // load font halaman (sekali saja)
+    if (!fontLoadedPages.has(page)) {
+      const pageStr = String(page).padStart(3, '0');
+      const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/refs/heads/main/fonts/QCF_P${pageStr}.TTF`;
+      try {
+        const font = new FontFace(`QCF_P${pageStr}`, `url(${fontUrl})`);
+        await font.load();
+        document.fonts.add(font);
+        fontLoadedPages.add(page);
+      } catch (err) {
+        console.warn('Gagal load font page', page, err);
+      }
+    }
+
+    const pageDiv = document.createElement('div');
+    const pageStr = String(page).padStart(3,'0');
+    pageDiv.style.fontFamily   = `QCF_P${pageStr}, serif`;
+    pageDiv.style.fontSize     = '30px';
+    pageDiv.style.lineHeight   = '2.2';
+    pageDiv.style.direction    = 'rtl';
+    pageDiv.style.marginBottom = '20px';
+
+    halamanMap[page].forEach(item => {
+      const spans = buatKataKlik(item.surah, item.ayat, item.teks);
+      spans.forEach(span => pageDiv.appendChild(span));
+      pageDiv.appendChild(document.createElement('br'));
+    });
+
+    quranText.appendChild(pageDiv);
+  }
+
+  // 6) hitung & tampilkan nilai di modal (tanpa mereset sel tabel kalau belum ada mark)
+  const hasil = (typeof hitungNilai === 'function') ? hitungNilai() : null;
+  if (hasil && adaMarkBerwarna) {
+    updateNilaiDiTabel(hasil); // hanya update sel baris aktif
   } else {
-    // seed modal dari nilai-ringkas yang ada di tabel
+    // isi modal dari nilai-ringkas di baris (biar konsisten, tidak 0)
     const ringkas = row.querySelector('.nilai-ringkas');
-    if (ringkas) {
-      const angka = parseFloat(ringkas.querySelector('strong')?.textContent || "NaN");
-      document.getElementById("nilai-akhir").innerText = !Number.isNaN(angka) ? angka.toFixed(1) : "0.0";
-      document.getElementById("predikat-akhir").innerText = ringkas.innerText.replace(String(angka), "").trim();
+    const nilaiEl = document.getElementById('nilai-akhir');
+    const predEl  = document.getElementById('predikat-akhir');
+    if (ringkas && nilaiEl && predEl) {
+      const strong = ringkas.querySelector('strong');
+      const angka = strong ? parseFloat(String(strong.textContent).replace(',', '.')) : NaN;
+      if (!Number.isNaN(angka)) nilaiEl.textContent = angka.toFixed(1);
+      const sisa = ringkas.textContent.replace(strong?.textContent || '', '').trim();
+      predEl.innerHTML = sisa || '-';
     }
   }
 });
+
 
 // ======================
 // TOMBOL NILAI MANUAL
