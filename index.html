@@ -1590,18 +1590,27 @@ function aturDropdownKelas(user) {
       }, 500);
     });
 
-    async function loadSantriData() { 
+    // Helper kecil untuk mencocokkan record absensi dengan santri
+function matchRecord(santri, rec) {
+  const idMatch   = santri?.id  != null && rec?.id  != null && String(santri.id)  === String(rec.id);
+  const nisMatch  = santri?.nis != null && rec?.nis != null && String(santri.nis) === String(rec.nis);
+  const namaMatch = santri?.nama && rec?.nama && String(santri.nama) === String(rec.nama);
+  // Prioritaskan nis → id → nama
+  return nisMatch || idMatch || namaMatch;
+}
+
+async function loadSantriData() { 
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
   overlay.style.display = "flex";
 
   try {
     // Ambil semua santri di kelas
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}`);
     let santriData = await resSantri.json();
 
     // Ambil data absensi
-    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
     const absensiData = await resAbsensi.json();
 
     // Ambil username user login
@@ -1619,8 +1628,9 @@ function aturDropdownKelas(user) {
         if (!user.kelas.includes(kelas)) {
           santriData = []; // kelas tidak diizinkan
         } else if (user.nis && user.nis.length) {
-          // Batasi NIS hanya yang diizinkan
-          santriData = santriData.filter(s => user.nis.includes(s.nis));
+          // Samakan tipe untuk jaga-jaga (string-kan keduanya)
+          const nisAllowed = user.nis.map(String);
+          santriData = santriData.filter(s => nisAllowed.includes(String(s.nis)));
         }
       }
     } else {
@@ -1632,8 +1642,14 @@ function aturDropdownKelas(user) {
     santriTableBody.innerHTML = "";
 
     santriData.forEach((santri, i) => {
-      const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
+      // 🔧 PERUBAHAN PENTING: cari record absensi via NIS → ID → Nama
+      const dataAbsensi = (absensiData.find(a => matchRecord(santri, a))) || {};
+
       const row = document.createElement("tr");
+
+      // 🔧 SIMPAN KUNCI STABIL DI DATASET (dipakai saat simpan)
+      row.dataset.id  = santri?.id  != null ? String(santri.id)  : '';
+      row.dataset.nis = santri?.nis != null ? String(santri.nis) : '';
 
       const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
       const dari = (dataAbsensi.dari || "1:1").split(":");
@@ -1645,9 +1661,9 @@ function aturDropdownKelas(user) {
         <td>
           <select class="absensi">
             <option value="Hadir" ${dataAbsensi.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
-            <option value="Alpha" ${dataAbsensi.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
+            <option value="Alpa"  ${dataAbsensi.absensi === "Alpa"  ? "selected" : ""}>Alpa</option>
             <option value="Sakit" ${dataAbsensi.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
-            <option value="Izin" ${dataAbsensi.absensi === "Izin" ? "selected" : ""}>Izin</option>
+            <option value="Izin"  ${dataAbsensi.absensi === "Izin"  ? "selected" : ""}>Izin</option>
           </select>
         </td>
         <td>
@@ -1658,9 +1674,9 @@ function aturDropdownKelas(user) {
           <select class="surah-sampai">${surahOptions}</select>
           <select class="ayat-sampai"></select>
         </td>
-        <td class="halaman-terbaca">${dataAbsensi.halaman || '-'}</td>
-        <td class="total-halaman">${dataAbsensi.totalHalaman || '-'}</td>
-        <td class="juz-terbaca">${dataAbsensi.juzTerbaca || '-'}</td>
+        <td class="halaman-terbaca">${dataAbsensi.halaman ?? '-'}</td>
+        <td class="total-halaman">${dataAbsensi.totalHalaman ?? '-'}</td>
+        <td class="juz-terbaca">${dataAbsensi.juzTerbaca ?? '-'}</td>
         <td class="total-juz">${dataAbsensi.totalJuz ?? 0}</td>
         <td>
           <select class="semester">
@@ -1675,7 +1691,7 @@ function aturDropdownKelas(user) {
         <td>
           <div class="nilai-ringkas">
             ${dataAbsensi.buttonCell 
-               ? `<strong>${dataAbsensi.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+               ? `<strong>${Number(dataAbsensi.buttonCell.nilai).toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
                : ''}
           </div>
           <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
@@ -1686,6 +1702,7 @@ function aturDropdownKelas(user) {
       `;
       santriTableBody.appendChild(row);
 
+      // (opsional) optimalkan agar tidak queryAll setiap loop; tapi tetap aku biarkan sesuai pola kamu:
       document.querySelectorAll("td.total-all-juz").forEach(td => {
         if (td.textContent.trim() === "0") {
           td.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
@@ -1728,6 +1745,7 @@ function aturDropdownKelas(user) {
 
   overlay.style.display = "none";
 }
+
 
 
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
