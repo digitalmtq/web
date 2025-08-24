@@ -2413,31 +2413,40 @@ document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTot
 
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
-    rows.forEach(row => {
-      const id = parseInt(row.children[0].textContent);
-      const cell = row.querySelector(".total-all-juz");
-      if (rekap[id]) {
-        const totalJuz = rekap[id].totalJuz.toFixed(2);
-        let semester = parseInt(row.querySelector(".semester")?.value) || rekap[id].semester;
-        const target = batasSemester[semester] || 0;
+rows.forEach(row => {
+  const id = parseInt(row.children[0].textContent);
+  const cell = row.querySelector(".total-all-juz");
 
-        let prosentase = target > 0 ? Math.floor((rekap[id].totalJuz / target) * 100) : 0;
-        if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
+  if (rekap[id]) {
+    const totalJuzNum = Number(rekap[id].totalJuz) || 0;
+    const totalJuz = totalJuzNum.toFixed(2);
 
-        const tuntas = prosentase >= 100;
-        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+    // ambil semester dari dropdown, fallback ke data rekap
+    let semester = parseInt(row.querySelector(".semester")?.value);
+    if (!semester && rekap[id].semester) semester = parseInt(rekap[id].semester);
 
-        cell.innerHTML =
-          `${totalJuz} <span style="color:${tuntas ? 'green' : 'red'}; font-size:10px">` +
-          `${label}</span>`;
-      } else {
-        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
-      }
-    });
-  } catch (err) {
-    console.error("Gagal ambil data absensi:", err);
+    const target = batasSemester[semester] || 0;
+
+    // 🔑 Prioritaskan KHATAM jika total juz >= 30
+    if (totalJuzNum >= 30) {
+      cell.innerHTML = `${totalJuz} <span style="color:#6a1b9a; font-size:10px">KHATAM</span>`;
+      return;
+    }
+
+    // selain itu, pakai logika TUNTAS / persen seperti biasa
+    let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
+    if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
+
+    const tuntas = prosentase >= 100;
+    const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+    const warna = tuntas ? "green" : "red";
+
+    cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:10px">${label}</span>`;
+  } else {
+    cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
   }
-}
+});
+
 
 // Jalankan saat pertama kali halaman selesai dimuat
 window.addEventListener("DOMContentLoaded", hitungTotalAllJuzOtomatis);
