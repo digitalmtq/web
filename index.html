@@ -1775,18 +1775,19 @@ function updateTotalJuz(row) {
   const halaman = pagesMap[key];
   if (!halaman) continue;
 
-  // === PAGE: SELALU dicatat (termasuk 21, 602, 603, 604) ===
+  // PAGE: selalu dicatat (termasuk 21, 602, 603, 604)
   halamanValid.push(halaman);
 
-  // === JUZ: hanya dihitung jika BUKAN 21 dan BUKAN 602–604 ===
-  if (halaman !== 21 && !(halaman >= 602 && halaman <= 604)) {
-    const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
-    if (!ayatDiHalaman) {
-      console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
-      continue;
-    }
-    totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
+  // JUZ: hanya dihitung jika bukan 21 dan bukan 602–604
+  if (halaman === 21 || (halaman >= 602 && halaman <= 604)) continue;
+
+  const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
+  if (!ayatDiHalaman) {
+    console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
+    continue;
   }
+
+  totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
 }
 
 totalJuz = Number(totalJuz.toFixed(2));
