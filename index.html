@@ -1631,6 +1631,20 @@ function aturDropdownKelas(user) {
 
     santriTableBody.innerHTML = "";
 
+	  const kelas = kelasSelect.value;
+const tanggal = tanggalInput.value;              // ini tanggal aktif (lagi diedit)
+const username = localStorage.getItem("username");
+
+const { used } = await fetch(
+  `/.netlify/functions/getUsedAyat?kelas=${encodeURIComponent(kelas)}&excludeTanggal=${encodeURIComponent(tanggal)}&username=${encodeURIComponent(username)}`
+).then(r => r.json());
+
+// contoh pakai:
+const idKey = String(santri.id ?? santri.nis ?? '');
+const usedForSantri = new Set((used?.[idKey] || []).map(String));
+// lalu disable opsi ayat yang ada di usedForSantri saat isi dropdown
+
+
     santriData.forEach((santri, i) => {
       const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
       const row = document.createElement("tr");
