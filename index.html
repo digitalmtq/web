@@ -1017,8 +1017,21 @@ async function submitTambahKelasBaru() {
       <select id="kelas"></select>
 
       <!-- Input tanggal awal (lama, tetap dipakai) -->
-      <label for="tanggal">Tanggal:</label>
-      <input type="date" id="tanggal" />
+      <div class="dashboard-header-row">
+  <label for="kelas">Kelas:</label>
+  <select id="kelas"></select>
+
+  <label for="tanggal">Tanggal:</label>
+  <input type="date" id="tanggal" />
+
+  <label for="start-date">Dari:</label>
+  <input type="date" id="start-date" />
+
+  <label for="end-date">Sampai:</label>
+  <input type="date" id="end-date" />
+
+  <button id="apply-date-range" style="margin-left: 8px;">Terapkan</button>
+</div>
 
       <!-- Tambahan input baru khusus filter tabel -->
       <label for="tanggal-filter-akhir" style="margin-left:10px;">s/d</label>
@@ -1419,6 +1432,14 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   const downloadBtn = document.getElementById("download-btn");
   const totalAllJuzHeader = document.getElementById("totalAllJuzHeader");
   const namaUserSpan = document.getElementById("namaUser");
+  const applyDateBtn = document.getElementById("apply-date-range");
+
+	 applyDateBtn.addEventListener("click", () => {
+  localStorage.setItem("startDateTerakhir", startDateInput.value);
+  localStorage.setItem("endDateTerakhir", endDateInput.value);
+  loadSantriData();
+});
+
 
   let surahList = [];
   let pagesMap = {};
@@ -1638,6 +1659,7 @@ if (startDate && endDate && startDate !== endDate) {
   );
   absensiData = await resAbsensi.json();
 }
+
 
 
     // ... kode filter akses dan render tabel tetap sama
