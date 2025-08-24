@@ -2323,28 +2323,29 @@ rows.forEach(row => {
     let warna = "red";
 
     if (rekap[id].totalJuz >= 30) {
-      // ✅ Sudah 30 juz → KHATAM
+      // ✅ Jika 30 juz atau lebih → KHATAM
       label = "KHATAM";
       warna = "purple";
     } else if (prosentase >= 100) {
-      // ✅ Tuntas sesuai batas semester
+      // ✅ Jika tuntas per semester
       label = "TUNTAS";
       warna = "green";
     }
 
     cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:12px;">${label}</span>`;
 
-    // Siapkan data untuk simpan ke file JSON
+    // Simpan data
     dataToSave.push({
       id,
       totalJuz: parseFloat(totalJuz),
       semester,
-      tuntas: prosentase >= 100 || rekap[id].totalJuz >= 30 // tetap disimpan sebagai tuntas kalau sudah khatam
+      tuntas: prosentase >= 100 || rekap[id].totalJuz >= 30
     });
   } else {
     cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
   }
 });
+
 
     // Kirim data hasil rekap ke backend Netlify Function untuk disimpan
     const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
