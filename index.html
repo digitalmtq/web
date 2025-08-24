@@ -1007,73 +1007,51 @@ async function submitTambahKelasBaru() {
 
   
     <!-- Dashboard -->
-<div id="dashboard-card" class="card" style="display: none;">
-  <h1>Mutaba'ah Hafalan Santri</h1>
-  <h2>Selamat datang, <span id="namaUser"></span>!</h2>
+    <div id="dashboard-card" class="card" style="display: none;">
+      <h1>Mutaba'ah Hafalan Santri</h1>
+      <h2>Selamat datang, <span id="namaUser"></span>!</h2>
 
-  <div class="dashboard-header">
-    <div class="dashboard-header-row">
-      <label for="kelas">Kelas:</label>
-      <select id="kelas"></select>
+      <div class="dashboard-header">
+  <div class="dashboard-header-row">
+    <label for="kelas">Kelas:</label>
+    <select id="kelas"></select>
 
-      <!-- Input tanggal awal (lama, tetap dipakai) -->
-      <div class="dashboard-header-row">
-  <label for="kelas">Kelas:</label>
-  <select id="kelas"></select>
-
-  <label for="tanggal">Tanggal:</label>
-  <input type="date" id="tanggal" />
-
-  <label for="start-date">Dari:</label>
-  <input type="date" id="start-date" />
-
-  <label for="end-date">Sampai:</label>
-  <input type="date" id="end-date" />
-
-  <button id="apply-date-range" style="margin-left: 8px;">Terapkan</button>
+    <label for="tanggal">Tanggal:</label>
+    <input type="date" id="tanggal" />
+  </div>
 </div>
 
-      <!-- Tambahan input baru khusus filter tabel -->
-      <label for="tanggal-filter-akhir" style="margin-left:10px;">s/d</label>
-      <input type="date" id="tanggal-filter-akhir" />
+      <table id="santri-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama</th>
+            <th>Absensi</th>
+            <th>Setoran Dari</th>
+            <th>Setoran Sampai</th>
+			<th>Page</th>
+			<th>Total Page</th>
+			<th>Juz</th>
+            <th>Total Juz</th>
+            <th>Semester</th>
+            <th>Nilai</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
+      <button id="btnHapusSantri">Hapus Santri</button>
+	  <button id="btnPindahKelas">Pindah Kelas</button>
+      <div class="actions">
+        <button id="save-btn">Simpan Data Mutaba'ah</button>
+        <button id="download-btn">Download PDF</button>
+        <label>Dari: <input type="date" id="start-date" /></label>
+        <label>Sampai: <input type="date" id="end-date" /></label>
+        <button class="logout-btn" id="logout-btn">Logout</button>
+      </div>
     </div>
   </div>
-
-  <table id="santri-table">
-    <thead>
-      <tr>
-        <th>No</th>
-        <th>Nama</th>
-        <th>Absensi</th>
-        <th>Setoran Dari</th>
-        <th>Setoran Sampai</th>
-        <th>Page</th>
-        <th>Total Page</th>
-        <th>Juz</th>
-        <th>Total Juz</th>
-        <th>Semester</th>
-        <th>Nilai</th>
-        <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
-  <button id="btnHapusSantri">Hapus Santri</button>
-  <button id="btnPindahKelas">Pindah Kelas</button>
-  <div class="actions">
-    <button id="save-btn">Simpan Data Mutaba'ah</button>
-    <button id="download-btn">Download PDF</button>
-
-    <!-- Jangan diubah: ini khusus untuk rentang PDF -->
-    <label>Dari: <input type="date" id="start-date" /></label>
-    <label>Sampai: <input type="date" id="end-date" /></label>
-
-    <button class="logout-btn" id="logout-btn">Logout</button>
-  </div>
-</div>
-
 
 
 	<!-- Modal Sederhana -->
@@ -1424,22 +1402,12 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   const passwordInput = document.getElementById("password");
   const overlay = document.getElementById("overlay");
   const kelasSelect = document.getElementById("kelas");
-  const tanggalInput = document.getElementById("tanggal");  
-  const startDateInput = document.getElementById("start-date");  // 🔹 TAMBAHAN
-  const endDateInput = document.getElementById("end-date");      // 🔹 TAMBAHAN
+  const tanggalInput = document.getElementById("tanggal");
   const santriTableBody = document.querySelector("#santri-table tbody");
   const saveBtn = document.getElementById("save-btn");
   const downloadBtn = document.getElementById("download-btn");
   const totalAllJuzHeader = document.getElementById("totalAllJuzHeader");
   const namaUserSpan = document.getElementById("namaUser");
-  const applyDateBtn = document.getElementById("apply-date-range");
-
-	 applyDateBtn.addEventListener("click", () => {
-  localStorage.setItem("startDateTerakhir", startDateInput.value);
-  localStorage.setItem("endDateTerakhir", endDateInput.value);
-  loadSantriData();
-});
-
 
   let surahList = [];
   let pagesMap = {};
@@ -1477,7 +1445,11 @@ function aturDropdownKelas(user) {
   if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
 }
 
-  
+  // === Tampilkan dashboard ===
+  function showDashboard() {
+    loginCard.style.display = "none";
+    dashboardCard.style.display = "block";
+  }
 
   // === Login form ===
   loginForm.addEventListener("submit", async (e) => {
@@ -1563,55 +1535,46 @@ function aturDropdownKelas(user) {
 
     
 
-    // === Tampilkan dashboard ===
-  function showDashboard() {
+    function showDashboard() {
   loginCard.style.display = "none";
   dashboardCard.style.display = "block";
 
-  const today = new Date().toLocaleDateString('sv-SE');
+  const today = new Date().toLocaleDateString('sv-SE'); // Format: YYYY-MM-DD
+  const tanggalInput = document.getElementById("tanggal");
+  const startDate = document.getElementById("start-date");
+  const endDate = document.getElementById("end-date");
 
-  // Batasi tanggal maksimal
+  // Set batas maksimum hari ini
   if (tanggalInput) tanggalInput.max = today;
-  if (startDateInput) startDateInput.max = today;
-  if (endDateInput) endDateInput.max = today;
+  if (startDate) startDate.max = today;
+  if (endDate) endDate.max = today;
 
-  // Ambil tanggal terakhir atau default hari ini
+  // Ambil dari localStorage jika ada
   const savedTanggal = localStorage.getItem("tanggalTerakhir");
   const savedStart = localStorage.getItem("startDateTerakhir");
   const savedEnd = localStorage.getItem("endDateTerakhir");
 
-  // Set default dan pasang listener
   if (tanggalInput) {
-  tanggalInput.value = savedTanggal || today;
-  tanggalInput.addEventListener("change", () => {
-    // Kalau tidak ada rentang tanggal, pakai tanggal tunggal
-    if (!startDateInput.value && !endDateInput.value) {
+    tanggalInput.value = savedTanggal || today;
+    tanggalInput.addEventListener("change", () => {
       localStorage.setItem("tanggalTerakhir", tanggalInput.value);
-    }
-    loadSantriData();
-  });
-}
+    });
+  }
 
-if (startDateInput) {
-  startDateInput.value = savedStart || today;
-  startDateInput.addEventListener("change", () => {
-    localStorage.setItem("startDateTerakhir", startDateInput.value);
-    tanggalInput.value = startDateInput.value;  // sinkron default
-    loadSantriData();
-  });
-}
+  if (startDate) {
+    startDate.value = savedStart || today;
+    startDate.addEventListener("change", () => {
+      localStorage.setItem("startDateTerakhir", startDate.value);
+    });
+  }
 
-if (endDateInput) {
-  endDateInput.value = savedEnd || "";
-  endDateInput.addEventListener("change", () => {
-    localStorage.setItem("endDateTerakhir", endDateInput.value);
-    loadSantriData();
-  });
-}
+  if (endDate) {
+    endDate.value = savedEnd || today;
+    endDate.addEventListener("change", () => {
+      localStorage.setItem("endDateTerakhir", endDate.value);
+    });
+  }
 
-
-
-  // Tampilkan data awal
   loadSantriData();
 }
 
@@ -1627,12 +1590,9 @@ if (endDateInput) {
       }, 500);
     });
 
-    async function loadSantriData() {
+    async function loadSantriData() { 
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
-  const startDate = startDateInput.value;
-  const endDate = endDateInput.value || startDateInput.value;
-
   overlay.style.display = "flex";
 
   try {
@@ -1640,49 +1600,37 @@ if (endDateInput) {
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
     let santriData = await resSantri.json();
 
-    // === Ambil data absensi ===
-    let absensiData = [];
-const startDate = startDateInput.value;
-const endDate = endDateInput.value || startDate;
+    // Ambil data absensi
+    const resAbsensi = await fetch(`/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`);
+    const absensiData = await resAbsensi.json();
 
-if (startDate && endDate && startDate !== endDate) {
-  // Ambil data rentang tanggal
-  const resAbsensiRange = await fetch(
-    `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`
-  );
-  absensiData = await resAbsensiRange.json();
-} else {
-  // Ambil data satu tanggal
-  const tanggal = startDate || tanggalInput.value;
-  const resAbsensi = await fetch(
-    `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`
-  );
-  absensiData = await resAbsensi.json();
-}
-
-
-
-    // ... kode filter akses dan render tabel tetap sama
-
-    // Ambil username dan filter akses
+    // Ambil username user login
     const username = localStorage.getItem("username");
+
+    // Ambil semua user dan temukan user login
     const users = await fetch(`/.netlify/functions/getUsers`).then(r => r.json());
     const user = users.find(u => u.username === username);
 
+    // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
     if (user) {
+      // Superuser: tidak ada properti kelas → akses semua
       if (user.kelas && user.kelas.length) {
+        // Batasi ke kelas yang diizinkan
         if (!user.kelas.includes(kelas)) {
-          santriData = [];
+          santriData = []; // kelas tidak diizinkan
         } else if (user.nis && user.nis.length) {
+          // Batasi NIS hanya yang diizinkan
           santriData = santriData.filter(s => user.nis.includes(s.nis));
         }
       }
     } else {
+      // user tidak ditemukan → kosongkan tabel
       santriData = [];
     }
+    // ===== END FILTER =====
 
-    // Render tabel
     santriTableBody.innerHTML = "";
+
     santriData.forEach((santri, i) => {
       const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
       const row = document.createElement("tr");
@@ -1744,6 +1692,7 @@ if (startDate && endDate && startDate !== endDate) {
         }
       });
 
+      // Set surah & ayat dropdown
       const surahDari = row.querySelector(".surah-dari");
       const ayatDari = row.querySelector(".ayat-dari");
       const surahSampai = row.querySelector(".surah-sampai");
@@ -1758,6 +1707,7 @@ if (startDate && endDate && startDate !== endDate) {
       surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
       surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
 
+      // Sinkronisasi otomatis kolom Sampai ketika Dari berubah
       surahDari.addEventListener("change", () => {
         surahSampai.value = surahDari.value;
         fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
