@@ -1671,7 +1671,7 @@ if (tanggalFilterAkhir) {
         if (!absensiById[a.id]) absensiById[a.id] = [];
         absensiById[a.id].push(a);
       }
-      // Urutkan per santri berdasarkan tanggal (kalau backend kirim field 'tanggal')
+      // Urutkan per santri berdasarkan tanggal (jika field 'tanggal' ada)
       Object.values(absensiById).forEach(arr => {
         arr.sort((x, y) => String(x.tanggal || "").localeCompare(String(y.tanggal || "")));
       });
@@ -1699,7 +1699,10 @@ if (tanggalFilterAkhir) {
         const dari = (dataAbsensi?.dari || "1:1").split(":");
         const sampai = (dataAbsensi?.sampai || "1:1").split(":");
 
-        // Label tanggal kecil saat mode rentang
+        // Tanggal spesifik baris: rentang → pakai dataAbsensi.tanggal; tunggal → tanggal awal
+        const rowDate = (isRange && dataAbsensi?.tanggal) ? dataAbsensi.tanggal : tanggal;
+
+        // Label tanggal kecil saat mode rentang (opsional)
         const subTanggal = isRange && dataAbsensi?.tanggal
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
           : "";
@@ -1749,6 +1752,11 @@ if (tanggalFilterAkhir) {
             <img src="https://raw.githubusercontent.com/digitalmtq/web/main/progress.gif" style="width:70px;height:18px;">
           </td>
         `;
+
+        // 🔹 simpan id & tanggal baris pada <tr> (dipakai untuk edit per-baris)
+        row.dataset.id = (santri.id || santri.nis);
+        row.dataset.tanggal = rowDate;
+
         santriTableBody.appendChild(row);
 
         // Ganti gif jika total-all-juz = 0
@@ -2738,6 +2746,9 @@ let quranData = {};
 let ayahPageMap = {};
 let markData = {};
 let currentIdSiswa = null;
+// 🔹 NEW: simpan elemen baris yang sedang aktif (untuk mode rentang)
+let currentRowEl = null;
+
 let recordingsList = document.getElementById("recordingsList");
 
 
@@ -2787,11 +2798,16 @@ function getMimeType(filename) {
 }
 
 // ======================
+//
 // STORAGE
+//
 // ======================
+// 🔹 REVISED: gunakan tanggal baris (kalau ada) agar penyimpanan terpisah per tanggal
 function getStorageKey() {
   const kelas = document.getElementById('kelas')?.value || 'default';
-  const tanggal = document.getElementById('tanggal')?.value || 'default';
+  // kalau ada currentRowEl dengan dataset.tanggal ⇒ pakai itu; jika tidak, pakai input #tanggal
+  const tanggalBaris = currentRowEl?.dataset?.tanggal;
+  const tanggal = tanggalBaris || (document.getElementById('tanggal')?.value || 'default');
   return `marks_${kelas}_${tanggal}_${currentIdSiswa}`;
 }
 
@@ -2901,17 +2917,24 @@ function hitungNilai() {
 // ======================
 // UPDATE TABEL (tanpa warna mark)
 // ======================
+// 🔹 REVISED: utamakan update ke currentRowEl (baris yang sedang dibuka), fallback ke pencarian by id
 function updateNilaiDiTabel({ nilai, predikat }) {
   if (!currentIdSiswa) return;
 
-  const row = [...document.querySelectorAll("table tbody tr")]
-    .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
+  // 1) Prioritas: baris yang sedang aktif di modal
+  let row = currentRowEl;
+
+  // 2) Fallback lama: cari berdasarkan ID (bisa salah baris kalau ada multi tanggal)
+  if (!row) {
+    row = [...document.querySelectorAll("table tbody tr")]
+      .find(r => parseInt(r.cells[0].innerText.trim()) === currentIdSiswa);
+  }
 
   if (row) {
     const buttonCell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
     if (buttonCell) {
       buttonCell.innerHTML = `
-        <div><strong>${nilai.toFixed(1)}</strong> ${predikat}</div>
+        <div><strong>${Number(nilai).toFixed(1)}</strong> ${predikat}</div>
         <button class="lihat-quran-btn">Lembar Penilaian</button>
       `;
       // tetap simpan markData untuk modal
@@ -2949,6 +2972,8 @@ function buatKataKlik(surah, ayat, teks) {
       // Hitung nilai & update tabel + modal
       const hasil = hitungNilai();
       updateNilaiDiTabel(hasil);
+      // 🔹 opsional: simpan otomatis
+      // simpanKeStorage();
     };
 
     // Set warna awal kata jika sudah ada mark
@@ -2992,7 +3017,9 @@ document.addEventListener('click', async function(e) {
     const overlay = document.getElementById('overlay-quran');
     overlay.style.display = 'flex';
 
+    // 🔹 simpan baris yang diklik + id siswa
     const row = e.target.closest('tr');
+    currentRowEl = row; // <<< penting untuk mode rentang
     currentIdSiswa = parseInt(row.cells[0].innerText.trim());
 
     // Ambil nama santri dari kolom 1 (asumsi kolom 1 adalah nama)
@@ -3003,11 +3030,16 @@ document.addEventListener('click', async function(e) {
     }
 
     const kelas = document.getElementById('kelas')?.value || 'default';
-    const tanggal = document.getElementById('tanggal')?.value || 'default';
+    // 🔹 gunakan tanggal baris (jika ada), fallback ke input tanggal
+    const tanggalBaris = row?.dataset?.tanggal;
+    const tanggal = tanggalBaris || (document.getElementById('tanggal')?.value || 'default');
 
-    // Ambil marks + audio
+    // Ambil marks + audio (per-baris/per-tanggal)
     markData = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggal);
     tampilkanAudioDariMarks(markData);
+
+    // (opsional) muat dari storage lokal per tanggal
+    ambilDariStorage();
 
     // Load Quran
     await dataSiap;
@@ -3098,8 +3130,12 @@ document.getElementById("btn-beri-nilai").onclick = function() {
 
   // Update tabel (tanpa warna mark)
   updateNilaiDiTabel({ nilai: inputNilai, predikat: predikat });
+
+  // 🔹 opsional: simpan ke storage untuk baris/tanggal ini
+  // simpanKeStorage();
 };
 </script>
+
 
 
 
