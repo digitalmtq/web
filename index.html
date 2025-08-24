@@ -1771,27 +1771,27 @@ function updateTotalJuz(row) {
     const endAyat = (s === Number(surahSampai)) ? ayatSampai : totalAyatSurah;
 
     for (let a = startAyat; a <= endAyat; a++) {
-  const key = `${s}:${a}`;
-  const halaman = pagesMap[key];
-  if (!halaman) continue;
+      const key = `${s}:${a}`;
+      const halaman = pagesMap[key];
+      - if (!halaman || (halaman >= 602 && halaman <= 604) || halaman === 21) continue;
+	  + if (!halaman) continue;
 
-  // PAGE: selalu dicatat (termasuk 21, 602, 603, 604)
-  halamanValid.push(halaman);
 
-  // JUZ: hanya dihitung jika bukan 21 dan bukan 602–604
-  if (halaman === 21 || (halaman >= 602 && halaman <= 604)) continue;
+      halamanValid.push(halaman);
 
-  const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
-  if (!ayatDiHalaman) {
-    console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
-    continue;
+      const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
+      if (!ayatDiHalaman) {
+        console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
+        continue;
+      }
+
+      - totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
++ if (halaman !== 21 && (halaman < 602 || halaman > 604)) {
++   totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
++ }
   }
 
-  totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
-}
-
-totalJuz = Number(totalJuz.toFixed(2));
-
+  totalJuz = totalJuz.toFixed(2);
 
  // Hilangkan halaman duplikat untuk perhitungan juz tercakup
   const halamanUnik = [...new Set(halamanValid)].sort((a, b) => a - b);
