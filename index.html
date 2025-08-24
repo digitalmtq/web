@@ -1040,7 +1040,7 @@ async function submitTambahKelasBaru() {
             <th>Total Juz</th>
             <th>Semester</th>
             <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target Juz</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -2301,40 +2301,50 @@ async function hitungTotalAllJuzFromTable() {
     });
 
     // Batas ketuntasan per semester
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
-    // Update tabel dan siapkan data untuk disimpan
-    const dataToSave = [];
+// Update tabel dan siapkan data untuk disimpan
+const dataToSave = [];
 
-    rows.forEach(row => {
-      const id = parseInt(row.children[0].textContent);
-      const cell = row.querySelector(".total-all-juz");
+rows.forEach(row => {
+  const id = parseInt(row.children[0].textContent);
+  const cell = row.querySelector(".total-all-juz");
 
-      if (rekap[id]) {
-        const totalJuz = rekap[id].totalJuz.toFixed(2);
-        let semester = parseInt(row.querySelector(".semester")?.value);
-        if (!semester && rekap[id].semester) semester = rekap[id].semester;
+  if (rekap[id]) {
+    const totalJuz = rekap[id].totalJuz.toFixed(2);
+    let semester = parseInt(row.querySelector(".semester")?.value);
+    if (!semester && rekap[id].semester) semester = rekap[id].semester;
 
-        const batas = batasSemester[semester] || 0;
-        let prosentase = batas > 0 ? Math.floor((rekap[id].totalJuz / batas) * 100) : 0;
-        if (prosentase > 100) prosentase = 100;
+    const batas = batasSemester[semester] || 0;
+    let prosentase = batas > 0 ? Math.floor((rekap[id].totalJuz / batas) * 100) : 0;
+    if (prosentase > 100) prosentase = 100;
 
-        const tuntas = prosentase >= 100;
-        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+    let label = `${prosentase}%`;
+    let warna = "red";
 
-        cell.innerHTML = `${totalJuz} <span style="color: ${tuntas ? "green" : "red"}; font-size: 12px;">${label}</span>`;
+    if (rekap[id].totalJuz >= 30) {
+      // ✅ Sudah 30 juz → KHATAM
+      label = "KHATAM";
+      warna = "purple";
+    } else if (prosentase >= 100) {
+      // ✅ Tuntas sesuai batas semester
+      label = "TUNTAS";
+      warna = "green";
+    }
 
-        // Siapkan data untuk simpan ke file JSON
-        dataToSave.push({
-          id,
-          totalJuz: parseFloat(totalJuz),
-          semester,
-          tuntas
-        });
-      } else {
-        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
-      }
+    cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:12px;">${label}</span>`;
+
+    // Siapkan data untuk simpan ke file JSON
+    dataToSave.push({
+      id,
+      totalJuz: parseFloat(totalJuz),
+      semester,
+      tuntas: prosentase >= 100 || rekap[id].totalJuz >= 30 // tetap disimpan sebagai tuntas kalau sudah khatam
     });
+  } else {
+    cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+  }
+});
 
     // Kirim data hasil rekap ke backend Netlify Function untuk disimpan
     const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
