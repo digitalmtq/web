@@ -1773,19 +1773,24 @@ function updateTotalJuz(row) {
     for (let a = startAyat; a <= endAyat; a++) {
       const key = `${s}:${a}`;
       const halaman = pagesMap[key];
-      if (!halaman || (halaman >= 602 && halaman <= 604) || halaman === 21) continue;
+      // SEKARANG: PAGE selalu dihitung; JUZ tetap skip 21 & 602–604
+if (!halaman) continue;
 
-      halamanValid.push(halaman);
+// === PAGE: selalu kumpulkan untuk tampilan, termasuk 21 & 602–604 ===
+halamanValid.push(halaman); // atau halamanInfoAll.push(halaman) kalau kamu pakai nama itu
 
-      const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
-      if (!ayatDiHalaman) {
-        console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
-        continue;
-      }
-
-      totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
-    }
+// === JUZ: tetap SKIP halaman 21 & 602–604 ===
+if (halaman === 21 || (halaman >= 602 && halaman <= 604)) {
+  // jangan tambah ke totalJuz
+} else {
+  const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
+  if (ayatDiHalaman) {
+    totalJuz += (0.05 / ayatDiHalaman);
+  } else {
+    console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
   }
+}
+
 
   totalJuz = totalJuz.toFixed(2);
 
@@ -1827,51 +1832,44 @@ function updateTotalJuz(row) {
 	const juzTerbacaFormatted = compressJuzRanges(juzTercakup);
 
 	 // Hitung pages quran
-function calculateHalamanTerbaca(halamanList) {
-  if (!halamanList || halamanList.length === 0) {
-    return { ranges: "-", total: 0 };
-  }
+	function calculateHalamanTerbaca(halamanList) {
+  if (!halamanList || halamanList.length === 0) return { ranges: "-", total: 0 };
 
-  // Hitung jumlah ayat terbaca per halaman (normalize ke number)
-  const halamanCountMap = {}; // { halaman: jumlahAyatTerbaca }
-  for (const h of halamanList) {
-    const p = Number(h);
-    if (!Number.isFinite(p)) continue;
-    halamanCountMap[p] = (halamanCountMap[p] || 0) + 1;
+  const halamanCountMap = {}; // key: halaman, value: jumlah ayat terbaca
+  for (let h of halamanList) {
+    halamanCountMap[h] = (halamanCountMap[h] || 0) + 1;
   }
 
   const uniqueHalaman = Object.keys(halamanCountMap)
-    .map(Number)
-    .sort((a, b) => a - b);
+                             .map(Number)
+                             .sort((a, b) => a - b);
 
-  if (uniqueHalaman.length === 0) return { ranges: "-", total: 0 };
-
-  // Total halaman fraksional berdasarkan jumlahAyatPerHalaman (cap 1.0 per halaman)
-  let totalHalaman = 0;
-  for (const h of uniqueHalaman) {
-    const ayatTotal = jumlahAyatPerHalaman[h] || 1;          // acuan
-    const ayatTerbaca = Math.min(halamanCountMap[h], ayatTotal); // batasi agar <= 1 halaman
-    totalHalaman += ayatTerbaca / ayatTotal;
-  }
-
-  // Kompres ke rentang "x, y-z, ..."
   const ranges = [];
+  let totalHalaman = 0;
+
   let start = uniqueHalaman[0];
   let end = start;
-  for (let i = 1; i < uniqueHalaman.length; i++) {
+
+  for (let i = 0; i < uniqueHalaman.length; i++) {
     const h = uniqueHalaman[i];
-    if (h === end + 1) {
-      end = h;
-    } else {
-      ranges.push(start === end ? `${start}` : `${start}-${end}`);
-      start = end = h;
+    const ayatTerbaca = halamanCountMap[h];
+    const ayatTotal = jumlahAyatPerHalaman[h] || 1;
+    totalHalaman += ayatTerbaca / ayatTotal;
+
+    if (i > 0) {
+      if (h === end + 1) {
+        end = h;
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = end = h;
+      }
     }
   }
+
   ranges.push(start === end ? `${start}` : `${start}-${end}`);
 
   return { ranges: ranges.join(", "), total: totalHalaman };
 }
-
 
 // Pemakaian di tabel
 const result = calculateHalamanTerbaca(halamanValid);
