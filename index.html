@@ -1016,8 +1016,9 @@ async function submitTambahKelasBaru() {
     <label for="kelas">Kelas:</label>
     <select id="kelas"></select>
 
-     <label for="tanggal">Tanggal:</label>
-    <input type="date" id="tanggal" />
+     <!-- Input tanggal awal (lama, tetap dipakai) -->
+      <label for="tanggal">Tanggal:</label>
+      <input type="date" id="tanggal" />
   </div>
 </div>
 
@@ -1402,53 +1403,21 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   const passwordInput = document.getElementById("password");
   const overlay = document.getElementById("overlay");
   const kelasSelect = document.getElementById("kelas");
-  const tanggalInput   = document.getElementById("tanggal");
-  const startDateInput = document.getElementById("start-date");
-  const endDateInput   = document.getElementById("end-date");
+  const tanggalInput = document.getElementById("tanggal");  
+  const startDateInput = document.getElementById("start-date");  // 🔹 TAMBAHAN
+  const endDateInput = document.getElementById("end-date");      // 🔹 TAMBAHAN
   const santriTableBody = document.querySelector("#santri-table tbody");
   const saveBtn = document.getElementById("save-btn");
   const downloadBtn = document.getElementById("download-btn");
   const totalAllJuzHeader = document.getElementById("totalAllJuzHeader");
   const namaUserSpan = document.getElementById("namaUser");
+  const tanggalFilterAkhir = document.getElementById("tanggal-filter-akhir");
+
 
   let surahList = [];
   let pagesMap = {};
 
-  // Tanggal harian
-if (tanggalInput) {
-  tanggalInput.addEventListener("change", () => {
-    localStorage.setItem("tanggalTerakhir", tanggalInput.value);
-    // Saat user memilih tanggal harian, kita abaikan rentang (skenario single-day)
-    loadSantriData();
-  });
-}
-
-// Rentang tanggal
-if (startDateInput) {
-  startDateInput.addEventListener("change", () => {
-    localStorage.setItem("startDateTerakhir", startDateInput.value);
-    loadSantriData();
-  });
-}
-
-if (endDateInput) {
-  endDateInput.addEventListener("change", () => {
-    localStorage.setItem("endDateTerakhir", endDateInput.value);
-    loadSantriData();
-  });
-}
-
-	 const s = startDateInput?.value || "";
-const e = endDateInput?.value || "";
-
-// Jika dua-duanya ada dan s > e, tukar otomatis (biar ramah UI)
-if (s && e && s > e) {
-  // tukar di UI + simpan
-  if (startDateInput) startDateInput.value = e;
-  if (endDateInput)   endDateInput.value   = s;
-  localStorage.setItem("startDateTerakhir", endDateInput.value);
-  localStorage.setItem("endDateTerakhir", startDateInput.value);
-}
+  
 
   // === Fungsi atur dropdown kelas ===
 function aturDropdownKelas(user) {
@@ -1480,12 +1449,6 @@ function aturDropdownKelas(user) {
   const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
   if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
 }
-
-  // === Tampilkan dashboard ===
-  function showDashboard() {
-    loginCard.style.display = "none";
-    dashboardCard.style.display = "block";
-  }
 
   // === Login form ===
   loginForm.addEventListener("submit", async (e) => {
@@ -1575,31 +1538,47 @@ function aturDropdownKelas(user) {
   loginCard.style.display = "none";
   dashboardCard.style.display = "block";
 
-  const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+  const today = new Date().toLocaleDateString('sv-SE'); // Format YYYY-MM-DD
 
-  // Batas maksimum = hari ini
-  if (tanggalInput)   tanggalInput.max   = today;
-  if (startDateInput) startDateInput.max = today;
-  if (endDateInput)   endDateInput.max   = today;
+  // 🟢 Atur batas tanggal maksimal supaya tidak bisa pilih ke depan
+  if (tanggalInput) tanggalInput.max = today;
+  if (startDateInput) startDateInput.max = today; // 🔹 TAMBAHAN
+  if (endDateInput) endDateInput.max = today;     // 🔹 TAMBAHAN
 
-  // Ambil nilai tersimpan
+  // 🟢 Ambil tanggal terakhir dari localStorage atau default hari ini
   const savedTanggal = localStorage.getItem("tanggalTerakhir");
-  const savedStart   = localStorage.getItem("startDateTerakhir");
-  const savedEnd     = localStorage.getItem("endDateTerakhir");
+  const savedStart = localStorage.getItem("startDateTerakhir");
+  const savedEnd = localStorage.getItem("endDateTerakhir");
 
+  // 🟢 Set tanggal default + auto-simpan saat user ubah
   if (tanggalInput) {
     tanggalInput.value = savedTanggal || today;
-  }
-  if (startDateInput) {
-    startDateInput.value = savedStart || today;
-  }
-  if (endDateInput) {
-    endDateInput.value = savedEnd || today;
+    tanggalInput.addEventListener("change", () => {
+      localStorage.setItem("tanggalTerakhir", tanggalInput.value);
+      loadSantriData(); // 🔹 langsung refresh data
+    });
   }
 
-  // Muat data awal
+  if (startDateInput) {
+    startDateInput.value = savedStart || today;
+    startDateInput.addEventListener("change", () => {
+      localStorage.setItem("startDateTerakhir", startDateInput.value);
+      loadSantriData(); // 🔹 langsung refresh data
+    });
+  }
+
+  if (endDateInput) {
+    endDateInput.value = savedEnd || today;
+    endDateInput.addEventListener("change", () => {
+      localStorage.setItem("endDateTerakhir", endDateInput.value);
+      loadSantriData(); // 🔹 langsung refresh data
+    });
+  }
+
+  // 🟢 Tampilkan data awal saat dashboard dibuka
   loadSantriData();
 }
+
 
 
     logoutBtn.addEventListener("click", () => {
@@ -1624,24 +1603,24 @@ function aturDropdownKelas(user) {
     let santriData = await resSantri.json();
 
     // Ambil data absensi
-    // Ambil data absensi — otomatis pilih rentang jika keduanya terisi dan berbeda
-let absensiData = [];
-const startVal = startDateInput?.value;
-const endVal   = endDateInput?.value;
+    let absensiData = [];
+const startDate = startDateInput.value;
+const endDate = endDateInput.value;
 
-if (startVal && endVal && startVal !== endVal) {
-  // MODE RENTANG
+// Jika user memilih rentang tanggal
+if (startDate && endDate && startDate !== endDate) {
   const resAbsensiRange = await fetch(
-    `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startVal)}&end=${encodeURIComponent(endVal)}`
+    `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`
   );
   absensiData = await resAbsensiRange.json();
 } else {
-  // MODE HARIAN (fallback seperti semula)
+  // Jika hanya satu tanggal (atau tanggal sama)
   const resAbsensi = await fetch(
-    `/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`
+    `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`
   );
   absensiData = await resAbsensi.json();
 }
+
 
     // Ambil username user login
     const username = localStorage.getItem("username");
