@@ -1771,28 +1771,26 @@ function updateTotalJuz(row) {
     const endAyat = (s === Number(surahSampai)) ? ayatSampai : totalAyatSurah;
 
     for (let a = startAyat; a <= endAyat; a++) {
-      const key = `${s}:${a}`;
-      const halaman = pagesMap[key];
-      // SEKARANG: PAGE selalu dihitung; JUZ tetap skip 21 & 602–604
-if (!halaman) continue;
+  const key = `${s}:${a}`;
+  const halaman = pagesMap[key];
+  if (!halaman) continue;
 
-// === PAGE: selalu kumpulkan untuk tampilan, termasuk 21 & 602–604 ===
-halamanValid.push(halaman); // atau halamanInfoAll.push(halaman) kalau kamu pakai nama itu
+  // === PAGE: SELALU dicatat (termasuk 21, 602, 603, 604) ===
+  halamanValid.push(halaman);
 
-// === JUZ: tetap SKIP halaman 21 & 602–604 ===
-if (halaman === 21 || (halaman >= 602 && halaman <= 604)) {
-  // jangan tambah ke totalJuz
-} else {
-  const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
-  if (ayatDiHalaman) {
-    totalJuz += (0.05 / ayatDiHalaman);
-  } else {
-    console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
+  // === JUZ: hanya dihitung jika BUKAN 21 dan BUKAN 602–604 ===
+  if (halaman !== 21 && !(halaman >= 602 && halaman <= 604)) {
+    const ayatDiHalaman = jumlahAyatPerHalaman[halaman];
+    if (!ayatDiHalaman) {
+      console.warn(`Jumlah ayat tidak ditemukan untuk halaman ${halaman}`);
+      continue;
+    }
+    totalJuz += (0.05 / ayatDiHalaman); // bobot per ayat
   }
 }
 
+totalJuz = Number(totalJuz.toFixed(2));
 
-  totalJuz = totalJuz.toFixed(2);
 
  // Hilangkan halaman duplikat untuk perhitungan juz tercakup
   const halamanUnik = [...new Set(halamanValid)].sort((a, b) => a - b);
