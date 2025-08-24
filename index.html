@@ -2300,6 +2300,41 @@ async function hitungTotalAllJuzFromTable() {
       rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
     });
 
+	  // Batas ketuntasan per semester
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+
+    // Update tabel dan siapkan data untuk disimpan
+    const dataToSave = [];
+
+    rows.forEach(row => {
+      const id = parseInt(row.children[0].textContent);
+      const cell = row.querySelector(".total-all-juz");
+
+      if (rekap[id]) {
+        const totalJuz = rekap[id].totalJuz.toFixed(2);
+        let semester = parseInt(row.querySelector(".semester")?.value);
+        if (!semester && rekap[id].semester) semester = rekap[id].semester;
+
+        const batas = batasSemester[semester] || 0;
+        let prosentase = batas > 0 ? Math.floor((rekap[id].totalJuz / batas) * 100) : 0;
+        if (prosentase > 100) prosentase = 100;
+
+        const tuntas = prosentase >= 100;
+        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
+
+        cell.innerHTML = `${totalJuz} <span style="color: ${tuntas ? "green" : "red"}; font-size: 12px;">${label}</span>`;
+
+        // Siapkan data untuk simpan ke file JSON
+        dataToSave.push({
+          id,
+          totalJuz: parseFloat(totalJuz),
+          semester,
+          tuntas
+        });
+      } else {
+        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+      }
+    });
 
     // Kirim data hasil rekap ke backend Netlify Function untuk disimpan
     const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
@@ -2413,39 +2448,31 @@ document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTot
 
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
-rows.forEach(row => {
-  const id = parseInt(row.children[0].textContent);
-  const cell = row.querySelector(".total-all-juz");
+    rows.forEach(row => {
+      const id = parseInt(row.children[0].textContent);
+      const cell = row.querySelector(".total-all-juz");
+      if (rekap[id]) {
+        const totalJuz = rekap[id].totalJuz.toFixed(2);
+        let semester = parseInt(row.querySelector(".semester")?.value) || rekap[id].semester;
+        const target = batasSemester[semester] || 0;
 
-  if (rekap[id]) {
-    const totalJuzNum = Number(rekap[id].totalJuz) || 0;
-    const totalJuz = totalJuzNum.toFixed(2);
+        let prosentase = target > 0 ? Math.floor((rekap[id].totalJuz / target) * 100) : 0;
+        if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
 
-    // ambil semester dari dropdown, fallback ke data rekap
-    let semester = parseInt(row.querySelector(".semester")?.value);
-    if (!semester && rekap[id].semester) semester = parseInt(rekap[id].semester);
+        const tuntas = prosentase >= 100;
+        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
 
-    const target = batasSemester[semester] || 0;
-
-    // 🔑 Prioritaskan KHATAM jika total juz >= 30
-    if (totalJuzNum >= 30) {
-      cell.innerHTML = `${totalJuz} <span style="color:#6a1b9a; font-size:10px">KHATAM</span>`;
-      return;
-    }
-
-    // selain itu, pakai logika TUNTAS / persen seperti biasa
-    let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
-    if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
-
-    const tuntas = prosentase >= 100;
-    const label = tuntas ? "TUNTAS" : `${prosentase}%`;
-    const warna = tuntas ? "green" : "red";
-
-    cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:10px">${label}</span>`;
-  } else {
-    cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+        cell.innerHTML =
+          `${totalJuz} <span style="color:${tuntas ? 'green' : 'red'}; font-size:10px">` +
+          `${label}</span>`;
+      } else {
+        cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
+      }
+    });
+  } catch (err) {
+    console.error("Gagal ambil data absensi:", err);
   }
-});
+}
 
 
 // Jalankan saat pertama kali halaman selesai dimuat
