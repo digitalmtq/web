@@ -1456,52 +1456,7 @@ function aturDropdownKelas(user) {
   if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
 }
 
-  // === Tampilkan dashboard ===
-  function showDashboard() {
-  loginCard.style.display = "none";
-  dashboardCard.style.display = "block";
-
-  const today = new Date().toLocaleDateString('sv-SE'); // Format YYYY-MM-DD
-
-  // 🟢 Atur batas tanggal maksimal supaya tidak bisa pilih ke depan
-  if (tanggalInput) tanggalInput.max = today;
-  if (startDateInput) startDateInput.max = today; // 🔹 TAMBAHAN
-  if (endDateInput) endDateInput.max = today;     // 🔹 TAMBAHAN
-
-  // 🟢 Ambil tanggal terakhir dari localStorage atau default hari ini
-  const savedTanggal = localStorage.getItem("tanggalTerakhir");
-  const savedStart = localStorage.getItem("startDateTerakhir");
-  const savedEnd = localStorage.getItem("endDateTerakhir");
-
-  // 🟢 Set tanggal default + auto-simpan saat user ubah
-  if (tanggalInput) {
-    tanggalInput.value = savedTanggal || today;
-    tanggalInput.addEventListener("change", () => {
-      localStorage.setItem("tanggalTerakhir", tanggalInput.value);
-      loadSantriData(); // 🔹 langsung refresh data
-    });
-  }
-
-  if (startDateInput) {
-  startDateInput.value = savedStart || today;
-  startDateInput.addEventListener("change", () => {
-    localStorage.setItem("startDateTerakhir", startDateInput.value);
-    loadSantriData();  // 🔹 PENTING: refresh tabel
-  });
-}
-
-if (endDateInput) {
-  endDateInput.value = savedEnd || today;
-  endDateInput.addEventListener("change", () => {
-    localStorage.setItem("endDateTerakhir", endDateInput.value);
-    loadSantriData();  // 🔹 PENTING: refresh tabel
-  });
-}
-
-
-  // 🟢 Tampilkan data awal saat dashboard dibuka
-  loadSantriData();
-}
+  
 
   // === Login form ===
   loginForm.addEventListener("submit", async (e) => {
@@ -1587,46 +1542,50 @@ if (endDateInput) {
 
     
 
-    function showDashboard() {
+    // === Tampilkan dashboard ===
+  function showDashboard() {
   loginCard.style.display = "none";
   dashboardCard.style.display = "block";
 
-  const today = new Date().toLocaleDateString('sv-SE'); // Format: YYYY-MM-DD
-  const tanggalInput = document.getElementById("tanggal");
-  const startDate = document.getElementById("start-date");
-  const endDate = document.getElementById("end-date");
+  const today = new Date().toLocaleDateString('sv-SE'); // Format YYYY-MM-DD
 
-  // Set batas maksimum hari ini
+  // 🟢 Atur batas tanggal maksimal supaya tidak bisa pilih ke depan
   if (tanggalInput) tanggalInput.max = today;
-  if (startDate) startDate.max = today;
-  if (endDate) endDate.max = today;
+  if (startDateInput) startDateInput.max = today; // 🔹 TAMBAHAN
+  if (endDateInput) endDateInput.max = today;     // 🔹 TAMBAHAN
 
-  // Ambil dari localStorage jika ada
+  // 🟢 Ambil tanggal terakhir dari localStorage atau default hari ini
   const savedTanggal = localStorage.getItem("tanggalTerakhir");
   const savedStart = localStorage.getItem("startDateTerakhir");
   const savedEnd = localStorage.getItem("endDateTerakhir");
 
+  // 🟢 Set tanggal default + auto-simpan saat user ubah
   if (tanggalInput) {
     tanggalInput.value = savedTanggal || today;
     tanggalInput.addEventListener("change", () => {
       localStorage.setItem("tanggalTerakhir", tanggalInput.value);
+      loadSantriData(); // 🔹 langsung refresh data
     });
   }
 
-  if (startDate) {
-    startDate.value = savedStart || today;
-    startDate.addEventListener("change", () => {
-      localStorage.setItem("startDateTerakhir", startDate.value);
-    });
-  }
+  if (startDateInput) {
+  startDateInput.value = savedStart || today;
+  startDateInput.addEventListener("change", () => {
+    localStorage.setItem("startDateTerakhir", startDateInput.value);
+    loadSantriData();  // 🔹 PENTING: refresh tabel
+  });
+}
 
-  if (endDate) {
-    endDate.value = savedEnd || today;
-    endDate.addEventListener("change", () => {
-      localStorage.setItem("endDateTerakhir", endDate.value);
-    });
-  }
+if (endDateInput) {
+  endDateInput.value = savedEnd || today;
+  endDateInput.addEventListener("change", () => {
+    localStorage.setItem("endDateTerakhir", endDateInput.value);
+    loadSantriData();  // 🔹 PENTING: refresh tabel
+  });
+}
 
+
+  // 🟢 Tampilkan data awal saat dashboard dibuka
   loadSantriData();
 }
 
