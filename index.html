@@ -1547,45 +1547,47 @@ function aturDropdownKelas(user) {
   loginCard.style.display = "none";
   dashboardCard.style.display = "block";
 
-  const today = new Date().toLocaleDateString('sv-SE'); // Format YYYY-MM-DD
+  const today = new Date().toLocaleDateString('sv-SE');
 
-  // 🟢 Atur batas tanggal maksimal supaya tidak bisa pilih ke depan
+  // Batasi tanggal maksimal
   if (tanggalInput) tanggalInput.max = today;
-  if (startDateInput) startDateInput.max = today; // 🔹 TAMBAHAN
-  if (endDateInput) endDateInput.max = today;     // 🔹 TAMBAHAN
+  if (startDateInput) startDateInput.max = today;
+  if (endDateInput) endDateInput.max = today;
 
-  // 🟢 Ambil tanggal terakhir dari localStorage atau default hari ini
+  // Ambil tanggal terakhir atau default hari ini
   const savedTanggal = localStorage.getItem("tanggalTerakhir");
   const savedStart = localStorage.getItem("startDateTerakhir");
   const savedEnd = localStorage.getItem("endDateTerakhir");
 
-  // 🟢 Set tanggal default + auto-simpan saat user ubah
+  // Set default dan pasang listener
   if (tanggalInput) {
     tanggalInput.value = savedTanggal || today;
     tanggalInput.addEventListener("change", () => {
       localStorage.setItem("tanggalTerakhir", tanggalInput.value);
-      loadSantriData(); // 🔹 langsung refresh data
+      startDateInput.value = tanggalInput.value;
+      endDateInput.value = tanggalInput.value;
+      loadSantriData();
     });
   }
 
   if (startDateInput) {
-  startDateInput.value = savedStart || today;
-  startDateInput.addEventListener("change", () => {
-    localStorage.setItem("startDateTerakhir", startDateInput.value);
-    loadSantriData();  // 🔹 PENTING: refresh tabel
-  });
-}
+    startDateInput.value = savedStart || today;
+    startDateInput.addEventListener("change", () => {
+      localStorage.setItem("startDateTerakhir", startDateInput.value);
+      if (!endDateInput.value) endDateInput.value = startDateInput.value;
+      loadSantriData();
+    });
+  }
 
-if (endDateInput) {
-  endDateInput.value = savedEnd || today;
-  endDateInput.addEventListener("change", () => {
-    localStorage.setItem("endDateTerakhir", endDateInput.value);
-    loadSantriData();  // 🔹 PENTING: refresh tabel
-  });
-}
+  if (endDateInput) {
+    endDateInput.value = savedEnd || today;
+    endDateInput.addEventListener("change", () => {
+      localStorage.setItem("endDateTerakhir", endDateInput.value);
+      loadSantriData();
+    });
+  }
 
-
-  // 🟢 Tampilkan data awal saat dashboard dibuka
+  // Tampilkan data awal
   loadSantriData();
 }
 
@@ -1601,9 +1603,12 @@ if (endDateInput) {
       }, 500);
     });
 
-    async function loadSantriData() { 
+    async function loadSantriData() {
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value;
+  const startDate = startDateInput.value;
+  const endDate = endDateInput.value || startDateInput.value;
+
   overlay.style.display = "flex";
 
   try {
@@ -1613,50 +1618,39 @@ if (endDateInput) {
 
     // Ambil data absensi
     let absensiData = [];
-const startDate = startDateInput.value;
-const endDate = endDateInput.value;
+    if (startDate && endDate && (startDate !== endDate)) {
+      // Jika rentang tanggal
+      const resAbsensiRange = await fetch(
+        `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`
+      );
+      absensiData = await resAbsensiRange.json();
+    } else {
+      // Jika satu tanggal
+      const resAbsensi = await fetch(
+        `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`
+      );
+      absensiData = await resAbsensi.json();
+    }
 
-// Jika user memilih rentang tanggal
-if (startDate && endDate && startDate !== endDate) {
-  const resAbsensiRange = await fetch(
-    `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`
-  );
-  absensiData = await resAbsensiRange.json();
-} else {
-  // Jika hanya satu tanggal (atau tanggal sama)
-  const resAbsensi = await fetch(
-    `/.netlify/functions/getAbsensi?kelas=${kelas}&tanggal=${tanggal}`
-  );
-  absensiData = await resAbsensi.json();
-}
-
-    // Ambil username user login
+    // Ambil username dan filter akses
     const username = localStorage.getItem("username");
-
-    // Ambil semua user dan temukan user login
     const users = await fetch(`/.netlify/functions/getUsers`).then(r => r.json());
     const user = users.find(u => u.username === username);
 
-    // ===== FILTER SANTRI BERDASARKAN HAK AKSES =====
     if (user) {
-      // Superuser: tidak ada properti kelas → akses semua
       if (user.kelas && user.kelas.length) {
-        // Batasi ke kelas yang diizinkan
         if (!user.kelas.includes(kelas)) {
-          santriData = []; // kelas tidak diizinkan
+          santriData = [];
         } else if (user.nis && user.nis.length) {
-          // Batasi NIS hanya yang diizinkan
           santriData = santriData.filter(s => user.nis.includes(s.nis));
         }
       }
     } else {
-      // user tidak ditemukan → kosongkan tabel
       santriData = [];
     }
-    // ===== END FILTER =====
 
+    // Render tabel
     santriTableBody.innerHTML = "";
-
     santriData.forEach((santri, i) => {
       const dataAbsensi = absensiData.find(a => a.id === santri.id) || {};
       const row = document.createElement("tr");
@@ -1718,7 +1712,6 @@ if (startDate && endDate && startDate !== endDate) {
         }
       });
 
-      // Set surah & ayat dropdown
       const surahDari = row.querySelector(".surah-dari");
       const ayatDari = row.querySelector(".ayat-dari");
       const surahSampai = row.querySelector(".surah-sampai");
@@ -1733,7 +1726,6 @@ if (startDate && endDate && startDate !== endDate) {
       surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
       surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
 
-      // Sinkronisasi otomatis kolom Sampai ketika Dari berubah
       surahDari.addEventListener("change", () => {
         surahSampai.value = surahDari.value;
         fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
