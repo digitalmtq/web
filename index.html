@@ -1150,25 +1150,17 @@ async function submitTambahKelasBaru() {
 
     <div>
       Nama Santri: <span id="modal-nama-santri" style="font-weight:bold; font-size:18px;"></span>
-    </div>
-
-    <div>
-      Nilai: <span id="nilai-akhir">100</span> — <span id="predikat-akhir">MUMTAZ</span>
+	  Nilai: <span id="nilai-akhir">100</span> — <span id="predikat-akhir">MUMTAZ</span>
     </div>
 
     <div>
       <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:70px;">
       <button id="btn-beri-nilai">Beri Nilai Manual</button>
+	  <div id="modal-mark-warna" style="margin-top:8px; font-weight:bold; font-size:16px;"></div>
     </div>
-
-    <!-- Tempat jumlah warna mark -->
-    <div id="modal-mark-warna" style="margin-top:8px; font-weight:bold; font-size:16px;"></div>
-
-    <br>
-
+	  
     <!-- Tombol untuk menampilkan keterangan warna -->
     <button id="toggle-keterangan" class="keterangan-toggle">Lihat Keterangan Warna</button>
-
     <!-- Box keterangan -->
     <div id="keterangan-box" class="keterangan-box">
       <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.25</b>)<br>
@@ -1178,29 +1170,6 @@ async function submitTambahKelasBaru() {
       <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>1</b>)<br>
          Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
     </div>
-
-    <br>
-    
-    <!-- ===== AUDIO RECORDING ===== -->
-    <h4>Rekam Audio</h4>
-
-    <select id="encodingTypeSelect">
-      <option value="mp3">MP3 (.mp3)</option>
-    </select>
-
-    <div id="controls" style="margin-top:10px;">
-      <button id="recordButton" class="rec-btn">● Record</button>
-      <button id="stopButton" class="stop-btn" disabled>■ Stop</button>
-      <span id="recordDuration" style="margin-left:15px; font-weight:bold;">00:00</span>
-    </div>
-
-    <!-- Loading spinner -->
-    <div id="loadingIndicator" style="display:none; margin-top:10px;">
-      <div class="spinner"></div>
-      <span style="margin-left:10px; font-style:italic; color:#007bff;">Membuat file audio...</span>
-    </div>
-
-    <ul id="recordingsList"></ul>
 
 <style>
 	/* Box keterangan */
