@@ -1134,37 +1134,39 @@ async function submitTambahKelasBaru() {
     <h3>Ayat Al-Qur'an</h3>
     <div id="quran-text" style="white-space:pre-wrap; line-height:2.2; direction:rtl; font-size:30px;"></div>
     <hr>
-    <div>
+	  <div>
       Nama Santri: <span id="modal-nama-santri" style="font-weight:bold; font-size:18px;"></span>
     </div>
 
     <div>
       Nilai: <span id="nilai-akhir">100</span> — <span id="predikat-akhir">MUMTAZ</span>
     </div>
-    <div>
+	  <div>
       <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:70px;">
       <button id="btn-beri-nilai">Beri Nilai Manual</button>
     </div>
 
-    <!-- Tempat jumlah warna mark -->
+	  <!-- Tempat jumlah warna mark -->
     <div id="modal-mark-warna" style="margin-top:8px; font-weight:bold; font-size:16px;"></div>
 
     <br>
-    <!-- Tombol untuk menampilkan keterangan warna -->
+	  <!-- Tombol untuk menampilkan keterangan warna -->
     <button id="toggle-keterangan" class="keterangan-toggle">Lihat Keterangan Warna</button>
 
     <!-- Box keterangan -->
     <div id="keterangan-box" class="keterangan-box">
       <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.25</b>)<br>
          Contoh: meninggalkan tajwid seperti <i>Ikhfa, Tebal, Tipis, Hukum Ra, Qalqalah, Ghunnah, Mad Munfashil, Mad Iwad, Shafir, Dhod, Hams, Mim Sakinah</i>, dan lain-lain.</p>
+         
       <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>0.5</b>)<br>
          Contoh: salah hafalan tapi bisa memperbaiki sendiri, <i>waqof</i> dan <i>ibtida'</i> kurang tepat, dan lain-lain.</p>
+         
       <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>1</b>)<br>
          Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
     </div>
     <br>
     
-    <!-- ===== AUDIO RECORDING (GLOBAL, BIARKAN) ===== -->
+    <!-- ===== AUDIO RECORDING (GLOBAL — TIDAK DIUBAH) ===== -->
     <h4>Rekam Audio</h4>
 
     <select id="encodingTypeSelect">
@@ -1197,8 +1199,9 @@ async function submitTambahKelasBaru() {
         font-size: 15px;
         line-height: 1.6;
       }
+
       .keterangan-toggle {
-        all: unset;
+        all: unset; /* reset semua style bawaan */
         display: inline-block;
         font-weight: 600;
         font-size: 15px;
@@ -1213,9 +1216,13 @@ async function submitTambahKelasBaru() {
 
       /* Spinner CSS */
       .spinner {
-        border: 4px solid #f3f3f3; border-top: 4px solid #007bff;
-        border-radius: 50%; width: 24px; height: 24px;
-        animation: spin 1s linear infinite; display: inline-block;
+        border: 4px solid #f3f3f3; /* light grey */
+        border-top: 4px solid #007bff; /* blue */
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
       }
       @keyframes spin { 100% { transform: rotate(360deg); } }
 
@@ -1223,10 +1230,11 @@ async function submitTambahKelasBaru() {
       .rec-btn { background: linear-gradient(135deg, #ff4b5c, #ff0000); color:white; font-weight:bold; font-size:10px; border:none; border-radius:50px; padding:10px 25px; cursor:pointer; transition:transform 0.1s, box-shadow 0.1s; margin-right:10px;}
       .rec-btn.pulsing { animation: pulse 1s infinite; }
       @keyframes pulse { 0% { transform: scale(1); box-shadow:0 0 15px rgba(255,0,0,0.6);} 50%{transform:scale(1.08); box-shadow:0 0 25px rgba(255,0,0,0.8);} 100%{transform:scale(1); box-shadow:0 0 15px rgba(255,0,0,0.6);} }
+
       .stop-btn { background:linear-gradient(135deg,#555,#333); color:white; font-weight:bold; font-size:10px; border:none; border-radius:50px; padding:10px 25px; cursor:pointer; transition:transform 0.1s, box-shadow 0.1s; }
       .stop-btn:hover { transform:scale(1.05); box-shadow:0 0 10px rgba(0,0,0,0.5); }
 
-      /* ====== Recorder per AYAT (BARU) ====== */
+      /* ===== [BARU] Recorder per AYAT ===== */
       .ayat-line { display:inline-block; }
       .ayat-recbar{ display:inline-flex; gap:8px; align-items:center; margin-inline-start:10px; }
       .ayat-rec-btn{ all:unset; cursor:pointer; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; border:1px solid #e0e0e0; }
@@ -1239,7 +1247,7 @@ async function submitTambahKelasBaru() {
     </style>
 
     <script>
-      /* ====== Recorder GLOBAL (biarkan) ====== */
+      /* ===== Recorder GLOBAL (tetap) ===== */
       const recBtn = document.getElementById('recordButton');
       const stopBtn = document.getElementById('stopButton');
       const loadingIndicator = document.getElementById('loadingIndicator');
@@ -1260,6 +1268,7 @@ async function submitTambahKelasBaru() {
           recBtn.classList.add('pulsing');
           recBtn.disabled = true;
           stopBtn.disabled = false;
+
           duration = 0;
           durationSpan.textContent = "00:00";
           durationInterval = setInterval(() => {
@@ -1273,9 +1282,12 @@ async function submitTambahKelasBaru() {
           recBtn.classList.remove('pulsing');
           recBtn.disabled = false;
           stopBtn.disabled = true;
+
           clearInterval(durationInterval);
+
           loadingIndicator.style.display = "flex";
           loadingIndicator.style.alignItems = "center";
+
           if (window.recorder) {
               window.recorder.onComplete = function(recorderInstance, blob) {
                   loadingIndicator.style.display = "none";
@@ -1295,6 +1307,7 @@ async function submitTambahKelasBaru() {
 
     <!-- Info format (opsional) -->
     <div id="formats" style="margin-top:10px;"></div>
+
     <ol id="recordingsList"></ol>
 
     <!-- ===== CSS Tombol + Indikator Kedap-kedip (global) ===== -->
@@ -1311,7 +1324,12 @@ async function submitTambahKelasBaru() {
           transition: transform 0.1s, box-shadow 0.1s;
           margin-right: 10px;
       }
-      .rec-btn:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(255,0,0,0.6); }
+
+      .rec-btn:hover {
+          transform: scale(1.05);
+          box-shadow: 0 0 15px rgba(255,0,0,0.6);
+      }
+
       .stop-btn {
           background: linear-gradient(135deg, #555, #333);
           color: white;
@@ -1323,9 +1341,24 @@ async function submitTambahKelasBaru() {
           cursor: pointer;
           transition: transform 0.1s, box-shadow 0.1s;
       }
-      .stop-btn:hover { transform: scale(1.05); box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-      #recordingIndicator { display:none; color:red; font-weight:bold; margin-left:15px; animation: blink 1s infinite; }
-      @keyframes blink { 0%, 50%, 100% { opacity: 1; } 25%, 75% { opacity: 0; } }
+
+      .stop-btn:hover {
+          transform: scale(1.05);
+          box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      }
+
+      #recordingIndicator {
+          display: none;
+          color: red;
+          font-weight: bold;
+          margin-left: 15px;
+          animation: blink 1s infinite;
+      }
+
+      @keyframes blink {
+          0%, 50%, 100% { opacity: 1; }
+          25%, 75% { opacity: 0; }
+      }
     </style>
 
     <!-- ===== BUTTON ===== -->
@@ -1337,7 +1370,6 @@ async function submitTambahKelasBaru() {
 <!-- inserting these scripts at the end to be able to use all the elements in the DOM -->
 <script src="js/WebAudioRecorder.min.js"></script>
 <script src="js/app.js"></script>
-
 
 
 <!-- Overlay Hitung Total All Juz -->
@@ -2876,33 +2908,223 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
 	
 
-<!-- ====== RECORDER PER-AYAT (BARU, tidak ganggu yang lain) ====== -->
 <script>
-/** KONFIG **/
-const AYAT_UPLOAD_URL = "/.netlify/functions/uploadAyatAudio"; // ganti jika endpoint beda
-const AYAT_WORKER_DIR = "js/";                                  // lokasi worker encoder (WebAudioRecorder*.js)
+let quranData = {};
+let ayahPageMap = {};
+let markData = {};
+let currentIdSiswa = null;
+// 🔹 NEW: simpan elemen baris yang sedang aktif (penting untuk rentang tanggal)
+let currentRowEl = null;
 
-/** STATE **/
+let recordingsList = document.getElementById("recordingsList");
+
+
+// ======================
+// AMBIL DATA MARKS + AUDIO
+// ======================
+async function ambilMarksDariNetlify(id, kelas, tanggal) {
+  try {
+    const res = await fetch(`/.netlify/functions/getMarksAudio?id=${id}&kelas=${kelas}&tanggal=${tanggal}`);
+    if (!res.ok) throw new Error('Gagal ambil marks dari server');
+    const data = await res.json();
+    return data.marks || {};
+  } catch(err) {
+    console.error(err);
+    return {};
+  }
+}
+
+// ======================
+// TAMPILKAN AUDIO (GLOBAL LIST)
+// ======================
+function tampilkanAudioDariMarks(marks) {
+  recordingsList.innerHTML = '';
+  if (marks && marks.audio && marks.audio.length > 0) {
+    marks.audio.forEach((filename, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <audio controls preload="metadata">
+          <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
+          Browser Anda tidak mendukung audio.
+        </audio>
+        <span> Rekaman ${i + 1}</span>
+      `;
+      recordingsList.appendChild(li);
+    });
+  } else {
+    recordingsList.innerHTML = '<li>Tidak ada rekaman audio.</li>';
+  }
+}
+
+// 🔹 NEW: render player per-ayat bila marks.audioByAyat tersedia
+function renderAudioByAyat(marks) {
+  if (!marks || !marks.audioByAyat) return;
+  Object.entries(marks.audioByAyat).forEach(([slot, arr]) => {
+    if (!Array.isArray(arr)) return;
+    const [s, a] = slot.split(':').map(x => parseInt(x,10));
+    arr.forEach(filename => {
+      const url = `/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}`;
+      appendAyatPlayer({surah:s, ayat:a}, url); // fungsi NEW di bawah
+    });
+  });
+}
+
+function getMimeType(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  if (ext === 'mp3') return 'audio/mpeg';
+  if (ext === 'ogg') return 'audio/ogg';
+  return 'audio/wav';
+}
+
+// ======================
+// STORAGE
+// ======================
+// 🔹 REVISED: storage key per siswa + kelas + tanggal baris
+function getStorageKey() {
+  const kelas = document.getElementById('kelas')?.value || 'default';
+  const tanggalBaris = currentRowEl?.dataset?.tanggal;
+  const tanggal = tanggalBaris || (document.getElementById('tanggal')?.value || 'default');
+  return `marks_${kelas}_${tanggal}_${currentIdSiswa}`;
+}
+
+function simpanKeStorage() {
+  if (!currentIdSiswa) return;
+  const key = getStorageKey();
+  localStorage.setItem(key, JSON.stringify(markData));
+}
+
+function ambilDariStorage() {
+  if (!currentIdSiswa) return;
+  const key = getStorageKey();
+  const saved = localStorage.getItem(key);
+  if (saved) markData = JSON.parse(saved);
+  else markData = {};
+}
+
+// ======================
+// HITUNG NILAI
+// ======================
+function hitungNilai() {
+  let totalMinus = 0, hijau = 0, kuning = 0, merah = 0;
+  let adaMark = false;
+
+  for (let ayat in markData) {
+    for (let idx in markData[ayat]) {
+      const mark = markData[ayat][idx];
+      if (!mark) continue;
+      adaMark = true;
+      if (mark === "green") { totalMinus += 0.5; hijau++; }
+      else if (mark === "yellow") { totalMinus += 1; kuning++; }
+      else if (mark === "red") { totalMinus += 2; merah++; }
+    }
+  }
+
+  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
+  const predikatMap = [
+    { max: 59, text: "ROSIB", huruf: "E" },
+    { max: 69, text: "MAQBUL", huruf: "D" },
+    { max: 79, text: "JAYYID", huruf: "C" },
+    { max: 89, text: "JAYYID JIDDAN", huruf: "B" },
+    { max: 100, text: "MUMTAZ", huruf: "A" }
+  ];
+  let predikat = "-";
+  if (adaMark) {
+    const p = predikatMap.find(p => nilai <= p.max);
+    const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+    predikat = `${p.text} <span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
+  }
+
+  const nilaiEl = document.getElementById("nilai-akhir");
+  const predikatEl = document.getElementById("predikat-akhir");
+  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
+  if (predikatEl) predikatEl.innerHTML = predikat;
+  const warnaDiv = document.getElementById("modal-mark-warna");
+  if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
+
+  return { nilai, predikat, hijau, kuning, merah };
+}
+
+// ======================
+// UPDATE TABEL
+// ======================
+function updateNilaiDiTabel({ nilai, predikat }) {
+  if (!currentIdSiswa) return;
+  let row = currentRowEl || [...document.querySelectorAll("table tbody tr")]
+    .find(r => String(r.cells[0].innerText.trim()) === String(currentIdSiswa));
+  if (row) {
+    const cell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
+    if (cell) {
+      cell.innerHTML = `
+        <div><strong>${Number(nilai).toFixed(1)}</strong> ${predikat}</div>
+        <button class="lihat-quran-btn">Lembar Penilaian</button>
+      `;
+      row.markData = JSON.parse(JSON.stringify(markData));
+    }
+  }
+}
+
+// ======================
+// BUAT KATA KLIK
+// ======================
+function buatKataKlik(surah, ayat, teks) {
+  return teks.split(" ").map((kata, idx) => {
+    const span = document.createElement("span");
+    span.innerText = kata + " ";
+    span.style.cursor = "pointer";
+    span.dataset.key = `${surah}:${ayat}`;
+    span.dataset.idx = idx;
+    span.onclick = () => {
+      const warnaSekarang = markData[surah+":"+ayat]?.[idx] || null;
+      let warnaBaru = warnaSekarang === null ? "green"
+        : warnaSekarang === "green" ? "yellow"
+        : warnaSekarang === "yellow" ? "red"
+        : null;
+      if (!markData[surah+":"+ayat]) markData[surah+":"+ayat] = {};
+      if (warnaBaru) markData[surah+":"+ayat][idx] = warnaBaru;
+      else delete markData[surah+":"+ayat][idx];
+      span.style.backgroundColor = warnaBaru || "";
+      const hasil = hitungNilai();
+      updateNilaiDiTabel(hasil);
+    };
+    if (markData[surah+":"+ayat]?.[idx]) {
+      span.style.backgroundColor = markData[surah+":"+ayat][idx];
+    }
+    return span;
+  });
+}
+
+// ======================
+// LOAD DATA QURAN
+// ======================
+let dataSiap = Promise.all([
+  fetch('https://raw.githubusercontent.com/dickymiswardi/mtq/refs/heads/main/symbol1.json').then(r => r.json()).then(d => { quranData = d; }),
+  fetch('https://raw.githubusercontent.com/dickymiswardi/tadabbur/refs/heads/main/ayah_page_map.json').then(r => r.json()).then(d => { ayahPageMap = d; })
+]);
+
+// ======================
+// === [BARU] PER-AYAT RECORDER (mandiri, tidak mengganggu fungsi lain)
+// ======================
+const AYAT_UPLOAD_URL = "/.netlify/functions/uploadAyatAudio"; // ganti jika endpoint beda
+const AYAT_WORKER_DIR = "js/"; // pastikan file encoder WebAudioRecorder*.js ada di folder ini
+
 const AyatRec = {
-  ctx: null, input: null, processor: null, recorder: null, stream: null,
-  active: null, // {surah, ayat, btn, timerEl, container, startedAt, tickId}
+  ctx: null, input: null, recorder: null, stream: null,
+  active: null // { surah, ayat, btn, timerEl, startedAt, tickId }
 };
 
-/** UTIL **/
-function ayatFmt(ms){ const s=Math.floor(ms/1000); const m=String(Math.floor(s/60)).padStart(2,'0'); const ss=String(s%60).padStart(2,'0'); return `${m}:${ss}`; }
-function makeEl(tag, cls, html){ const el=document.createElement(tag); if(cls) el.className=cls; if(html!=null) el.innerHTML=html; return el; }
+function _fmt(ms){ const s=Math.floor(ms/1000); const m=String(Math.floor(s/60)).padStart(2,"0"); const ss=String(s%60).padStart(2,"0"); return `${m}:${ss}`; }
+function _findAyatLine(surah,ayat){ return document.querySelector(`#quran-text .ayat-line[data-key="${surah}:${ayat}"]`); }
 
-/** Upload **/
+// upload file MP3 per-ayat
 async function uploadAyatBlob(blob, meta){
   try{
-    // kamu bisa tambahkan kelas/id/tanggal dari variabel globalmu
     const id = window.currentIdSiswa || "";
     const kelas = document.getElementById('kelas')?.value || "";
     const tanggal = (window.currentRowEl?.dataset?.tanggal) || (document.getElementById('tanggal')?.value || "");
 
-    const fd = new FormData();
     const filename = `ayat_${kelas}_${id}_${tanggal}_s${meta.surah}a${meta.ayat}.mp3`;
-    fd.append("file", blob, filename);
+    const fd = new FormData();
+    fd.append("file", new File([blob], filename, { type: "audio/mpeg" }));
     fd.append("kelas", kelas);
     fd.append("id", String(id));
     fd.append("tanggal", tanggal);
@@ -2910,14 +3132,26 @@ async function uploadAyatBlob(blob, meta){
     fd.append("ayat", String(meta.ayat));
 
     const res = await fetch(AYAT_UPLOAD_URL, { method:"POST", body:fd });
-    return res.ok;
-  }catch(e){ console.error(e); return false; }
+    if (!res.ok) return false;
+
+    const json = await res.json().catch(()=>null);
+    if (json?.ok && json?.fileUrl) {
+      appendAyatPlayer(meta, json.fileUrl);
+    } else {
+      // fallback: tampilkan blob lokal jika server tidak mengembalikan URL
+      appendAyatPlayer(meta, blob);
+    }
+    return true;
+  }catch(e){
+    console.error(e);
+    return false;
+  }
 }
 
-/** Start Recording (per ayat) **/
+// mulai rekam ayat (klik pertama)
 async function startAyatRecording(meta, btn, timerEl){
-  if (AyatRec.recorder) {
-    alert("Masih merekam ayat lain. Silakan hentikan dulu.");
+  if (AyatRec.recorder){
+    alert("Masih ada rekaman berjalan. Hentikan dulu.");
     return;
   }
   try{
@@ -2926,24 +3160,21 @@ async function startAyatRecording(meta, btn, timerEl){
 
     AyatRec.ctx = new (window.AudioContext||window.webkitAudioContext)();
     AyatRec.input = AyatRec.ctx.createMediaStreamSource(stream);
-    AyatRec.processor = (AyatRec.ctx.createScriptProcessor || AyatRec.ctx.createJavaScriptNode).call(AyatRec.ctx, 4096, 1, 1);
-    AyatRec.input.connect(AyatRec.processor);
-    AyatRec.processor.connect(AyatRec.ctx.destination);
 
     AyatRec.recorder = new WebAudioRecorder(AyatRec.input, {
       workerDir: AYAT_WORKER_DIR,
       encoding: "mp3",
       numChannels: 1
     });
-    AyatRec.recorder.setOptions({ timeLimit: 300, encodeAfterRecord:true, mp3:{bitRate:128} });
+    AyatRec.recorder.setOptions({ timeLimit: 300, encodeAfterRecord:true, mp3:{ bitRate:128 } });
 
+    // UI mulai
     btn.classList.add("recording");
     btn.innerHTML = `<span class="ayat-rec-dot"></span> Stop`;
     timerEl.textContent = "00:00";
     const startedAt = Date.now();
-    const tickId = setInterval(()=>{ timerEl.textContent = ayatFmt(Date.now()-startedAt); }, 250);
-
-    AyatRec.active = { ...meta, btn, timerEl, startedAt, tickId };
+    const tickId = setInterval(()=>{ timerEl.textContent = _fmt(Date.now()-startedAt); }, 250);
+    AyatRec.active = { surah:meta.surah, ayat:meta.ayat, btn, timerEl, startedAt, tickId };
 
     AyatRec.recorder.onComplete = async function(_rec, blob){
       clearInterval(tickId);
@@ -2951,22 +3182,16 @@ async function startAyatRecording(meta, btn, timerEl){
       btn.textContent = "🎙️ Rekam";
       timerEl.textContent = "00:00";
 
-      // upload
       const ok = await uploadAyatBlob(blob, meta);
-      if (!ok) {
-        alert("Upload gagal. Coba lagi.");
-      } else {
-        // render player baru untuk ayat ini
-        appendAyatPlayer(meta, blob);
-      }
+      if (!ok) alert("Upload gagal. Coba lagi.");
 
       // bersihkan
       AyatRec.stream?.getTracks()?.forEach(t=>t.stop());
       try{ AyatRec.ctx?.close(); }catch(_){}
-      AyatRec.ctx = AyatRec.input = AyatRec.processor = AyatRec.recorder = AyatRec.stream = null;
+      AyatRec.ctx = AyatRec.input = AyatRec.recorder = AyatRec.stream = null;
       AyatRec.active = null;
 
-      // refresh daftar audio global (opsional)
+      // opsional: refresh list global bila fungsi tersedia
       if (typeof ambilMarksDariNetlify === 'function' && typeof tampilkanAudioDariMarks === 'function'){
         try{
           const id = window.currentIdSiswa || "";
@@ -2985,32 +3210,41 @@ async function startAyatRecording(meta, btn, timerEl){
   }
 }
 
-/** Stop Recording (per ayat) **/
+// stop rekam (klik kedua pada ayat yang sama)
 function stopAyatRecording(){
   if (!AyatRec.recorder) return;
   AyatRec.recorder.finishRecording(); // onComplete akan jalan
 }
 
-/** UI per-ayat: toolbar + list player **/
+// buat toolbar rekam & list player di akhir ayat
 function buildAyatRecBar(container, surah, ayat){
-  // kalau sudah ada, jangan duplikasi
   if (container.querySelector(':scope > .ayat-recbar')) return;
 
-  const bar = makeEl('span','ayat-recbar');
-  const btn = makeEl('button','ayat-rec-btn','🎙️ Rekam');
-  const timer = makeEl('span','ayat-rec-timer','00:00');
-  const list = makeEl('div','ayat-audios',''); // player-player ayat ini
+  const bar = document.createElement('span');
+  bar.className = 'ayat-recbar';
+
+  const btn = document.createElement('button');
+  btn.className = 'ayat-rec-btn';
+  btn.type = 'button';
+  btn.textContent = '🎙️ Rekam';
+
+  const timer = document.createElement('span');
+  timer.className = 'ayat-rec-timer';
+  timer.textContent = '00:00';
+
+  const list = document.createElement('div');
+  list.className = 'ayat-audios';
 
   btn.addEventListener('click', ()=>{
-    const meta = { surah, ayat, container };
+    const meta = { surah, ayat };
     if (!AyatRec.recorder){
       startAyatRecording(meta, btn, timer);
     }else{
-      // hanya stop kalau ini ayat yang aktif
+      // stop hanya jika tombol pada ayat yang sama
       if (AyatRec.active && AyatRec.active.surah===surah && AyatRec.active.ayat===ayat){
         stopAyatRecording();
       }else{
-        alert("Masih ada rekaman berjalan di ayat lain. Hentikan dulu.");
+        alert("Masih merekam ayat lain. Hentikan dulu.");
       }
     }
   });
@@ -3021,66 +3255,178 @@ function buildAyatRecBar(container, surah, ayat){
   container.appendChild(list);
 }
 
-/** Tambahkan <audio> player ke list ayat (setelah upload selesai) **/
-function appendAyatPlayer(meta, blob){
-  const line = findAyatLine(meta.surah, meta.ayat);
+// tambahkan <audio> player ke akhir ayat
+function appendAyatPlayer(meta, urlOrBlob){
+  const line = _findAyatLine(meta.surah, meta.ayat);
   if (!line) return;
   const list = line.querySelector(':scope > .ayat-audios');
   if (!list) return;
 
-  // Jika backend menyediakan URL file, sebaiknya gunakan URL itu.
-  // Sambil menunggu, kita pakai blob lokal untuk playback instant.
-  const url = URL.createObjectURL(blob);
   const audio = document.createElement('audio');
   audio.controls = true;
   audio.preload = 'metadata';
-  audio.src = url;
+  audio.src = (typeof urlOrBlob === 'string') ? urlOrBlob : URL.createObjectURL(urlOrBlob);
   list.appendChild(audio);
 }
 
-/** Cari node baris ayat di #quran-text berdasar data-key "s:a" **/
-function findAyatLine(surah, ayat){
-  const key = `${surah}:${ayat}`;
-  return document.querySelector(`#quran-text .ayat-line[data-key="${key}"]`);
-}
+// ======================
+// EVENT CLICK "LEMBAR PENILAIAN"  (full render + anti reset + tepat baris)
+// ======================
+const fontLoadedPages = new Set(); // cache font per halaman
 
-/** API: appendAyatLine(surah, ayat, spans) 
- *  - spans = array Node (span kata-kata) ATAU string HTML
- *  - membuat satu baris ayat, lalu menambahkan tombol rekam + list player
- */
-window.appendAyatLine = function(surah, ayat, spans){
-  const parent = document.getElementById('quran-text');
-  const line = makeEl('div','ayat-line');
-  line.dataset.key = `${surah}:${ayat}`;
-  line.style.direction = 'rtl';
+document.addEventListener('click', async function (e) {
+  if (!e.target.classList.contains('lihat-quran-btn')) return;
 
-  if (Array.isArray(spans)){
-    spans.forEach(s => line.appendChild(s));
-  }else if (typeof spans === 'string'){
-    line.innerHTML += spans;
+  const overlay = document.getElementById('overlay-quran');
+  overlay.style.display = 'flex';
+
+  // baris yang diklik
+  const row = e.target.closest('tr');
+  currentRowEl = row;                              // <— penting untuk multi tanggal
+  currentIdSiswa = row.cells[0].innerText.trim();  // <— STRING, jangan parseInt (hindari leading zero hilang)
+
+  // tampilkan nama (buang label tanggal kecil kalau ada)
+  const namaSantri = row.cells[1].childNodes[0]?.textContent.trim()
+                  || row.cells[1].innerText.replace(/\d{4}-\d{2}-\d{2}/,'').trim();
+  const namaSpan = document.getElementById('modal-nama-santri');
+  if (namaSpan) namaSpan.innerText = namaSantri;
+
+  // gunakan tanggal per-baris jika ada (mode rentang)
+  const kelas = document.getElementById('kelas')?.value || 'default';
+  const tanggalBaris = row.dataset?.tanggal || document.getElementById('tanggal')?.value || 'default';
+
+  // 1) ambil marks + audio untuk kombinasi (id, kelas, tanggal)
+  let serverMarks = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggalBaris);
+  markData = (serverMarks && typeof serverMarks === 'object') ? serverMarks : {};
+  tampilkanAudioDariMarks(markData);
+
+  // helper: cek ada mark berwarna
+  const adaMarkBerwarna = Object.keys(markData).some(k =>
+    k !== 'audio' &&
+    markData[k] &&
+    typeof markData[k] === 'object' &&
+    Object.values(markData[k]).some(v => v === 'green' || v === 'yellow' || v === 'red')
+  );
+
+  // 2) pastikan data Quran siap
+  await dataSiap;
+
+  // 3) ambil range dari baris
+  const surahDari   = parseInt(row.querySelector('.surah-dari').value, 10);
+  const ayatDari    = parseInt(row.querySelector('.ayat-dari').value, 10);
+  const surahSampai = parseInt(row.querySelector('.surah-sampai').value, 10);
+  const ayatSampai  = parseInt(row.querySelector('.ayat-sampai').value, 10);
+
+  // 4) bangun peta halaman -> daftar ayat
+  const halamanMap = {};
+  for (let s = surahDari; s <= surahSampai; s++) {
+    const aStart = (s === surahDari) ? ayatDari : 1;
+    const aEnd   = (s === surahSampai) ? ayatSampai : 300;
+    for (let a = aStart; a <= aEnd; a++) {
+      const key = `${s}:${a}`;
+      const teks = quranData[key];
+      const page = ayahPageMap[key];
+      if (!teks || !page) continue;
+      (halamanMap[page] ||= []).push({
+        surah: s,
+        ayat: a,
+        teks: String(teks).replace(/\|/g, ' ')
+      });
+    }
   }
-  // tombol rekam + list audio di UJUNG ayat
-  buildAyatRecBar(line, surah, ayat);
 
-  // break antar ayat
-  parent.appendChild(line);
-};
+  // 5) render ke overlay
+  const quranText = document.getElementById('quran-text');
+  quranText.innerHTML = '';
+  const halamanUrut = Object.keys(halamanMap).map(Number).sort((x,y)=>x-y);
 
-/** Integrasi alternatif: jika renderer kamu tidak pakai appendAyatLine,
- *  cukup dispatch event setelah menulis kata-kata:
- *  document.dispatchEvent(new CustomEvent("ayat:rendered",{detail:{surah,ayat,container}}))
- */
-document.addEventListener("ayat:rendered", (ev)=>{
-  const {surah, ayat, container} = ev.detail || {};
-  if (!container) return;
-  // bungkus container sebagai .ayat-line kalau belum
-  if (!container.classList.contains('ayat-line')){
-    container.classList.add('ayat-line');
-    container.dataset.key = `${surah}:${ayat}`;
+  for (const page of halamanUrut) {
+    // load font halaman (sekali saja)
+    if (!fontLoadedPages.has(page)) {
+      const pageStr = String(page).padStart(3, '0');
+      const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/refs/heads/main/fonts/QCF_P${pageStr}.TTF`;
+      try {
+        const font = new FontFace(`QCF_P${pageStr}`, `url(${fontUrl})`);
+        await font.load();
+        document.fonts.add(font);
+        fontLoadedPages.add(page);
+      } catch (err) {
+        console.warn('Gagal load font page', page, err);
+      }
+    }
+
+    const pageDiv = document.createElement('div');
+    const pageStr = String(page).padStart(3,'0');
+    pageDiv.style.fontFamily   = `QCF_P${pageStr}, serif`;
+    pageDiv.style.fontSize     = '30px';
+    pageDiv.style.lineHeight   = '2.2';
+    pageDiv.style.direction    = 'rtl';
+    pageDiv.style.marginBottom = '20px';
+
+    halamanMap[page].forEach(item => {
+      // ⬇️ NEW: bungkus tiap ayat dalam kontainer agar bisa tempel bar rekam + daftar audio
+      const lineDiv = document.createElement('div');
+      lineDiv.className = 'ayat-line';
+      lineDiv.dataset.key = `${item.surah}:${item.ayat}`;
+      lineDiv.style.direction = 'rtl';
+
+      const spans = buatKataKlik(item.surah, item.ayat, item.teks);
+      spans.forEach(span => lineDiv.appendChild(span));
+
+      // tempel toolbar rekam & wadah audio di UJUNG ayat
+      buildAyatRecBar(lineDiv, item.surah, item.ayat);
+
+      pageDiv.appendChild(lineDiv);
+      pageDiv.appendChild(document.createElement('br'));
+    });
+
+    quranText.appendChild(pageDiv);
   }
-  buildAyatRecBar(container, surah, ayat);
+
+  // 🔹 NEW: render player per-ayat bila marks.audioByAyat ada
+  renderAudioByAyat(markData);
+
+  // 6) hitung & tampilkan nilai di modal (tanpa mereset sel tabel kalau belum ada mark)
+  const hasil = (typeof hitungNilai === 'function') ? hitungNilai() : null;
+  if (hasil && adaMarkBerwarna) {
+    updateNilaiDiTabel(hasil); // hanya update sel baris aktif
+  } else {
+    // isi modal dari nilai-ringkas di baris (biar konsisten, tidak 0)
+    const ringkas = row.querySelector('.nilai-ringkas');
+    const nilaiEl = document.getElementById('nilai-akhir');
+    const predEl  = document.getElementById('predikat-akhir');
+    if (ringkas && nilaiEl && predEl) {
+      const strong = ringkas.querySelector('strong');
+      const angka = strong ? parseFloat(String(strong.textContent).replace(',', '.')) : NaN;
+      if (!Number.isNaN(angka)) nilaiEl.textContent = angka.toFixed(1);
+      const sisa = ringkas.textContent.replace(strong?.textContent || '', '').trim();
+      predEl.innerHTML = sisa || '-';
+    }
+  }
 });
+
+
+// ======================
+// TOMBOL NILAI MANUAL
+// ======================
+document.getElementById("btn-beri-nilai").onclick = function() {
+  if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
+  const inputNilai = parseFloat(document.getElementById("input-nilai-manual").value);
+  if (isNaN(inputNilai) || inputNilai < 0 || inputNilai > 100) return alert("Masukkan nilai antara 0 dan 100.");
+  let predikat = "-";
+  if (inputNilai <= 59) predikat = "ROSIB (E)";
+  else if (inputNilai <= 69) predikat = "MAQBUL (D)";
+  else if (inputNilai <= 79) predikat = "JAYYID (C)";
+  else if (inputNilai <= 89) predikat = "JAYYID JIDDAN (B)";
+  else predikat = "MUMTAZ (A)";
+  markData = {}; // kosongkan mark
+  document.getElementById("nilai-akhir").innerText = inputNilai.toFixed(1);
+  document.getElementById("predikat-akhir").innerText = predikat;
+  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
+  updateNilaiDiTabel({ nilai: inputNilai, predikat });
+};
 </script>
+
 
 
 
