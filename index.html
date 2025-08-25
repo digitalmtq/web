@@ -321,6 +321,28 @@ button.lihat-quran-btn:hover::after {
         flex-direction: row;
       }
     }
+
+	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
+@media (max-width: 600px) {
+  .login-actions {
+    display: flex;
+    flex-direction: row;   /* jangan kolom */
+    flex-wrap: wrap;       /* turun baris kalau sempit */
+    justify-content: center;
+    gap: 10px;
+  }
+  .login-actions button {
+    width: auto;           /* jangan full width */
+    min-width: 150px;      /* biar konsisten seperti desktop */
+  }
+
+  /* pastikan input password + tombol Login tetap sejajar */
+  .password-login-group {
+    flex-direction: row;
+    flex-wrap: nowrap;
+  }
+  .password-wrapper { flex: 1; }   /* input melar, tombol tetap di kanan */
+}
   </style>
 </head>
 <body>
