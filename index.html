@@ -321,6 +321,28 @@ button.lihat-quran-btn:hover::after {
         flex-direction: row;
       }
     }
+
+	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
+@media (max-width: 600px) {
+  .login-actions {
+    display: flex;
+    flex-direction: row;   /* jangan kolom */
+    flex-wrap: wrap;       /* turun baris kalau sempit */
+    justify-content: center;
+    gap: 10px;
+  }
+  .login-actions button {
+    width: auto;           /* jangan full width */
+    min-width: 150px;      /* biar konsisten seperti desktop */
+  }
+
+  /* pastikan input password + tombol Login tetap sejajar */
+  .password-login-group {
+    flex-direction: row;
+    flex-wrap: nowrap;
+  }
+  .password-wrapper { flex: 1; }   /* input melar, tombol tetap di kanan */
+}
   </style>
 </head>
 <body>
@@ -335,7 +357,7 @@ button.lihat-quran-btn:hover::after {
       <div class="password-group" style="display: flex; align-items: center;">
    <div class="password-wrapper">
     <input type="password" id="password" placeholder="Password" required />
-    <span class="toggle-password" onclick="togglePassword()">👁</span>
+    <span id="toggle-password" class="toggle-password">👁</span>
   </div>
   <button type="submit">Login</button>
 </div>
@@ -3325,7 +3347,17 @@ function renderTabelPredikat() {
 }
 </script>
 
-
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const eye = document.getElementById("toggle-password");
+  const input = document.getElementById("password");
+  if (eye && input) {
+    eye.addEventListener("click", () => {
+      input.type = (input.type === "password") ? "text" : "password";
+    });
+  }
+});
+</script>
 	
 </body>
 </html>
