@@ -3331,21 +3331,24 @@ function renderTabelPredikat() {
 }
 </script>
 
-
-	<script>
+<script>
 function showLoginError() {
   const el = document.getElementById("login-error");
   if (!el) return;
-  
-  // tampilkan
+
+  // selalu reset dulu supaya animasi jalan tiap kali dipanggil
   el.style.display = "block";
-  
-  // otomatis sembunyikan setelah 5 detik
-  setTimeout(() => {
+
+  // kalau sudah ada timer sebelumnya, hapus
+  if (el.hideTimeout) clearTimeout(el.hideTimeout);
+
+  // sembunyikan setelah 5 detik
+  el.hideTimeout = setTimeout(() => {
     el.style.display = "none";
   }, 5000);
 }
 </script>
+
 
 </body>
 </html>
