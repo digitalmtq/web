@@ -2990,7 +2990,6 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
 	
 
-<script>
 let quranData = {};
 let ayahPageMap = {};
 let markData = {};
@@ -3016,7 +3015,7 @@ async function ambilMarksDariNetlify(id, kelas, tanggal) {
   }
 }
 
-	// ======================
+// ======================
 // TAMPILKAN AUDIO
 // ======================
 function tampilkanAudioDariMarks(marks) {
@@ -3029,9 +3028,12 @@ function tampilkanAudioDariMarks(marks) {
           <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
           Browser Anda tidak mendukung audio.
         </audio>
+        <span> Rekaman ${i + 1}</span>
       `;
       recordingsList.appendChild(li);
     });
+  } else {
+    recordingsList.innerHTML = '<li>Tidak ada rekaman audio.</li>';
   }
 }
 
