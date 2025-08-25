@@ -2938,35 +2938,6 @@ async function ambilMarksDariNetlify(id, kelas, tanggal) {
 }
 
 // ======================
-// TAMPILKAN AUDIO
-// ======================
-function tampilkanAudioDariMarks(marks) {
-  recordingsList.innerHTML = '';
-  if (marks && marks.audio && marks.audio.length > 0) {
-    marks.audio.forEach((filename, i) => {
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <audio controls preload="metadata">
-          <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
-          Browser Anda tidak mendukung audio.
-        </audio>
-        <span> Rekaman ${i + 1}</span>
-      `;
-      recordingsList.appendChild(li);
-    });
-  } else {
-    recordingsList.innerHTML = '<li>Tidak ada rekaman audio.</li>';
-  }
-}
-
-function getMimeType(filename) {
-  const ext = filename.split('.').pop().toLowerCase();
-  if (ext === 'mp3') return 'audio/mpeg';
-  if (ext === 'ogg') return 'audio/ogg';
-  return 'audio/wav';
-}
-
-// ======================
 // STORAGE
 // ======================
 // 🔹 REVISED: storage key per siswa + kelas + tanggal baris
