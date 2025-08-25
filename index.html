@@ -321,28 +321,6 @@ button.lihat-quran-btn:hover::after {
         flex-direction: row;
       }
     }
-
-	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
-@media (max-width: 600px) {
-  .login-actions {
-    display: flex;
-    flex-direction: row;   /* jangan kolom */
-    flex-wrap: wrap;       /* turun baris kalau sempit */
-    justify-content: center;
-    gap: 10px;
-  }
-  .login-actions button {
-    width: auto;           /* jangan full width */
-    min-width: 150px;      /* biar konsisten seperti desktop */
-  }
-
-  /* pastikan input password + tombol Login tetap sejajar */
-  .password-login-group {
-    flex-direction: row;
-    flex-wrap: nowrap;
-  }
-  .password-wrapper { flex: 1; }   /* input melar, tombol tetap di kanan */
-}
   </style>
 </head>
 <body>
@@ -1207,6 +1185,8 @@ async function submitTambahKelasBaru() {
     </div>
 
 <style>
+
+
 .keterangan-row{
   display:flex;
   align-items:center;
@@ -1216,12 +1196,197 @@ async function submitTambahKelasBaru() {
 .keterangan-row .keterangan-toggle{
   margin-left:auto; /* dorong link ke kanan */
 }
+	
+	/* Box keterangan */
+.keterangan-box {
+  display: none;
+  background: #f9f9f9;
+  border-left: 4px solid #007bff;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.keterangan-toggle {
+  all: unset; /* reset semua style bawaan */
+  display: inline-block;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+  color: #1E88E5;
+  padding: 2px 4px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.00s ease;
+}
+.keterangan-toggle:hover {
+  color: #ffffff;
+}
+
+/* Spinner CSS */
+.spinner {
+  border: 4px solid #f3f3f3; /* light grey */
+  border-top: 4px solid #007bff; /* blue */
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+/* Tombol Rekam */
+.rec-btn { background: linear-gradient(135deg, #ff4b5c, #ff0000); color:white; font-weight:bold; font-size:10px; border:none; border-radius:50px; padding:10px 25px; cursor:pointer; transition:transform 0.1s, box-shadow 0.1s; margin-right:10px;}
+.rec-btn.pulsing { animation: pulse 1s infinite; }
+@keyframes pulse { 0% { transform: scale(1); box-shadow:0 0 15px rgba(255,0,0,0.6);} 50%{transform:scale(1.08); box-shadow:0 0 25px rgba(255,0,0,0.8);} 100%{transform:scale(1); box-shadow:0 0 15px rgba(255,0,0,0.6);}}
+
+.stop-btn { background:linear-gradient(135deg,#555,#333); color:white; font-weight:bold; font-size:10px; border:none; border-radius:50px; padding:10px 25px; cursor:pointer; transition:transform 0.1s, box-shadow 0.1s; }
+.stop-btn:hover { transform:scale(1.05); box-shadow:0 0 10px rgba(0,0,0,0.5); }
 </style>
+
+<script>
+const recBtn = document.getElementById('recordButton');
+const stopBtn = document.getElementById('stopButton');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const durationSpan = document.getElementById('recordDuration');
+
+let recording = false;
+let duration = 0;
+let durationInterval = null;
+
+// Fungsi format durasi mm:ss
+function formatTime(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2,'0');
+    const s = (sec % 60).toString().padStart(2,'0');
+    return `${m}:${s}`;
+}
+
+// Tombol Record
+recBtn.addEventListener('click', () => {
+    recording = true;
+    recBtn.classList.add('pulsing');
+    recBtn.disabled = true;
+    stopBtn.disabled = false;
+
+    // reset durasi
+    duration = 0;
+    durationSpan.textContent = "00:00";
+
+    // start timer
+    durationInterval = setInterval(() => {
+        duration++;
+        durationSpan.textContent = formatTime(duration);
+    }, 1000);
+});
+
+// Tombol Stop
+stopBtn.addEventListener('click', () => {
+    recording = false;
+    recBtn.classList.remove('pulsing');
+    recBtn.disabled = false;
+    stopBtn.disabled = true;
+
+    // stop timer
+    clearInterval(durationInterval);
+
+    // tampilkan spinner
+    loadingIndicator.style.display = "flex";
+    loadingIndicator.style.alignItems = "center";
+
+    if (recorder) {
+        recorder.onComplete = function(recorderInstance, blob) {
+            loadingIndicator.style.display = "none";
+            createDownloadLink(blob, recorderInstance.encoding);
+        };
+        recorder.finishRecording();
+    }
+});
+
+	document.getElementById("toggle-keterangan").addEventListener("click", () => {
+  const box = document.getElementById("keterangan-box");
+  if (box.style.display === "block") {
+    box.style.display = "none";
+  } else {
+    box.style.display = "block";
+  }
+});
+</script>
+
+
+
+
+
+
+
+<!-- Info format (opsional) -->
+<div id="formats" style="margin-top:10px;"></div>
+
+<ol id="recordingsList"></ol>
+
+<!-- ===== CSS Tombol + Indikator Kedap-kedip ===== -->
+<style>
+/* Tombol Record */
+.rec-btn {
+    background: linear-gradient(135deg, #ff4b5c, #ff0000);
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 25px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin-right: 10px;
+}
+
+.rec-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(255,0,0,0.6);
+}
+
+/* Tombol Stop */
+.stop-btn {
+    background: linear-gradient(135deg, #555, #333);
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 25px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.stop-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Indikator REC */
+#recordingIndicator {
+    display: none;
+    color: red;
+    font-weight: bold;
+    margin-left: 15px;
+    animation: blink 1s infinite;
+}
+
+/* Animasi kedap-kedip */
+@keyframes blink {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75% { opacity: 0; }
+}
+</style>
+
     <!-- ===== BUTTON ===== -->
     <button id="save-btn-modal">Simpan Nilai</button>
     <button onclick="document.getElementById('overlay-quran').style.display='none'">Tutup</button>
   </div>
 </div>
+<!-- inserting these scripts at the end to be able to use all the elements in the DOM -->
+	<script src="js/WebAudioRecorder.min.js"></script>
+	<script src="js/app.js"></script>
 
 
 
@@ -2769,6 +2934,50 @@ let currentIdSiswa = null;
 // 🔹 NEW: simpan elemen baris yang sedang aktif (penting untuk rentang tanggal)
 let currentRowEl = null;
 
+let recordingsList = document.getElementById("recordingsList");
+
+
+// ======================
+// AMBIL DATA MARKS + AUDIO
+// ======================
+async function ambilMarksDariNetlify(id, kelas, tanggal) {
+  try {
+    const res = await fetch(`/.netlify/functions/getMarksAudio?id=${id}&kelas=${kelas}&tanggal=${tanggal}`);
+    if (!res.ok) throw new Error('Gagal ambil marks dari server');
+    const data = await res.json();
+    return data.marks || {};
+  } catch(err) {
+    console.error(err);
+    return {};
+  }
+}
+
+	// ======================
+// TAMPILKAN AUDIO
+// ======================
+function tampilkanAudioDariMarks(marks) {
+  recordingsList.innerHTML = '';
+  if (marks && marks.audio && marks.audio.length > 0) {
+    marks.audio.forEach((filename, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <audio controls preload="metadata">
+          <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
+          Browser Anda tidak mendukung audio.
+        </audio>
+      `;
+      recordingsList.appendChild(li);
+    });
+  }
+}
+
+function getMimeType(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  if (ext === 'mp3') return 'audio/mpeg';
+  if (ext === 'ogg') return 'audio/ogg';
+  return 'audio/wav';
+}
+
 // ======================
 // STORAGE
 // ======================
@@ -3101,5 +3310,6 @@ function renderTabelPredikat() {
 </script>
 
 
+	
 </body>
 </html>
