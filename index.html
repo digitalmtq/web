@@ -2580,16 +2580,22 @@ document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTot
         let semester = parseInt(row.querySelector(".semester")?.value) || rekap[id].semester;
         const target = batasSemester[semester] || 0;
 
-        // Jika sudah 30 juz atau lebih → KHATAM
         let label, warna;
         if (totalJuzNum >= 30) {
+          // KHATAM prioritas
           label = "KHATAM";
-          warna = "green";
+          warna = "gold";
         } else {
           let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
-          if (prosentase > 100) prosentase = 100; // batasi maksimum 100%
-          label = `${prosentase}%`;
-          warna = prosentase >= 100 ? "green" : "red";
+          if (prosentase > 100) prosentase = 100;
+
+          if (prosentase >= 100) {
+            label = "TUNTAS";
+            warna = "green";
+          } else {
+            label = `${prosentase}%`;
+            warna = "red";
+          }
         }
 
         cell.innerHTML =
@@ -2602,6 +2608,7 @@ document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTot
     console.error("Gagal ambil data absensi:", err);
   }
 }
+
 
 
 // Jalankan saat pertama kali halaman selesai dimuat
