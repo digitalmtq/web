@@ -1611,6 +1611,59 @@ if (tanggalFilterAkhir) {
       }, 500);
     });
 
+ </script>
+
+
+<script>
+// === AUTO-LANJUT HELPERS ===
+function _parsePair(pairStr) {
+  const m = (pairStr || "").match(/^\s*(\d+)\s*:\s*(\d+)\s*$/);
+  return m ? { surah: +m[1], ayat: +m[2] } : null;
+}
+function _getAyatCount(surah) {
+  const o = (window.surahList || []).find(x => +x.id === +surah);
+  return o ? +o.jumlah_ayat : 1;
+}
+function _nextAyah(surah, ayat) {
+  const total = _getAyatCount(surah);
+  if (ayat < total) return { surah: +surah, ayat: +ayat + 1 };
+  const nextSurah = +surah + 1;
+  const ada = (window.surahList || []).some(x => +x.id === nextSurah);
+  return ada ? { surah: nextSurah, ayat: 1 } : { surah: +surah, ayat: total };
+}
+/** Isi HANYA field kosong dengan lanjutan dari lastObj ({dari:"s:a", sampai:"s:a"}) */
+function _autofillFromLastNoListeners(rowEl, lastObj) {
+  const sd = rowEl.querySelector(".surah-dari");
+  const ad = rowEl.querySelector(".ayat-dari");
+  const ss = rowEl.querySelector(".surah-sampai");
+  const as = rowEl.querySelector(".ayat-sampai");
+
+  const last = _parsePair(lastObj?.sampai) || _parsePair(lastObj?.dari) || { surah:1, ayat:1 };
+  const start = _nextAyah(last.surah, last.ayat);
+
+  const ensureAyat = (surahEl, ayatEl, preAyat) => {
+    if (!surahEl || !ayatEl) return;
+    if (typeof fillAyatOptions === "function") {
+      fillAyatOptions(ayatEl, +surahEl.value, preAyat);
+    }
+    if (!ayatEl.value) ayatEl.value = String(preAyat);
+  };
+
+  if (sd && !sd.value) sd.value = String(start.surah);
+  if (ad) {
+    const pre = (!ad.value) ? (+sd.value === start.surah ? start.ayat : 1) : +ad.value;
+    ensureAyat(sd, ad, pre);
+  }
+
+  if (ss && !ss.value) ss.value = sd ? sd.value : String(start.surah);
+  if (as) {
+    const pre = (!as.value) ? (ad ? +ad.value : (+ss.value === start.surah ? start.ayat : 1)) : +as.value;
+    ensureAyat(ss, as, pre);
+  }
+}
+</script>
+	 
+<script>
     async function loadSantriData() { 
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
@@ -1694,6 +1747,29 @@ if (tanggalFilterAkhir) {
 
     const isRange = !!(endFilter && endFilter !== tanggal);
 
+	  // --- Ambil titik terakhir sebelum 'tanggal' (hanya jika bukan range) ---
+let lastPrevByKey = new Map();
+if (!isRange) {
+  try {
+    const resPrev = await fetch(
+      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=1900-01-01&end=${encodeURIComponent(tanggal)}&t=${Date.now()}`
+    );
+    const range = await resPrev.json();
+    (Array.isArray(range) ? range : []).forEach(r => {
+      const key = String(r.nis || r.id || "");
+      // simpan yang tanggalnya < current & paling akhir
+      if (r.tanggal && r.tanggal < tanggal) {
+        const prev = lastPrevByKey.get(key);
+        if (!prev || String(prev.tanggal || "") < String(r.tanggal)) {
+          lastPrevByKey.set(key, r);
+        }
+      }
+    });
+  } catch (e) {
+    console.warn("Gagal ambil lastPrevByKey:", e);
+  }
+}
+
     // Siapkan indeks absensi untuk pencocokan cepat
     const absById  = new Map();
     const absByNis = new Map();
@@ -1770,8 +1846,8 @@ if (tanggalFilterAkhir) {
         const row = document.createElement("tr");
 
         const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
-        const dari = (dataAbsensi?.dari || "1:1").split(":");
-        const sampai = (dataAbsensi?.sampai || "1:1").split(":");
+        const dariStr   = (typeof dataAbsensi?.dari === "string")   ? dataAbsensi.dari   : "";
+		const sampaiStr = (typeof dataAbsensi?.sampai === "string") ? dataAbsensi.sampai : "";
 
         // tanggal spesifik baris: rentang → dataAbsensi.tanggal; tunggal → tanggal awal
         const rowDate = (isRange && dataAbsensi?.tanggal) ? dataAbsensi.tanggal : tanggal;
@@ -1845,19 +1921,51 @@ if (tanggalFilterAkhir) {
         }
 
         // Set surah & ayat dropdown
-        const surahDari = row.querySelector(".surah-dari");
-        const ayatDari = row.querySelector(".ayat-dari");
-        const surahSampai = row.querySelector(".surah-sampai");
-        const ayatSampai = row.querySelector(".ayat-sampai");
+        // BARU (auto-lanjut)
+const surahDari   = row.querySelector(".surah-dari");
+const ayatDari    = row.querySelector(".ayat-dari");
+const surahSampai = row.querySelector(".surah-sampai");
+const ayatSampai  = row.querySelector(".ayat-sampai");
 
-        const dariArr = Array.isArray(dari) ? dari : String(dari).split(":");
-        const sampaiArr = Array.isArray(sampai) ? sampai : String(sampai).split(":");
+// 1) Jika hari-ini sudah punya dari/sampai → hormati apa adanya
+if (dariStr) {
+  const p = _parsePair(dariStr);
+  if (p) {
+    surahDari.value = String(p.surah);
+    if (typeof fillAyatOptions === "function") fillAyatOptions(ayatDari, p.surah, p.ayat);
+  }
+}
+if (sampaiStr) {
+  const p = _parsePair(sampaiStr);
+  if (p) {
+    surahSampai.value = String(p.surah);
+    if (typeof fillAyatOptions === "function") fillAyatOptions(ayatSampai, p.surah, p.ayat);
+  }
+}
 
-        surahDari.value = dariArr[0];
-        surahSampai.value = sampaiArr[0];
+// 2) Untuk field yang MASIH KOSONG → auto-lanjut dari “titik terakhir”
+let lastObj = null;
+if (isRange) {
+  // cari entri sebelumnya dalam rowsForSantri (urut per tanggal sudah di atas)
+  const idx = rowsForSantri.indexOf(dataAbsensi);
+  if (idx > 0) {
+    const prev = rowsForSantri[idx - 1];
+    lastObj = { dari: prev?.dari || null, sampai: prev?.sampai || null };
+  }
+} else {
+  // single date → pakai peta lastPrevByKey (yang kita fetch di langkah #2)
+  const k = String(santri.nis || santri.id || "");
+  const prev = lastPrevByKey.get(k);
+  if (prev) lastObj = { dari: prev.dari || null, sampai: prev.sampai || null };
+}
 
-        fillAyatOptions(ayatDari, surahDari.value, dariArr[1]);
-        fillAyatOptions(ayatSampai, surahSampai.value, sampaiArr[1]);
+// simpan ke dataset (berguna kalau mau dipakai saat simpan)
+row.dataset.lastDari = lastObj?.dari || "";
+row.dataset.lastSampai = lastObj?.sampai || "";
+
+// Isi HANYA yang masih kosong
+_autofillFromLastNoListeners(row, lastObj);
+
 
         surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
         surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
