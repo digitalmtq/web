@@ -1628,6 +1628,34 @@ if (tanggalFilterAkhir) {
     return m;
   };
 
+  // 🔧 helper: enable/disable tombol saat mode NIS
+  function setButtonsDisabled(disabled) {
+    const targets = [
+      document.getElementById("save-btn-modal"),                 // Simpan Data Mutaba'ah (modal)
+      document.querySelector("button[onclick='bukaModalSantri()']"), // Tambah Santri
+      document.getElementById("btnHapusSantri"),                 // Hapus Santri
+      document.getElementById("btnPindahKelas"),                 // Pindah Kelas
+      document.getElementById("recordButton"),                   // ● Record
+      document.getElementById("btn-beri-nilai"),                 // Beri Nilai Manual
+    ];
+    targets.forEach(btn => {
+      if (!btn) return;
+      btn.disabled = !!disabled;
+      btn.style.opacity = disabled ? "0.5" : "";
+      btn.style.cursor  = disabled ? "not-allowed" : "";
+      // opsional: cegah handler inline saat disabled
+      if (disabled) {
+        btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
+        if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
+      } else {
+        if (btn.dataset._onclick_bak) {
+          btn.setAttribute("onclick", btn.dataset._onclick_bak);
+          delete btn.dataset._onclick_bak;
+        }
+      }
+    });
+  }
+
   try {
     // --- Ambil semua santri di kelas --- (tambahkan cache-buster)
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
@@ -1688,6 +1716,10 @@ if (tanggalFilterAkhir) {
     } else {
       santriData = [];
     }
+
+    // 🟢 Aktif/nonaktifkan tombol sesuai mode (punya nis => mode NIS => disable)
+    const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
+    setButtonsDisabled(isModeNIS);
 
     // --- RENDER TABEL ---
     santriTableBody.innerHTML = "";
@@ -1833,7 +1865,7 @@ if (tanggalFilterAkhir) {
 
         // jika backend mengirim marks untuk baris ini, tempel di row agar modal pakai data ini
         if (dataAbsensi && dataAbsensi.marks) {
-          row.markData = dataAbsensi.marks; // dipakai oleh handler "Lembar Penilaian" bila mau
+          row.markData = dataAbsensi.marks;
         }
 
         santriTableBody.appendChild(row);
