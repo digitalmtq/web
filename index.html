@@ -1611,86 +1611,6 @@ if (tanggalFilterAkhir) {
       }, 500);
     });
 
-
-// === LAST-AYAH STORAGE (per kelas & per santri) ===
-const LAST_NS = "mtq:lastAyah";
-
-function _saKey(kelas, keySantri) {
-  return `${LAST_NS}:${kelas}:${keySantri}`;
-}
-function saveLastToStorage(kelas, keySantri, dariStr, sampaiStr) {
-  try {
-    localStorage.setItem(_saKey(kelas, keySantri), JSON.stringify({
-      dari: dariStr || null,
-      sampai: sampaiStr || null,
-      t: Date.now()
-    }));
-  } catch {}
-}
-function readLastFromStorage(kelas, keySantri) {
-  try {
-    const raw = localStorage.getItem(_saKey(kelas, keySantri));
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-// === Helper ayat/surah (butuh window.surahList & fillAyatOptions) ===
-function _parsePair(pairStr) {
-  const m = (pairStr || "").match(/^\s*(\d+)\s*:\s*(\d+)\s*$/);
-  return m ? { surah: +m[1], ayat: +m[2] } : null;
-}
-function _getAyatCount(surah) {
-  const o = (window.surahList || []).find(x => +x.id === +surah);
-  return o ? +o.jumlah_ayat : 1;
-}
-function _nextAyah(surah, ayat) {
-  const total = _getAyatCount(surah);
-  if (ayat < total) return { surah: +surah, ayat: +ayat + 1 };
-  const nextSurah = +surah + 1;
-  const ada = (window.surahList || []).some(x => +x.id === nextSurah);
-  return ada ? { surah: nextSurah, ayat: 1 } : { surah: +surah, ayat: total };
-}
-
-/**
- * Prefill dari storage ke row.
- * modeLanjut = true  -> "Dari" = 1 ayat setelah (last.sampai || last.dari)
- * modeLanjut = false -> pakai persis yang tersimpan (tanpa maju 1 ayat)
- * HANYA mengisi input yang MASIH KOSONG (tidak menimpa nilai server).
- */
-function applyLastToRowFromStorage(rowEl, lastObj, modeLanjut = true) {
-  if (!lastObj) return;
-
-  const sd = rowEl.querySelector(".surah-dari");
-  const ad = rowEl.querySelector(".ayat-dari");
-  const ss = rowEl.querySelector(".surah-sampai");
-  const as = rowEl.querySelector(".ayat-sampai");
-
-  const pS = _parsePair(lastObj.sampai);
-  const pD = _parsePair(lastObj.dari);
-  const anchor = pS || pD || { surah:1, ayat:1 };
-  const start  = modeLanjut ? _nextAyah(anchor.surah, anchor.ayat) : anchor;
-
-  // DARI
-  if (sd && (!sd.value || sd.value === "")) sd.value = String(start.surah);
-  if (ad && typeof fillAyatOptions === "function") {
-    const pre = (!ad.value || ad.value === "")
-      ? (Number(sd.value) === start.surah ? start.ayat : 1)
-      : Number(ad.value);
-    fillAyatOptions(ad, Number(sd.value), pre);
-    if (!ad.value || ad.value === "") ad.value = String(pre);
-  }
-  // SAMPAI (awal = sama dengan DARI; user bisa ubah)
-  if (ss && (!ss.value || ss.value === "")) ss.value = sd ? sd.value : String(start.surah);
-  if (as && typeof fillAyatOptions === "function") {
-    const pre = (!as.value || as.value === "")
-      ? (ad ? Number(ad.value) : (Number(ss.value) === start.surah ? start.ayat : 1))
-      : Number(as.value);
-    fillAyatOptions(as, Number(ss.value), pre);
-    if (!as.value || as.value === "") as.value = String(pre);
-  }
-}
-
-
     async function loadSantriData() { 
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
@@ -1924,109 +1844,46 @@ function applyLastToRowFromStorage(rowEl, lastObj, modeLanjut = true) {
           totalAllJuzTd.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
         }
 
-        // === REVISI: Set surah & ayat dropdown (pakai storage) ===
-(function () {
-  // Helper storage (dibuat sekali di window agar tidak duplikat)
-  if (!window._mtqLastAyah) {
-    window._mtqLastAyah = {
-      ns: "mtq:lastAyah",
-      key(kelas, id) { return `${this.ns}:${kelas}:${id}`; },
-      save(kelas, id, dariStr, sampaiStr) {
-        try {
-          localStorage.setItem(this.key(kelas, id), JSON.stringify({
-            dari: dariStr || null,
-            sampai: sampaiStr || null,
-            t: Date.now()
-          }));
-        } catch {}
-      },
-      read(kelas, id) {
-        try {
-          const raw = localStorage.getItem(this.key(kelas, id));
-          return raw ? JSON.parse(raw) : null;
-        } catch { return null; }
-      }
-    };
+        // Set surah & ayat dropdown
+        const surahDari = row.querySelector(".surah-dari");
+        const ayatDari = row.querySelector(".ayat-dari");
+        const surahSampai = row.querySelector(".surah-sampai");
+        const ayatSampai = row.querySelector(".ayat-sampai");
+
+        const dariArr = Array.isArray(dari) ? dari : String(dari).split(":");
+        const sampaiArr = Array.isArray(sampai) ? sampai : String(sampai).split(":");
+
+        surahDari.value = dariArr[0];
+        surahSampai.value = sampaiArr[0];
+
+        fillAyatOptions(ayatDari, surahDari.value, dariArr[1]);
+        fillAyatOptions(ayatSampai, surahSampai.value, sampaiArr[1]);
+
+        surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
+        surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
+
+        // Sinkronisasi otomatis kolom Sampai ketika Dari berubah
+        surahDari.addEventListener("change", () => {
+          surahSampai.value = surahDari.value;
+          fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
+        });
+
+        ayatDari.addEventListener("change", () => {
+          ayatSampai.value = ayatDari.value;
+        });
+
+        [ayatDari, ayatSampai, surahDari, surahSampai].forEach(el => {
+          el.addEventListener("change", () => updateTotalJuz(row));
+        });
+      });
+    });
+  } catch (err) {
+    alert("Gagal memuat data santri / absensi!");
+    console.error(err);
   }
 
-  // Elemen dropdown
-  const surahDari   = row.querySelector(".surah-dari");
-  const ayatDari    = row.querySelector(".ayat-dari");
-  const surahSampai = row.querySelector(".surah-sampai");
-  const ayatSampai  = row.querySelector(".ayat-sampai");
-
-  // Ambil string dari/sampai dari data yang ada (kalau memang ada)
-  const dariStr   = (typeof dari === "string")   ? dari   : (Array.isArray(dari)   ? `${dari[0] ?? ""}:${dari[1] ?? ""}`   : "");
-  const sampaiStr = (typeof sampai === "string") ? sampai : (Array.isArray(sampai) ? `${sampai[0] ?? ""}:${sampai[1] ?? ""}` : "");
-
-  // Helper isi dari "s:a" → set value + isi opsi ayat
-  const applyPair = (elSurah, elAyat, pairStr) => {
-    if (!pairStr) return false;
-    const [s, a] = String(pairStr).split(":");
-    if (!s) return false;
-    elSurah.value = s;
-    if (typeof fillAyatOptions === "function") {
-      // jika a kosong, biarkan fillAyatOptions sekadar isi daftar ayat
-      const preAyat = a ? Number(a) : undefined;
-      fillAyatOptions(elAyat, elSurah.value, preAyat);
-      if (a && !elAyat.value) elAyat.value = a;
-    } else if (a) {
-      elAyat.value = a;
-    }
-    return true;
-  };
-
-  // 1) Jika data absensi baris ini sudah punya 'dari/sampai' → hormati terlebih dulu
-  if (surahDari && ayatDari)   applyPair(surahDari,   ayatDari,   dariStr);
-  if (surahSampai && ayatSampai) applyPair(surahSampai, ayatSampai, sampaiStr);
-
-  // 2) Untuk yang MASIH KOSONG → isi dari storage (last pilihan user)
-  const keySantri = String(santri.nis ?? santri.id ?? row.dataset.id ?? "");
-  const lastLocal = window._mtqLastAyah.read(kelas, keySantri);
-
-  if (lastLocal) {
-    if (surahDari && ayatDari && (!surahDari.value || !ayatDari.value)) {
-      // Pakai persis yang tersimpan (tanpa auto-maju)
-      applyPair(surahDari, ayatDari, lastLocal.dari || lastLocal.sampai);
-    }
-    if (surahSampai && ayatSampai && (!surahSampai.value || !ayatSampai.value)) {
-      applyPair(surahSampai, ayatSampai, lastLocal.sampai || lastLocal.dari);
-    }
-  }
-
-  // 3) Fallback terakhir: jika masih kosong sama sekali → 1:1 agar aman
-  if (surahDari && !surahDari.value)   surahDari.value = "1";
-  if (surahSampai && !surahSampai.value) surahSampai.value = surahDari ? surahDari.value : "1";
-  if (typeof fillAyatOptions === "function") {
-    if (ayatDari && !ayatDari.value)     fillAyatOptions(ayatDari,     surahDari.value, 1);
-    if (ayatSampai && !ayatSampai.value) fillAyatOptions(ayatSampai,   surahSampai.value, ayatDari?.value ? Number(ayatDari.value) : 1);
-  }
-
-  // === Listener asli kamu tetap dipertahankan ===
-  surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
-  surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
-
-  // Sinkronisasi otomatis kolom Sampai ketika Dari berubah
-  surahDari.addEventListener("change", () => {
-    surahSampai.value = surahDari.value;
-    fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
-  });
-
-  ayatDari.addEventListener("change", () => {
-    ayatSampai.value = ayatDari.value;
-  });
-
-  // Simpan otomatis ke storage + hitung ulang total setiap perubahan
-  const persist = () => {
-    const sD = `${surahDari.value}:${ayatDari.value}`;
-    const sS = `${surahSampai.value}:${ayatSampai.value}`;
-    window._mtqLastAyah.save(kelas, keySantri, sD, sS);
-    updateTotalJuz(row);
-  };
-  [ayatDari, ayatSampai, surahDari, surahSampai].forEach(el => {
-    el.addEventListener("change", persist);
-  });
-})();
+  overlay.style.display = "none";
+}
 
 
 
