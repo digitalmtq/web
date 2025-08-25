@@ -192,17 +192,25 @@ button.lihat-quran-btn:hover::after {
   padding: 1px 4px;
 }
     .container {
-  max-width: 1400px;
-  margin: auto;
-  padding: 0 20px 20px; /* atas 0, kanan 20px, bawah 20px, kiri 20px */
-}
-    .card {
-      background: #fff;
-      border-radius: 8px;
+      max-width: 1400px;
+      margin: auto;
       padding: 20px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      margin-top: 0px;
     }
+    .card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 20px 20px;  /* atas 0, kanan 20, bawah 20, kiri 20 */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  margin-top: 0;
+}
+
+/* Nolkan margin heading */
+#dashboard-card h1,
+#dashboard-card h2 {
+  margin-top: 0;
+  padding-top: 0;
+}
+
     h1, h2 {
       text-align: center;
     }
@@ -306,21 +314,6 @@ button.lihat-quran-btn:hover::after {
         flex-direction: row;
       }
     }
-
-	  /* Nolkan margin heading di dashboard */
-#dashboard-card h1:first-child,
-#dashboard-card h2:first-child {
-  margin-top: 0;
-}
-
-/* Jika ingin dashboard benar-benar nempel ke body */
-.container {
-  padding-top: 0 !important;
-}
-
-#dashboard-card {
-  padding-top: 0 !important;
-}
   </style>
 </head>
 <body>
