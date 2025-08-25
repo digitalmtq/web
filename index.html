@@ -1229,20 +1229,23 @@ async function submitTambahKelasBaru() {
       <button id="btn-beri-nilai">Beri Nilai Manual</button>
     </div>
 
-	  <div style="margin:10px 0;">
-  <button id="recordButton" class="rec-btn"></button>
-  <button id="stopButton" class="stop-btn" disabled></button>
-  <span id="recordDuration"></span>
-  <span id="loadingIndicator" style="display:none;margin-left:10px;"></span>
+	  <select id="encodingTypeSelect">
+  <option value="mp3">MP3 (.mp3)</option>
+</select>
+
+<div id="controls" style="margin-top:10px;">
+    <button id="recordButton" class="rec-btn"></button>
+    <button id="stopButton" class="stop-btn" disabled></button>
+    <span id="recordDuration" style="margin-left:15px; font-weight:bold;"></span>
 </div>
 
-	   <!-- Loading spinner -->
-    <div id="loadingIndicator" style="display:none; margin-top:10px;">
-      <div class="spinner"></div>
-      <span style="margin-left:10px; font-style:italic; color:#007bff;">Membuat file audio...</span>
-    </div>
+<!-- Loading spinner -->
+<div id="loadingIndicator" style="display:none; margin-top:10px;">
+  <div class="spinner"></div>
+  <span style="margin-left:10px; font-style:italic; color:#007bff;">Membuat file audio...</span>
+</div>
 
-    <ul id="recordingsList"></ul>
+<ul id="recordingsList"></ul>
 
 <style>
 
