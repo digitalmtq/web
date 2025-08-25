@@ -1125,49 +1125,42 @@ async function submitTambahKelasBaru() {
 </div>
   
   
-  <div id="overlay-quran" style="display:none; position:fixed; top:0; left:0;
-     width:100%; height:100%; background:rgba(0,0,0,0.5);
-     z-index:10000; justify-content:center; align-items:center;">
-  <div style="background:white; padding:20px; border-radius:8px;
-       max-width:800px; max-height:80vh;
-       display:flex; flex-direction:column;
-       overflow:hidden;">
-
-
-	  <!-- Baris sejajar: toggle kiri, counter kanan -->
+  <!-- Baris sejajar: toggle kiri, counter kanan -->
 <div class="keterangan-row"
      style="display:flex; align-items:center; justify-content:space-between; gap:12px; direction:ltr; margin-bottom:6px;">
-  <button id="toggle-keterangan" class="keterangan-toggle">Lihat Keterangan Warna</button>
+  <button id="toggle-keterangan" class="keterangan-toggle" type="button"
+          aria-haspopup="dialog" aria-controls="overlay-keterangan" style="cursor:pointer;">
+    Lihat Keterangan Warna
+  </button>
   <div id="modal-mark-warna" style="font-weight:bold; font-size:16px;"></div>
 </div>
 
-<!-- Box keterangan (ditoggle oleh tombol di kiri) -->
-<div id="keterangan-box" class="keterangan-box">
-  <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.25</b>)<br>
-     Contoh: meninggalkan tajwid seperti <i>Ikhfa, Tebal, Tipis, Hukum Ra, Qalqalah, Ghunnah, Mad Munfashil, Mad Iwad, Shafir, Dhod, Hams, Mim Sakinah</i>, dan lain-lain.</p>
-  <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>0.5</b>)<br>
-     Contoh: salah hafalan tapi bisa memperbaiki sendiri, <i>waqof</i> dan <i>ibtida'</i> kurang tepat, dan lain-lain.</p>
-  <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>1</b>)<br>
-     Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
+<!-- Modal Overlay Keterangan Warna -->
+<div id="overlay-keterangan"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55);
+            z-index:10050; align-items:center; justify-content:center;">
+  <div class="ket-card" role="dialog" aria-modal="true" aria-labelledby="ket-title" tabindex="-1"
+       style="background:#fff; width:calc(100% - 32px); max-width:720px; max-height:80vh; overflow:auto;
+              border-radius:10px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.25);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+      <strong id="ket-title" style="font-size:16px;">Keterangan Warna</strong>
+      <button type="button" class="ket-close" aria-label="Tutup"
+              style="all:unset; cursor:pointer; font-size:18px; line-height:1;">✕</button>
+    </div>
+
+    <div class="ket-body" style="font-size:14px; line-height:1.6;">
+      <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.25</b>)<br>
+         Contoh: meninggalkan tajwid seperti <i>Ikhfa, Tebal, Tipis, Hukum Ra, Qalqalah, Ghunnah,
+         Mad Munfashil, Mad Iwad, Shafir, Dhod, Hams, Mim Sakinah</i>, dan lain-lain.</p>
+      <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>0.5</b>)<br>
+         Contoh: salah hafalan tapi bisa memperbaiki sendiri, <i>waqof</i> dan <i>ibtida'</i> kurang tepat, dan lain-lain.</p>
+      <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>1</b>)<br>
+         Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran,
+         atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
+    </div>
+  </div>
 </div>
 
-    <!-- Area teks Al-Qur'an -->
-    <div id="quran-text" style="
-      white-space:pre-wrap; line-height:2.2; direction:rtl; font-size:30px;
-      flex:1 1 auto; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
-    "></div>
-
-    <hr>
-
-    <div>
-      <span id="modal-nama-santri" style="font-weight:bold; font-size:18px;"></span>
-      <span id="nilai-akhir">100</span> — <span id="predikat-akhir">MUMTAZ</span>
-    </div>
-
-    <div>
-      <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:70px;">
-      <button id="btn-beri-nilai">Beri Nilai Manual</button>
-    </div>
 
 <style>
 
@@ -1365,7 +1358,7 @@ stopBtn.addEventListener('click', () => {
 </style>
 
     <!-- ===== BUTTON ===== -->
-    <button id="save-btn-modal">Simpan Data Mutaba'ah</button>
+    <button id="save-btn-modal">Simpan Nilai</button>
     <button onclick="document.getElementById('overlay-quran').style.display='none'">Tutup</button>
   </div>
 </div>
