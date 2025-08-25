@@ -1638,6 +1638,9 @@ if (tanggalFilterAkhir) {
       document.getElementById("btnPindahKelas"),                 // Pindah Kelas
       document.getElementById("recordButton"),                   // ● Record
       document.getElementById("btn-beri-nilai"),                 // Beri Nilai Manual
+	  document.querySelector("button[onclick='simpanSantriBaru()']"), // Simpan (modal tambah santri)
+      document.getElementById("btnHapusTerpilih"),               // Hapus terpilih
+      document.getElementById("doPindah"),                       // Pindahkan
     ];
     targets.forEach(btn => {
       if (!btn) return;
