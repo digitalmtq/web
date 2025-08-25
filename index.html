@@ -1423,69 +1423,112 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 
   
 
-  // === Fungsi atur dropdown kelas ===
-function aturDropdownKelas(user) {
-  const semuaKelas = ["kelas_1", "kelas_2", "kelas_3", "kelas_4", "kelas_5", "kelas_6"];
+  // ===== Tetap bisa kamu edit di FRONTEND =====
+// Urutan index 0 dipakai untuk kelas urutan pertama dari server (kelas_1), index 1 untuk kelas_2, dst.
+// Jika jumlah kelas > panjang array ini, sisa kelas akan menampilkan label default = ID kelas (mis. "kelas_7").
+const LABEL_KELAS_URUT = [
+  "Kelompok Lebah",
+  "Kelompok Semut",
+  "Kelompok Burung",
+  "Kelompok Ikan",
+  "Kelompok Harimau",
+  "Kelompok Gajah",
+  // Tambah lagi kalau perlu: "Kelompok Elang", "Kelompok Unta", ...
+];
 
-  // Mapping custom nama
-  const namaKelasCustom = {
-    kelas_1: "Kelompok Lebah",
-    kelas_2: "Kelompok Semut",
-    kelas_3: "Kelompok Burung",
-    kelas_4: "Kelompok Ikan",
-    kelas_5: "Kelompok Harimau",
-    kelas_6: "Kelompok Gajah"
-  };
+// === Fungsi atur dropdown kelas ===
+async function aturDropdownKelas(user) {
+  const norm = (k) => (String(k).startsWith("kelas_") ? String(k) : `kelas_${k}`);
 
+  // 1) Ambil daftar kelas otomatis dari server (getKelas -> fallback ambilKelas)
+  let semuaKelas = [];
+  for (const ep of ["/.netlify/functions/getKelas", "/.netlify/functions/ambilKelas"]) {
+    try {
+      const r = await fetch(`${ep}?t=${Date.now()}`);
+      if (!r.ok) continue;
+      const data = await r.json();
+      if (Array.isArray(data) && data.length) {
+        semuaKelas = data.map(norm);
+        break;
+      }
+    } catch { /* lanjut ke endpoint berikutnya */ }
+  }
+
+  // Jika server tidak mengembalikan kelas sama sekali
+  if (!semuaKelas.length) {
+    kelasSelect.innerHTML = `<option value="">(Tidak ada kelas)</option>`;
+    return;
+  }
+
+  // 2) Unik + urut numerik (kelas_1 < kelas_2 < ...)
+  semuaKelas = [...new Set(semuaKelas)].sort((a, b) => {
+    const na = parseInt(a.slice(6), 10);
+    const nb = parseInt(b.slice(6), 10);
+    return (Number.isFinite(na) && Number.isFinite(nb)) ? na - nb : a.localeCompare(b);
+  });
+
+  // 3) Bangun mapping label otomatis dari LABEL_KELAS_URUT (fallback ke ID kelas jika label habis/kosong)
+  const namaKelasCustom = Object.fromEntries(
+    semuaKelas.map((k, i) => {
+      const lbl = LABEL_KELAS_URUT[i];
+      return [k, (typeof lbl === "string" && lbl.trim()) ? lbl.trim() : k];
+    })
+  );
+
+  // 4) Render dropdown sesuai akses user
   kelasSelect.innerHTML = "";
 
-  const kelasDiizinkan = user?.kelas?.length ? user.kelas : semuaKelas;
+  const kelasDiizinkan = (user?.kelas?.length ? user.kelas.map(norm) : semuaKelas);
+  const allowSet = new Set(kelasDiizinkan);
 
   semuaKelas.forEach(kls => {
     const opt = document.createElement("option");
     opt.value = kls;
-    opt.textContent = namaKelasCustom[kls] || kls; // pakai custom kalau ada
-    opt.disabled = !kelasDiizinkan.includes(kls);
+    opt.textContent = namaKelasCustom[kls] || kls; // pakai label otomatis, fallback ID
+    opt.disabled = !allowSet.has(kls);
     kelasSelect.appendChild(opt);
   });
 
-  // Pilih kelas aktif pertama
+  // 5) Pilih kelas aktif pertama yang tidak disabled
   const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
   if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
 }
 
-  // === Login form ===
-  loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const username = document.getElementById("username").value;
-    const password = passwordInput.value;
+/* ==== TETAP: fungsi/handler lain yang tidak berkaitan kamu biarkan apa adanya ==== */
 
-    overlay.style.display = "flex";
+// === Login form ===
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = document.getElementById("username").value;
+  const password = passwordInput.value;
 
-    try {
-      const res = await fetch("/.netlify/functions/getUsers");
-      const users = await res.json();
-      const user = users.find(u => u.username === username && u.password === password);
+  overlay.style.display = "flex";
 
-      if (user) {
-        localStorage.setItem("isLoggedIn", true);
-        localStorage.setItem("username", username);
-        localStorage.setItem("kelasDiizinkan", JSON.stringify(user.kelas || []));
-        namaUserSpan.textContent = username;
+  try {
+    const res = await fetch("/.netlify/functions/getUsers");
+    const users = await res.json();
+    const user = users.find(u => u.username === username && u.password === password);
 
-        aturDropdownKelas(user);
-        showDashboard();
-        loadDataSantri(); // langsung load data sesuai kelas terpilih
-      } else {
-        loginError.style.display = "block";
-      }
-    } catch (err) {
-      loginError.textContent = "Gagal memuat data user!";
+    if (user) {
+      localStorage.setItem("isLoggedIn", true);
+      localStorage.setItem("username", username);
+      localStorage.setItem("kelasDiizinkan", JSON.stringify(user.kelas || []));
+      namaUserSpan.textContent = username;
+
+      await aturDropdownKelas(user);   // <- panggil versi otomatis
+      showDashboard();
+      loadDataSantri(); // langsung load data sesuai kelas terpilih
+    } else {
       loginError.style.display = "block";
     }
+  } catch (err) {
+    loginError.textContent = "Gagal memuat data user!";
+    loginError.style.display = "block";
+  }
 
-    overlay.style.display = "none";
-  });
+  overlay.style.display = "none";
+});
+
 
   // === Load data santri ===
   async function loadDataSantri() {
