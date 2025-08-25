@@ -1133,13 +1133,11 @@ async function submitTambahKelasBaru() {
        display:flex; flex-direction:column;
        overflow:hidden;">
 
-<div id="keterangan-box" class="keterangan-box">
-  <p>🟩 <b>Hijau</b> = kesalahan ringan (pengurangan <b>0.25</b>)<br>
-     Contoh: meninggalkan tajwid seperti <i>Ikhfa, Tebal, Tipis, Hukum Ra, Qalqalah, Ghunnah, Mad Munfashil, Mad Iwad, Shafir, Dhod, Hams, Mim Sakinah</i>, dan lain-lain.</p>
-  <p>🟨 <b>Kuning</b> = kesalahan menengah (pengurangan <b>0.5</b>)<br>
-     Contoh: salah hafalan tapi bisa memperbaiki sendiri, <i>waqof</i> dan <i>ibtida'</i> kurang tepat, dan lain-lain.</p>
-  <p>🟥 <b>Merah</b> = kesalahan berat (pengurangan <b>1</b>)<br>
-     Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
+
+	  <!-- Baris sejajar: toggle kiri, counter kanan -->
+<div class="keterangan-row"
+style="display:flex; align-items:center; justify-content:space-between; gap:12px; direction:ltr; margin-bottom:6px;">
+  <div id="modal-mark-warna" style="font-weight:bold; font-size:16px;"></div>
 </div>
 
     <!-- Area teks Al-Qur'an -->
@@ -1147,6 +1145,8 @@ async function submitTambahKelasBaru() {
       white-space:pre-wrap; line-height:2.2; direction:rtl; font-size:30px;
       flex:1 1 auto; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
     "></div>
+
+    <hr>
 
     <div>
       <span id="modal-nama-santri" style="font-weight:bold; font-size:18px;"></span>
