@@ -3332,6 +3332,20 @@ function renderTabelPredikat() {
 </script>
 
 
-	
+	<script>
+function showLoginError() {
+  const el = document.getElementById("login-error");
+  if (!el) return;
+  
+  // tampilkan
+  el.style.display = "block";
+  
+  // otomatis sembunyikan setelah 5 detik
+  setTimeout(() => {
+    el.style.display = "none";
+  }, 5000);
+}
+</script>
+
 </body>
 </html>
