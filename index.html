@@ -343,6 +343,29 @@ button.lihat-quran-btn:hover::after {
   }
   .password-wrapper { flex: 1; }   /* input melar, tombol tetap di kanan */
 }
+
+	  /* === FIX: bikin input + ikon mata + tombol Login sejajar === */
+.password-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;     /* cegah pindah baris */
+}
+
+.password-group .password-wrapper {
+  flex: 1;               /* input melar isi sisa ruang */
+  min-width: 0;          /* biar bisa mengecil tanpa memaksa wrap */
+}
+
+.password-group button {
+  flex: 0 0 auto;        /* ukuran mengikuti konten */
+  white-space: nowrap;   /* teks "Login" tidak pecah */
+}
+
+/* ekstra aman untuk layar sangat kecil */
+@media (max-width: 360px) {
+  .password-group { gap: 6px; }
+}
   </style>
 </head>
 <body>
