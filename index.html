@@ -196,6 +196,21 @@ button.lihat-quran-btn:hover::after {
   margin: 0;               /* tidak ada margin sama sekali */
   padding: 0;              /* tidak ada padding sama sekali */
 }
+
+	  /* Bedakan login card */
+#login-card {
+  max-width: 400px;
+  margin: 80px auto;   /* naik turun 80px, horizontal auto */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Atur agar konten login tetap center di layar */
+@media (min-height: 600px) {
+  #login-card {
+    margin-top: 10vh;  /* 10% dari tinggi layar, lebih responsif */
+  }
+}
     .card {
       background: #fff;
       border-radius: 8px;
