@@ -2416,7 +2416,7 @@ async function hitungTotalAllJuzFromTable() {
       rekap[id].totalJuz += parseFloat(item.totalJuz || 0);
     });
 
-	  // Batas ketuntasan per semester
+    // Batas ketuntasan per semester
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
     // Update tabel dan siapkan data untuk disimpan
@@ -2427,20 +2427,28 @@ async function hitungTotalAllJuzFromTable() {
       const cell = row.querySelector(".total-all-juz");
 
       if (rekap[id]) {
-        const totalJuz = rekap[id].totalJuz.toFixed(2);
+        const totalJuzNum = parseFloat(rekap[id].totalJuz) || 0;
+        const totalJuz = totalJuzNum.toFixed(2);
+
         let semester = parseInt(row.querySelector(".semester")?.value);
         if (!semester && rekap[id].semester) semester = rekap[id].semester;
 
         const batas = batasSemester[semester] || 0;
-        let prosentase = batas > 0 ? Math.floor((rekap[id].totalJuz / batas) * 100) : 0;
+
+        // Hitung persen hanya bila belum KHATAM
+        let prosentase = batas > 0 ? Math.floor((totalJuzNum / batas) * 100) : 0;
         if (prosentase > 100) prosentase = 100;
 
         const tuntas = prosentase >= 100;
-        const label = tuntas ? "TUNTAS" : `${prosentase}%`;
 
-        cell.innerHTML = `${totalJuz} <span style="color: ${tuntas ? "green" : "red"}; font-size: 12px;">${label}</span>`;
+        // === Perubahan inti: jika totalJuz >= 30 tampilkan "KHATAM" (hijau) ===
+        const isKhatam = totalJuzNum >= 30;
+        const label = isKhatam ? "KHATAM" : (tuntas ? "TUNTAS" : `${prosentase}%`);
+        const warna = (isKhatam || tuntas) ? "green" : "red";
 
-        // Siapkan data untuk simpan ke file JSON
+        cell.innerHTML = `${totalJuz} <span style="color: ${warna}; font-size: 12px;">${label}</span>`;
+
+        // Siapkan data untuk simpan ke file JSON (tetap seperti semula)
         dataToSave.push({
           id,
           totalJuz: parseFloat(totalJuz),
@@ -2477,6 +2485,7 @@ async function hitungTotalAllJuzFromTable() {
     overlay.style.display = "none";
   }
 }
+
 
 // Fungsi buka overlay dan set tanggal Dari maksimal hari ini, tapi tanggal Sampai bebas tanpa max dan enabled
 function bukaOverlayTotalAllJuz() {
