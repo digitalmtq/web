@@ -376,25 +376,13 @@ button.lihat-quran-btn:hover::after {
   <div id="login-card" class="card">
     <h1>Portal Mutaba'ah Tahfidz</h1>
     <form id="login-form">
-      <input type="text" id="username" placeholder="Username" required 
-             style="width:280px; padding:8px; margin-bottom:10px; border:1px solid #ccc; border-radius:6px;" />
-
+      <input type="text" id="username" placeholder="Username" required />
       <div class="password-group" style="display: flex; align-items: center;">
-        <div class="password-wrapper" style="position: relative; flex: 1;">
-          <input type="password" id="password" placeholder="Password" required 
-                 style="width:280px; padding:8px; margin-bottom:10px; border:1px solid #ccc; border-radius:6px;" />
-          <span id="toggle-password" class="toggle-password" 
-                style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer;">
-            👁
-          </span>
-        </div>
-      </div>
-
-      <button type="submit" style="width:280px; padding:10px; background:#1E88E5; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
-        Login
-      </button>
-    </form>
+   <div class="password-wrapper">
+    <input type="password" id="password" placeholder="Password" required />
+    <span id="toggle-password" class="toggle-password">👁</span>
   </div>
+  <button type="submit">Login</button>
 </div>
 
 
