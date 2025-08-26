@@ -1655,15 +1655,19 @@ if (tanggalFilterAkhir) {
         overlay.style.display = "none";
       }, 500);
     });
+ </script>
 
-    async function loadSantriData() { 
-  const kelas = kelasSelect.value;
-  const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
+    <script>
+async function loadSantriData() { 
+  const kelas   = kelasSelect?.value || "";
+  const tanggal = tanggalInput?.value || ""; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
   // --- helper kecil (TIDAK mengubah bagian lain) ---
   const keyId  = v => (v === 0 || v) ? String(v).trim() : "";
   const keyNis = v => (v === 0 || v) ? String(v).trim() : "";
+
+  // Tetap ada (dipakai untuk mengisi NIS absensi yang kosong dari roster)
   const byIdMap = (arr, pick = x => x) => {
     const m = new Map();
     for (const a of arr || []) {
@@ -1676,24 +1680,23 @@ if (tanggalFilterAkhir) {
   // 🔧 helper: enable/disable tombol saat mode NIS
   function setButtonsDisabled(disabled) {
     const targets = [
-      document.getElementById("save-btn-modal"),                 // Simpan Data Mutaba'ah (modal)
-	  document.getElementById("save-btn"),
-	  document.getElementById("btnHitungTotalJuz"),
-      document.querySelector("button[onclick='bukaModalSantri()']"), // Tambah Santri
-      document.getElementById("btnHapusSantri"),                 // Hapus Santri
-      document.getElementById("btnPindahKelas"),                 // Pindah Kelas
-      document.getElementById("recordButton"),                   // ● Record
-      document.getElementById("btn-beri-nilai"),                 // Beri Nilai Manual
-	  document.querySelector("button[onclick='simpanSantriBaru()']"), // Simpan (modal tambah santri)
-      document.getElementById("btnHapusTerpilih"),               // Hapus terpilih
-      document.getElementById("doPindah"),                       // Pindahkan
+      document.getElementById("save-btn-modal"),
+      document.getElementById("save-btn"),
+      document.getElementById("btnHitungTotalJuz"),
+      document.querySelector("button[onclick='bukaModalSantri()']"),
+      document.getElementById("btnHapusSantri"),
+      document.getElementById("btnPindahKelas"),
+      document.getElementById("recordButton"),
+      document.getElementById("btn-beri-nilai"),
+      document.querySelector("button[onclick='simpanSantriBaru()']"),
+      document.getElementById("btnHapusTerpilih"),
+      document.getElementById("doPindah"),
     ];
     targets.forEach(btn => {
       if (!btn) return;
       btn.disabled = !!disabled;
       btn.style.opacity = disabled ? "0.5" : "";
       btn.style.cursor  = disabled ? "not-allowed" : "";
-      // opsional: cegah handler inline saat disabled
       if (disabled) {
         btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
         if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
@@ -1707,60 +1710,58 @@ if (tanggalFilterAkhir) {
   }
 
   try {
-    // --- Ambil semua santri di kelas --- (tambahkan cache-buster)
+    // --- Ambil semua santri di kelas (cache-buster) ---
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     let santriData = await resSantri.json();
+    if (!Array.isArray(santriData)) santriData = [];
 
-    // siapkan peta roster by id untuk isi nis absensi yang kosong
+    // Peta roster by id untuk bantu isi NIS absensi yang kosong
     const rosterById = byIdMap(santriData, s => s);
 
     // --- Ambil data absensi (satu tanggal vs rentang tabel) ---
     let absensiData = [];
-    const endFilter = tanggalFilterAkhir ? tanggalFilterAkhir.value : "";
+    const endFilter = (typeof tanggalFilterAkhir !== "undefined" && tanggalFilterAkhir) ? tanggalFilterAkhir.value : "";
 
     if (endFilter && endFilter !== tanggal) {
-      // rentang tanggal untuk tampilan tabel
+      // rentang tanggal
       const resAbsensiRange = await fetch(
         `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(endFilter)}&t=${Date.now()}`
       );
       absensiData = await resAbsensiRange.json();
-      // normalisasi: isi nis kosong dari roster by id
-      absensiData = (Array.isArray(absensiData) ? absensiData : []).map((r,i) => {
-        const id  = keyId(r?.id ?? i+1);
-        const nis = keyNis(r?.nis ?? "");
-        if (nis) return { ...r, id };
-        const ref = rosterById.get(id);
-        return ref?.nis ? { ...r, id, nis: ref.nis } : { ...r, id };
-      });
+      if (!Array.isArray(absensiData)) absensiData = [];
     } else {
       // satu tanggal
       const resAbsensi = await fetch(
         `/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`
       );
-      absensiData = await resAbsensi.json();
-      // dukung jika server kembalikan {list:[]}
-      absensiData = Array.isArray(absensiData) ? absensiData : (absensiData?.list || []);
-      // normalisasi: isi nis kosong dari roster by id
-      absensiData = absensiData.map((r,i) => {
-        const id  = keyId(r?.id ?? i+1);
-        const nis = keyNis(r?.nis ?? "");
-        if (nis) return { ...r, id };
-        const ref = rosterById.get(id);
-        return ref?.nis ? { ...r, id, nis: ref.nis } : { ...r, id };
-      });
+      const raw = await resAbsensi.json();
+      absensiData = Array.isArray(raw) ? raw : (raw?.list || []);
+      if (!Array.isArray(absensiData)) absensiData = [];
     }
 
-    // --- Ambil user login & filter akses santri (tidak diubah) ---
+    // 🧽 Normalisasi ABSENSI: paksakan punya NIS (kalau kosong, isi dari roster berdasarkan id; jika tetap kosong, biarkan "")
+    absensiData = absensiData.map((r, i) => {
+      const id  = keyId(r?.id ?? i+1);
+      let  nis  = keyNis(r?.nis ?? "");
+      if (!nis && id) {
+        const ref = rosterById.get(id);
+        if (ref?.nis) nis = keyNis(ref.nis);
+      }
+      return { ...r, nis: keyNis(nis) };
+    });
+
+    // --- Ambil user login & filter akses santri (logika tetap) ---
     const username = localStorage.getItem("username");
-    const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r => r.json());
-    const user = users.find(u => u.username === username);
+    const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r => r.json()).catch(() => []);
+    const user = Array.isArray(users) ? users.find(u => u.username === username) : null;
 
     if (user) {
       if (user.kelas && user.kelas.length) {
         if (!user.kelas.includes(kelas)) {
           santriData = [];
         } else if (user.nis && user.nis.length) {
-          santriData = santriData.filter(s => user.nis.includes(s.nis));
+          // filter roster berdasarkan daftar NIS user
+          santriData = santriData.filter(s => user.nis.includes(keyNis(s.nis)));
         }
       }
     } else {
@@ -1776,74 +1777,50 @@ if (tanggalFilterAkhir) {
 
     const isRange = !!(endFilter && endFilter !== tanggal);
 
-    // Siapkan indeks absensi untuk pencocokan cepat
-    const absById  = new Map();
+    // ⚙️ Index absensi BY NIS SAJA
     const absByNis = new Map();
-    for (const a of (absensiData || [])) {
-      const aid  = keyId(a?.id);
-      const anis = keyNis(a?.nis);
-      if (aid)  absById.set(aid, a);
-      if (anis) absByNis.set(anis, a);
+    for (const a of absensiData) {
+      const nis = keyNis(a?.nis);
+      if (!nis) continue; // entri absensi tanpa NIS tidak ikut dipasangkan
+      // untuk single tanggal, terakhir menang; untuk range, akan dikelompokkan di bawah
+      absByNis.set(nis, a);
     }
 
-    // Kelompokkan absensi per santri jika rentang (gabungan id & nis)
-    let absensiById = null;
+    // Untuk RANGE, kelompokkan per NIS & urut berdasarkan tanggal
     let absensiByNis = null;
     if (isRange) {
-      absensiById = {};
       absensiByNis = {};
-      for (const a of (absensiData || [])) {
-        if (!a) continue;
-        const aid  = keyId(a.id);
-        const anis = keyNis(a.nis);
-        if (aid) {
-          if (!absensiById[aid]) absensiById[aid] = [];
-          absensiById[aid].push(a);
-        }
-        if (anis) {
-          if (!absensiByNis[anis]) absensiByNis[anis] = [];
-          absensiByNis[anis].push(a);
-        }
+      for (const a of absensiData) {
+        const nis = keyNis(a?.nis);
+        if (!nis) continue;
+        (absensiByNis[nis] ||= []).push(a);
       }
-      // urutkan per-santri berdasarkan field 'tanggal' bila ada
       const sorter = arr => {
-        arr.sort((x, y) => String(x.tanggal || "").localeCompare(String(y.tanggal || "")));
+        try {
+          arr.sort((x, y) => String(x.tanggal || "").localeCompare(String(y.tanggal || "")));
+        } catch {}
       };
-      Object.values(absensiById).forEach(sorter);
       Object.values(absensiByNis).forEach(sorter);
 
-      // debug ringan (tetap)
       console.log("RANGE items:", absensiData.length,
                   "| tgl unik:", [...new Set(absensiData.map(x => x.tanggal))]);
     }
 
+    // 🔑 Render berdasarkan ROSTER (santriData) dan pasangkan ABSENSI via NIS
     santriData.forEach((santri) => {
-      const sid  = keyId(santri.id);
-      const snis = keyNis(santri.nis);
+      const snis = keyNis(santri?.nis);
 
       let rowsForSantri;
       if (isRange) {
-        // gabungkan dari nis lalu id (prioritas nis)
-        const fromNis = (snis && absensiByNis?.[snis]) ? absensiByNis[snis] : [];
-        const fromId  = (sid  && absensiById?.[sid])   ? absensiById[sid]   : [];
-        // dedup per tanggal (prioritas entry dari nis)
-        const seen = new Set();
-        rowsForSantri = [];
-        for (const r of fromNis) {
-          const key = r.tanggal || "__";
-          if (!seen.has(key)) { rowsForSantri.push(r); seen.add(key); }
-        }
-        for (const r of fromId) {
-          const key = r.tanggal || "__";
-          if (!seen.has(key)) { rowsForSantri.push(r); seen.add(key); }
-        }
+        // HANYA dari NIS (tanpa fallback id)
+        rowsForSantri = (snis && absensiByNis?.[snis]) ? absensiByNis[snis] : [];
       } else {
-        // satu tanggal: prioritas kecocokan nis, fallback id
-        const hit = (snis && absByNis.get(snis)) || (sid && absById.get(sid)) || null;
+        // Single tanggal: cari dari NIS
+        const hit = (snis && absByNis.get(snis)) || null;
         rowsForSantri = [hit || {}];
       }
 
-      // jika mode rentang tapi tidak ada data → tetap render satu baris kosong
+      // mode rentang tapi tidak ada data → tetap render satu baris kosong
       if (isRange && rowsForSantri.length === 0) {
         rowsForSantri.push({});
       }
@@ -1851,27 +1828,27 @@ if (tanggalFilterAkhir) {
       rowsForSantri.forEach((dataAbsensi) => {
         const row = document.createElement("tr");
 
-        const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
-        const dari = (dataAbsensi?.dari || "1:1").split(":");
-        const sampai = (dataAbsensi?.sampai || "1:1").split(":");
+        const surahOptions = (Array.isArray(surahList) ? surahList : []).map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
+        const dariRaw   = (dataAbsensi?.dari   || "1:1");
+        const sampaiRaw = (dataAbsensi?.sampai || "1:1");
 
-        // tanggal spesifik baris: rentang → dataAbsensi.tanggal; tunggal → tanggal awal
+        // tanggal spesifik baris
         const rowDate = (isRange && dataAbsensi?.tanggal) ? dataAbsensi.tanggal : tanggal;
 
-        // Label tanggal kecil saat mode rentang (opsional)
+        // Label tanggal kecil saat mode rentang
         const subTanggal = isRange && dataAbsensi?.tanggal
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
           : "";
 
         row.innerHTML = `
-          <td>${santri.id || santri.nis}</td>
-          <td>${santri.nama}${subTanggal}</td>
+          <td>${snis || santri.id || "-"}</td>
+          <td>${santri.nama || "-"}${subTanggal}</td>
           <td>
             <select class="absensi">
               <option value="Hadir" ${dataAbsensi?.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
               <option value="Alpha" ${dataAbsensi?.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
               <option value="Sakit" ${dataAbsensi?.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
-              <option value="Izin" ${dataAbsensi?.absensi === "Izin" ? "selected" : ""}>Izin</option>
+              <option value="Izin"  ${dataAbsensi?.absensi === "Izin"  ? "selected" : ""}>Izin</option>
             </select>
           </td>
           <td>
@@ -1882,20 +1859,10 @@ if (tanggalFilterAkhir) {
             <select class="surah-sampai">${surahOptions}</select>
             <select class="ayat-sampai"></select>
           </td>
-          <td class="halaman-terbaca">${dataAbsensi?.halaman ?? '-'}</td>
-          <td class="total-halaman">${dataAbsensi?.totalHalaman ?? '-'}</td>
-          <td class="juz-terbaca">${dataAbsensi?.juzTerbaca ?? '-'}</td>
-          <td class="total-juz">${dataAbsensi?.totalJuz ?? 0}</td>
-          <td>
-            <select class="semester">
-              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
-              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
-              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
-              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
-              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
-              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
-            </select>
-          </td>
+          <td class="halaman-terbaca">${(dataAbsensi?.halaman ?? '-')}</td>
+          <td class="total-halaman">${(dataAbsensi?.totalHalaman ?? '-')}</td>
+          <td class="juz-terbaca">${(dataAbsensi?.juzTerbaca ?? '-')}</td>
+          <td class="total-juz">${(dataAbsensi?.totalJuz ?? 0)}</td>
           <td>
             <div class="nilai-ringkas">
               ${dataAbsensi?.buttonCell 
@@ -1909,42 +1876,43 @@ if (tanggalFilterAkhir) {
           </td>
         `;
 
-        // simpan id & tanggal baris pada <tr> (dipakai klik-per-baris)
-        row.dataset.id = (santri.id || santri.nis);
-        row.dataset.tanggal = rowDate;
+        // 🧷 Simpan NIS & tanggal pada row (kita tetap simpan id untuk kompatibilitas, tapi pencocokan TIDAK memakainya)
+        row.dataset.nis     = snis || "";
+        row.dataset.id      = keyId(santri?.id) || ""; // hanya sebagai metadata
+        row.dataset.tanggal = rowDate || "";
 
-        // jika backend mengirim marks untuk baris ini, tempel di row agar modal pakai data ini
+        // tempel marks bila ada
         if (dataAbsensi && dataAbsensi.marks) {
           row.markData = dataAbsensi.marks;
         }
 
         santriTableBody.appendChild(row);
 
-        // ganti gif jika total-all-juz = 0 (khusus baris ini saja)
+        // ganti gif jika total-all-juz = 0
         const totalAllJuzTd = row.querySelector("td.total-all-juz");
-        if (totalAllJuzTd && totalAllJuzTd.textContent.trim() === "0") {
+        if (totalAllJuzTd && (String(totalAllJuzTd.textContent || "").trim() === "0")) {
           totalAllJuzTd.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
         }
 
         // Set surah & ayat dropdown
-        const surahDari = row.querySelector(".surah-dari");
-        const ayatDari = row.querySelector(".ayat-dari");
+        const surahDari   = row.querySelector(".surah-dari");
+        const ayatDari    = row.querySelector(".ayat-dari");
         const surahSampai = row.querySelector(".surah-sampai");
-        const ayatSampai = row.querySelector(".ayat-sampai");
+        const ayatSampai  = row.querySelector(".ayat-sampai");
 
-        const dariArr = Array.isArray(dari) ? dari : String(dari).split(":");
-        const sampaiArr = Array.isArray(sampai) ? sampai : String(sampai).split(":");
+        const dariArr   = String(dariRaw).split(":");
+        const sampaiArr = String(sampaiRaw).split(":");
 
-        surahDari.value = dariArr[0];
-        surahSampai.value = sampaiArr[0];
+        surahDari.value   = dariArr[0]   || "1";
+        surahSampai.value = sampaiArr[0] || surahDari.value;
 
-        fillAyatOptions(ayatDari, surahDari.value, dariArr[1]);
+        fillAyatOptions(ayatDari,   surahDari.value,   dariArr[1]);
         fillAyatOptions(ayatSampai, surahSampai.value, sampaiArr[1]);
 
         surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
         surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
 
-        // Sinkronisasi otomatis kolom Sampai ketika Dari berubah
+        // Sinkron otomatis Sampai = Dari saat Dari berubah
         surahDari.addEventListener("change", () => {
           surahSampai.value = surahDari.value;
           fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
@@ -1966,9 +1934,10 @@ if (tanggalFilterAkhir) {
 
   overlay.style.display = "none";
 }
+</script>
 
 
-
+<script>
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
       const surah = surahList.find(s => s.id == surahId);
       if (!surah) return;
