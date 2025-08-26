@@ -1677,14 +1677,14 @@ if (tanggalFilterAkhir) {
   function setButtonsDisabled(disabled) {
     const targets = [
       document.getElementById("save-btn-modal"),                 // Simpan Data Mutaba'ah (modal)
-	  document.getElementById("save-btn"),
-	  document.getElementById("btnHitungTotalJuz"),
+      document.getElementById("save-btn"),
+      document.getElementById("btnHitungTotalJuz"),
       document.querySelector("button[onclick='bukaModalSantri()']"), // Tambah Santri
       document.getElementById("btnHapusSantri"),                 // Hapus Santri
       document.getElementById("btnPindahKelas"),                 // Pindah Kelas
       document.getElementById("recordButton"),                   // ● Record
       document.getElementById("btn-beri-nilai"),                 // Beri Nilai Manual
-	  document.querySelector("button[onclick='simpanSantriBaru()']"), // Simpan (modal tambah santri)
+      document.querySelector("button[onclick='simpanSantriBaru()']"), // Simpan (modal tambah santri)
       document.getElementById("btnHapusTerpilih"),               // Hapus terpilih
       document.getElementById("doPindah"),                       // Pindahkan
     ];
@@ -1783,7 +1783,7 @@ if (tanggalFilterAkhir) {
       const aid  = keyId(a?.id);
       const anis = keyNis(a?.nis);
       if (aid)  absById.set(aid, a);
-      if (anis) absByNis.set(anis, a);
+      if (anis) absByNis.set(anis, a); // ❗ hanya kalau NIS ada
     }
 
     // Kelompokkan absensi per santri jika rentang (gabungan id & nis)
@@ -1802,7 +1802,7 @@ if (tanggalFilterAkhir) {
         }
         if (anis) {
           if (!absensiByNis[anis]) absensiByNis[anis] = [];
-          absensiByNis[anis].push(a);
+          absensiByNis[anis].push(a); // ❗ hanya kalau NIS ada
         }
       }
       // urutkan per-santri berdasarkan field 'tanggal' bila ada
@@ -1909,11 +1909,10 @@ if (tanggalFilterAkhir) {
           </td>
         `;
 
-        // simpan id, nis, & tanggal baris pada <tr> (dipakai klik-per-baris)
-row.dataset.nis = String(santri.nis || santri.id || "").trim();   // kunci kanonik
-row.dataset.id  = String(santri.id  || santri.nis || "").trim();  // kompat lama
-row.dataset.tanggal = rowDate;
-
+        // simpan id, NIS, & tanggal baris pada <tr> (dipakai klik-per-baris)
+        row.dataset.nis = String(santri.nis || "").trim();                 // ❗ STRICT: hanya NIS
+        row.dataset.id  = String(santri.id  || santri.nis || "").trim();   // kompat lama
+        row.dataset.tanggal = rowDate;
 
         // jika backend mengirim marks untuk baris ini, tempel di row agar modal pakai data ini
         if (dataAbsensi && dataAbsensi.marks) {
@@ -1968,6 +1967,7 @@ row.dataset.tanggal = rowDate;
 
   overlay.style.display = "none";
 }
+
 
 
 
@@ -2441,39 +2441,41 @@ async function hitungTotalAllJuzFromTable() {
 
   try {
     // Ambil data absensi rentang tanggal
-    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
+    const res = await fetch(
+      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`
+    );
     if (!res.ok) throw new Error("Gagal ambil data absensi.");
     const allData = await res.json();
 
     const rows = santriTableBody.querySelectorAll("tr");
 
-    // === Peta kanonik dari tabel: id -> NIS, & whitelist NIS di tabel ===
-    const idToNis = new Map();
+    // === Kumpulkan NIS yang sedang tampil di tabel (strict NIS) ===
     const nisInTable = new Set();
     rows.forEach(row => {
-      const nis = (row.dataset?.nis || row.children[0]?.textContent || "").trim();
-      const rid = (row.dataset?.id || "").trim();
+      const nis = String(row.dataset?.nis || row.children[0]?.textContent || "")
+        .trim();
       if (nis) nisInTable.add(nis);
-      if (rid && nis) idToNis.set(String(rid), nis);
     });
 
-    // === Ambil roster kelas sebagai sumber kebenaran NIS ===
-    const rRoster = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+    // === Ambil roster kelas sebagai whitelist NIS yang sah ===
+    const rRoster = await fetch(
+      `/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`
+    );
     const roster = await rRoster.json();
     const allowedNis = new Set();
     (Array.isArray(roster) ? roster : []).forEach(s => {
-      const nis = String(s?.nis || s?.id || "").trim();
+      const nis = String(s?.nis || "").trim(); // ❗ hanya NIS dari roster
       if (nis) allowedNis.add(nis);
     });
 
     const rekap = {}; // 🔑 nis => { totalJuz, semester }
 
-    // Rekap total juz per santri dari data absensi (STRICT: pakai NIS saja)
+    // Rekap total juz per santri (STRICT: hanya entri yang punya NIS & lolos whitelist & ada di tabel)
     (Array.isArray(allData) ? allData : []).forEach(item => {
       const key = String(item?.nis || "").trim(); // ❗ Wajib ada NIS
-      if (!key) return;                     // entri lama tanpa NIS di-skip
-      if (!allowedNis.has(key)) return;     // bukan anggota roster kelas ini
-      if (!nisInTable.has(key)) return;     // tidak sedang tampil di tabel
+      if (!key) return;                  // entri lama tanpa NIS di-skip
+      if (!allowedNis.has(key)) return;  // bukan anggota roster kelas ini
+      if (!nisInTable.has(key)) return;  // tidak sedang tampil di tabel
 
       if (!rekap[key]) {
         rekap[key] = { totalJuz: 0, semester: item.semester || null };
@@ -2488,14 +2490,15 @@ async function hitungTotalAllJuzFromTable() {
     const dataToSave = [];
 
     rows.forEach(row => {
-      const nis = (row.dataset?.nis || row.children[0]?.textContent || "").trim();
+      const nis = String(row.dataset?.nis || row.children[0]?.textContent || "")
+        .trim();
       const cell = row.querySelector(".total-all-juz");
 
       if (nis && rekap[nis]) {
         const totalJuzNum = parseFloat(rekap[nis].totalJuz) || 0;
         const totalJuz = totalJuzNum.toFixed(2);
 
-        let semester = parseInt(row.querySelector(".semester")?.value);
+        let semester = parseInt(row.querySelector(".semester")?.value, 10);
         if (!semester && rekap[nis].semester) semester = rekap[nis].semester;
 
         const batas = batasSemester[semester] || 0;
@@ -2506,12 +2509,12 @@ async function hitungTotalAllJuzFromTable() {
 
         const tuntas = prosentase >= 100;
 
-        // === Jika totalJuz >= 30 tampilkan "KHATAM" ===
+        // Label tampilan
         const isKhatam = totalJuzNum >= 30;
         const label = isKhatam ? "KHATAM" : (tuntas ? "TUNTAS" : `${prosentase}%`);
         const warna = (isKhatam || tuntas) ? "green" : "red";
 
-        cell.innerHTML = `${totalJuz} <span style="color: ${warna}; font-size: 12px;">${label}</span>`;
+        cell.innerHTML = `${totalJuz} <span style="color:${warna};font-size:12px">${label}</span>`;
 
         // Simpan ke file JSON (pakai NIS)
         dataToSave.push({
@@ -2521,6 +2524,7 @@ async function hitungTotalAllJuzFromTable() {
           tuntas
         });
       } else {
+        // Tidak ada data untuk NIS ini dalam rentang → tampilkan 0 pada UI
         cell.innerHTML = "0.00 <span style='color:red;font-size:10px'>0%</span>";
       }
     });
@@ -2573,14 +2577,10 @@ function bukaOverlayTotalAllJuz() {
   if (rangeSampai) {
     // Hapus pembatas max supaya bebas tanggal Sampai
     rangeSampai.removeAttribute("max");
-
     // Enable supaya user bisa ubah tanggal Sampai
     rangeSampai.disabled = false;
-
     // Set default nilai tanggal Sampai ke hari ini jika kosong
-    if (!rangeSampai.value) {
-      rangeSampai.value = todayStr;
-    }
+    if (!rangeSampai.value) rangeSampai.value = todayStr;
   }
 
   document.getElementById("juzOverlay").style.display = "flex";
@@ -2588,6 +2588,7 @@ function bukaOverlayTotalAllJuz() {
 
 // Event listener tombol hitung
 document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTotalAllJuzFromTable);
+
 
 async function hitungTotalAllJuzOtomatis() {
   const kelas = kelasSelect.value;
@@ -2607,8 +2608,8 @@ async function hitungTotalAllJuzOtomatis() {
     const allData = await res.json();
     const kelasData = allData.find(item => item.kelas === kelas);
     if (kelasData) {
-      if (rangeDari) rangeDari.value = kelasData.fromDate || "";
-      if (rangeSampai) rangeSampai.value = kelasData.toDate || "";
+      if (rangeDari)   rangeDari.value = kelasData.fromDate || "";
+      if (rangeSampai) rangeSampai.value = kelasData.toDate   || "";
     }
   } catch (err) {
     console.error("Gagal ambil tanggal otomatis:", err);
@@ -2625,33 +2626,31 @@ async function hitungTotalAllJuzOtomatis() {
     );
     const allData = await resAbs.json();
 
-    // === Peta kanonik dari tabel (id -> NIS) & whitelist NIS ===
-    const idToNis = new Map();
+    // === NIS yang tampil di tabel (strict) ===
     const nisInTable = new Set();
     rows.forEach(row => {
-      const nis = (row.dataset?.nis || row.children[0]?.textContent || "").trim();
-      const rid = (row.dataset?.id || "").trim();
+      const nis = String(row.dataset?.nis || row.children[0]?.textContent || "").trim();
       if (nis) nisInTable.add(nis);
-      if (rid && nis) idToNis.set(String(rid), nis);
     });
 
-    // === Ambil roster kelas sebagai sumber kebenaran NIS ===
-    const rRoster = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+    // === Whitelist roster ===
+    const rRoster = await fetch(
+      `/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`
+    );
     const roster = await rRoster.json();
     const allowedNis = new Set();
     (Array.isArray(roster) ? roster : []).forEach(s => {
-      const nis = String(s?.nis || s?.id || "").trim();
+      const nis = String(s?.nis || "").trim();
       if (nis) allowedNis.add(nis);
     });
 
-    const rekap = {}; // 🔑 nis => { totalJuz, semester }
-
+    // Rekap by NIS
+    const rekap = {};
     (Array.isArray(allData) ? allData : []).forEach(item => {
       const key = String(item?.nis || "").trim(); // ❗ STRICT NIS only
       if (!key) return;
       if (!allowedNis.has(key)) return;
       if (!nisInTable.has(key)) return;
-
       if (!rekap[key]) rekap[key] = { totalJuz: 0, semester: item.semester || null };
       rekap[key].totalJuz += parseFloat(item.totalJuz || 0);
     });
@@ -2659,25 +2658,23 @@ async function hitungTotalAllJuzOtomatis() {
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
     rows.forEach(row => {
-      const nis = (row.dataset?.nis || row.children[0]?.textContent || "").trim();
+      const nis = String(row.dataset?.nis || row.children[0]?.textContent || "").trim();
       const cell = row.querySelector(".total-all-juz");
 
       if (nis && rekap[nis]) {
         const totalJuzNum = parseFloat(rekap[nis].totalJuz) || 0;
         const totalJuz = totalJuzNum.toFixed(2);
 
-        let semester = parseInt(row.querySelector(".semester")?.value) || rekap[nis].semester;
+        let semester = parseInt(row.querySelector(".semester")?.value, 10) || rekap[nis].semester;
         const target = batasSemester[semester] || 0;
 
         let label, warna;
         if (totalJuzNum >= 30) {
-          // KHATAM prioritas
           label = "KHATAM";
           warna = "purple";
         } else {
           let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
           if (prosentase > 100) prosentase = 100;
-
           if (prosentase >= 100) {
             label = "TUNTAS";
             warna = "green";
@@ -2687,8 +2684,7 @@ async function hitungTotalAllJuzOtomatis() {
           }
         }
 
-        cell.innerHTML =
-          `${totalJuz} <span style="color:${warna}; font-size:12px">${label}</span>`;
+        cell.innerHTML = `${totalJuz} <span style="color:${warna};font-size:12px">${label}</span>`;
       } else {
         cell.innerHTML = "0.00 <span style='color:red;font-size:14px'>0%</span>";
       }
