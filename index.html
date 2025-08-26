@@ -366,35 +366,6 @@ button.lihat-quran-btn:hover::after {
 @media (max-width: 360px) {
   .password-group { gap: 6px; }
 }
-
-	  /* Styling untuk input teks dan password */
-#login-form input[type="text"],
-#login-form input[type="password"] {
-  width: 280px;       /* atur panjang di sini (px, %, rem) */
-  padding: 8px 10px;  /* ruang dalam */
-  margin-bottom: 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 14px;
-  box-sizing: border-box; /* biar padding tidak nambah lebar */
-}
-
-/* Styling tombol login */
-#login-form button {
-  width: 100%;          /* penuh selebar form */
-  padding: 10px;
-  background-color: #1E88E5;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 15px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-#login-form button:hover {
-  background-color: #1565C0;
-}
   </style>
 </head>
 <body>
@@ -405,14 +376,27 @@ button.lihat-quran-btn:hover::after {
   <div id="login-card" class="card">
     <h1>Portal Mutaba'ah Tahfidz</h1>
     <form id="login-form">
-      <input type="text" id="username" placeholder="Username" required />
+      <input type="text" id="username" placeholder="Username" required 
+             style="width:280px; padding:8px; margin-bottom:10px; border:1px solid #ccc; border-radius:6px;" />
+
       <div class="password-group" style="display: flex; align-items: center;">
-   <div class="password-wrapper">
-    <input type="password" id="password" placeholder="Password" required />
-    <span id="toggle-password" class="toggle-password">👁</span>
+        <div class="password-wrapper" style="position: relative; flex: 1;">
+          <input type="password" id="password" placeholder="Password" required 
+                 style="width:280px; padding:8px; margin-bottom:10px; border:1px solid #ccc; border-radius:6px;" />
+          <span id="toggle-password" class="toggle-password" 
+                style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer;">
+            👁
+          </span>
+        </div>
+      </div>
+
+      <button type="submit" style="width:280px; padding:10px; background:#1E88E5; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+        Login
+      </button>
+    </form>
   </div>
-  <button type="submit">Login</button>
 </div>
+
 
 
 
