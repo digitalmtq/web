@@ -1910,7 +1910,7 @@ if (tanggalFilterAkhir) {
         `;
 
         // simpan id & tanggal baris pada <tr> (dipakai klik-per-baris)
-        row.dataset.id = (santri.id || santri.nis);
+        row.dataset.id = (santri.nis || santri.id;
         row.dataset.tanggal = rowDate;
 
         // jika backend mengirim marks untuk baris ini, tempel di row agar modal pakai data ini
