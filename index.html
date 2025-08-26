@@ -343,29 +343,6 @@ button.lihat-quran-btn:hover::after {
   }
   .password-wrapper { flex: 1; }   /* input melar, tombol tetap di kanan */
 }
-
-	  /* === FIX: bikin input + ikon mata + tombol Login sejajar === */
-.password-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;     /* cegah pindah baris */
-}
-
-.password-group .password-wrapper {
-  flex: 1;               /* input melar isi sisa ruang */
-  min-width: 0;          /* biar bisa mengecil tanpa memaksa wrap */
-}
-
-.password-group button {
-  flex: 0 0 auto;        /* ukuran mengikuti konten */
-  white-space: nowrap;   /* teks "Login" tidak pecah */
-}
-
-/* ekstra aman untuk layar sangat kecil */
-@media (max-width: 360px) {
-  .password-group { gap: 6px; }
-}
   </style>
 </head>
 <body>
@@ -384,7 +361,6 @@ button.lihat-quran-btn:hover::after {
   </div>
   <button type="submit">Login</button>
 </div>
-
 
 
 
@@ -1230,23 +1206,20 @@ async function submitTambahKelasBaru() {
       <button id="btn-beri-nilai">Beri Nilai Manual</button>
     </div>
 
-	  <select id="encodingTypeSelect">
-  <option value="mp3">MP3 (.mp3)</option>
-</select>
-
-<div id="controls" style="margin-top:10px;">
-    <button id="recordButton" class="rec-btn"></button>
-    <button id="stopButton" class="stop-btn" disabled></button>
-    <span id="recordDuration" style="margin-left:15px; font-weight:bold;"></span>
+	  <div style="margin:10px 0;">
+  <button id="recordButton" class="rec-btn"></button>
+  <button id="stopButton" class="stop-btn" disabled></button>
+  <span id="recordDuration"></span>
+  <span id="loadingIndicator" style="display:none;margin-left:10px;"></span>
 </div>
 
-<!-- Loading spinner -->
-<div id="loadingIndicator" style="display:none; margin-top:10px;">
-  <div class="spinner"></div>
-  <span style="margin-left:10px; font-style:italic; color:#007bff;">Membuat file audio...</span>
-</div>
+	   <!-- Loading spinner -->
+    <div id="loadingIndicator" style="display:none; margin-top:10px;">
+      <div class="spinner"></div>
+      <span style="margin-left:10px; font-style:italic; color:#007bff;">Membuat file audio...</span>
+    </div>
 
-<ul id="recordingsList"></ul>
+    <ul id="recordingsList"></ul>
 
 <style>
 
@@ -1699,35 +1672,28 @@ if (tanggalFilterAkhir) {
     }
     return m;
   };
-  const byNisMap = (arr, pick = x => x) => {
-    const m = new Map();
-    for (const a of arr || []) {
-      const nis = keyNis(a?.nis);
-      if (nis) m.set(nis, pick(a));
-    }
-    return m;
-  };
 
   // 🔧 helper: enable/disable tombol saat mode NIS
   function setButtonsDisabled(disabled) {
     const targets = [
-      document.getElementById("save-btn-modal"),
-      document.getElementById("save-btn"),
-      document.getElementById("btnHitungTotalJuz"),
-      document.querySelector("button[onclick='bukaModalSantri()']"),
-      document.getElementById("btnHapusSantri"),
-      document.getElementById("btnPindahKelas"),
-      document.getElementById("recordButton"),
-      document.getElementById("btn-beri-nilai"),
-      document.querySelector("button[onclick='simpanSantriBaru()']"),
-      document.getElementById("btnHapusTerpilih"),
-      document.getElementById("doPindah"),
+      document.getElementById("save-btn-modal"),                 // Simpan Data Mutaba'ah (modal)
+	  document.getElementById("save-btn"),
+	  document.getElementById("btnHitungTotalJuz"),
+      document.querySelector("button[onclick='bukaModalSantri()']"), // Tambah Santri
+      document.getElementById("btnHapusSantri"),                 // Hapus Santri
+      document.getElementById("btnPindahKelas"),                 // Pindah Kelas
+      document.getElementById("recordButton"),                   // ● Record
+      document.getElementById("btn-beri-nilai"),                 // Beri Nilai Manual
+	  document.querySelector("button[onclick='simpanSantriBaru()']"), // Simpan (modal tambah santri)
+      document.getElementById("btnHapusTerpilih"),               // Hapus terpilih
+      document.getElementById("doPindah"),                       // Pindahkan
     ];
     targets.forEach(btn => {
       if (!btn) return;
       btn.disabled = !!disabled;
       btn.style.opacity = disabled ? "0.5" : "";
       btn.style.cursor  = disabled ? "not-allowed" : "";
+      // opsional: cegah handler inline saat disabled
       if (disabled) {
         btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
         if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
@@ -1745,9 +1711,8 @@ if (tanggalFilterAkhir) {
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     let santriData = await resSantri.json();
 
-    // roster peta by id & by nis
-    const rosterById  = byIdMap(santriData, s => s);
-    const rosterByNis = byNisMap(santriData, s => s);
+    // siapkan peta roster by id untuk isi nis absensi yang kosong
+    const rosterById = byIdMap(santriData, s => s);
 
     // --- Ambil data absensi (satu tanggal vs rentang tabel) ---
     let absensiData = [];
@@ -1759,27 +1724,31 @@ if (tanggalFilterAkhir) {
         `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(endFilter)}&t=${Date.now()}`
       );
       absensiData = await resAbsensiRange.json();
-      absensiData = Array.isArray(absensiData) ? absensiData : [];
+      // normalisasi: isi nis kosong dari roster by id
+      absensiData = (Array.isArray(absensiData) ? absensiData : []).map((r,i) => {
+        const id  = keyId(r?.id ?? i+1);
+        const nis = keyNis(r?.nis ?? "");
+        if (nis) return { ...r, id };
+        const ref = rosterById.get(id);
+        return ref?.nis ? { ...r, id, nis: ref.nis } : { ...r, id };
+      });
     } else {
       // satu tanggal
       const resAbsensi = await fetch(
         `/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`
       );
-      let tmp = await resAbsensi.json();
-      absensiData = Array.isArray(tmp) ? tmp : (tmp?.list || []);
-    }
-
-    // 🔁 NORMALISASI ABSENSI → pastikan tiap record punya NIS
-    absensiData = (absensiData || []).map((r, i) => {
-      const id   = keyId(r?.id ?? i+1);
-      let   nis  = keyNis(r?.nis);
-      if (!nis && id) {
+      absensiData = await resAbsensi.json();
+      // dukung jika server kembalikan {list:[]}
+      absensiData = Array.isArray(absensiData) ? absensiData : (absensiData?.list || []);
+      // normalisasi: isi nis kosong dari roster by id
+      absensiData = absensiData.map((r,i) => {
+        const id  = keyId(r?.id ?? i+1);
+        const nis = keyNis(r?.nis ?? "");
+        if (nis) return { ...r, id };
         const ref = rosterById.get(id);
-        if (ref?.nis) nis = keyNis(ref.nis);
-      }
-      // buang ID pada jalur join—tetap dikirim balik untuk debug/tampilan
-      return { ...r, id, nis: nis || "" };
-    });
+        return ref?.nis ? { ...r, id, nis: ref.nis } : { ...r, id };
+      });
+    }
 
     // --- Ambil user login & filter akses santri (tidak diubah) ---
     const username = localStorage.getItem("username");
@@ -1807,27 +1776,41 @@ if (tanggalFilterAkhir) {
 
     const isRange = !!(endFilter && endFilter !== tanggal);
 
-    // Siapkan indeks absensi untuk pencocokan cepat (BY NIS SAJA)
+    // Siapkan indeks absensi untuk pencocokan cepat
+    const absById  = new Map();
     const absByNis = new Map();
     for (const a of (absensiData || [])) {
+      const aid  = keyId(a?.id);
       const anis = keyNis(a?.nis);
+      if (aid)  absById.set(aid, a);
       if (anis) absByNis.set(anis, a);
     }
 
-    // Kelompokkan absensi per santri: BY NIS SAJA
+    // Kelompokkan absensi per santri jika rentang (gabungan id & nis)
+    let absensiById = null;
     let absensiByNis = null;
     if (isRange) {
+      absensiById = {};
       absensiByNis = {};
       for (const a of (absensiData || [])) {
-        const anis = keyNis(a?.nis);
-        if (!anis) continue; // tanpa NIS: tidak bisa di-join
-        if (!absensiByNis[anis]) absensiByNis[anis] = [];
-        absensiByNis[anis].push(a);
+        if (!a) continue;
+        const aid  = keyId(a.id);
+        const anis = keyNis(a.nis);
+        if (aid) {
+          if (!absensiById[aid]) absensiById[aid] = [];
+          absensiById[aid].push(a);
+        }
+        if (anis) {
+          if (!absensiByNis[anis]) absensiByNis[anis] = [];
+          absensiByNis[anis].push(a);
+        }
       }
       // urutkan per-santri berdasarkan field 'tanggal' bila ada
-      Object.values(absensiByNis).forEach(arr => {
+      const sorter = arr => {
         arr.sort((x, y) => String(x.tanggal || "").localeCompare(String(y.tanggal || "")));
-      });
+      };
+      Object.values(absensiById).forEach(sorter);
+      Object.values(absensiByNis).forEach(sorter);
 
       // debug ringan (tetap)
       console.log("RANGE items:", absensiData.length,
@@ -1835,17 +1818,32 @@ if (tanggalFilterAkhir) {
     }
 
     santriData.forEach((santri) => {
-      // ⚠️ KUNCI UTAMA: NIS
+      const sid  = keyId(santri.id);
       const snis = keyNis(santri.nis);
 
       let rowsForSantri;
       if (isRange) {
-        rowsForSantri = snis && absensiByNis?.[snis] ? absensiByNis[snis] : [];
+        // gabungkan dari nis lalu id (prioritas nis)
+        const fromNis = (snis && absensiByNis?.[snis]) ? absensiByNis[snis] : [];
+        const fromId  = (sid  && absensiById?.[sid])   ? absensiById[sid]   : [];
+        // dedup per tanggal (prioritas entry dari nis)
+        const seen = new Set();
+        rowsForSantri = [];
+        for (const r of fromNis) {
+          const key = r.tanggal || "__";
+          if (!seen.has(key)) { rowsForSantri.push(r); seen.add(key); }
+        }
+        for (const r of fromId) {
+          const key = r.tanggal || "__";
+          if (!seen.has(key)) { rowsForSantri.push(r); seen.add(key); }
+        }
       } else {
-        const hit = snis ? absByNis.get(snis) : null;
+        // satu tanggal: prioritas kecocokan nis, fallback id
+        const hit = (snis && absByNis.get(snis)) || (sid && absById.get(sid)) || null;
         rowsForSantri = [hit || {}];
       }
 
+      // jika mode rentang tapi tidak ada data → tetap render satu baris kosong
       if (isRange && rowsForSantri.length === 0) {
         rowsForSantri.push({});
       }
@@ -1865,10 +1863,9 @@ if (tanggalFilterAkhir) {
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
           : "";
 
-        // ⛳ Kolom pertama utamakan NIS agar terlihat “kunci”-nya
         row.innerHTML = `
-          <td>${santri.nis || santri.id || ""}</td>
-          <td>${santri.nama ?? ""}${subTanggal}</td>
+          <td>${santri.id || santri.nis}</td>
+          <td>${santri.nama}${subTanggal}</td>
           <td>
             <select class="absensi">
               <option value="Hadir" ${dataAbsensi?.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
@@ -1912,11 +1909,11 @@ if (tanggalFilterAkhir) {
           </td>
         `;
 
-        // simpan kunci baris pada <tr> → **pakai NIS**
-        row.dataset.nis = snis || "";
-        row.dataset.id = keyId(santri.id); // opsional: untuk tampilan/debug
+        // simpan id & tanggal baris pada <tr> (dipakai klik-per-baris)
+        row.dataset.id = (santri.id || santri.nis);
         row.dataset.tanggal = rowDate;
 
+        // jika backend mengirim marks untuk baris ini, tempel di row agar modal pakai data ini
         if (dataAbsensi && dataAbsensi.marks) {
           row.markData = dataAbsensi.marks;
         }
@@ -1931,17 +1928,17 @@ if (tanggalFilterAkhir) {
 
         // Set surah & ayat dropdown
         const surahDari = row.querySelector(".surah-dari");
-        const ayatDari  = row.querySelector(".ayat-dari");
+        const ayatDari = row.querySelector(".ayat-dari");
         const surahSampai = row.querySelector(".surah-sampai");
-        const ayatSampai  = row.querySelector(".ayat-sampai");
+        const ayatSampai = row.querySelector(".ayat-sampai");
 
-        const dariArr   = Array.isArray(dari)   ? dari   : String(dari).split(":");
+        const dariArr = Array.isArray(dari) ? dari : String(dari).split(":");
         const sampaiArr = Array.isArray(sampai) ? sampai : String(sampai).split(":");
 
-        surahDari.value   = dariArr[0];
+        surahDari.value = dariArr[0];
         surahSampai.value = sampaiArr[0];
 
-        fillAyatOptions(ayatDari,   surahDari.value,   dariArr[1]);
+        fillAyatOptions(ayatDari, surahDari.value, dariArr[1]);
         fillAyatOptions(ayatSampai, surahSampai.value, sampaiArr[1]);
 
         surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
@@ -1969,7 +1966,6 @@ if (tanggalFilterAkhir) {
 
   overlay.style.display = "none";
 }
-
 
 
 
@@ -2967,6 +2963,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
 </script>
 
 	
+
 <script>
 let quranData = {};
 let ayahPageMap = {};
@@ -2993,7 +2990,7 @@ async function ambilMarksDariNetlify(id, kelas, tanggal) {
   }
 }
 
-// ======================
+	// ======================
 // TAMPILKAN AUDIO
 // ======================
 function tampilkanAudioDariMarks(marks) {
@@ -3006,12 +3003,9 @@ function tampilkanAudioDariMarks(marks) {
           <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
           Browser Anda tidak mendukung audio.
         </audio>
-        <span> Rekaman ${i + 1}</span>
       `;
       recordingsList.appendChild(li);
     });
-  } else {
-    recordingsList.innerHTML = '<li>Tidak ada rekaman audio.</li>';
   }
 }
 
