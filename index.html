@@ -2736,33 +2736,26 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 
 <script>
-const btnHapusSantri   = document.getElementById("btnHapusSantri");
+const btnHapusSantri = document.getElementById("btnHapusSantri");
 const modalHapusSantri = document.getElementById("modalHapusSantri");
-const listSantriHapus  = document.getElementById("listSantriHapus");
+const listSantriHapus = document.getElementById("listSantriHapus");
 const btnHapusTerpilih = document.getElementById("btnHapusTerpilih");
-const btnTutupModal    = document.getElementById("btnTutupModal");
+const btnTutupModal = document.getElementById("btnTutupModal");
 
-// Utility kecil
-const html = (strings, ...vals) => strings.map((s, i) => s + (vals[i] ?? "")).join("");
-const byStr = v => (v === 0 || v) ? String(v).trim() : "";
-
-// Tutup modal
+// Tombol untuk menutup modal
 btnTutupModal.addEventListener("click", () => {
   modalHapusSantri.style.display = "none";
 });
 
-// Buka modal & load santri
+// Tombol untuk membuka modal dan load santri
 btnHapusSantri.addEventListener("click", async () => {
-  const kelas = (window.kelasSelect?.value || "").trim();
-  if (!kelas) { alert("Pilih kelas dulu."); return; }
-
   modalHapusSantri.style.display = "flex";
   listSantriHapus.innerHTML = "<li>Loading...</li>";
 
+  const kelas = kelasSelect.value; // Ambil kelas dari select
   try {
-    const res = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelas)}`);
-    if (!res.ok) throw new Error("Gagal ambil daftar santri");
-    let santriData = await res.json();
+    const res = await fetch(`/.netlify/functions/ambilSantri?kelas=${kelas}`);
+    const santriData = await res.json();
 
     if (!Array.isArray(santriData)) {
       console.error("Santri data bukan array:", santriData);
@@ -2770,107 +2763,55 @@ btnHapusSantri.addEventListener("click", async () => {
       return;
     }
 
-    // urutkan agar rapi
-    santriData.sort((a, b) => (a?.nama || "").localeCompare(b?.nama || "", "id"));
-
+    listSantriHapus.innerHTML = "";
     if (santriData.length === 0) {
       listSantriHapus.innerHTML = "<li>Tidak ada santri di kelas ini</li>";
       return;
     }
 
-    // Header "Pilih Semua"
-    const selectAllId = "hapus-select-all";
-    listSantriHapus.innerHTML = html`
-      <li style="margin-bottom:8px;">
-        <label><input id="${selectAllId}" type="checkbox"> Pilih Semua</label>
-      </li>
-    `;
-
-    // List santri
-    for (const s of santriData) {
-      const id  = byStr(s?.id);
-      const nis = byStr(s?.nis);
-      const ident = id || nis; // default identifier
-      const nama  = s?.nama || "(tanpa nama)";
-
+    santriData.forEach(s => {
       const li = document.createElement("li");
       li.style.marginBottom = "5px";
-      li.innerHTML = html`<label>
-        <input type="checkbox" value="${ident}" data-id="${id}" data-nis="${nis}">
-        ${nama} <small style="opacity:.7">(${ident})</small>
+      li.innerHTML = `<label>
+        <input type="checkbox" value="${s.id || s.nis}"> ${s.nama} (${s.id || s.nis})
       </label>`;
       listSantriHapus.appendChild(li);
-    }
-
-    // Wiring "Pilih Semua"
-    const cAll = document.getElementById(selectAllId);
-    cAll?.addEventListener("change", () => {
-      const boxes = listSantriHapus.querySelectorAll('input[type="checkbox"]:not(#' + selectAllId + ')');
-      boxes.forEach(b => b.checked = cAll.checked);
     });
-
   } catch (err) {
     console.error(err);
     listSantriHapus.innerHTML = "<li>Gagal load data</li>";
   }
 });
 
-// Hapus terpilih (massal)
+// Tombol hapus terpilih
 btnHapusTerpilih.addEventListener("click", async () => {
-  const kelas = (window.kelasSelect?.value || "").trim();
-  if (!kelas) { alert("Pilih kelas dulu."); return; }
+  const checked = listSantriHapus.querySelectorAll("input:checked");
+  if (checked.length === 0) return alert("Pilih santri terlebih dahulu");
 
-  const checked = listSantriHapus.querySelectorAll('input[type="checkbox"]:not(#hapus-select-all):checked');
-  if (checked.length === 0) { alert("Pilih santri terlebih dahulu"); return; }
-
-  if (!confirm(`Yakin menghapus ${checked.length} santri dan semua absensinya?`)) return;
-
-  // disable tombol selama proses
-  btnHapusTerpilih.disabled = true;
-  const originalText = btnHapusTerpilih.textContent;
-  btnHapusTerpilih.textContent = "Menghapus...";
-
-  try {
-    // proses paralel, satu request per santri
-    const tasks = Array.from(checked).map(c => {
-      const identifier = c.value; // backend sudah dukung id/nis
-      return fetch(`/.netlify/functions/hapusSantri`, {
+  const kelas = kelasSelect.value;
+  for (let c of checked) {
+    const identifier = c.value;
+    try {
+      const res = await fetch(`/.netlify/functions/hapusSantri`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kelas, identifier })
-      }).then(async res => {
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || json?.success === false) {
-          const msg = json?.error || `HTTP ${res.status}`;
-          throw new Error(msg);
-        }
-        return json;
       });
-    });
-
-    const results = await Promise.allSettled(tasks);
-    const sukses = results.filter(r => r.status === "fulfilled").length;
-    const gagal  = results.length - sukses;
-
-    alert(`Selesai.\nBerhasil: ${sukses}\nGagal: ${gagal}`);
-
-    // refresh tabel utama
-    if (typeof window.loadSantriData === "function") {
-      await window.loadSantriData();
+      const result = await res.json();
+      console.log("Hasil hapus:", result);
+    } catch (err) {
+      console.error("Gagal hapus:", err);
     }
+  }
 
-    // tutup modal
-    modalHapusSantri.style.display = "none";
-  } catch (err) {
-    console.error("Gagal hapus:", err);
-    alert("Terjadi kesalahan saat menghapus. Coba lagi.");
-  } finally {
-    btnHapusTerpilih.disabled = false;
-    btnHapusTerpilih.textContent = originalText;
+  modalHapusSantri.style.display = "none";
+
+  // Refresh tabel utama
+  if (typeof loadSantriData === "function") {
+    loadSantriData();
   }
 });
 </script>
-
 
 
 <script>
