@@ -1840,41 +1840,62 @@ async function loadSantriData() {
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
           : "";
 
-        row.innerHTML = `
-          <td>${snis || santri.id || "-"}</td>
-          <td>${santri.nama || "-"}${subTanggal}</td>
-          <td>
-            <select class="absensi">
-              <option value="Hadir" ${dataAbsensi?.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
-              <option value="Alpha" ${dataAbsensi?.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
-              <option value="Sakit" ${dataAbsensi?.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
-              <option value="Izin"  ${dataAbsensi?.absensi === "Izin"  ? "selected" : ""}>Izin</option>
-            </select>
-          </td>
-          <td>
-            <select class="surah-dari">${surahOptions}</select>
-            <select class="ayat-dari"></select>
-          </td>
-          <td>
-            <select class="surah-sampai">${surahOptions}</select>
-            <select class="ayat-sampai"></select>
-          </td>
-          <td class="halaman-terbaca">${(dataAbsensi?.halaman ?? '-')}</td>
-          <td class="total-halaman">${(dataAbsensi?.totalHalaman ?? '-')}</td>
-          <td class="juz-terbaca">${(dataAbsensi?.juzTerbaca ?? '-')}</td>
-          <td class="total-juz">${(dataAbsensi?.totalJuz ?? 0)}</td>
-          <td>
-            <div class="nilai-ringkas">
-              ${dataAbsensi?.buttonCell 
-                ? `<strong>${Number(dataAbsensi.buttonCell.nilai).toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
-                : ''}
-            </div>
-            <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-          </td>
-          <td class="total-all-juz">
-            <img src="https://raw.githubusercontent.com/digitalmtq/web/main/meeting.gif" style="width:70px;height:18px;">
-          </td>
-        `;
+        // ambil nilai semester: prioritas dari absensi → santri → default 1
+const semNow = Number(dataAbsensi?.semester ?? santri?.semester ?? 1) || 1;
+
+row.innerHTML = `
+  <td>${snis || santri.id || "-"}</td>
+  <td>${santri.nama || "-"}${subTanggal}</td>
+
+  <td>
+    <select class="absensi">
+      <option value="Hadir" ${dataAbsensi?.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
+      <option value="Alpha" ${dataAbsensi?.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
+      <option value="Sakit" ${dataAbsensi?.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
+      <option value="Izin"  ${dataAbsensi?.absensi === "Izin"  ? "selected" : ""}>Izin</option>
+    </select>
+  </td>
+
+  <td>
+    <select class="surah-dari">${surahOptions}</select>
+    <select class="ayat-dari"></select>
+  </td>
+  <td>
+    <select class="surah-sampai">${surahOptions}</select>
+    <select class="ayat-sampai"></select>
+  </td>
+
+  <td class="halaman-terbaca">${(dataAbsensi?.halaman ?? '-')}</td>
+  <td class="total-halaman">${(dataAbsensi?.totalHalaman ?? '-')}</td>
+  <td class="juz-terbaca">${(dataAbsensi?.juzTerbaca ?? '-')}</td>
+  <td class="total-juz">${(dataAbsensi?.totalJuz ?? 0)}</td>
+
+  <!-- K O L O M   S E M E S T E R -->
+  <td>
+    <select class="semester">
+      <option value="1" ${semNow === 1 ? 'selected' : ''}>Semester 1</option>
+      <option value="2" ${semNow === 2 ? 'selected' : ''}>Semester 2</option>
+      <option value="3" ${semNow === 3 ? 'selected' : ''}>Semester 3</option>
+      <option value="4" ${semNow === 4 ? 'selected' : ''}>Semester 4</option>
+      <option value="5" ${semNow === 5 ? 'selected' : ''}>Semester 5</option>
+      <option value="6" ${semNow === 6 ? 'selected' : ''}>Semester 6</option>
+    </select>
+  </td>
+
+  <td>
+    <div class="nilai-ringkas">
+      ${dataAbsensi?.buttonCell 
+        ? `<strong>${Number(dataAbsensi.buttonCell.nilai).toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+        : ''}
+    </div>
+    <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
+  </td>
+
+  <td class="total-all-juz">
+    <img src="https://raw.githubusercontent.com/digitalmtq/web/main/meeting.gif" style="width:70px;height:18px;">
+  </td>
+`;
+
 
         // 🧷 Simpan NIS & tanggal pada row (kita tetap simpan id untuk kompatibilitas, tapi pencocokan TIDAK memakainya)
         row.dataset.nis     = snis || "";
