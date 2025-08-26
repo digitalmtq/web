@@ -2159,17 +2159,14 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   // Ambil nama murni dari cell nama (tanpa subTanggal <div>)
   function getNamaFromCell(cell) {
     if (!cell) return "";
-    // childNodes[0] biasanya text node "Nama"
     const first = cell.childNodes && cell.childNodes[0];
     const txt = (first && first.textContent) ? first.textContent : cell.textContent;
     return String(txt).trim();
   }
 
-  // Ambil ID baris (id numerik atau NIS string)
-  function getRowId(row) {
-    const raw = row.children[0]?.textContent?.trim() || "";
-    const asNum = parseInt(raw, 10);
-    return Number.isNaN(asNum) ? raw : asNum;
+  // Ambil NIS dari baris
+  function getRowNis(row) {
+    return row.dataset?.nis || row.children[0]?.textContent?.trim() || "";
   }
 
   // ===== UI lock =====
@@ -2179,7 +2176,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
   try {
     // ===== 1) Kelompokkan baris per-tanggal baris =====
-    const groupByTanggal = new Map(); // key: YYYY-MM-DD, val: array<row>
+    const groupByTanggal = new Map();
     rows.forEach((row) => {
       const tglBaris = (row.dataset?.tanggal && row.dataset.tanggal.trim())
         ? row.dataset.tanggal.trim()
@@ -2192,7 +2189,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     const hasilKirim = [];
 
     for (const [tanggal, rowsTanggal] of groupByTanggal.entries()) {
-      // -- ambil data lama untuk tanggal ini
       let dataLama = [];
       try {
         const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
@@ -2202,12 +2198,14 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
       }
       const dataMerged = Array.isArray(dataLama) ? [...dataLama] : [];
 
-      // -- susun payload per baris (untuk tanggal ini)
+      // -- susun payload per baris
       rowsTanggal.forEach((row) => {
-        const id = getRowId(row);
-        const existing = dataMerged.find(d => String(d.id) === String(id)) || {};
+        const nis = getRowNis(row);
+        if (!nis) return;
 
-        const nama = getNamaFromCell(row.children[1]); // hanya nama
+        const existing = dataMerged.find(d => String(d.nis || d.id) === String(nis)) || {};
+
+        const nama = getNamaFromCell(row.children[1]);
         const semester = row.querySelector(".semester")?.value ?? existing.semester ?? "";
         const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
@@ -2219,12 +2217,11 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         const totalHalaman = row.querySelector(".total-halaman")?.textContent ?? existing.totalHalaman ?? "";
         const juzTerbaca = row.querySelector(".juz-terbaca")?.textContent ?? existing.juzTerbaca ?? "";
 
-        // nilai ringkas di sel (div pertama pada sel tombol)
+        // nilai ringkas
         const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
         const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
         const parsed = parseNilaiStr(nilaiStr);
 
-        // Jika ada nilai baru valid → pakai, else pakai existing, else JANGAN tulis buttonCell (hindari reset 0)
         const adaNilaiBaru = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai));
         let buttonCell;
         if (adaNilaiBaru) {
@@ -2232,15 +2229,14 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-') ? parsed.predikatHuruf : (existing.buttonCell?.predikatHuruf ?? "-");
           buttonCell = { nilai: parsed.nilai, predikatText, predikatHuruf };
         } else if (existing.buttonCell) {
-          buttonCell = existing.buttonCell; // pertahankan
-        } // else undefined → tidak ditulis agar tidak overwrite
+          buttonCell = existing.buttonCell;
+        }
 
-        // marks per baris (sudah ditempel ke row.markData saat edit modal)
         const marks = row.markData || existing.marks || { audio: [] };
 
         const base = {
           ...existing,
-          id,
+          nis,      // 🔑 selalu simpan dengan NIS
           nama,
           semester,
           absensi,
@@ -2252,14 +2248,14 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           juzTerbaca,
           marks
         };
-        // sisipkan buttonCell hanya jika ada (hindari reset)
+
         const newData = buttonCell ? { ...base, buttonCell } : base;
 
-        const idx = dataMerged.findIndex(d => String(d.id) === String(id));
+        const idx = dataMerged.findIndex(d => String(d.nis || d.id) === String(nis));
         if (idx !== -1) dataMerged[idx] = newData; else dataMerged.push(newData);
       });
 
-      // ===== 3) Kirim per-tanggal (endpoint sama) =====
+      // ===== 3) Kirim per-tanggal =====
       const res = await fetch("/.netlify/functions/saveData", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2293,10 +2289,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   }
 }
 
-
-
-
-
 // Pasang event listener ke dua tombol Save
 document.getElementById("save-btn").addEventListener("click", function () {
   simpanDataMutabaah(this);
@@ -2304,6 +2296,7 @@ document.getElementById("save-btn").addEventListener("click", function () {
 document.getElementById("save-btn-modal").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
+
 
 
     downloadBtn.addEventListener("click", async () => {
