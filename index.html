@@ -1452,9 +1452,9 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   const passwordInput = document.getElementById("password");
   const overlay = document.getElementById("overlay");
   const kelasSelect = document.getElementById("kelas");
-  const tanggalInput = document.getElementById("tanggal");  
-  const startDateInput = document.getElementById("start-date");  // 🔹 TAMBAHAN
-  const endDateInput = document.getElementById("end-date");      // 🔹 TAMBAHAN
+  const tanggalInput = document.getElementById("tanggal");
+  const startDateInput = document.getElementById("start-date");
+  const endDateInput = document.getElementById("end-date");
   const santriTableBody = document.querySelector("#santri-table tbody");
   const saveBtn = document.getElementById("save-btn");
   const downloadBtn = document.getElementById("download-btn");
@@ -1462,42 +1462,34 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   const namaUserSpan = document.getElementById("namaUser");
   const tanggalFilterAkhir = document.getElementById("tanggal-filter-akhir");
 
-
   let surahList = [];
   let pagesMap = {};
 
-  
-
   // === Fungsi atur dropdown kelas ===
-function aturDropdownKelas(user) {
-  const semuaKelas = ["kelas_1", "kelas_2", "kelas_3", "kelas_4", "kelas_5", "kelas_6"];
+  function aturDropdownKelas(user) {
+    const semuaKelas = ["kelas_1","kelas_2","kelas_3","kelas_4","kelas_5","kelas_6"];
+    const namaKelasCustom = {
+      kelas_1: "Kelompok Lebah",
+      kelas_2: "Kelompok Semut",
+      kelas_3: "Kelompok Burung",
+      kelas_4: "Kelompok Ikan",
+      kelas_5: "Kelompok Harimau",
+      kelas_6: "Kelompok Gajah"
+    };
 
-  // Mapping custom nama
-  const namaKelasCustom = {
-    kelas_1: "Kelompok Lebah",
-    kelas_2: "Kelompok Semut",
-    kelas_3: "Kelompok Burung",
-    kelas_4: "Kelompok Ikan",
-    kelas_5: "Kelompok Harimau",
-    kelas_6: "Kelompok Gajah"
-  };
+    kelasSelect.innerHTML = "";
+    const kelasDiizinkan = user?.kelas?.length ? user.kelas : semuaKelas;
+    semuaKelas.forEach(kls => {
+      const opt = document.createElement("option");
+      opt.value = kls;
+      opt.textContent = namaKelasCustom[kls] || kls;
+      opt.disabled = !kelasDiizinkan.includes(kls);
+      kelasSelect.appendChild(opt);
+    });
 
-  kelasSelect.innerHTML = "";
-
-  const kelasDiizinkan = user?.kelas?.length ? user.kelas : semuaKelas;
-
-  semuaKelas.forEach(kls => {
-    const opt = document.createElement("option");
-    opt.value = kls;
-    opt.textContent = namaKelasCustom[kls] || kls; // pakai custom kalau ada
-    opt.disabled = !kelasDiizinkan.includes(kls);
-    kelasSelect.appendChild(opt);
-  });
-
-  // Pilih kelas aktif pertama
-  const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
-  if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
-}
+    const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
+    if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
+  }
 
   // === Login form ===
   loginForm.addEventListener("submit", async (e) => {
@@ -1506,7 +1498,6 @@ function aturDropdownKelas(user) {
     const password = passwordInput.value;
 
     overlay.style.display = "flex";
-
     try {
       const res = await fetch("/.netlify/functions/getUsers");
       const users = await res.json();
@@ -1520,7 +1511,8 @@ function aturDropdownKelas(user) {
 
         aturDropdownKelas(user);
         showDashboard();
-        loadDataSantri(); // langsung load data sesuai kelas terpilih
+        // alias lama masih dipakai di beberapa tempat → aman
+        await loadSantriData();
       } else {
         loginError.style.display = "block";
       }
@@ -1528,33 +1520,14 @@ function aturDropdownKelas(user) {
       loginError.textContent = "Gagal memuat data user!";
       loginError.style.display = "block";
     }
-
     overlay.style.display = "none";
   });
-
-  // === Load data santri ===
-  async function loadDataSantri() {
-    const kelas = kelasSelect.value;
-    if (!kelas) return; // jaga-jaga
-
-    try {
-      const res = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
-      if (!res.ok) throw new Error("Gagal memuat data santri");
-      const data = await res.json();
-      console.log("Data santri:", data);
-      // TODO: render ke tabel
-    } catch (err) {
-      console.error(err);
-      alert("Gagal memuat data santri / absensi!");
-    }
-  }
 
   // === Saat halaman dibuka ===
   window.addEventListener("DOMContentLoaded", async () => {
     try {
       const resSurah = await fetch("/.netlify/functions/getAyat");
       surahList = await resSurah.json();
-
       const resPages = await fetch("/.netlify/functions/getPagesMap");
       pagesMap = await resPages.json();
     } catch (err) {
@@ -1569,103 +1542,110 @@ function aturDropdownKelas(user) {
 
       aturDropdownKelas({ kelas: storedKelas });
       showDashboard();
-      loadDataSantri();
+      await loadSantriData();
     }
   });
 
   // === Event ganti kelas ===
-  kelasSelect.addEventListener("change", loadDataSantri);
+  kelasSelect.addEventListener("change", () => loadSantriData());
 
-  // === Header total juz click ===
-  totalAllJuzHeader.addEventListener("click", bukaOverlayTotalAllJuz);
+  // === Header total juz click (pakai shim yg aman) ===
+  totalAllJuzHeader?.addEventListener("click", () => window.bukaOverlayTotalAllJuz?.(totalAllJuzHeader));
 
+  // === Dashboard UI init ===
+  function showDashboard() {
+    loginCard.style.display = "none";
+    dashboardCard.style.display = "block";
 
+    const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
 
-    
-
-    function showDashboard() {
-  loginCard.style.display = "none";
-  dashboardCard.style.display = "block";
-
-  const today = new Date().toLocaleDateString('sv-SE'); // Format YYYY-MM-DD
-
-  // 🔹 batas maksimal untuk tanggal filter akhir (hanya bila elemen ada)
-if (tanggalFilterAkhir) tanggalFilterAkhir.max = today;
-
-// 🔹 ambil & set nilai terakhir tanggal filter akhir
-const savedTanggalAkhirFilter = localStorage.getItem("tanggalFilterAkhirTerakhir") || "";
-if (tanggalFilterAkhir) {
-  tanggalFilterAkhir.value = savedTanggalAkhirFilter;
-  tanggalFilterAkhir.addEventListener("change", () => {
-    localStorage.setItem("tanggalFilterAkhirTerakhir", tanggalFilterAkhir.value);
-    loadSantriData(); // langsung refresh tabel
-  });
-}
-
-
-  // 🟢 Atur batas tanggal maksimal supaya tidak bisa pilih ke depan
-  if (tanggalInput) tanggalInput.max = today;
-  if (startDateInput) startDateInput.max = today; // 🔹 TAMBAHAN
-  if (endDateInput) endDateInput.max = today;     // 🔹 TAMBAHAN
-
-  // 🟢 Ambil tanggal terakhir dari localStorage atau default hari ini
-  const savedTanggal = localStorage.getItem("tanggalTerakhir");
-  const savedStart = localStorage.getItem("startDateTerakhir");
-  const savedEnd = localStorage.getItem("endDateTerakhir");
-
-  // 🟢 Set tanggal default + auto-simpan saat user ubah
-  if (tanggalInput) {
-  tanggalInput.value = savedTanggal || today;
-  tanggalInput.addEventListener("change", () => {
-    // simpan tanggal awal
-    localStorage.setItem("tanggalTerakhir", tanggalInput.value);
-
-    // 🔹 reset tanggal akhir agar default kembali ke "single date"
+    if (tanggalFilterAkhir) tanggalFilterAkhir.max = today;
+    const savedTanggalAkhirFilter = localStorage.getItem("tanggalFilterAkhirTerakhir") || "";
     if (tanggalFilterAkhir) {
-      tanggalFilterAkhir.value = "";
-      localStorage.removeItem("tanggalFilterAkhirTerakhir");
+      tanggalFilterAkhir.value = savedTanggalAkhirFilter;
+      tanggalFilterAkhir.addEventListener("change", () => {
+        localStorage.setItem("tanggalFilterAkhirTerakhir", tanggalFilterAkhir.value);
+        loadSantriData();
+      });
     }
 
-    // muat ulang tabel
-    loadSantriData();
-  });
-}
+    if (tanggalInput) tanggalInput.max = today;
+    if (startDateInput) startDateInput.max = today;
+    if (endDateInput) endDateInput.max = today;
 
-  if (endDateInput) {
-    endDateInput.value = savedEnd || today;
-    endDateInput.addEventListener("change", () => {
-      localStorage.setItem("endDateTerakhir", endDateInput.value);
-      loadSantriData(); // 🔹 langsung refresh data
-    });
+    const savedTanggal = localStorage.getItem("tanggalTerakhir");
+    const savedEnd = localStorage.getItem("endDateTerakhir");
+
+    if (tanggalInput) {
+      tanggalInput.value = savedTanggal || today;
+      tanggalInput.addEventListener("change", () => {
+        localStorage.setItem("tanggalTerakhir", tanggalInput.value);
+        if (tanggalFilterAkhir) {
+          tanggalFilterAkhir.value = "";
+          localStorage.removeItem("tanggalFilterAkhirTerakhir");
+        }
+        loadSantriData();
+      });
+    }
+
+    if (endDateInput) {
+      endDateInput.value = savedEnd || today;
+      endDateInput.addEventListener("change", () => {
+        localStorage.setItem("endDateTerakhir", endDateInput.value);
+        loadSantriData();
+      });
+    }
   }
 
-  // 🟢 Tampilkan data awal saat dashboard dibuka
-  loadSantriData();
-}
+  // === Logout ===
+  logoutBtn.addEventListener("click", () => {
+    overlay.style.display = "flex";
+    setTimeout(() => {
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("username");
+      loginCard.style.display = "block";
+      dashboardCard.style.display = "none";
+      overlay.style.display = "none";
+    }, 500);
+  });
 
+  // ====== SHIM: bukaOverlayTotalAllJuz (back-compat) ======
+  window.bukaOverlayTotalAllJuz = function (elOrTd) {
+    const td  = elOrTd?.closest ? elOrTd.closest('td') : null;
+    const tr  = td?.closest?.('tr') || document.activeElement?.closest?.('tr') || null;
+    try { window.currentRowEl = tr || window.currentRowEl || null; } catch {}
+    const nis = tr?.dataset?.nis || (tr?.children?.[0]?.textContent || "").trim();
 
+    const modal = document.getElementById('overlayTotalAllJuz') || document.getElementById('modalTotalAllJuz');
+    if (modal) modal.style.display = 'flex';
 
-    logoutBtn.addEventListener("click", () => {
-      overlay.style.display = "flex";
-      setTimeout(() => {
-        localStorage.removeItem("isLoggedIn");
-        localStorage.removeItem("username");
-        loginCard.style.display = "block";
-        dashboardCard.style.display = "none";
-        overlay.style.display = "none";
-      }, 500);
-    });
- </script>
+    if (typeof window.hitungTotalAllJuzFromTable === 'function') {
+      try { window.hitungTotalAllJuzFromTable(nis, tr); } catch (e) { console.warn(e); }
+    } else if (typeof window.updateTotalJuz === 'function' && tr) {
+      try { window.updateTotalJuz(tr); } catch (e) { console.warn(e); }
+    }
+  };
 
-    <script>
-async function loadSantriData() { 
+  // Delegasi klik untuk setiap <td class="total-all-juz">
+  (function attachTotalAllJuzClick(){
+    const tbody = santriTableBody || document.querySelector('#santriTableBody, #santri-table tbody, tbody');
+    if (!tbody) return;
+    tbody.addEventListener('click', (ev) => {
+      const td = ev.target.closest('td.total-all-juz');
+      if (td) window.bukaOverlayTotalAllJuz(td);
+    }, { passive:true });
+  })();
+</script>
+
+<!-- ==================== VERSI UTAMA: loadSantriData ==================== -->
+<script>
+async function loadSantriData() {
   const kelas   = kelasSelect?.value || "";
   const tanggal = tanggalInput?.value || "";
   overlay.style.display = "flex";
 
   const keyId  = v => (v === 0 || v) ? String(v).trim() : "";
   const keyNis = v => (v === 0 || v) ? String(v).trim() : "";
-
   const byIdMap = (arr, pick = x => x) => {
     const m = new Map();
     for (const a of arr || []) {
@@ -1712,7 +1692,7 @@ async function loadSantriData() {
     let santriData = await resSantri.json();
     if (!Array.isArray(santriData)) santriData = [];
 
-    // NORMALISASI: pastikan setiap santri punya NIS (fallback ke id)
+    // pastikan setiap santri punya NIS (fallback ke id)
     santriData = santriData.map((s, i) => {
       const id  = keyId(s?.id ?? i+1);
       const nis = keyNis(s?.nis || id);
@@ -1721,9 +1701,10 @@ async function loadSantriData() {
 
     const rosterById = byIdMap(santriData, s => s);
 
-    // === ABSENSI (single/range) ===
+    // === ABSENSI (single / range) ===
     let absensiData = [];
-    const endFilter = (typeof tanggalFilterAkhir !== "undefined" && tanggalFilterAkhir) ? tanggalFilterAkhir.value : "";
+    const tanggalFilterAkhirEl = tanggalFilterAkhir || document.getElementById("tanggal-filter-akhir");
+    const endFilter = tanggalFilterAkhirEl ? tanggalFilterAkhirEl.value : "";
 
     if (endFilter && endFilter !== tanggal) {
       const resAbsensiRange = await fetch(
@@ -1740,7 +1721,7 @@ async function loadSantriData() {
       if (!Array.isArray(absensiData)) absensiData = [];
     }
 
-    // NORMALISASI: pastikan setiap absensi punya NIS (fallback ke id → atau isi dari rosterById)
+    // normalisasi: paksakan NIS (fallback ke id / roster)
     absensiData = absensiData.map((r, i) => {
       const id  = keyId(r?.id ?? i+1);
       let  nis  = keyNis(r?.nis || r?.id || "");
@@ -1751,7 +1732,7 @@ async function loadSantriData() {
       return { ...r, id, nis };
     });
 
-    // === FILTER AKSES USER (tetap) ===
+    // === FILTER AKSES USER ===
     const username = localStorage.getItem("username");
     const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r => r.json()).catch(() => []);
     const user = Array.isArray(users) ? users.find(u => u.username === username) : null;
@@ -1784,7 +1765,7 @@ async function loadSantriData() {
       absByNis.set(nis, a);
     }
 
-    // range grouping by NIS
+    // grouping range by NIS
     let absensiByNis = null;
     if (isRange) {
       absensiByNis = {};
@@ -1873,7 +1854,7 @@ async function loadSantriData() {
         row.dataset.id      = keyId(santri?.id) || ""; // metadata saja
         row.dataset.tanggal = rowDate || "";
 
-        // opsional: sinkron semester kalau user ubah
+        // sinkron semester bila diubah
         row.querySelector('.semester')?.addEventListener('change', (e) => {
           const v = Number(e.target.value) || 1;
           if (dataAbsensi) dataAbsensi.semester = v;
@@ -1884,7 +1865,7 @@ async function loadSantriData() {
 
         santriTableBody.appendChild(row);
 
-        // set animasi jika total-all-juz 0
+        // animasi jika total-all-juz 0
         const totalAllJuzTd = row.querySelector("td.total-all-juz");
         if (totalAllJuzTd && (String(totalAllJuzTd.textContent || "").trim() === "0")) {
           totalAllJuzTd.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
@@ -1926,7 +1907,11 @@ async function loadSantriData() {
 
   overlay.style.display = "none";
 }
+
+// === Alias utk kompatibilitas pemanggilan lama ===
+window.loadDataSantri = loadSantriData;
 </script>
+
 
 
 
