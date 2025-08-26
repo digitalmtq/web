@@ -366,6 +366,35 @@ button.lihat-quran-btn:hover::after {
 @media (max-width: 360px) {
   .password-group { gap: 6px; }
 }
+
+	  /* Styling untuk input teks dan password */
+#login-form input[type="text"],
+#login-form input[type="password"] {
+  width: 280px;       /* atur panjang di sini (px, %, rem) */
+  padding: 8px 10px;  /* ruang dalam */
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box; /* biar padding tidak nambah lebar */
+}
+
+/* Styling tombol login */
+#login-form button {
+  width: 100%;          /* penuh selebar form */
+  padding: 10px;
+  background-color: #1E88E5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#login-form button:hover {
+  background-color: #1565C0;
+}
   </style>
 </head>
 <body>
