@@ -1656,18 +1656,19 @@ if (tanggalFilterAkhir) {
       }, 500);
     });
 
-    async function loadSantriData() {
+    async function loadSantriData() { 
   const kelas = kelasSelect.value;
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
   // --- helper kecil (TIDAK mengubah bagian lain) ---
-  const keyStr = v => (v === 0 || v) ? String(v).trim() : "";
-  const byMap = (arr, keyPick, pick = x => x) => {
+  const keyId  = v => (v === 0 || v) ? String(v).trim() : "";
+  const keyNis = v => (v === 0 || v) ? String(v).trim() : "";
+  const byIdMap = (arr, pick = x => x) => {
     const m = new Map();
     for (const a of arr || []) {
-      const k = keyStr(keyPick(a));
-      if (k) m.set(k, pick(a));
+      const id = keyId(a?.id);
+      if (id) m.set(id, pick(a));
     }
     return m;
   };
@@ -1675,23 +1676,24 @@ if (tanggalFilterAkhir) {
   // 🔧 helper: enable/disable tombol saat mode NIS
   function setButtonsDisabled(disabled) {
     const targets = [
-      document.getElementById("save-btn-modal"),
-      document.getElementById("save-btn"),
-      document.getElementById("btnHitungTotalJuz"),
-      document.querySelector("button[onclick='bukaModalSantri()']"),
-      document.getElementById("btnHapusSantri"),
-      document.getElementById("btnPindahKelas"),
-      document.getElementById("recordButton"),
-      document.getElementById("btn-beri-nilai"),
-      document.querySelector("button[onclick='simpanSantriBaru()']"),
-      document.getElementById("btnHapusTerpilih"),
-      document.getElementById("doPindah"),
+      document.getElementById("save-btn-modal"),                 // Simpan Data Mutaba'ah (modal)
+	  document.getElementById("save-btn"),
+	  document.getElementById("btnHitungTotalJuz"),
+      document.querySelector("button[onclick='bukaModalSantri()']"), // Tambah Santri
+      document.getElementById("btnHapusSantri"),                 // Hapus Santri
+      document.getElementById("btnPindahKelas"),                 // Pindah Kelas
+      document.getElementById("recordButton"),                   // ● Record
+      document.getElementById("btn-beri-nilai"),                 // Beri Nilai Manual
+	  document.querySelector("button[onclick='simpanSantriBaru()']"), // Simpan (modal tambah santri)
+      document.getElementById("btnHapusTerpilih"),               // Hapus terpilih
+      document.getElementById("doPindah"),                       // Pindahkan
     ];
     targets.forEach(btn => {
       if (!btn) return;
       btn.disabled = !!disabled;
       btn.style.opacity = disabled ? "0.5" : "";
       btn.style.cursor  = disabled ? "not-allowed" : "";
+      // opsional: cegah handler inline saat disabled
       if (disabled) {
         btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
         if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
@@ -1705,14 +1707,12 @@ if (tanggalFilterAkhir) {
   }
 
   try {
-    // --- Ambil semua santri di kelas --- (cache-buster)
+    // --- Ambil semua santri di kelas --- (tambahkan cache-buster)
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     let santriData = await resSantri.json();
-    santriData = Array.isArray(santriData) ? santriData : [];
 
-    // peta roster by NIS dan by ID
-    const rosterByNis = byMap(santriData, s => s?.nis);
-    const rosterById  = byMap(santriData, s => s?.id);
+    // siapkan peta roster by id untuk isi nis absensi yang kosong
+    const rosterById = byIdMap(santriData, s => s);
 
     // --- Ambil data absensi (satu tanggal vs rentang tabel) ---
     let absensiData = [];
@@ -1724,35 +1724,33 @@ if (tanggalFilterAkhir) {
         `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(endFilter)}&t=${Date.now()}`
       );
       absensiData = await resAbsensiRange.json();
-      absensiData = Array.isArray(absensiData) ? absensiData : [];
-      // normalisasi: isi nis/id kosong dari roster
-      absensiData = absensiData.map((r, i) => {
-        const id  = keyStr(r?.id ?? i+1);
-        const nis = keyStr(r?.nis);
+      // normalisasi: isi nis kosong dari roster by id
+      absensiData = (Array.isArray(absensiData) ? absensiData : []).map((r,i) => {
+        const id  = keyId(r?.id ?? i+1);
+        const nis = keyNis(r?.nis ?? "");
         if (nis) return { ...r, id };
-        // cari nis dari roster by id
-        const refById = id ? rosterById.get(id) : null;
-        if (refById?.nis) return { ...r, id, nis: keyStr(refById.nis) };
-        return { ...r, id };
+        const ref = rosterById.get(id);
+        return ref?.nis ? { ...r, id, nis: ref.nis } : { ...r, id };
       });
     } else {
       // satu tanggal
       const resAbsensi = await fetch(
         `/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`
       );
-      const raw = await resAbsensi.json();
-      absensiData = Array.isArray(raw) ? raw : (raw?.list || []);
-      absensiData = absensiData.map((r, i) => {
-        const id  = keyStr(r?.id ?? i+1);
-        const nis = keyStr(r?.nis);
+      absensiData = await resAbsensi.json();
+      // dukung jika server kembalikan {list:[]}
+      absensiData = Array.isArray(absensiData) ? absensiData : (absensiData?.list || []);
+      // normalisasi: isi nis kosong dari roster by id
+      absensiData = absensiData.map((r,i) => {
+        const id  = keyId(r?.id ?? i+1);
+        const nis = keyNis(r?.nis ?? "");
         if (nis) return { ...r, id };
-        const refById = id ? rosterById.get(id) : null;
-        if (refById?.nis) return { ...r, id, nis: keyStr(refById.nis) };
-        return { ...r, id };
+        const ref = rosterById.get(id);
+        return ref?.nis ? { ...r, id, nis: ref.nis } : { ...r, id };
       });
     }
 
-    // --- Ambil user login & filter akses santri ---
+    // --- Ambil user login & filter akses santri (tidak diubah) ---
     const username = localStorage.getItem("username");
     const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r => r.json());
     const user = users.find(u => u.username === username);
@@ -1769,7 +1767,7 @@ if (tanggalFilterAkhir) {
       santriData = [];
     }
 
-    // 🟢 Aktif/nonaktifkan tombol sesuai mode
+    // 🟢 Aktif/nonaktifkan tombol sesuai mode (punya nis => mode NIS => disable)
     const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
     setButtonsDisabled(isModeNIS);
 
@@ -1778,11 +1776,17 @@ if (tanggalFilterAkhir) {
 
     const isRange = !!(endFilter && endFilter !== tanggal);
 
-    // Siapkan indeks absensi untuk pencocokan cepat (pakai nis & id)
-    const absById  = byMap(absensiData, a => a?.id);
-    const absByNis = byMap(absensiData, a => a?.nis);
+    // Siapkan indeks absensi untuk pencocokan cepat
+    const absById  = new Map();
+    const absByNis = new Map();
+    for (const a of (absensiData || [])) {
+      const aid  = keyId(a?.id);
+      const anis = keyNis(a?.nis);
+      if (aid)  absById.set(aid, a);
+      if (anis) absByNis.set(anis, a);
+    }
 
-    // Kelompokkan absensi per santri jika rentang
+    // Kelompokkan absensi per santri jika rentang (gabungan id & nis)
     let absensiById = null;
     let absensiByNis = null;
     if (isRange) {
@@ -1790,25 +1794,39 @@ if (tanggalFilterAkhir) {
       absensiByNis = {};
       for (const a of (absensiData || [])) {
         if (!a) continue;
-        const aid  = keyStr(a.id);
-        const anis = keyStr(a.nis);
-        if (aid)  (absensiById[aid]  ||= []).push(a);
-        if (anis) (absensiByNis[anis] ||= []).push(a);
+        const aid  = keyId(a.id);
+        const anis = keyNis(a.nis);
+        if (aid) {
+          if (!absensiById[aid]) absensiById[aid] = [];
+          absensiById[aid].push(a);
+        }
+        if (anis) {
+          if (!absensiByNis[anis]) absensiByNis[anis] = [];
+          absensiByNis[anis].push(a);
+        }
       }
-      const sorter = arr => arr.sort((x, y) => String(x.tanggal || "").localeCompare(String(y.tanggal || "")));
+      // urutkan per-santri berdasarkan field 'tanggal' bila ada
+      const sorter = arr => {
+        arr.sort((x, y) => String(x.tanggal || "").localeCompare(String(y.tanggal || "")));
+      };
       Object.values(absensiById).forEach(sorter);
       Object.values(absensiByNis).forEach(sorter);
+
+      // debug ringan (tetap)
+      console.log("RANGE items:", absensiData.length,
+                  "| tgl unik:", [...new Set(absensiData.map(x => x.tanggal))]);
     }
 
     santriData.forEach((santri) => {
-      const sid  = keyStr(santri.id);
-      const snis = keyStr(santri.nis);
+      const sid  = keyId(santri.id);
+      const snis = keyNis(santri.nis);
 
       let rowsForSantri;
       if (isRange) {
         // gabungkan dari nis lalu id (prioritas nis)
         const fromNis = (snis && absensiByNis?.[snis]) ? absensiByNis[snis] : [];
         const fromId  = (sid  && absensiById?.[sid])   ? absensiById[sid]   : [];
+        // dedup per tanggal (prioritas entry dari nis)
         const seen = new Set();
         rowsForSantri = [];
         for (const r of fromNis) {
@@ -1825,6 +1843,7 @@ if (tanggalFilterAkhir) {
         rowsForSantri = [hit || {}];
       }
 
+      // jika mode rentang tapi tidak ada data → tetap render satu baris kosong
       if (isRange && rowsForSantri.length === 0) {
         rowsForSantri.push({});
       }
@@ -1836,16 +1855,17 @@ if (tanggalFilterAkhir) {
         const dari = (dataAbsensi?.dari || "1:1").split(":");
         const sampai = (dataAbsensi?.sampai || "1:1").split(":");
 
+        // tanggal spesifik baris: rentang → dataAbsensi.tanggal; tunggal → tanggal awal
         const rowDate = (isRange && dataAbsensi?.tanggal) ? dataAbsensi.tanggal : tanggal;
 
+        // Label tanggal kecil saat mode rentang (opsional)
         const subTanggal = isRange && dataAbsensi?.tanggal
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
           : "";
 
-        // ⬇️ tampilkan NIS (fallback id) di kolom pertama
         row.innerHTML = `
-          <td class="nis-cell">${snis || sid || ""}</td>
-          <td>${santri.nama || (snis || sid || "")}${subTanggal}</td>
+          <td>${santri.nis || santri.id}</td>
+          <td>${santri.nama}${subTanggal}</td>
           <td>
             <select class="absensi">
               <option value="Hadir" ${dataAbsensi?.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
@@ -1889,19 +1909,18 @@ if (tanggalFilterAkhir) {
           </td>
         `;
 
-        // ⬇️ simpan NIS & ID ke dataset (modal overlay butuh data-nis)
-        row.dataset.nis = snis || sid || "";
-        row.dataset.id  = sid  || snis || "";
+        // simpan id & tanggal baris pada <tr> (dipakai klik-per-baris)
+        row.dataset.id = (santri.id || santri.nis);
         row.dataset.tanggal = rowDate;
 
-        // tempel marks bila ada
+        // jika backend mengirim marks untuk baris ini, tempel di row agar modal pakai data ini
         if (dataAbsensi && dataAbsensi.marks) {
           row.markData = dataAbsensi.marks;
         }
 
         santriTableBody.appendChild(row);
 
-        // ganti gif jika total-all-juz = 0
+        // ganti gif jika total-all-juz = 0 (khusus baris ini saja)
         const totalAllJuzTd = row.querySelector("td.total-all-juz");
         if (totalAllJuzTd && totalAllJuzTd.textContent.trim() === "0") {
           totalAllJuzTd.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
@@ -1947,7 +1966,6 @@ if (tanggalFilterAkhir) {
 
   overlay.style.display = "none";
 }
-
 
 
 
@@ -2820,51 +2838,8 @@ btnHapusTerpilih.addEventListener("click", async () => {
   const elStatus    = document.getElementById('statusPindah');
 
   const normKelas = (k) => (k?.startsWith('kelas_') ? k : `kelas_${k}`);
-  const normStr   = (v) => (v === 0 || v) ? String(v).trim() : "";
-  const esc       = (s) => String(s ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-  // ===== Info box preview =====
-  let elInfo = document.getElementById('infoSantriPindah');
-  function ensureInfoBox() {
-    if (!elInfo) {
-      elInfo = document.createElement('div');
-      elInfo.id = 'infoSantriPindah';
-      elInfo.style.cssText = 'margin-top:8px;font-size:12px;color:#444;line-height:1.4';
-      elSantriSel?.parentElement?.insertBefore(elInfo, elSantriSel.nextSibling);
-    }
-  }
-  function renderSelectedInfo() {
-    ensureInfoBox();
-    const selected = Array.from(elSantriSel?.selectedOptions || []);
-    if (!selected.length) {
-      elInfo.innerHTML = '<em>Belum ada santri dipilih.</em>';
-      return;
-    }
-    elInfo.innerHTML = 'Santri dipilih ('+selected.length+'): ' + selected.map(o => {
-      const nama = o.dataset.nama || o.textContent || '';
-      const nis  = o.dataset.nis  || o.value || '';
-      return `<span style="display:inline-block;margin:2px 4px 0 0;padding:2px 6px;border:1px solid #ddd;border-radius:8px;">${esc(nama)} <small>(${esc(nis)})</small></span>`;
-    }).join('');
-  }
-
-  // ===== Migrasi localStorage usedAyat (opsional) =====
-  function migrateUsedAyat(kelasAsal, kelasTujuan, nisList) {
-    try {
-      for (const nis of nisList) {
-        const keyOld = `usedAyat_${kelasAsal}_${nis}`;
-        const keyNew = `usedAyat_${kelasTujuan}_${nis}`;
-        const val = localStorage.getItem(keyOld);
-        if (val && !localStorage.getItem(keyNew)) {
-          localStorage.setItem(keyNew, val);
-        }
-        // kalau ingin pindah total, hapus yang lama:
-        // localStorage.removeItem(keyOld);
-      }
-    } catch(e) { console.warn('Gagal migrasi usedAyat:', e); }
-  }
-
-  // Tambahkan input tanggal (sekali saja)
+  // tambahkan input tanggal (sekali saja)
   let elStart = document.getElementById('startDateMove');
   function ensureStartDateInput() {
     if (!elStart) {
@@ -2879,94 +2854,46 @@ btnHapusTerpilih.addEventListener("click", async () => {
     }
   }
 
-  // ==== Fallback: baca santri dari tabel utama bila API gagal ====
-  function readSantriFromTable() {
-    const body = document.getElementById('santriTableBody') || document.querySelector('#santriTableBody');
-    const rows = Array.from(body?.querySelectorAll('tr') || []);
-    return rows.map(r => {
-      const nis  = normStr(r.dataset?.nis || r.children?.[0]?.textContent);
-      const nama = normStr(r.children?.[1]?.childNodes?.[0]?.textContent || r.children?.[1]?.textContent);
-      return nis ? { nis, id: nis, nama: nama || nis } : null;
-    }).filter(Boolean);
-  }
-
-  // buka/tutup modal
-  elBtnOpen?.addEventListener('click', openModal);
-  elClose?.addEventListener('click', () => elModal.style.display = 'none');
-  elSantriSel?.addEventListener('change', renderSelectedInfo);
+  // buka modal
+  elBtnOpen.addEventListener('click', openModal);
+  elClose.addEventListener('click', () => elModal.style.display = 'none');
 
   async function openModal() {
     elModal.style.display = 'flex';
     elStatus.textContent = '';
     elDo.disabled = false;
     ensureStartDateInput();
-    ensureInfoBox();
 
-    // Ambil kelas asal dengan aman (bukan window.kelasSelect)
-    const kelasSelect = document.getElementById('kelasSelect');
-    const kelasAsal = normKelas(normStr(kelasSelect?.value || ""));
+    const kelasAsal = normKelas(kelasSelect.value);
 
-    // 1) load santri kelas asal – dengan fallback ke tabel
-    elSantriSel.innerHTML = ''; // clear dulu
+    // 1) load santri
     try {
-      let list = [];
-      if (kelasAsal) {
-        const r = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}`);
-        if (r.ok) {
-          const data = await r.json();
-          if (Array.isArray(data)) list = data;
-        }
-      }
-      // Fallback jika kosong / gagal
-      if (!list.length) {
-        list = readSantriFromTable();
-      }
-
-      // Isi select
-      elSantriSel.innerHTML = list.map(s => {
-        const id   = normStr(s.id);
-        const nis  = normStr(s.nis) || id;
-        const nama = normStr(s.nama) || (nis || id);
-        const tampilId = nis || id || "-";
-        return `<option value="${esc(nis)}"
-                        data-nis="${esc(nis)}"
-                        data-id="${esc(id)}"
-                        data-nama="${esc(nama)}">
-          ${esc(nama)} (${esc(tampilId)})
+      const r = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}`);
+      const data = await r.json();
+      elSantriSel.innerHTML = (Array.isArray(data) ? data : []).map(s => {
+        const id = s.id ?? '';
+        const nis = s.nis ?? '';
+        const nama = s.nama ?? '';
+        const value = id || nis || nama;
+        return `<option value="${String(value)}" data-id="${String(id)}" data-nis="${String(nis)}" data-nama="${String(nama)}">
+          ${nama} (${id || nis || '-'})
         </option>`;
       }).join('');
-
-      // Jika tetap kosong, beri hint
-      if (!list.length) {
-        elSantriSel.innerHTML = '';
-        elInfo.innerHTML = '<em>Tidak ada data santri. Pastikan kelas asal terpilih.</em>';
-      } else {
-        elInfo.innerHTML = '<em>Belum ada santri dipilih.</em>';
-      }
-    } catch (err) {
-      console.error(err);
-      // Fallback terakhir
-      const list = readSantriFromTable();
-      elSantriSel.innerHTML = list.map(s => {
-        const nis  = normStr(s.nis) || normStr(s.id);
-        const nama = normStr(s.nama) || nis;
-        return `<option value="${esc(nis)}" data-nis="${esc(nis)}" data-nama="${esc(nama)}">${esc(nama)} (${esc(nis)})</option>`;
-      }).join('');
-      if (!list.length) elInfo.innerHTML = '<em>Gagal memuat santri.</em>';
+    } catch {
+      elSantriSel.innerHTML = '';
     }
 
-    // 2) load daftar kelas tujuan
+    // 2) load kelas tujuan
     try {
       const rK = await fetch(`/.netlify/functions/ambilKelas`);
       const kelasList = await rK.json();
       elKelasWrap.innerHTML = (Array.isArray(kelasList) ? kelasList : [])
         .map(normKelas)
-        .filter(k => k && (!kelasAsal || k !== kelasAsal)) // jangan tampilkan kelas asal
+        .filter(k => k !== kelasAsal)
         .map(k => `<label style="display:block;margin:4px 0;">
-            <input type="radio" name="kelasTujuan" value="${esc(k)}"> ${esc(k)}
+            <input type="radio" name="kelasTujuan" value="${k}"> ${k}
           </label>`).join('');
-    } catch (err) {
-      console.error(err);
+    } catch {
       elKelasWrap.innerHTML = '<em>Gagal memuat daftar kelas.</em>';
     }
   }
@@ -2984,76 +2911,62 @@ btnHapusTerpilih.addEventListener("click", async () => {
   }
 
   // klik Pindah
-  elDo?.addEventListener('click', async () => {
-    const kelasSelect = document.getElementById('kelasSelect');
-    const kelasAsal   = normKelas(normStr(kelasSelect?.value || ""));
+  elDo.addEventListener('click', async () => {
+    const kelasAsal   = normKelas(kelasSelect.value);
     const kelasTujuan = normKelas(document.querySelector('input[name="kelasTujuan"]:checked')?.value || '');
-    const selected    = Array.from(elSantriSel?.selectedOptions || []);
+    const selected    = Array.from(elSantriSel.selectedOptions);
 
-    if (!kelasAsal)      { alert('Kelas asal tidak terdeteksi.'); return; }
-    if (!selected.length){ alert('Pilih minimal satu santri.');   return; }
-    if (!kelasTujuan)    { alert('Pilih kelas tujuan.');          return; }
+    if (!selected.length) { alert('Pilih minimal satu santri.'); return; }
+    if (!kelasTujuan)     { alert('Pilih kelas tujuan.'); return; }
 
-    // Pakai NIS sebagai kunci permanen
-    const nisList = Array.from(new Set(
-      selected.map(o => normStr(o.dataset.nis || o.value)).filter(Boolean)
-    ));
-    const santriIds = nisList.slice(); // kompat lama
-    const idMap = []; // tidak dipakai
-    const startDate = normStr(elStart?.value || '');
+    // ids untuk absensi
+    const santriIds = selected.map(o => o.dataset.id || o.value);
 
-    // Siapa yang diproses (untuk status)
-    const who = selected.map(o => {
-      const nama = o.dataset.nama || o.textContent || '';
-      const nis  = o.dataset.nis  || o.value || '';
-      return `${nama} (${nis})`;
-    }).join(', ');
+    // identifiers untuk roster
+    const idSet   = new Set(selected.map(o => (o.dataset.id   || '').trim()).filter(Boolean));
+    const nisSet  = new Set(selected.map(o => (o.dataset.nis  || '').trim()).filter(Boolean));
+    const nameSet = new Set(selected.map(o => (o.dataset.nama || '').trim().toLowerCase()).filter(Boolean));
+    const identifiers = Array.from(new Set([...idSet, ...nisSet, ...nameSet]));
+
+    const startDate = (elStart?.value || '').trim();
 
     elDo.disabled = true;
     elStatus.style.color = '#333';
     elStatus.textContent = startDate
-      ? `Memproses ${selected.length} santri mulai ${startDate}: ${who}`
-      : `Memproses ${selected.length} santri: ${who}`;
+      ? `Memproses mulai ${startDate}…`
+      : 'Memproses semua tanggal…';
 
     try {
+      // 1) roster dulu (supaya idMap siap)
       const { res: r1, out: o1 } = await postJSON('/.netlify/functions/pindahRosterKelas', {
-        kelasAsal, kelasTujuan,
-        nisList,
-        identifiers: nisList, // kompat
-        idMap
+        kelasAsal, kelasTujuan, identifiers
       });
-      if (!r1.ok || o1?.success === false) {
+      if (!r1.ok || !o1.success) {
         elStatus.style.color = 'red';
-        elStatus.textContent = (o1?.error || `HTTP ${r1.status}`) + (o1?.detail ? `: ${o1.detail}` : '');
-        elDo.disabled = false; return;
+        elStatus.textContent = (o1.error || `HTTP ${r1.status}`) + (o1.detail ? `: ${o1.detail}` : '');
+        elDo.disabled = false;
+        return;
       }
+      const idMap = Array.isArray(o1.idMap) ? o1.idMap : [];
 
+      // 2) absensi mulai tanggal, bawa idMap
       const { res: r2, out: o2 } = await postJSON('/.netlify/functions/pindahKelasMulaiTanggal', {
-        kelasAsal, kelasTujuan,
-        nisList,
-        startDate,
-        santriIds,
-        idMap
+        kelasAsal, kelasTujuan, santriIds, startDate, idMap
       });
-      if (!r2.ok || o2?.success === false) {
+      if (!r2.ok || !o2.success) {
         elStatus.style.color = 'red';
-        elStatus.textContent = (o2?.error || `HTTP ${r2.status}`) + (o2?.detail ? `: ${o2.detail}` : '');
-        elDo.disabled = false; return;
+        elStatus.textContent = (o2.error || `HTTP ${r2.status}`) + (o2.detail ? `: ${o2.detail}` : '');
+        elDo.disabled = false;
+        return;
       }
 
-      migrateUsedAyat(kelasAsal, kelasTujuan, nisList);
-
-      const total = Number(o2?.totalMoved || 0);
+      // sukses
       elStatus.style.color = 'green';
-      elStatus.textContent = `Selesai. ${selected.length} santri dipindahkan. Absensi (${total} entri) dipindahkan${startDate ? ' sejak ' + startDate : ''}.`;
-
-      if (typeof window.loadSantriData === 'function') {
-        try { await window.loadSantriData(); } catch {}
-      }
+      elStatus.textContent = `Selesai. Roster & absensi (${o2.totalMoved} entri) sudah dipindahkan${startDate ? ' sejak ' + startDate : ''}.`;
+      if (typeof loadSantriData === 'function') loadSantriData();
       setTimeout(() => { elModal.style.display = 'none'; }, 800);
 
     } catch (e) {
-      console.error(e);
       elStatus.style.color = 'red';
       elStatus.textContent = 'Kesalahan jaringan/servis.';
       elDo.disabled = false;
@@ -3061,8 +2974,6 @@ btnHapusTerpilih.addEventListener("click", async () => {
   });
 })();
 </script>
-
-
 
 
 	
