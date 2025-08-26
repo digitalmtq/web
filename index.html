@@ -2439,33 +2439,45 @@ async function hitungTotalAllJuzFromTable() {
 
   try {
     // Ambil data absensi rentang tanggal
-    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${dari}&end=${sampai}`);
+    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
     if (!res.ok) throw new Error("Gagal ambil data absensi.");
     const allData = await res.json();
 
     const rows = santriTableBody.querySelectorAll("tr");
 
     // === Peta kanonik dari tabel: id -> NIS, & whitelist NIS di tabel ===
-    const idToNis = new Map();
+    const idToNisTable = new Map();
     const nisInTable = new Set();
     rows.forEach(row => {
       const nis = (row.dataset?.nis || row.children[0]?.textContent || "").trim();
       const rid = (row.dataset?.id || "").trim();
       if (nis) nisInTable.add(nis);
-      if (rid && nis) idToNis.set(String(rid), nis);
+      if (rid && nis) idToNisTable.set(String(rid), nis);
+    });
+
+    // === Tambahan penting: Ambil roster kelas_{...}.json sebagai sumber kebenaran NIS ===
+    const rRoster = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+    const roster = await rRoster.json();
+    const allowedNis = new Set();  // semua NIS sah di roster
+    const idToNisRoster = new Map(); // peta id (lama) -> NIS berdasarkan roster
+    (Array.isArray(roster) ? roster : []).forEach(s => {
+      const nis = String(s?.nis || s?.id || "").trim();
+      const sid = String(s?.id || "").trim();
+      if (nis) allowedNis.add(nis);
+      if (sid && nis) idToNisRoster.set(sid, nis);
     });
 
     const rekap = {}; // 🔑 nis => { totalJuz, semester }
 
-    // Rekap total juz per santri dari data absensi (dinormalisasi ke NIS)
+    // Rekap total juz per santri dari data absensi (dinormalisasi ke NIS roster)
     (Array.isArray(allData) ? allData : []).forEach(item => {
       const rawNis = String(item?.nis || "").trim();
       const rawId  = String(item?.id  || "").trim();
 
-      // kunci rekap = NIS tabel (prioritas item.nis, fallback id->nis dari tabel)
-      const key = rawNis || idToNis.get(rawId) || "";
-      if (!key) return;               // skip jika tak bisa dipetakan
-      if (!nisInTable.has(key)) return; // cegah akumulasi santri lain/kelas lain
+      // kunci rekap = NIS dari data → else peta roster → else peta tabel
+      const key = rawNis || idToNisRoster.get(rawId) || idToNisTable.get(rawId) || "";
+      if (!key) return;                 // skip jika tak bisa dipetakan
+      if (!allowedNis.has(key)) return; // filter ketat sesuai roster kelas
 
       if (!rekap[key]) {
         rekap[key] = { totalJuz: 0, semester: item.semester || null };
@@ -2613,18 +2625,30 @@ async function hitungTotalAllJuzOtomatis() {
   // Ambil absensi & hitung total
   try {
     const resAbs = await fetch(
-      `/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${dari}&end=${sampai}`
+      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`
     );
     const allData = await resAbs.json();
 
     // === Peta kanonik dari tabel (id -> NIS) & whitelist NIS ===
-    const idToNis = new Map();
+    const idToNisTable = new Map();
     const nisInTable = new Set();
     rows.forEach(row => {
       const nis = (row.dataset?.nis || row.children[0]?.textContent || "").trim();
       const rid = (row.dataset?.id || "").trim();
       if (nis) nisInTable.add(nis);
-      if (rid && nis) idToNis.set(String(rid), nis);
+      if (rid && nis) idToNisTable.set(String(rid), nis);
+    });
+
+    // === Tambahan penting: Ambil roster kelas sebagai sumber kebenaran NIS ===
+    const rRoster = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+    const roster = await rRoster.json();
+    const allowedNis = new Set();
+    const idToNisRoster = new Map();
+    (Array.isArray(roster) ? roster : []).forEach(s => {
+      const nis = String(s?.nis || s?.id || "").trim();
+      const sid = String(s?.id || "").trim();
+      if (nis) allowedNis.add(nis);
+      if (sid && nis) idToNisRoster.set(sid, nis);
     });
 
     const rekap = {}; // 🔑 nis => { totalJuz, semester }
@@ -2633,9 +2657,9 @@ async function hitungTotalAllJuzOtomatis() {
       const rawNis = String(item?.nis || "").trim();
       const rawId  = String(item?.id  || "").trim();
 
-      const key = rawNis || idToNis.get(rawId) || "";
+      const key = rawNis || idToNisRoster.get(rawId) || idToNisTable.get(rawId) || "";
       if (!key) return;
-      if (!nisInTable.has(key)) return;
+      if (!allowedNis.has(key)) return;
 
       if (!rekap[key]) rekap[key] = { totalJuz: 0, semester: item.semester || null };
       rekap[key].totalJuz += parseFloat(item.totalJuz || 0);
@@ -2703,7 +2727,6 @@ window.loadSantriData = async function (...args) {
 // Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
 tanggalInput?.addEventListener("change", () => loadSantriData());
 kelasSelect?.addEventListener("change", () => loadSantriData());
-
 </script>
 
 
