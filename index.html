@@ -1656,16 +1656,14 @@ if (tanggalFilterAkhir) {
       }, 500);
     });
 
-async function loadSantriData() { 
-  const kelas   = kelasSelect?.value || "";
-  const tanggal = tanggalInput?.value || ""; // tanggal awal (kolom pertama)
+    async function loadSantriData() { 
+  const kelas = kelasSelect.value;
+  const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
   // --- helper kecil (TIDAK mengubah bagian lain) ---
   const keyId  = v => (v === 0 || v) ? String(v).trim() : "";
   const keyNis = v => (v === 0 || v) ? String(v).trim() : "";
-  const keySantri = obj => keyNis(obj?.nis) || keyId(obj?.id); // prefer NIS
-
   const byIdMap = (arr, pick = x => x) => {
     const m = new Map();
     for (const a of arr || []) {
@@ -1679,14 +1677,14 @@ async function loadSantriData() {
   function setButtonsDisabled(disabled) {
     const targets = [
       document.getElementById("save-btn-modal"),                 // Simpan Data Mutaba'ah (modal)
-      document.getElementById("save-btn"),
-      document.getElementById("btnHitungTotalJuz"),
+	  document.getElementById("save-btn"),
+	  document.getElementById("btnHitungTotalJuz"),
       document.querySelector("button[onclick='bukaModalSantri()']"), // Tambah Santri
       document.getElementById("btnHapusSantri"),                 // Hapus Santri
       document.getElementById("btnPindahKelas"),                 // Pindah Kelas
       document.getElementById("recordButton"),                   // ● Record
       document.getElementById("btn-beri-nilai"),                 // Beri Nilai Manual
-      document.querySelector("button[onclick='simpanSantriBaru()']"), // Simpan (modal tambah santri)
+	  document.querySelector("button[onclick='simpanSantriBaru()']"), // Simpan (modal tambah santri)
       document.getElementById("btnHapusTerpilih"),               // Hapus terpilih
       document.getElementById("doPindah"),                       // Pindahkan
     ];
@@ -1695,6 +1693,7 @@ async function loadSantriData() {
       btn.disabled = !!disabled;
       btn.style.opacity = disabled ? "0.5" : "";
       btn.style.cursor  = disabled ? "not-allowed" : "";
+      // opsional: cegah handler inline saat disabled
       if (disabled) {
         btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
         if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
@@ -1711,14 +1710,13 @@ async function loadSantriData() {
     // --- Ambil semua santri di kelas --- (tambahkan cache-buster)
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     let santriData = await resSantri.json();
-    if (!Array.isArray(santriData)) santriData = [];
 
     // siapkan peta roster by id untuk isi nis absensi yang kosong
     const rosterById = byIdMap(santriData, s => s);
 
     // --- Ambil data absensi (satu tanggal vs rentang tabel) ---
     let absensiData = [];
-    const endFilter = (typeof tanggalFilterAkhir !== "undefined" && tanggalFilterAkhir) ? tanggalFilterAkhir.value : "";
+    const endFilter = tanggalFilterAkhir ? tanggalFilterAkhir.value : "";
 
     if (endFilter && endFilter !== tanggal) {
       // rentang tanggal untuk tampilan tabel
@@ -1726,51 +1724,43 @@ async function loadSantriData() {
         `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(endFilter)}&t=${Date.now()}`
       );
       absensiData = await resAbsensiRange.json();
-      if (!Array.isArray(absensiData)) absensiData = [];
-
       // normalisasi: isi nis kosong dari roster by id
-      absensiData = absensiData.map((r, i) => {
+      absensiData = (Array.isArray(absensiData) ? absensiData : []).map((r,i) => {
         const id  = keyId(r?.id ?? i+1);
-        let  nis  = keyNis(r?.nis ?? "");
-        if (!nis && id) {
-          const ref = rosterById.get(id);
-          if (ref?.nis) nis = keyNis(ref.nis);
-        }
-        return { ...r, id, nis };
+        const nis = keyNis(r?.nis ?? "");
+        if (nis) return { ...r, id };
+        const ref = rosterById.get(id);
+        return ref?.nis ? { ...r, id, nis: ref.nis } : { ...r, id };
       });
     } else {
       // satu tanggal
       const resAbsensi = await fetch(
         `/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`
       );
-      let raw = await resAbsensi.json();
-      absensiData = Array.isArray(raw) ? raw : (raw?.list || []);
-      if (!Array.isArray(absensiData)) absensiData = [];
-
+      absensiData = await resAbsensi.json();
+      // dukung jika server kembalikan {list:[]}
+      absensiData = Array.isArray(absensiData) ? absensiData : (absensiData?.list || []);
       // normalisasi: isi nis kosong dari roster by id
-      absensiData = absensiData.map((r, i) => {
+      absensiData = absensiData.map((r,i) => {
         const id  = keyId(r?.id ?? i+1);
-        let  nis  = keyNis(r?.nis ?? "");
-        if (!nis && id) {
-          const ref = rosterById.get(id);
-          if (ref?.nis) nis = keyNis(ref.nis);
-        }
-        return { ...r, id, nis };
+        const nis = keyNis(r?.nis ?? "");
+        if (nis) return { ...r, id };
+        const ref = rosterById.get(id);
+        return ref?.nis ? { ...r, id, nis: ref.nis } : { ...r, id };
       });
     }
 
-    // --- Ambil user login & filter akses santri (TIDAK diubah logikanya) ---
+    // --- Ambil user login & filter akses santri (tidak diubah) ---
     const username = localStorage.getItem("username");
-    const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r => r.json()).catch(() => []);
-    const user = Array.isArray(users) ? users.find(u => u.username === username) : null;
+    const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r => r.json());
+    const user = users.find(u => u.username === username);
 
     if (user) {
       if (user.kelas && user.kelas.length) {
         if (!user.kelas.includes(kelas)) {
           santriData = [];
         } else if (user.nis && user.nis.length) {
-          // filter berdasarkan nis user
-          santriData = santriData.filter(s => user.nis.includes(keyNis(s.nis)));
+          santriData = santriData.filter(s => user.nis.includes(s.nis));
         }
       }
     } else {
@@ -1807,17 +1797,17 @@ async function loadSantriData() {
         const aid  = keyId(a.id);
         const anis = keyNis(a.nis);
         if (aid) {
-          (absensiById[aid]  ||= []).push(a);
+          if (!absensiById[aid]) absensiById[aid] = [];
+          absensiById[aid].push(a);
         }
         if (anis) {
-          (absensiByNis[anis] ||= []).push(a);
+          if (!absensiByNis[anis]) absensiByNis[anis] = [];
+          absensiByNis[anis].push(a);
         }
       }
       // urutkan per-santri berdasarkan field 'tanggal' bila ada
       const sorter = arr => {
-        try {
-          arr.sort((x, y) => String(x.tanggal || "").localeCompare(String(y.tanggal || "")));
-        } catch {}
+        arr.sort((x, y) => String(x.tanggal || "").localeCompare(String(y.tanggal || "")));
       };
       Object.values(absensiById).forEach(sorter);
       Object.values(absensiByNis).forEach(sorter);
@@ -1861,9 +1851,9 @@ async function loadSantriData() {
       rowsForSantri.forEach((dataAbsensi) => {
         const row = document.createElement("tr");
 
-        const surahOptions = (Array.isArray(surahList) ? surahList : []).map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
-        const dari   = (dataAbsensi?.dari   || "1:1");
-        const sampai = (dataAbsensi?.sampai || "1:1");
+        const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
+        const dari = (dataAbsensi?.dari || "1:1").split(":");
+        const sampai = (dataAbsensi?.sampai || "1:1").split(":");
 
         // tanggal spesifik baris: rentang → dataAbsensi.tanggal; tunggal → tanggal awal
         const rowDate = (isRange && dataAbsensi?.tanggal) ? dataAbsensi.tanggal : tanggal;
@@ -1874,14 +1864,14 @@ async function loadSantriData() {
           : "";
 
         row.innerHTML = `
-          <td>${santri.nis || santri.id}</td>
-          <td>${santri.nama || "-"}${subTanggal}</td>
+          <td>${santri.id || santri.nis}</td>
+          <td>${santri.nama}${subTanggal}</td>
           <td>
             <select class="absensi">
               <option value="Hadir" ${dataAbsensi?.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
               <option value="Alpha" ${dataAbsensi?.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
               <option value="Sakit" ${dataAbsensi?.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
-              <option value="Izin"  ${dataAbsensi?.absensi === "Izin"  ? "selected" : ""}>Izin</option>
+              <option value="Izin" ${dataAbsensi?.absensi === "Izin" ? "selected" : ""}>Izin</option>
             </select>
           </td>
           <td>
@@ -1892,10 +1882,20 @@ async function loadSantriData() {
             <select class="surah-sampai">${surahOptions}</select>
             <select class="ayat-sampai"></select>
           </td>
-          <td class="halaman-terbaca">${(dataAbsensi?.halaman ?? '-')}</td>
-          <td class="total-halaman">${(dataAbsensi?.totalHalaman ?? '-')}</td>
-          <td class="juz-terbaca">${(dataAbsensi?.juzTerbaca ?? '-')}</td>
-          <td class="total-juz">${(dataAbsensi?.totalJuz ?? 0)}</td>
+          <td class="halaman-terbaca">${dataAbsensi?.halaman ?? '-'}</td>
+          <td class="total-halaman">${dataAbsensi?.totalHalaman ?? '-'}</td>
+          <td class="juz-terbaca">${dataAbsensi?.juzTerbaca ?? '-'}</td>
+          <td class="total-juz">${dataAbsensi?.totalJuz ?? 0}</td>
+          <td>
+            <select class="semester">
+              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
+              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
+              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
+              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
+              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
+              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
+            </select>
+          </td>
           <td>
             <div class="nilai-ringkas">
               ${dataAbsensi?.buttonCell 
@@ -1909,10 +1909,9 @@ async function loadSantriData() {
           </td>
         `;
 
-        // simpan id, nis & tanggal baris pada <tr> (dipakai klik-per-baris)
-        row.dataset.id      = keyId(santri.id) || "";              // tetap simpan id untuk kompatibilitas lama
-        row.dataset.nis     = keyNis(santri.nis) || "";            // kunci utama baru
-        row.dataset.tanggal = rowDate || "";
+        // simpan id & tanggal baris pada <tr> (dipakai klik-per-baris)
+        row.dataset.id = (santri.id || santri.nis);
+        row.dataset.tanggal = rowDate;
 
         // jika backend mengirim marks untuk baris ini, tempel di row agar modal pakai data ini
         if (dataAbsensi && dataAbsensi.marks) {
@@ -1923,23 +1922,23 @@ async function loadSantriData() {
 
         // ganti gif jika total-all-juz = 0 (khusus baris ini saja)
         const totalAllJuzTd = row.querySelector("td.total-all-juz");
-        if (totalAllJuzTd && (String(totalAllJuzTd.textContent || "").trim() === "0")) {
+        if (totalAllJuzTd && totalAllJuzTd.textContent.trim() === "0") {
           totalAllJuzTd.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
         }
 
         // Set surah & ayat dropdown
-        const surahDari   = row.querySelector(".surah-dari");
-        const ayatDari    = row.querySelector(".ayat-dari");
+        const surahDari = row.querySelector(".surah-dari");
+        const ayatDari = row.querySelector(".ayat-dari");
         const surahSampai = row.querySelector(".surah-sampai");
-        const ayatSampai  = row.querySelector(".ayat-sampai");
+        const ayatSampai = row.querySelector(".ayat-sampai");
 
-        const dariArr   = Array.isArray(dari)   ? dari   : String(dari).split(":");
+        const dariArr = Array.isArray(dari) ? dari : String(dari).split(":");
         const sampaiArr = Array.isArray(sampai) ? sampai : String(sampai).split(":");
 
-        surahDari.value   = dariArr[0]   || "1";
-        surahSampai.value = sampaiArr[0] || surahDari.value;
+        surahDari.value = dariArr[0];
+        surahSampai.value = sampaiArr[0];
 
-        fillAyatOptions(ayatDari,   surahDari.value,   dariArr[1]);
+        fillAyatOptions(ayatDari, surahDari.value, dariArr[1]);
         fillAyatOptions(ayatSampai, surahSampai.value, sampaiArr[1]);
 
         surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
