@@ -2159,18 +2159,25 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   // Ambil nama murni dari cell nama (tanpa subTanggal <div>)
   function getNamaFromCell(cell) {
     if (!cell) return "";
-    // childNodes[0] biasanya text node "Nama"
     const first = cell.childNodes && cell.childNodes[0];
     const txt = (first && first.textContent) ? first.textContent : cell.textContent;
     return String(txt).trim();
   }
 
-  // Ambil ID baris (id numerik atau NIS string)
-  function getRowId(row) {
+  // === KUNCI: Ambil NIS sebagai string dari data-nis (fallback kolom pertama)
+  function getRowNis(row) {
+    const viaDataset = row?.dataset?.nis && row.dataset.nis.trim();
+    if (viaDataset) return viaDataset;
+    // fallback: teks kolom pertama (tetap STRING, jangan parseInt)
     const raw = row.children[0]?.textContent?.trim() || "";
-    const asNum = parseInt(raw, 10);
-    return Number.isNaN(asNum) ? raw : asNum;
+    return String(raw);
   }
+
+  // Finder/Index by NIS dgn fallback ke id lama (kompat file lama)
+  const findByNis = (arr, nis) =>
+    arr.find(d => String(d?.nis ?? d?.id ?? "").trim() === String(nis).trim());
+  const findIndexByNis = (arr, nis) =>
+    arr.findIndex(d => String(d?.nis ?? d?.id ?? "").trim() === String(nis).trim());
 
   // ===== UI lock =====
   saveBtn.disabled = true;
@@ -2204,12 +2211,25 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
       // -- susun payload per baris (untuk tanggal ini)
       rowsTanggal.forEach((row) => {
-        const id = getRowId(row);
-        const existing = dataMerged.find(d => String(d.id) === String(id)) || {};
+        const nis = getRowNis(row);
+        if (!nis) return; // skip bila kosong
+
+        const existing = findByNis(dataMerged, nis) || {};
 
         const nama = getNamaFromCell(row.children[1]); // hanya nama
+
+        // Absensi: dukung checkbox maupun input/select
+        const absensiEl = row.querySelector(".absensi");
+        let absensi = existing.absensi ?? "";
+        if (absensiEl) {
+          if (absensiEl.type === "checkbox") {
+            absensi = absensiEl.checked ? "Hadir" : "Tidak Hadir";
+          } else {
+            absensi = absensiEl.value ?? absensi;
+          }
+        }
+
         const semester = row.querySelector(".semester")?.value ?? existing.semester ?? "";
-        const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
         const ayatDari  = row.querySelector(".ayat-dari")?.value ?? "";
         const surahSampai = row.querySelector(".surah-sampai")?.value ?? "";
@@ -2224,7 +2244,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
         const parsed = parseNilaiStr(nilaiStr);
 
-        // Jika ada nilai baru valid → pakai, else pakai existing, else JANGAN tulis buttonCell (hindari reset 0)
         const adaNilaiBaru = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai));
         let buttonCell;
         if (adaNilaiBaru) {
@@ -2232,15 +2251,16 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-') ? parsed.predikatHuruf : (existing.buttonCell?.predikatHuruf ?? "-");
           buttonCell = { nilai: parsed.nilai, predikatText, predikatHuruf };
         } else if (existing.buttonCell) {
-          buttonCell = existing.buttonCell; // pertahankan
-        } // else undefined → tidak ditulis agar tidak overwrite
+          buttonCell = existing.buttonCell;
+        }
 
-        // marks per baris (sudah ditempel ke row.markData saat edit modal)
         const marks = row.markData || existing.marks || { audio: [] };
 
+        // Gunakan NIS sebagai kunci utama; set juga id=nis untuk kompat
         const base = {
           ...existing,
-          id,
+          nis,
+          id: String(nis),
           nama,
           semester,
           absensi,
@@ -2252,10 +2272,9 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           juzTerbaca,
           marks
         };
-        // sisipkan buttonCell hanya jika ada (hindari reset)
         const newData = buttonCell ? { ...base, buttonCell } : base;
 
-        const idx = dataMerged.findIndex(d => String(d.id) === String(id));
+        const idx = findIndexByNis(dataMerged, nis);
         if (idx !== -1) dataMerged[idx] = newData; else dataMerged.push(newData);
       });
 
@@ -2280,22 +2299,14 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
       saveBtn.textContent = "❌ Gagal Sebagian";
     }
 
-    setTimeout(() => {
-      saveBtn.textContent = originalText;
-      saveBtn.disabled = false;
-    }, 1800);
-
   } catch (err) {
     console.error(err);
     alert("⚠️ Error menyimpan data!");
+  } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = originalText;
   }
 }
-
-
-
-
 
 // Pasang event listener ke dua tombol Save
 document.getElementById("save-btn").addEventListener("click", function () {
@@ -2304,6 +2315,7 @@ document.getElementById("save-btn").addEventListener("click", function () {
 document.getElementById("save-btn-modal").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
+
 
 
     downloadBtn.addEventListener("click", async () => {
