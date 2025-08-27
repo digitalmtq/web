@@ -1864,7 +1864,7 @@ if (tanggalFilterAkhir) {
           : "";
 
         row.innerHTML = `
-          <td>${santri.nis || santri.id}</td>
+          <td>${santri.id || santri.nis}</td>
           <td>${santri.nama}${subTanggal}</td>
           <td>
             <select class="absensi">
