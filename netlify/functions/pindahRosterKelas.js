@@ -1,7 +1,7 @@
 // netlify/functions/pindahRosterKelas.js
-// Pindah data roster antar kelas_.json, alokasi ID gap-first, urutkan hasil by ID
-
-const API_BASE = "https://api.github.com/repos/digitalmtq/server/contents";
+const OWNER_REPO = "digitalmtq/server";
+const BRANCH     = "main";
+const API_BASE   = `https://api.github.com/repos/${OWNER_REPO}/contents`;
 
 const ghHeaders = (token) => ({
   Authorization: `Bearer ${token}`,
@@ -9,10 +9,12 @@ const ghHeaders = (token) => ({
   "Content-Type": "application/json",
 });
 
+const withRef = (url) => `${url}?ref=${encodeURIComponent(BRANCH)}`;
+
 const normKelas = (k) => (k && k.startsWith("kelas_") ? k : `kelas_${k}`);
 
 async function readJsonFile(path, token) {
-  const res = await fetch(`${API_BASE}/${path}`, { headers: ghHeaders(token) });
+  const res = await fetch(withRef(`${API_BASE}/${path}`), { headers: ghHeaders(token) });
   if (res.status === 404) return { ok: true, exists: false, sha: null, data: [] };
   if (!res.ok) return { ok: false, status: res.status, error: await res.text().catch(()=>"") };
   const json = await res.json();
@@ -27,6 +29,7 @@ async function writeJsonFile(path, arrayData, token, sha = null, message = "upda
     message,
     content: Buffer.from(JSON.stringify(arrayData, null, 2)).toString("base64"),
     committer: { name: "admin", email: "admin@local" },
+    branch: BRANCH,
   };
   if (sha) body.sha = sha;
   const res = await fetch(`${API_BASE}/${path}`, { method: "PUT", headers: ghHeaders(token), body: JSON.stringify(body) });
@@ -34,7 +37,6 @@ async function writeJsonFile(path, arrayData, token, sha = null, message = "upda
   return { ok: true };
 }
 
-// Kumpulkan ID numerik valid (positif) dari array
 function collectUsedIdsNumeric(arr) {
   const set = new Set();
   for (const r of arr) {
@@ -43,15 +45,11 @@ function collectUsedIdsNumeric(arr) {
   }
   return set;
 }
-
-// Ambil ID kosong terkecil; jika penuh 1..max, hasilkan max+1
 function allocNextIdGapFirst(usedSet) {
   let i = 1;
   while (usedSet.has(String(i))) i++;
   return String(i);
 }
-
-// Sort array by numeric id ascending
 function sortByIdNumeric(arr) {
   return [...arr].sort((a, b) => {
     const ai = parseInt((a.id ?? 0), 10) || 0;
@@ -68,7 +66,12 @@ exports.handler = async (event) => {
     const token = process.env.MTQ_TOKEN;
     if (!token) return { statusCode: 500, body: JSON.stringify({ error: "MTQ_TOKEN tidak tersedia" }) };
 
-    let { kelasAsal, kelasTujuan, identifiers } = JSON.parse(event.body || "{}");
+    let body = {};
+    try { body = JSON.parse(event.body || "{}"); } catch {
+      return { statusCode: 400, body: JSON.stringify({ error: "Body bukan JSON valid" }) };
+    }
+
+    let { kelasAsal, kelasTujuan, identifiers } = body;
     if (!kelasAsal || !kelasTujuan || !Array.isArray(identifiers) || identifiers.length === 0) {
       return { statusCode: 400, body: JSON.stringify({ error: "Wajib: kelasAsal, kelasTujuan, identifiers[]" }) };
     }
@@ -87,12 +90,16 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: "Gagal baca kelas tujuan", detail: dst.error }) };
     }
 
-    const pick = new Set(identifiers.map(v => String(v).trim()).filter(Boolean));
+    const cleanIds = identifiers.map(v => String(v ?? "").trim()).filter(Boolean);
+    const idPick   = new Set(cleanIds);
+    const nisPick  = new Set(cleanIds);
+    const namePick = new Set(cleanIds.map(v => v.toLowerCase()));
+
     const match = (row) => {
-      const id = (row.id ?? "").toString();
-      const nis = (row.nis ?? "").toString();
-      const nm = (row.nama ?? "").toLowerCase();
-      return pick.has(id) || (nis && pick.has(nis)) || (nm && pick.has(nm));
+      const id  = (row.id   ?? "").toString();
+      const nis = (row.nis  ?? "").toString();
+      const nmL = String(row.nama ?? "").toLowerCase();
+      return idPick.has(id) || (nis && nisPick.has(nis)) || (nmL && namePick.has(nmL));
     };
 
     const toMove = src.data.filter(match);
@@ -103,15 +110,18 @@ exports.handler = async (event) => {
     const dstArr = Array.isArray(dst.data) ? [...dst.data] : [];
     const usedIds = collectUsedIdsNumeric(dstArr);
 
-    // Buang duplikat target dulu (upsert by id/nis/nama)
+    // dedupe target berdasarkan toMove (bukan seluruh identifiers)
+    const mvId   = new Set(toMove.map(r => (r.id  ?? "").toString()).filter(Boolean));
+    const mvNis  = new Set(toMove.map(r => (r.nis ?? "").toString()).filter(Boolean));
+    const mvName = new Set(toMove.map(r => String(r.nama ?? "").toLowerCase()).filter(Boolean));
+
     const cleanedDst = dstArr.filter(r => {
-      const rid = (r.id ?? "").toString();
+      const rid  = (r.id  ?? "").toString();
       const rnis = (r.nis ?? "").toString();
-      const rnm = (r.nama ?? "").toLowerCase();
-      return !(pick.has(rid) || (rnis && pick.has(rnis)) || (rnm && pick.has(rnm)));
+      const rnmL = String(r.nama ?? "").toLowerCase();
+      return !( (rid && mvId.has(rid)) || (rnis && mvNis.has(rnis)) || (rnmL && mvName.has(rnmL)) );
     });
 
-    // Alokasikan ID dengan strategi gap-first dan buat idMap untuk remap di absensi
     const idMap = []; // { oldId, newId, nis, nama }
     const movedWithIds = toMove.map(orig => {
       const row = { ...orig };
@@ -119,7 +129,7 @@ exports.handler = async (event) => {
       const oldIdNum = parseInt(oldIdStr, 10);
       const keepOld = Number.isInteger(oldIdNum) && oldIdNum > 0 && !usedIds.has(String(oldIdNum));
 
-      let newIdStr = keepOld ? String(oldIdNum) : allocNextIdGapFirst(usedIds);
+      const newIdStr = keepOld ? String(oldIdNum) : allocNextIdGapFirst(usedIds);
       if (!keepOld) {
         idMap.push({ oldId: oldIdStr, newId: newIdStr, nis: row.nis ?? "", nama: row.nama ?? "" });
       }
@@ -137,7 +147,9 @@ exports.handler = async (event) => {
       dst.exists ? `Upsert ${movedWithIds.length} santri (gap-ID, sorted) ke ${tujuan}`
                  : `Create ${tujuan} & seed ${movedWithIds.length} santri (gap-ID, sorted)`
     );
-    if (!wDst.ok) return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis kelas tujuan" }) };
+    if (!wDst.ok) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis kelas tujuan", detail: wDst.error, status: wDst.status }) };
+    }
 
     const remaining = src.data.filter(r => !match(r));
     const sortedRemaining = sortByIdNumeric(remaining);
@@ -145,14 +157,13 @@ exports.handler = async (event) => {
       asalPath, sortedRemaining, token, src.sha,
       `Remove ${toMove.length} santri pindah dari ${asal} (sorted)`
     );
-    if (!wSrc.ok) return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis kelas asal" }) };
+    if (!wSrc.ok) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal menulis kelas asal", detail: wSrc.error, status: wSrc.status }) };
+    }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, moved: toMove.length, idMap })
-    };
+    return { statusCode: 200, body: JSON.stringify({ success: true, moved: toMove.length, idMap }) };
 
   } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: "Unhandled error", detail: e.message }) };
+    return { statusCode: 500, body: JSON.stringify({ error: "Unhandled error", detail: e?.message || String(e) }) };
   }
 };
