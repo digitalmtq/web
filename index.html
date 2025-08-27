@@ -1895,6 +1895,16 @@ async function loadSantriData() {
             </div>
             <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
           </td>
+		  <td>
+            <select class="semester">
+              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
+              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
+              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
+              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
+              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
+              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
+            </select>
+          </td>
           <td class="total-all-juz">
             <img src="https://raw.githubusercontent.com/digitalmtq/web/main/meeting.gif" style="width:70px;height:18px;">
           </td>
