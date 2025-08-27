@@ -2850,7 +2850,14 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
   const normKelas = (k) => (k?.startsWith('kelas_') ? k : `kelas_${k}`);
 
-  // tambahkan input tanggal (sekali saja)
+  async function ensureAbsensiAda(kelas, tanggal) {
+    try {
+      const url = `/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`;
+      const r = await fetch(url);
+      return (r.status === 200 || r.status === 404);
+    } catch { return false; }
+  }
+
   let elStart = document.getElementById('startDateMove');
   function ensureStartDateInput() {
     if (!elStart) {
@@ -2865,7 +2872,6 @@ btnHapusTerpilih.addEventListener("click", async () => {
     }
   }
 
-  // buka modal
   elBtnOpen.addEventListener('click', openModal);
   elClose.addEventListener('click', () => elModal.style.display = 'none');
 
@@ -2879,15 +2885,17 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
     // 1) load santri
     try {
-      const r = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}`);
+      const r = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}&t=${Date.now()}`);
       const data = await r.json();
       elSantriSel.innerHTML = (Array.isArray(data) ? data : []).map(s => {
-        const id = s.id ?? '';
-        const nis = s.nis ?? '';
+        const id   = s.id   ?? '';
+        const nis  = s.nis  ?? '';
         const nama = s.nama ?? '';
-        const value = id || nis || nama;
-        return `<option value="${String(value)}" data-id="${String(id)}" data-nis="${String(nis)}" data-nama="${String(nama)}">
-          ${nama} (${id || nis || '-'})
+        return `<option value="${String(nis || id || '')}"
+                        data-id="${String(id)}"
+                        data-nis="${String(nis)}"
+                        data-nama="${String(nama)}">
+          ${nama} (${nis || id || '-'})
         </option>`;
       }).join('');
     } catch {
@@ -2896,7 +2904,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
     // 2) load kelas tujuan
     try {
-      const rK = await fetch(`/.netlify/functions/ambilKelas`);
+      const rK = await fetch(`/.netlify/functions/ambilKelas?t=${Date.now()}`);
       const kelasList = await rK.json();
       elKelasWrap.innerHTML = (Array.isArray(kelasList) ? kelasList : [])
         .map(normKelas)
@@ -2909,7 +2917,6 @@ btnHapusTerpilih.addEventListener("click", async () => {
     }
   }
 
-  // util post JSON
   async function postJSON(url, payload) {
     const res = await fetch(url, {
       method: 'POST',
@@ -2917,11 +2924,10 @@ btnHapusTerpilih.addEventListener("click", async () => {
       body: JSON.stringify(payload)
     });
     let out = {};
-    try { out = await res.json(); } catch { out = {}; }
+    try { out = await res.json(); } catch {}
     return { res, out };
   }
 
-  // klik Pindah
   elDo.addEventListener('click', async () => {
     const kelasAsal   = normKelas(kelasSelect.value);
     const kelasTujuan = normKelas(document.querySelector('input[name="kelasTujuan"]:checked')?.value || '');
@@ -2930,25 +2936,19 @@ btnHapusTerpilih.addEventListener("click", async () => {
     if (!selected.length) { alert('Pilih minimal satu santri.'); return; }
     if (!kelasTujuan)     { alert('Pilih kelas tujuan.'); return; }
 
-    // ids untuk absensi
-    const santriIds = selected.map(o => o.dataset.id || o.value);
-
-    // identifiers untuk roster
-    const idSet   = new Set(selected.map(o => (o.dataset.id   || '').trim()).filter(Boolean));
-    const nisSet  = new Set(selected.map(o => (o.dataset.nis  || '').trim()).filter(Boolean));
-    const nameSet = new Set(selected.map(o => (o.dataset.nama || '').trim().toLowerCase()).filter(Boolean));
-    const identifiers = Array.from(new Set([...idSet, ...nisSet, ...nameSet]));
+    const ids   = [...new Set(selected.map(o => (o.dataset.id  || '').trim()).filter(Boolean))];
+    const nises = [...new Set(selected.map(o => (o.dataset.nis || '').trim()).filter(Boolean))];
+    const names = [...new Set(selected.map(o => (o.dataset.nama || '').trim().toLowerCase()).filter(Boolean))];
+    const identifiers = Array.from(new Set([...ids, ...nises, ...names])); // untuk roster
 
     const startDate = (elStart?.value || '').trim();
 
     elDo.disabled = true;
     elStatus.style.color = '#333';
-    elStatus.textContent = startDate
-      ? `Memproses mulai ${startDate}…`
-      : 'Memproses semua tanggal…';
+    elStatus.textContent = startDate ? `Memproses mulai ${startDate}…` : 'Memproses semua tanggal…';
 
     try {
-      // 1) roster dulu (supaya idMap siap)
+      // 1) Pindah ROSTER (dapat idMap untuk remap absensi)
       const { res: r1, out: o1 } = await postJSON('/.netlify/functions/pindahRosterKelas', {
         kelasAsal, kelasTujuan, identifiers
       });
@@ -2959,11 +2959,29 @@ btnHapusTerpilih.addEventListener("click", async () => {
         return;
       }
       const idMap = Array.isArray(o1.idMap) ? o1.idMap : [];
+      const payloadCommon = { kelasAsal, kelasTujuan, ids, nises, idMap };
 
-      // 2) absensi mulai tanggal, bawa idMap
-      const { res: r2, out: o2 } = await postJSON('/.netlify/functions/pindahKelasMulaiTanggal', {
-        kelasAsal, kelasTujuan, santriIds, startDate, idMap
-      });
+      // 2) Pindah ABSENSI
+      let r2, o2 = {};
+      if (startDate) {
+        r2 = await fetch('/.netlify/functions/pindahKelasMulaiTanggal', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ ...payloadCommon, startDate })
+        });
+        if (r2.status === 404) {
+          // fallback: semua tanggal
+          r2 = await fetch('/.netlify/functions/pindahKelasSemuaTanggal', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payloadCommon)
+          });
+        }
+      } else {
+        r2 = await fetch('/.netlify/functions/pindahKelasSemuaTanggal', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payloadCommon)
+        });
+      }
+      try { o2 = await r2.json(); } catch {}
       if (!r2.ok || !o2.success) {
         elStatus.style.color = 'red';
         elStatus.textContent = (o2.error || `HTTP ${r2.status}`) + (o2.detail ? `: ${o2.detail}` : '');
@@ -2973,11 +2991,24 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
       // sukses
       elStatus.style.color = 'green';
-      elStatus.textContent = `Selesai. Roster & absensi (${o2.totalMoved} entri) sudah dipindahkan${startDate ? ' sejak ' + startDate : ''}.`;
-      if (typeof loadSantriData === 'function') loadSantriData();
+      elStatus.textContent = `Selesai. Roster & absensi (${o2.totalMoved ?? 'n/a'} entri) dipindahkan${startDate ? ' sejak ' + startDate : ''}.`;
+
+      // Sinkronkan UI
+      if (window.tanggalFilterAkhir) {
+        tanggalFilterAkhir.value = "";
+        try { localStorage.removeItem("tanggalFilterAkhirTerakhir"); } catch(_){}
+      }
+      kelasSelect.value = kelasTujuan;
+      try { localStorage.setItem("kelasTerakhir", kelasTujuan); } catch(_){}
+      const today = new Date().toLocaleDateString('sv-SE');
+      const tanggalAktif = (tanggalInput?.value || today);
+      await ensureAbsensiAda(kelasTujuan, tanggalAktif);
+
+      if (typeof loadSantriData === 'function') await loadSantriData();
       setTimeout(() => { elModal.style.display = 'none'; }, 800);
 
     } catch (e) {
+      console.error(e);
       elStatus.style.color = 'red';
       elStatus.textContent = 'Kesalahan jaringan/servis.';
       elDo.disabled = false;
@@ -2985,6 +3016,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
   });
 })();
 </script>
+
 
 	
 
