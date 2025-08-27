@@ -1230,7 +1230,7 @@ async function submitTambahKelasBaru() {
 
     <!-- Baris aksi nilai + tombol rekam -->
 <div class="manual-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-  <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:100px;" placeholder="Nilai Manual">
+  <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:90px;" placeholder="Nilai Manual">
   <button id="btn-beri-nilai">Acc Nilai Manual</button>
   <button id="btn-open-record">Recording</button>
 </div>
@@ -1601,7 +1601,7 @@ document.addEventListener('click', async function (e) {
 document.getElementById("btn-beri-nilai").onclick = function() {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
   const v = parseFloat(document.getElementById("input-nilai-manual").value);
-  if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan nilai antara 0 dan 100.");
+  if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual antara 0 dan 100.");
   let pred = "-";
   if (v <= 59) pred = "ROSIB (E)";
   else if (v <= 69) pred = "MAQBUL (D)";
