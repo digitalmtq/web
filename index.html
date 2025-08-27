@@ -1189,7 +1189,8 @@ async function submitTambahKelasBaru() {
 </div>
   
   
-  <div id="overlay-quran" style="display:none; position:fixed; top:0; left:0;
+  <!-- ======================= OVERLAY LEMBAR PENILAIAN (TANPA PLAYBACK AUDIO) ======================= -->
+<div id="overlay-quran" style="display:none; position:fixed; top:0; left:0;
      width:100%; height:100%; background:rgba(0,0,0,0.5);
      z-index:10000; justify-content:center; align-items:center;">
   <div style="background:white; padding:20px; border-radius:8px;
@@ -1291,7 +1292,7 @@ async function submitTambahKelasBaru() {
   </div>
 </div>
 
-<!-- === MODAL OVERLAY: REKAMAN AUDIO (SATU-SATUNYA TEMPAT PLAYBACK) === -->
+<!-- ======================= OVERLAY REKAMAN AUDIO (SATU-SATUNYA TEMPAT PLAYBACK) ======================= -->
 <div id="overlay-record" style="display:none; position:fixed; top:0; left:0;
   width:100%; height:100%; background:rgba(0,0,0,0.5);
   z-index:10001; justify-content:center; align-items:center;">
@@ -1336,6 +1337,10 @@ async function submitTambahKelasBaru() {
     </style>
   </div>
 </div>
+
+<!-- ============ Library encoder MP3 (WAJIB) ============ -->
+<script src="js/WebAudioRecorder.min.js" defer></script>
+<script src="js/WebAudioRecorderMp3.min.js" defer></script>
 
 <script>
 /* ========= STATE UTAMA ========= */
@@ -1584,7 +1589,7 @@ document.addEventListener('click', async function (e) {
       const angka = strong ? parseFloat(String(strong.textContent).replace(',', '.')) : NaN;
       if (!Number.isNaN(angka)) nilaiEl.textContent = angka.toFixed(1);
       const sisa = ringkas.textContent.replace(strong?.textContent || '', '').trim();
-      predEl.innerHTML = sisa || '-';
+      predEl.innerHTML = sisa atau '-';
     }
   }
 });
@@ -1616,7 +1621,7 @@ document.getElementById('close-overlay').addEventListener('click', () => {
   document.getElementById('overlay-quran').style.display = 'none';
 });
 
-/* ========= MODAL REKAMAN ========= */
+/* ========= MODAL REKAMAN (BUKA/TUTUP) ========= */
 document.getElementById('btn-open-record').addEventListener('click', () => {
   if (!currentIdSiswa) return alert("Buka dulu 'Lembar Penilaian' pada baris santri.");
   const overlay = document.getElementById('overlay-record');
@@ -1630,47 +1635,71 @@ document.getElementById('btn-open-record').addEventListener('click', () => {
   overlay.style.display = 'flex';
 });
 document.getElementById('record-close').addEventListener('click', () => {
-  try{ if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); }catch{}
-  clearInterval(durTimer);
-  recordStartBtn.disabled = false;
-  recordStopBtn.disabled = true;
+  stopRecordingIfNeeded(true);
   document.getElementById('overlay-record').style.display = 'none';
 });
 
-/* ========= REKAMAN: MEDIARECORDER ========= */
-let mediaStream = null;
-let mediaRecorder = null;
-let chunks = [];
-let durSec = 0;
-let durTimer = null;
+/* ========= REKAMAN .MP3 DENGAN WebAudioRecorder ========= */
+let audioCtx = null;
+let micStream = null;
+let sourceNode = null;
+let mp3Recorder = null;
+let isRecording = false;
 
 const recordStartBtn = document.getElementById('record-start');
 const recordStopBtn  = document.getElementById('record-stop');
 const recordDurEl    = document.getElementById('record-duration');
 const recordSpinEl   = document.getElementById('record-spinner');
 
+let durSec = 0;
+let durTimer = null;
+
 function formatTime(sec){ const m = String(Math.floor(sec/60)).padStart(2,'0'); const s = String(sec%60).padStart(2,'0'); return `${m}:${s}`; }
-async function ensureMic() {
-  if (mediaStream) return mediaStream;
-  mediaStream = await navigator.mediaDevices.getUserMedia({ audio:true });
-  return mediaStream;
+
+async function ensureMicNodes(){
+  if (audioCtx && micStream && sourceNode) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+  sourceNode = audioCtx.createMediaStreamSource(micStream);
+}
+
+function stopRecordingIfNeeded(cancelOnly=false){
+  try { if (mp3Recorder && isRecording && !cancelOnly) mp3Recorder.finishRecording(); } catch(e){}
+  isRecording = false;
+  clearInterval(durTimer);
+  recordStartBtn.disabled = false;
+  recordStopBtn.disabled = true;
 }
 
 recordStartBtn.addEventListener('click', async () => {
   try{
-    await ensureMic();
-    chunks = [];
-    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
-    mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      await handleRecordedBlob(blob);
-    };
-    mediaRecorder.start(100); // timeslice
+    await ensureMicNodes();
+
+    mp3Recorder = new WebAudioRecorder(sourceNode, {
+      workerDir: 'js/',        // folder berisi worker *.js, diakhiri "/"
+      encoding: 'mp3',
+      numChannels: 1,
+      onComplete: async function(rec, blob){
+        // selesai encode MP3
+        await handleRecordedBlobMP3(blob);
+      },
+      onError: function(rec, err){ console.error(err); alert('Terjadi kesalahan saat rekam/encode.'); }
+    });
+
+    mp3Recorder.setOptions({
+      timeLimit: 600,            // 10 menit
+      encodeAfterRecord: true,   // encode saat selesai (lebih stabil)
+      mp3: { bitRate: 128 }      // 96/128/160/192 kbps
+    });
+
+    mp3Recorder.startRecording();
+    isRecording = true;
+
     durSec = 0; recordDurEl.textContent = '00:00';
     durTimer = setInterval(()=>{ durSec++; recordDurEl.textContent = formatTime(durSec); }, 1000);
+
     recordStartBtn.disabled = true;
-    recordStopBtn.disabled = false;
+    recordStopBtn.disabled  = false;
   } catch(err){
     console.error(err);
     alert('Tidak bisa mengakses mikrofon.');
@@ -1678,21 +1707,22 @@ recordStartBtn.addEventListener('click', async () => {
 });
 
 recordStopBtn.addEventListener('click', () => {
-  if (!mediaRecorder) return;
-  recordStopBtn.disabled = true;
+  if (!mp3Recorder || !isRecording) return;
+  recordStopBtn.disabled  = true;
   recordStartBtn.disabled = false;
-  try{ mediaRecorder.stop(); }catch{}
   clearInterval(durTimer);
+  try { mp3Recorder.finishRecording(); } catch(e){ console.warn(e); }
+  isRecording = false;
 });
 
-async function handleRecordedBlob(blob){
+async function handleRecordedBlobMP3(blob){
   // tampilkan spinner
   recordSpinEl.style.display = 'inline-flex';
 
   const { kelas, tanggal } = getKelasTanggalAktif();
   const ts = Date.now();
   const safeTanggal = String(tanggal).replace(/[^0-9-]/g,'');
-  const filename = `rec_${kelas}_${currentIdSiswa}_${safeTanggal}_${ts}.webm`;
+  const filename = `rec_${kelas}_${currentIdSiswa}_${safeTanggal}_${ts}.mp3`;
 
   // Helper: blob -> dataURL (base64)
   function blobToDataURL(b){
@@ -1736,7 +1766,7 @@ async function handleRecordedBlob(blob){
   const li = document.createElement('li');
   li.innerHTML = `
     <audio controls preload="metadata" style="width:100%;">
-      <source src="${url}" type="${getMimeType(filename)}">
+      <source src="${url}" type="audio/mpeg">
       Browser Anda tidak mendukung audio.
     </audio>`;
   recordListEl.appendChild(li);
@@ -1749,7 +1779,6 @@ async function handleRecordedBlob(blob){
   recordSpinEl.style.display = 'none';
 }
 </script>
-
 
 
 <!-- Overlay Hitung Total All Juz -->
