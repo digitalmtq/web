@@ -55,6 +55,33 @@ button.lihat-quran-btn:hover::after {
   border-right: 1px solid #ccc; /* opsional, biar ada garis pembatas */
 }
 
+	  /* ----- Sticky header umum (baris judul tetap di atas) ----- */
+#santri-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;              /* di atas sel body biasa */
+  background: #1e88e5;     /* ulangi background agar tidak transparan */
+  color: #fff;
+}
+
+/* ----- Sudut kiri atas: header kolom pertama ----- */
+#santri-table thead th:first-child {
+  position: sticky;
+  left: 0;                 /* sudah ada, tambahkan top agar tak ketutup */
+  top: 0;
+  z-index: 6;              /* paling tinggi agar tidak ketiban apa pun */
+  background: #1e88e5;     /* samakan warna header */
+}
+
+/* ----- Kolom pertama di body ikut sticky kiri ----- */
+#santri-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  background: #fff;        /* wajib: kalau transparan, akan ‘tembus’ */
+  z-index: 5;              /* di bawah th:first-child, di atas sel lain */
+  border-right: 1px solid #ccc;
+}
+
     .password-wrapper {
   position: relative;
   width: 100%;
