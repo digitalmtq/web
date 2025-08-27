@@ -1601,7 +1601,7 @@ document.addEventListener('click', async function (e) {
 document.getElementById("btn-beri-nilai").onclick = function() {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
   const v = parseFloat(document.getElementById("input-nilai-manual").value);
-  if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual antara 0 dan 100.");
+  if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
   let pred = "-";
   if (v <= 59) pred = "ROSIB (E)";
   else if (v <= 69) pred = "MAQBUL (D)";
