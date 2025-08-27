@@ -1234,7 +1234,7 @@ async function submitTambahKelasBaru() {
     </div>
 
 	  <div style="margin:10px 0;">
-  <button id="recordButton" class="rec-btn"></button>
+  <!-- Loading spinner <button id="recordButton" class="rec-btn"></button> -->
   <button id="stopButton" class="stop-btn" disabled></button>
   <span id="recordDuration"></span>
   <span id="loadingIndicator" style="display:none;margin-left:10px;"></span>
@@ -3093,8 +3093,7 @@ function tampilkanAudioDariMarks(marks) {
       const li = document.createElement('li');
       li.innerHTML = `
         <audio controls preload="metadata">
-          <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
-          Browser Anda tidak mendukung audio.
+        <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
         </audio>
       `;
       recordingsList.appendChild(li);
