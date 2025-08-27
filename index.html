@@ -1278,30 +1278,41 @@ async function submitTambahKelasBaru() {
 
       /* Tombol aksi (Simpan & Tutup) vertikal */
       .modal-actions{
-        display:flex;
-        flex-direction:column;  /* vertikal */
-        gap:10px;
-        margin-top:12px;
-      }
-      .modal-actions button{
-        width:100%;
-        padding:10px 14px;
-        border:none;
-        border-radius:8px;
-        font-weight:600;
-        cursor:pointer;
-      }
-      .btn-primary{ background:#1E88E5; color:#fff; }
-      .btn-primary:hover{ filter:brightness(1.05); }
-      .btn-secondary{ background:#e9ecef; color:#333; }
-      .btn-secondary:hover{ filter:brightness(0.98); }
+  display:flex;
+  flex-direction:row;   /* horizontal */
+  align-items:stretch;
+  gap:10px;
+  margin-top:12px;
+}
+
+.modal-actions button{
+  flex:1 1 0;           /* masing-masing isi setengah lebar */
+  width:auto;           /* jangan fixed 100% */
+  padding:10px 14px;
+  border:none;
+  border-radius:8px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+/* Warna tombol (biarkan seperti sebelumnya) */
+.btn-primary{ background:#1E88E5; color:#fff; }
+.btn-primary:hover{ filter:brightness(1.05); }
+.btn-secondary{ background:#e9ecef; color:#333; }
+.btn-secondary:hover{ filter:brightness(0.98); }
+
+/* Opsional: di layar sangat sempit, otomatis turun baris */
+@media (max-width: 380px){
+  .modal-actions{ flex-wrap:wrap; }
+  .modal-actions button{ flex:1 0 100%; }
+}
     </style>
 
     <!-- ===== BUTTON (VERTIKAL) ===== -->
     <div class="modal-actions">
-      <button id="save-btn-modal" class="btn-primary">Simpan Nilai</button>
-      <button id="close-overlay" class="btn-secondary">Tutup</button>
-    </div>
+  <button id="save-btn-modal" class="btn-primary">Simpan Nilai</button>
+  <button id="close-overlay" class="btn-secondary">Tutup</button>
+</div>
 
   </div>
 </div>
