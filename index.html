@@ -1234,9 +1234,6 @@ async function submitTambahKelasBaru() {
       <button id="btn-open-record">Rekam Audio</button>
     </div>
 
-    <!-- DAFTAR AUDIO (PLAYBACK) -->
-    <ul id="recordingsList" style="margin:10px 0;"></ul>
-
     <style>
       .keterangan-row{
         display:flex;
@@ -1244,8 +1241,6 @@ async function submitTambahKelasBaru() {
         gap:12px;
         margin-bottom:6px;
       }
-
-      /* Box keterangan */
       .keterangan-box {
         display: none;
         background: #f9f9f9;
@@ -1256,7 +1251,6 @@ async function submitTambahKelasBaru() {
         font-size: 15px;
         line-height: 1.6;
       }
-
       .keterangan-toggle {
         all: unset;
         display: inline-block;
@@ -1267,39 +1261,25 @@ async function submitTambahKelasBaru() {
         padding: 2px 4px;
         cursor: pointer;
         position: relative;
-        transition: color 0.00s ease;
+        transition: color 0s ease;
       }
       .keterangan-toggle:hover {
         color: #ffffff;
         background:#1E88E5;
         border-radius:4px;
       }
-
-      /* Tombol aksi (Simpan & Tutup) horizontal full width */
+      /* Tombol Simpan/Tutup horizontal full width */
       .modal-actions{
-        display:flex;
-        flex-direction:row;
-        align-items:stretch;
-        gap:10px;
-        margin-top:12px;
+        display:flex; flex-direction:row; align-items:stretch; gap:10px; margin-top:12px;
       }
       .modal-actions button{
-        flex:1 1 0;
-        width:auto;
-        padding:10px 14px;
-        border:none;
-        border-radius:8px;
-        font-weight:600;
-        cursor:pointer;
+        flex:1 1 0; width:auto; padding:10px 14px; border:none; border-radius:8px; font-weight:600; cursor:pointer;
       }
       .btn-primary{ background:#1E88E5; color:#fff; }
       .btn-primary:hover{ filter:brightness(1.05); }
       .btn-secondary{ background:#e9ecef; color:#333; }
       .btn-secondary:hover{ filter:brightness(0.98); }
-      @media (max-width: 380px){
-        .modal-actions{ flex-wrap:wrap; }
-        .modal-actions button{ flex:1 0 100%; }
-      }
+      @media (max-width:380px){ .modal-actions{ flex-wrap:wrap; } .modal-actions button{ flex:1 0 100%; } }
     </style>
 
     <!-- Tombol Simpan/Tutup -->
@@ -1311,7 +1291,7 @@ async function submitTambahKelasBaru() {
   </div>
 </div>
 
-<!-- === MODAL OVERLAY: REKAMAN AUDIO (BARU) === -->
+<!-- === MODAL OVERLAY: REKAMAN AUDIO (SATU-SATUNYA TEMPAT PLAYBACK) === -->
 <div id="overlay-record" style="display:none; position:fixed; top:0; left:0;
   width:100%; height:100%; background:rgba(0,0,0,0.5);
   z-index:10001; justify-content:center; align-items:center;">
@@ -1334,6 +1314,7 @@ async function submitTambahKelasBaru() {
       </span>
     </div>
 
+    <!-- Semua rekaman (lama & baru) hanya muncul di sini -->
     <ul id="record-list" style="margin:0; padding-left:18px;"></ul>
 
     <style>
@@ -1356,17 +1337,14 @@ async function submitTambahKelasBaru() {
   </div>
 </div>
 
-<!-- Jika app.js dipakai fitur lain, biarkan -->
-<script src="js/app.js" defer></script>
-
 <script>
 /* ========= STATE UTAMA ========= */
 let quranData = {};
 let ayahPageMap = {};
 let markData = {};
 let currentIdSiswa = null;     // id/nis baris aktif
-let currentRowEl = null;       // <tr> aktif (untuk tanggal per-baris)
-let recordingsList = document.getElementById("recordingsList");
+let currentRowEl = null;       // <tr> aktif
+const recordListEl   = document.getElementById('record-list'); // hanya di modal rekaman
 
 /* ========= UTIL KELAS/TANGGAL ========= */
 function getKelasTanggalAktif() {
@@ -1388,7 +1366,7 @@ async function ambilMarksDariNetlify(id, kelas, tanggal) {
   }
 }
 
-/* ========= TAMPIL AUDIO (PLAYBACK) ========= */
+/* ========= AUDIO: UTIL MIME ========= */
 function getMimeType(filename) {
   const ext = filename.split('.').pop().toLowerCase();
   if (ext === 'mp3') return 'audio/mpeg';
@@ -1396,18 +1374,20 @@ function getMimeType(filename) {
   if (ext === 'webm') return 'audio/webm';
   return 'audio/wav';
 }
-function tampilkanAudioDariMarks(marks) {
-  recordingsList.innerHTML = '';
-  if (marks && marks.audio && marks.audio.length > 0) {
-    marks.audio.forEach((filename) => {
+
+/* ========= RENDER AUDIO HANYA DI MODAL REKAMAN ========= */
+function tampilkanAudioDiModalRekam(marks) {
+  recordListEl.innerHTML = '';
+  if (marks && Array.isArray(marks.audio) && marks.audio.length) {
+    for (const filename of marks.audio) {
       const li = document.createElement('li');
       li.innerHTML = `
         <audio controls preload="metadata" style="width:100%;">
           <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
           Browser Anda tidak mendukung audio.
         </audio>`;
-      recordingsList.appendChild(li);
-    });
+      recordListEl.appendChild(li);
+    }
   }
 }
 
@@ -1428,21 +1408,17 @@ function ambilDariStorage() {
 
 /* ========= HITUNG NILAI ========= */
 function hitungNilai() {
-  let totalMinus = 0, hijau = 0, kuning = 0, merah = 0;
-  let adaMark = false;
-
+  let totalMinus = 0, hijau = 0, kuning = 0, merah = 0, adaMark = false;
   for (let ayat in markData) {
     if (ayat === 'audio') continue; // abaikan daftar audio
     for (let idx in markData[ayat]) {
-      const mark = markData[ayat][idx];
-      if (!mark) continue;
+      const mark = markData[ayat][idx]; if (!mark) continue;
       adaMark = true;
       if (mark === "green") { totalMinus += 0.5; hijau++; }
       else if (mark === "yellow") { totalMinus += 1; kuning++; }
       else if (mark === "red") { totalMinus += 2; merah++; }
     }
   }
-
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
   const predikatMap = [
     { max: 59, text: "ROSIB", huruf: "E" },
@@ -1457,14 +1433,12 @@ function hitungNilai() {
     const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
     predikat = `${p.text} <span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
   }
-
   const nilaiEl = document.getElementById("nilai-akhir");
   const predikatEl = document.getElementById("predikat-akhir");
   if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
   if (predikatEl) predikatEl.innerHTML = predikat;
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
-
   return { nilai, predikat, hijau, kuning, merah };
 }
 
@@ -1478,8 +1452,7 @@ function updateNilaiDiTabel({ nilai, predikat }) {
     if (cell) {
       cell.innerHTML = `
         <div class="nilai-ringkas"><strong>${Number(nilai).toFixed(1)}</strong> ${predikat}</div>
-        <button class="lihat-quran-btn">Lembar Penilaian</button>
-      `;
+        <button class="lihat-quran-btn">Lembar Penilaian</button>`;
       row.markData = JSON.parse(JSON.stringify(markData));
     }
   }
@@ -1506,9 +1479,7 @@ function buatKataKlik(surah, ayat, teks) {
       const hasil = hitungNilai();
       updateNilaiDiTabel(hasil);
     };
-    if (markData[surah+":"+ayat]?.[idx]) {
-      span.style.backgroundColor = markData[surah+":"+ayat][idx];
-    }
+    if (markData[surah+":"+ayat]?.[idx]) span.style.backgroundColor = markData[surah+":"+ayat][idx];
     return span;
   });
 }
@@ -1520,7 +1491,7 @@ let dataSiap = Promise.all([
 ]);
 
 /* ========= EVENT CLICK "LEMBAR PENILAIAN" ========= */
-const fontLoadedPages = new Set(); // cache font per halaman
+const fontLoadedPages = new Set();
 document.addEventListener('click', async function (e) {
   if (!e.target.classList.contains('lihat-quran-btn')) return;
 
@@ -1542,10 +1513,9 @@ document.addEventListener('click', async function (e) {
   const kelas = document.getElementById('kelas')?.value || 'default';
   const tanggalBaris = row.dataset?.tanggal || document.getElementById('tanggal')?.value || 'default';
 
-  // 1) ambil marks + audio
+  // 1) ambil marks + audio (TAPI TIDAK dirender di overlay ini)
   let serverMarks = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggalBaris);
   markData = (serverMarks && typeof serverMarks === 'object') ? serverMarks : {};
-  tampilkanAudioDariMarks(markData);
 
   // 2) pastikan data Quran siap
   await dataSiap;
@@ -1556,21 +1526,15 @@ document.addEventListener('click', async function (e) {
   const surahSampai = parseInt(row.querySelector('.surah-sampai').value, 10);
   const ayatSampai  = parseInt(row.querySelector('.ayat-sampai').value, 10);
 
-  // 4) bangun peta halaman -> daftar ayat
+  // 4) peta halaman -> daftar ayat
   const halamanMap = {};
   for (let s = surahDari; s <= surahSampai; s++) {
     const aStart = (s === surahDari) ? ayatDari : 1;
     const aEnd   = (s === surahSampai) ? ayatSampai : 300;
     for (let a = aStart; a <= aEnd; a++) {
-      const key = `${s}:${a}`;
-      const teks = quranData[key];
-      const page = ayahPageMap[key];
+      const key = `${s}:${a}`; const teks = quranData[key]; const page = ayahPageMap[key];
       if (!teks || !page) continue;
-      (halamanMap[page] ||= []).push({
-        surah: s,
-        ayat: a,
-        teks: String(teks).replace(/\|/g, ' ')
-      });
+      (halamanMap[page] ||= []).push({ surah:s, ayat:a, teks:String(teks).replace(/\|/g,' ') });
     }
   }
 
@@ -1578,28 +1542,21 @@ document.addEventListener('click', async function (e) {
   const quranText = document.getElementById('quran-text');
   quranText.innerHTML = '';
   const halamanUrut = Object.keys(halamanMap).map(Number).sort((x,y)=>x-y);
-
   for (const page of halamanUrut) {
-    // load font halaman (sekali saja)
     if (!fontLoadedPages.has(page)) {
-      const pageStr = String(page).padStart(3, '0');
+      const pageStr = String(page).padStart(3,'0');
       const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/refs/heads/main/fonts/QCF_P${pageStr}.TTF`;
       try {
         const font = new FontFace(`QCF_P${pageStr}`, `url(${fontUrl})`);
-        await font.load();
-        document.fonts.add(font);
-        fontLoadedPages.add(page);
-      } catch (err) {
-        console.warn('Gagal load font page', page, err);
-      }
+        await font.load(); document.fonts.add(font); fontLoadedPages.add(page);
+      } catch (err) { console.warn('Gagal load font page', page, err); }
     }
-
     const pageDiv = document.createElement('div');
     const pageStr = String(page).padStart(3,'0');
-    pageDiv.style.fontFamily   = `QCF_P${pageStr}, serif`;
-    pageDiv.style.fontSize     = '30px';
-    pageDiv.style.lineHeight   = '2.2';
-    pageDiv.style.direction    = 'rtl';
+    pageDiv.style.fontFamily = `QCF_P${pageStr}, serif`;
+    pageDiv.style.fontSize = '30px';
+    pageDiv.style.lineHeight = '2.2';
+    pageDiv.style.direction = 'rtl';
     pageDiv.style.marginBottom = '20px';
 
     halamanMap[page].forEach(item => {
@@ -1611,16 +1568,14 @@ document.addEventListener('click', async function (e) {
     quranText.appendChild(pageDiv);
   }
 
-  // 6) hitung & tampilkan nilai di modal (tanpa mereset sel tabel kalau belum ada mark)
+  // 6) nilai
   const adaMarkBerwarna = Object.keys(markData).some(k =>
     k !== 'audio' && markData[k] && typeof markData[k] === 'object' &&
     Object.values(markData[k]).some(v => v === 'green' || v === 'yellow' || v === 'red')
   );
   const hasil = (typeof hitungNilai === 'function') ? hitungNilai() : null;
-  if (hasil && adaMarkBerwarna) {
-    updateNilaiDiTabel(hasil);
-  } else {
-    // isi modal dari nilai-ringkas di baris (biar konsisten, tidak 0)
+  if (hasil && adaMarkBerwarna) updateNilaiDiTabel(hasil);
+  else {
     const ringkas = row.querySelector('.nilai-ringkas');
     const nilaiEl = document.getElementById('nilai-akhir');
     const predEl  = document.getElementById('predikat-akhir');
@@ -1652,7 +1607,7 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   updateNilaiDiTabel({ nilai: v, predikat: pred });
 };
 
-/* ========= TOGGLE KETERANGAN & TUTUP ========= */
+/* ========= TOGGLE & TUTUP ========= */
 document.getElementById("toggle-keterangan").addEventListener("click", () => {
   const box = document.getElementById("keterangan-box");
   box.style.display = (box.style.display === "block") ? "none" : "block";
@@ -1661,14 +1616,25 @@ document.getElementById('close-overlay').addEventListener('click', () => {
   document.getElementById('overlay-quran').style.display = 'none';
 });
 
-/* ========= BUKA MODAL REKAMAN ========= */
+/* ========= MODAL REKAMAN ========= */
 document.getElementById('btn-open-record').addEventListener('click', () => {
   if (!currentIdSiswa) return alert("Buka dulu 'Lembar Penilaian' pada baris santri.");
   const overlay = document.getElementById('overlay-record');
   const namaEl = document.getElementById('record-nama-santri');
   const nama = document.getElementById('modal-nama-santri')?.textContent || '-';
   namaEl.textContent = nama;
+
+  // render rekaman lama di modal rekaman
+  tampilkanAudioDiModalRekam(markData);
+
   overlay.style.display = 'flex';
+});
+document.getElementById('record-close').addEventListener('click', () => {
+  try{ if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); }catch{}
+  clearInterval(durTimer);
+  recordStartBtn.disabled = false;
+  recordStopBtn.disabled = true;
+  document.getElementById('overlay-record').style.display = 'none';
 });
 
 /* ========= REKAMAN: MEDIARECORDER ========= */
@@ -1682,13 +1648,8 @@ const recordStartBtn = document.getElementById('record-start');
 const recordStopBtn  = document.getElementById('record-stop');
 const recordDurEl    = document.getElementById('record-duration');
 const recordSpinEl   = document.getElementById('record-spinner');
-const recordListEl   = document.getElementById('record-list');
 
-function formatTime(sec){
-  const m = String(Math.floor(sec/60)).padStart(2,'0');
-  const s = String(sec%60).padStart(2,'0');
-  return `${m}:${s}`;
-}
+function formatTime(sec){ const m = String(Math.floor(sec/60)).padStart(2,'0'); const s = String(sec%60).padStart(2,'0'); return `${m}:${s}`; }
 async function ensureMic() {
   if (mediaStream) return mediaStream;
   mediaStream = await navigator.mediaDevices.getUserMedia({ audio:true });
@@ -1699,8 +1660,7 @@ recordStartBtn.addEventListener('click', async () => {
   try{
     await ensureMic();
     chunks = [];
-    const options = { mimeType: 'audio/webm' };
-    mediaRecorder = new MediaRecorder(mediaStream, options);
+    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
     mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     mediaRecorder.onstop = async () => {
       const blob = new Blob(chunks, { type: 'audio/webm' });
@@ -1723,14 +1683,6 @@ recordStopBtn.addEventListener('click', () => {
   recordStartBtn.disabled = false;
   try{ mediaRecorder.stop(); }catch{}
   clearInterval(durTimer);
-});
-
-document.getElementById('record-close').addEventListener('click', () => {
-  try{ if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); }catch{}
-  clearInterval(durTimer);
-  recordStartBtn.disabled = false;
-  recordStopBtn.disabled = true;
-  document.getElementById('overlay-record').style.display = 'none';
 });
 
 async function handleRecordedBlob(blob){
@@ -1756,7 +1708,7 @@ async function handleRecordedBlob(blob){
   try{
     const base64 = await blobToDataURL(blob);
 
-    // 1) Upload audio ke repo via upload-audio
+    // 1) Upload audio ke repo
     const up = await fetch('/.netlify/functions/upload-audio', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
@@ -1766,7 +1718,7 @@ async function handleRecordedBlob(blob){
     if (!up.ok || !upJson?.success) throw new Error(upJson?.error || 'Upload audio gagal');
     uploaded = true;
 
-    // 2) Tambahkan nama file ke marks.audio
+    // 2) Append ke marks.audio
     await fetch('/.netlify/functions/appendAudioToMarks', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
@@ -1776,7 +1728,7 @@ async function handleRecordedBlob(blob){
     console.warn('Upload/append audio gagal, file disimpan lokal saja.', e);
   }
 
-  // 3) Tampilkan rekaman di modal rekam
+  // 3) Tampilkan rekaman BARU di modal rekaman (bukan overlay Qur'an)
   const url = uploaded
     ? `/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}`
     : URL.createObjectURL(blob);
@@ -1789,15 +1741,15 @@ async function handleRecordedBlob(blob){
     </audio>`;
   recordListEl.appendChild(li);
 
-  // 4) Update daftar audio di overlay Qur'an (playback)
+  // 4) Update struktur data (tanpa merender di overlay Qur'an)
   markData.audio = Array.isArray(markData.audio) ? markData.audio : [];
   if (uploaded) markData.audio.push(filename);
-  tampilkanAudioDariMarks(markData);
 
   // selesai
   recordSpinEl.style.display = 'none';
 }
 </script>
+
 
 
 <!-- Overlay Hitung Total All Juz -->
