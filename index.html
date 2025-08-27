@@ -1077,7 +1077,7 @@ async function submitTambahKelasBaru() {
             <th>Total Juz</th>
             <th>Semester</th>
             <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target Juz</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Total Juz Target</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -2671,9 +2671,9 @@ async function hitungTotalAllJuzOtomatis() {
           else { label = `${prosentase}%`; warna = "red"; }
         }
 
-        cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:12px">${label}</span>`;
+        cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:14px">${label}</span>`;
       } else {
-        cell.innerHTML = `0.00 <span style="color:red; font-size:14px">0%</span>`;
+        cell.innerHTML = `0.00 <span style="color:red; font-size:16px">0%</span>`;
       }
     });
   } catch (err) {
