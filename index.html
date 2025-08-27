@@ -1887,14 +1887,6 @@ async function loadSantriData() {
           <td class="total-halaman">${dataAbsensi?.totalHalaman ?? '-'}</td>
           <td class="juz-terbaca">${dataAbsensi?.juzTerbaca ?? '-'}</td>
           <td class="total-juz">${dataAbsensi?.totalJuz ?? 0}</td>
-          <td>
-            <div class="nilai-ringkas">
-              ${dataAbsensi?.buttonCell 
-                ? `<strong>${Number(dataAbsensi.buttonCell.nilai).toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
-                : ''}
-            </div>
-            <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
-          </td>
 		  <td>
             <select class="semester">
               <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
@@ -1904,6 +1896,14 @@ async function loadSantriData() {
               <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
               <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
             </select>
+          </td>
+          <td>
+            <div class="nilai-ringkas">
+              ${dataAbsensi?.buttonCell 
+                ? `<strong>${Number(dataAbsensi.buttonCell.nilai).toFixed(1)}</strong> - ${bgHuruf(dataAbsensi.buttonCell.predikatHuruf, dataAbsensi.buttonCell.predikatText)}`
+                : ''}
+            </div>
+            <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
           </td>
           <td class="total-all-juz">
             <img src="https://raw.githubusercontent.com/digitalmtq/web/main/meeting.gif" style="width:70px;height:18px;">
