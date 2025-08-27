@@ -1338,9 +1338,10 @@ async function submitTambahKelasBaru() {
   </div>
 </div>
 
-<!-- ============ Library encoder MP3 (WAJIB) ============ -->
-<script src="js/WebAudioRecorder.min.js" defer></script>
-<script src="js/WebAudioRecorderMp3.min.js" defer></script>
+<!-- ============ Library encoder MP3 (WAJIB di /js/) ============ -->
+<script>window.WEB_AUDIO_WORKER_DIR = '/js/';</script>
+<script src="/js/WebAudioRecorder.min.js" defer></script>
+<script src="/js/WebAudioRecorderMp3.min.js" defer></script>
 
 <script>
 /* ========= STATE UTAMA ========= */
@@ -1350,6 +1351,7 @@ let markData = {};
 let currentIdSiswa = null;     // id/nis baris aktif
 let currentRowEl = null;       // <tr> aktif
 const recordListEl   = document.getElementById('record-list'); // hanya di modal rekaman
+const WORKER_DIR = window.WEB_AUDIO_WORKER_DIR || '/js/';       // penting untuk worker + .mem
 
 /* ========= UTIL KELAS/TANGGAL ========= */
 function getKelasTanggalAktif() {
@@ -1505,6 +1507,7 @@ document.addEventListener('click', async function (e) {
 
   // baris yang diklik
   const row = e.target.closest('tr');
+  if (!row) return;                   /* guard */
   currentRowEl = row;
   currentIdSiswa = row.cells[0].innerText.trim();  // STRING
 
@@ -1589,7 +1592,7 @@ document.addEventListener('click', async function (e) {
       const angka = strong ? parseFloat(String(strong.textContent).replace(',', '.')) : NaN;
       if (!Number.isNaN(angka)) nilaiEl.textContent = angka.toFixed(1);
       const sisa = ringkas.textContent.replace(strong?.textContent || '', '').trim();
-      predEl.innerHTML = sisa || '-';   /* ← FIX: sebelumnya 'sisa atau '-' bikin error */
+      predEl.innerHTML = sisa || '-';  /* FIX typo */
     }
   }
 });
@@ -1676,19 +1679,18 @@ recordStartBtn.addEventListener('click', async () => {
     await ensureMicNodes();
 
     mp3Recorder = new WebAudioRecorder(sourceNode, {
-      workerDir: 'js/',        // folder berisi worker *.js, diakhiri "/"
+      workerDir: WORKER_DIR,   // ← pastikan ke /js/
       encoding: 'mp3',
-      numChannels: 1,
+      numChannels: 2,          // ← MP3 encoder butuh stereo
       onComplete: async function(rec, blob){
-        // selesai encode MP3
         await handleRecordedBlobMP3(blob);
       },
       onError: function(rec, err){ console.error(err); alert('Terjadi kesalahan saat rekam/encode.'); }
     });
 
     mp3Recorder.setOptions({
-      timeLimit: 600,            // 10 menit (ubah sesuai kebutuhan)
-      encodeAfterRecord: true,   // encode saat selesai
+      timeLimit: 600,            // 10 menit
+      encodeAfterRecord: true,   // encode setelah stop
       mp3: { bitRate: 128 }      // 128 kbps
     });
 
@@ -1779,6 +1781,7 @@ async function handleRecordedBlobMP3(blob){
   recordSpinEl.style.display = 'none';
 }
 </script>
+
 
 
 <!-- Overlay Hitung Total All Juz -->
