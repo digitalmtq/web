@@ -2436,8 +2436,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
   overlay.style.display = "none";
 });
+ </script>
 
-
+<script>
 // --- util kecil untuk normalisasi kunci & angka ---
 const normKey = v => String(v ?? "").trim();
 const num = v => {
@@ -2696,7 +2697,6 @@ window.loadSantriData = async function (...args) {
 // Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
 tanggalInput?.addEventListener("change", () => loadSantriData());
 kelasSelect?.addEventListener("change", () => loadSantriData());
-
 </script>
 
 
