@@ -1461,6 +1461,8 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   const totalAllJuzHeader = document.getElementById("totalAllJuzHeader");
   const namaUserSpan = document.getElementById("namaUser");
   const tanggalFilterAkhir = document.getElementById("tanggal-filter-akhir");
+  const KELAS_KEY = "kelasTerakhir";
+
 
 
   let surahList = [];
@@ -1472,7 +1474,6 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 function aturDropdownKelas(user) {
   const semuaKelas = ["kelas_1", "kelas_2", "kelas_3", "kelas_4", "kelas_5", "kelas_6"];
 
-  // Mapping custom nama
   const namaKelasCustom = {
     kelas_1: "Kelompok Lebah",
     kelas_2: "Kelompok Semut",
@@ -1489,14 +1490,20 @@ function aturDropdownKelas(user) {
   semuaKelas.forEach(kls => {
     const opt = document.createElement("option");
     opt.value = kls;
-    opt.textContent = namaKelasCustom[kls] || kls; // pakai custom kalau ada
+    opt.textContent = namaKelasCustom[kls] || kls;
     opt.disabled = !kelasDiizinkan.includes(kls);
     kelasSelect.appendChild(opt);
   });
 
-  // Pilih kelas aktif pertama
-  const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
-  if (pertamaAktif) kelasSelect.value = pertamaAktif.value;
+  // --- pilih nilai ---
+  const saved = localStorage.getItem(KELAS_KEY); // ex: "kelas_3"
+  const adaSaved = saved && Array.from(kelasSelect.options).some(o => o.value === saved && !o.disabled);
+  if (adaSaved) {
+    kelasSelect.value = saved;        // pakai pilihan terakhir bila masih diizinkan
+  } else {
+    const pertamaAktif = Array.from(kelasSelect.options).find(o => !o.disabled);
+    if (pertamaAktif) kelasSelect.value = pertamaAktif.value; // fallback
+  }
 }
 
   // === Login form ===
@@ -1574,7 +1581,10 @@ function aturDropdownKelas(user) {
   });
 
   // === Event ganti kelas ===
-  kelasSelect.addEventListener("change", loadDataSantri);
+  kelasSelect.addEventListener("change", () => {
+  try { localStorage.setItem(KELAS_KEY, kelasSelect.value); } catch {}
+  loadDataSantri();
+});
 
   // === Header total juz click ===
   totalAllJuzHeader.addEventListener("click", bukaOverlayTotalAllJuz);
