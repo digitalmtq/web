@@ -1229,21 +1229,57 @@ async function submitTambahKelasBaru() {
     </div>
 
     <!-- Baris aksi nilai + tombol rekam -->
-    <div class="manual-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-      <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:90px;" placeholder="Nilai Manual">
-      <button id="btn-beri-nilai">Acc Nilai Manual</button>
-      <button id="btn-open-record">Recording</button>
-    </div>
+<div class="manual-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+  <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:90px;" placeholder="Nilai Manual">
+  <button id="btn-beri-nilai">Acc Nilai Manual</button>
+  <button id="btn-open-record">Recording</button>
+</div>
 
     <style>
-      .keterangan-row{ display:flex; align-items:center; gap:12px; margin-bottom:6px; }
-      .keterangan-box{ display:none; background:#f9f9f9; border-left:4px solid #007bff; margin-top:10px; padding:12px; border-radius:6px; font-size:15px; line-height:1.6; }
-      .keterangan-toggle{ all:unset; display:inline-block; font-weight:600; font-size:15px; letter-spacing:.3px; color:#1E88E5; padding:2px 4px; cursor:pointer; position:relative; transition:color 0s ease; }
-      .keterangan-toggle:hover{ color:#fff; background:#1E88E5; border-radius:4px; }
-      .modal-actions{ display:flex; flex-direction:row; align-items:stretch; gap:10px; margin-top:12px; }
-      .modal-actions button{ flex:1 1 0; width:auto; padding:10px 14px; border:none; border-radius:8px; font-weight:600; cursor:pointer; }
-      .btn-primary{ background:#1E88E5; color:#fff; } .btn-primary:hover{ filter:brightness(1.05); }
-      .btn-secondary{ background:#e9ecef; color:#333; } .btn-secondary:hover{ filter:brightness(0.98); }
+      .keterangan-row{
+        display:flex;
+        align-items:center;
+        gap:12px;
+        margin-bottom:6px;
+      }
+      .keterangan-box {
+        display: none;
+        background: #f9f9f9;
+        border-left: 4px solid #007bff;
+        margin-top: 10px;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      .keterangan-toggle {
+        all: unset;
+        display: inline-block;
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: 0.3px;
+        color: #1E88E5;
+        padding: 2px 4px;
+        cursor: pointer;
+        position: relative;
+        transition: color 0s ease;
+      }
+      .keterangan-toggle:hover {
+        color: #ffffff;
+        background:#1E88E5;
+        border-radius:4px;
+      }
+      /* Tombol Simpan/Tutup horizontal full width */
+      .modal-actions{
+        display:flex; flex-direction:row; align-items:stretch; gap:10px; margin-top:12px;
+      }
+      .modal-actions button{
+        flex:1 1 0; width:auto; padding:10px 14px; border:none; border-radius:8px; font-weight:600; cursor:pointer;
+      }
+      .btn-primary{ background:#1E88E5; color:#fff; }
+      .btn-primary:hover{ filter:brightness(1.05); }
+      .btn-secondary{ background:#e9ecef; color:#333; }
+      .btn-secondary:hover{ filter:brightness(0.98); }
       @media (max-width:380px){ .modal-actions{ flex-wrap:wrap; } .modal-actions button{ flex:1 0 100%; } }
     </style>
 
@@ -1283,28 +1319,29 @@ async function submitTambahKelasBaru() {
     <ul id="record-list" style="margin:0; padding-left:18px;"></ul>
 
     <style>
-      .rec-btn{ background:linear-gradient(135deg,#ff4b5c,#ff0000); color:#fff; font-weight:bold; font-size:12px; border:none; border-radius:50px; padding:10px 22px; cursor:pointer; transition:transform .1s, box-shadow .1s; }
+      .rec-btn{
+        background:linear-gradient(135deg,#ff4b5c,#ff0000); color:#fff; font-weight:bold; font-size:12px;
+        border:none; border-radius:50px; padding:10px 22px; cursor:pointer; transition:transform .1s, box-shadow .1s;
+      }
       .rec-btn:hover{ transform:scale(1.05); box-shadow:0 0 15px rgba(255,0,0,.4); }
-      .stop-btn{ background:linear-gradient(135deg,#555,#333); color:#fff; font-weight:bold; font-size:12px; border:none; border-radius:50px; padding:10px 22px; cursor:pointer; transition:transform .1s, box-shadow .1s; }
+      .stop-btn{
+        background:linear-gradient(135deg,#555,#333); color:#fff; font-weight:bold; font-size:12px;
+        border:none; border-radius:50px; padding:10px 22px; cursor:pointer; transition:transform .1s, box-shadow .1s;
+      }
       .stop-btn:hover{ transform:scale(1.05); box-shadow:0 0 10px rgba(0,0,0,.5); }
-      .spinner{ border:4px solid #f3f3f3; border-top:4px solid #007bff; border-radius:50%; width:22px; height:22px; animation:spin 1s linear infinite; display:inline-block; }
+      .spinner{
+        border:4px solid #f3f3f3; border-top:4px solid #007bff; border-radius:50%;
+        width:22px; height:22px; animation:spin 1s linear infinite; display:inline-block;
+      }
       @keyframes spin{ 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
     </style>
   </div>
 </div>
 
-<!-- ============ KONFIGURASI GLOBAL SEBELUM LIBRARY DIMUAT ============ -->
-<script>
-  // arahkan file .mem agar dicari di /web/js/
-  window.Module = window.Module || {};
-  window.Module.memoryInitializerPrefixURL = "/web/js/";
-  // base untuk worker/plugin
-  window.WEB_AUDIO_WORKER_DIR = "/web/js/";
-</script>
-
-<!-- ============ Library encoder MP3 (URUTAN WAJIB: core -> mp3) ============ -->
-<script src="/web/js/WebAudioRecorder.min.js"></script>
-<script src="/web/js/WebAudioRecorderMp3.min.js"></script>
+<!-- ============ Library encoder MP3 (WAJIB di /js/) ============ -->
+<script>window.WEB_AUDIO_WORKER_DIR = '/js/';</script>
+<script src="/js/WebAudioRecorder.min.js" defer></script>
+<script src="/js/WebAudioRecorderMp3.min.js" defer></script>
 
 <script>
 /* ========= STATE UTAMA ========= */
@@ -1314,12 +1351,7 @@ let markData = {};
 let currentIdSiswa = null;     // id/nis baris aktif
 let currentRowEl = null;       // <tr> aktif
 const recordListEl   = document.getElementById('record-list'); // hanya di modal rekaman
-
-/* ========= PENTING: paksa WORKER_DIR absolute ke folder /web/js/ ========= */
-const WORKER_DIR = "/web/js/";
-if (window.WebAudioRecorder) {
-  WebAudioRecorder.config = { workerDir: WORKER_DIR };
-}
+const WORKER_DIR = window.WEB_AUDIO_WORKER_DIR || '/js/';       // penting untuk worker + .mem
 
 /* ========= UTIL KELAS/TANGGAL ========= */
 function getKelasTanggalAktif() {
@@ -1385,13 +1417,13 @@ function ambilDariStorage() {
 function hitungNilai() {
   let totalMinus = 0, hijau = 0, kuning = 0, merah = 0, adaMark = false;
   for (let ayat in markData) {
-    if (ayat === 'audio') continue;
+    if (ayat === 'audio') continue; // abaikan daftar audio
     for (let idx in markData[ayat]) {
       const mark = markData[ayat][idx]; if (!mark) continue;
       adaMark = true;
-      if (mark === "green") totalMinus += 0.5, hijau++;
-      else if (mark === "yellow") totalMinus += 1, kuning++;
-      else if (mark === "red") totalMinus += 2, merah++;
+      if (mark === "green") { totalMinus += 0.5; hijau++; }
+      else if (mark === "yellow") { totalMinus += 1; kuning++; }
+      else if (mark === "red") { totalMinus += 2; merah++; }
     }
   }
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
@@ -1473,29 +1505,36 @@ document.addEventListener('click', async function (e) {
   const overlay = document.getElementById('overlay-quran');
   overlay.style.display = 'flex';
 
+  // baris yang diklik
   const row = e.target.closest('tr');
-  if (!row) return;
+  if (!row) return;                   /* guard */
   currentRowEl = row;
-  currentIdSiswa = row.cells[0].innerText.trim();
+  currentIdSiswa = row.cells[0].innerText.trim();  // STRING
 
+  // tampilkan nama
   const namaSantri = row.cells[1].childNodes[0]?.textContent.trim()
                   || row.cells[1].innerText.replace(/\d{4}-\d{2}-\d{2}/,'').trim();
   const namaSpan = document.getElementById('modal-nama-santri');
   if (namaSpan) namaSpan.innerText = namaSantri;
 
+  // gunakan tanggal per-baris jika ada
   const kelas = document.getElementById('kelas')?.value || 'default';
   const tanggalBaris = row.dataset?.tanggal || document.getElementById('tanggal')?.value || 'default';
 
+  // 1) ambil marks + audio (TAPI TIDAK dirender di overlay ini)
   let serverMarks = await ambilMarksDariNetlify(currentIdSiswa, kelas, tanggalBaris);
   markData = (serverMarks && typeof serverMarks === 'object') ? serverMarks : {};
 
+  // 2) pastikan data Quran siap
   await dataSiap;
 
+  // 3) ambil range
   const surahDari   = parseInt(row.querySelector('.surah-dari').value, 10);
   const ayatDari    = parseInt(row.querySelector('.ayat-dari').value, 10);
   const surahSampai = parseInt(row.querySelector('.surah-sampai').value, 10);
   const ayatSampai  = parseInt(row.querySelector('.ayat-sampai').value, 10);
 
+  // 4) peta halaman -> daftar ayat
   const halamanMap = {};
   for (let s = surahDari; s <= surahSampai; s++) {
     const aStart = (s === surahDari) ? ayatDari : 1;
@@ -1507,6 +1546,7 @@ document.addEventListener('click', async function (e) {
     }
   }
 
+  // 5) render ke overlay
   const quranText = document.getElementById('quran-text');
   quranText.innerHTML = '';
   const halamanUrut = Object.keys(halamanMap).map(Number).sort((x,y)=>x-y);
@@ -1536,6 +1576,7 @@ document.addEventListener('click', async function (e) {
     quranText.appendChild(pageDiv);
   }
 
+  // 6) nilai
   const adaMarkBerwarna = Object.keys(markData).some(k =>
     k !== 'audio' && markData[k] && typeof markData[k] === 'object' &&
     Object.values(markData[k]).some(v => v === 'green' || v === 'yellow' || v === 'red')
@@ -1551,7 +1592,7 @@ document.addEventListener('click', async function (e) {
       const angka = strong ? parseFloat(String(strong.textContent).replace(',', '.')) : NaN;
       if (!Number.isNaN(angka)) nilaiEl.textContent = angka.toFixed(1);
       const sisa = ringkas.textContent.replace(strong?.textContent || '', '').trim();
-      predEl.innerHTML = sisa || '-';
+      predEl.innerHTML = sisa || '-';  /* FIX typo */
     }
   }
 });
@@ -1567,7 +1608,7 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   else if (v <= 79) pred = "JAYYID (C)";
   else if (v <= 89) pred = "JAYYID JIDDAN (B)";
   else pred = "MUMTAZ (A)";
-  markData = {};
+  markData = {}; // kosongkan mark
   document.getElementById("nilai-akhir").innerText = v.toFixed(1);
   document.getElementById("predikat-akhir").innerText = pred;
   document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
@@ -1579,8 +1620,8 @@ document.getElementById("toggle-keterangan").addEventListener("click", () => {
   const box = document.getElementById("keterangan-box");
   box.style.display = (box.style.display === "block") ? "none" : "block";
 });
-document.getElementById("close-overlay").addEventListener("click", () => {
-  document.getElementById("overlay-quran").style.display = "none";
+document.getElementById('close-overlay').addEventListener('click', () => {
+  document.getElementById('overlay-quran').style.display = 'none';
 });
 
 /* ========= MODAL REKAMAN (BUKA/TUTUP) ========= */
@@ -1590,7 +1631,10 @@ document.getElementById('btn-open-record').addEventListener('click', () => {
   const namaEl = document.getElementById('record-nama-santri');
   const nama = document.getElementById('modal-nama-santri')?.textContent || '-';
   namaEl.textContent = nama;
+
+  // render rekaman lama di modal rekaman
   tampilkanAudioDiModalRekam(markData);
+
   overlay.style.display = 'flex';
 });
 document.getElementById('record-close').addEventListener('click', () => {
@@ -1599,13 +1643,20 @@ document.getElementById('record-close').addEventListener('click', () => {
 });
 
 /* ========= REKAMAN .MP3 DENGAN WebAudioRecorder ========= */
-let audioCtx = null, micStream = null, sourceNode = null, mp3Recorder = null, isRecording = false;
+let audioCtx = null;
+let micStream = null;
+let sourceNode = null;
+let mp3Recorder = null;
+let isRecording = false;
+
 const recordStartBtn = document.getElementById('record-start');
 const recordStopBtn  = document.getElementById('record-stop');
 const recordDurEl    = document.getElementById('record-duration');
 const recordSpinEl   = document.getElementById('record-spinner');
 
-let durSec = 0, durTimer = null;
+let durSec = 0;
+let durTimer = null;
+
 function formatTime(sec){ const m = String(Math.floor(sec/60)).padStart(2,'0'); const s = String(sec%60).padStart(2,'0'); return `${m}:${s}`; }
 
 async function ensureMicNodes(){
@@ -1628,17 +1679,19 @@ recordStartBtn.addEventListener('click', async () => {
     await ensureMicNodes();
 
     mp3Recorder = new WebAudioRecorder(sourceNode, {
-      workerDir: WORKER_DIR,
+      workerDir: WORKER_DIR,   // ← pastikan ke /js/
       encoding: 'mp3',
-      numChannels: 2,          // MP3 butuh stereo
-      onComplete: async function(rec, blob){ await handleRecordedBlobMP3(blob); },
+      numChannels: 2,          // ← MP3 encoder butuh stereo
+      onComplete: async function(rec, blob){
+        await handleRecordedBlobMP3(blob);
+      },
       onError: function(rec, err){ console.error(err); alert('Terjadi kesalahan saat rekam/encode.'); }
     });
 
     mp3Recorder.setOptions({
-      timeLimit: 600,
-      encodeAfterRecord: true,
-      mp3: { bitRate: 128 }
+      timeLimit: 600,            // 10 menit
+      encodeAfterRecord: true,   // encode setelah stop
+      mp3: { bitRate: 128 }      // 128 kbps
     });
 
     mp3Recorder.startRecording();
@@ -1665,6 +1718,7 @@ recordStopBtn.addEventListener('click', () => {
 });
 
 async function handleRecordedBlobMP3(blob){
+  // tampilkan spinner
   recordSpinEl.style.display = 'inline-flex';
 
   const { kelas, tanggal } = getKelasTanggalAktif();
@@ -1672,6 +1726,7 @@ async function handleRecordedBlobMP3(blob){
   const safeTanggal = String(tanggal).replace(/[^0-9-]/g,'');
   const filename = `rec_${kelas}_${currentIdSiswa}_${safeTanggal}_${ts}.mp3`;
 
+  // Helper: blob -> dataURL (base64)
   function blobToDataURL(b){
     return new Promise((res, rej) => {
       const r = new FileReader();
@@ -1685,15 +1740,17 @@ async function handleRecordedBlobMP3(blob){
   try{
     const base64 = await blobToDataURL(blob);
 
+    // 1) Upload audio ke repo
     const up = await fetch('/.netlify/functions/upload-audio', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ fileName: filename, base64 })
+      body: JSON.stringify({ fileName: filename, base64 }) // folder default: "audio"
     });
     const upJson = await up.json();
     if (!up.ok || !upJson?.success) throw new Error(upJson?.error || 'Upload audio gagal');
     uploaded = true;
 
+    // 2) Append ke marks.audio
     await fetch('/.netlify/functions/appendAudioToMarks', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
@@ -1703,6 +1760,7 @@ async function handleRecordedBlobMP3(blob){
     console.warn('Upload/append audio gagal, file disimpan lokal saja.', e);
   }
 
+  // 3) Tampilkan rekaman BARU di modal rekaman (bukan overlay Qur'an)
   const url = uploaded
     ? `/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}`
     : URL.createObjectURL(blob);
@@ -1715,9 +1773,11 @@ async function handleRecordedBlobMP3(blob){
     </audio>`;
   recordListEl.appendChild(li);
 
+  // 4) Update struktur data (tanpa merender di overlay Qur'an)
   markData.audio = Array.isArray(markData.audio) ? markData.audio : [];
   if (uploaded) markData.audio.push(filename);
 
+  // selesai
   recordSpinEl.style.display = 'none';
 }
 </script>
