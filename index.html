@@ -1115,30 +1115,9 @@ async function submitTambahKelasBaru() {
 	  <button id="btnPindahKelas">Pindah Kelas</button>
       <div class="actions">
         <button id="save-btn">Simpan Data Mutaba'ah</button>
-<!-- Modal Cetak PDF -->
-<div id="modalCetakPdf" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center;">
-  <div style="background:#fff; width:min(92vw,420px); border-radius:14px; padding:16px; box-shadow:0 20px 60px rgba(0,0,0,.25)">
-    <h3 style="margin:0 0 10px; font-size:18px;">Cetak Rekap Rapor Tahfidz</h3>
-    <label style="display:block; font-size:12px; color:#555">Link Logo (.png)</label>
-    <input id="modal-logo" type="text" placeholder="https://.../logo.png" style="width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px; margin:6px 0 10px">
-    <div style="display:flex; gap:8px">
-      <div style="flex:1">
-        <label style="display:block; font-size:12px; color:#555">Dari</label>
-        <input id="modal-start" type="date" style="width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px">
-      </div>
-      <div style="flex:1">
-        <label style="display:block; font-size:12px; color:#555">Sampai</label>
-        <input id="modal-end" type="date" style="width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px">
-      </div>
-    </div>
-    <label style="display:block; font-size:12px; color:#555; margin-top:10px">Catatan Pengampu</label>
-    <textarea id="modal-catatan" rows="3" style="width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px; margin-top:6px"></textarea>
-    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px">
-      <button id="modal-batal" type="button" style="padding:8px 12px; border:1px solid #e5e7eb; background:#fff; border-radius:10px;">Batal</button>
-      <button id="modal-cetak" type="button" style="padding:8px 12px; border:1px solid #111827; background:#111827; color:#fff; border-radius:10px; font-weight:600">Cetak PDF</button>
-    </div>
-  </div>
-</div>
+        <button id="download-btn">Download PDF</button>
+        <label>Dari: <input type="date" id="start-date" /></label>
+        <label>Sampai: <input type="date" id="end-date" /></label>
         <button class="logout-btn" id="logout-btn">Logout</button>
       </div>
     </div>
@@ -3469,7 +3448,33 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 
-	<script>
+
+<!-- Modal Cetak PDF -->
+<div id="modalCetakPdf" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:#fff; width:min(92vw,420px); border-radius:14px; padding:16px; box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 10px; font-size:18px;">Cetak Rekap Rapor Tahfidz</h3>
+    <label style="display:block; font-size:12px; color:#555">Link Logo (.png)</label>
+    <input id="modal-logo" type="text" placeholder="https://.../logo.png" style="width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px; margin:6px 0 10px">
+    <div style="display:flex; gap:8px">
+      <div style="flex:1">
+        <label style="display:block; font-size:12px; color:#555">Dari</label>
+        <input id="modal-start" type="date" style="width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px">
+      </div>
+      <div style="flex:1">
+        <label style="display:block; font-size:12px; color:#555">Sampai</label>
+        <input id="modal-end" type="date" style="width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px">
+      </div>
+    </div>
+    <label style="display:block; font-size:12px; color:#555; margin-top:10px">Catatan Pengampu</label>
+    <textarea id="modal-catatan" rows="3" style="width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px; margin-top:6px"></textarea>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px">
+      <button id="modal-batal" type="button" style="padding:8px 12px; border:1px solid #e5e7eb; background:#fff; border-radius:10px;">Batal</button>
+      <button id="modal-cetak" type="button" style="padding:8px 12px; border:1px solid #111827; background:#111827; color:#fff; border-radius:10px; font-weight:600">Cetak PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
 (() => {
   // ===== Ambil elemen yang sudah ada di halamanmu =====
   const modal      = document.getElementById('modalCetakPdf');
@@ -3772,6 +3777,5 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 })();
 </script>
-	
 </body>
 </html>
