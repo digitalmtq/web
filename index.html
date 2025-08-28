@@ -1115,7 +1115,11 @@ async function submitTambahKelasBaru() {
 	  <button id="btnPindahKelas">Pindah Kelas</button>
       <div class="actions">
         <button id="save-btn">Simpan Data Mutaba'ah</button>
-        <button id="download-pdf-rekap" type="button">Download PDF</button>
+        <div class="pdf-rekap-controls" style="margin:.5rem 0;">
+  		<label>Dari: <input type="date" id="pdf-start-date"></label>
+  		<label style="margin-left:.5rem;">Sampai: <input type="date" id="pdf-end-date"></label>
+  		<button id="download-pdf-rekap" style="margin-left:.5rem;">Download PDF Rekap</button>
+		</div>
         <button class="logout-btn" id="logout-btn">Logout</button>
       </div>
     </div>
@@ -3413,19 +3417,6 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-<button id="download-pdf-rekap" type="button">Download PDF</button>
-
 <script>
 (function(){
   // ===== util DOM ringkas
@@ -3434,20 +3425,6 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
   // ====== Bind tombol
   const btn = document.getElementById('download-pdf-rekap');
   btn?.addEventListener('click', pdfRekapDownload);
-
-  function setLoading(loading){
-    if (!btn) return;
-    if (loading){
-      btn.dataset._label = btn.textContent;
-      btn.textContent = 'Menyiapkan…';
-      btn.disabled = true;
-      btn.setAttribute('aria-busy','true');
-    } else {
-      btn.textContent = btn.dataset._label || 'Download PDF';
-      btn.disabled = false;
-      btn.removeAttribute('aria-busy');
-    }
-  }
 
   async function pdfRekapDownload(){
     const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
@@ -3460,7 +3437,8 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
       return;
     }
 
-    setLoading(true);
+    const spinner = document.getElementById('juzOverlay') || window.overlay;
+    if (spinner) spinner.style.display = 'flex';
 
     try {
       // ===== 1) Ambil ABSENSI (range)
@@ -3596,7 +3574,8 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
       console.error(err);
       alert('Gagal mengunduh PDF: ' + (err.message || err));
     } finally {
-      setLoading(false);
+      const spinner = document.getElementById('juzOverlay') || window.overlay;
+      if (spinner) spinner.style.display = 'none';
     }
   }
 
@@ -3720,7 +3699,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
       if (smp  && (!r.sampaiMax || PDF_compareSA(smp, r.sampaiMax) > 0)) r.sampaiMax = smp;
 
       // Page & TotalPage
-      const rng = PDF_parseRange(it?.halaman atau it?.page);
+      const rng = PDF_parseRange(it?.halaman || it?.page);
       const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
       if (tp!=null) r.totalPageSum += tp;
       else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
