@@ -3460,10 +3460,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 (function(){
-  // ===== util DOM ringkas
   const $ = sel => document.querySelector(sel);
 
-  // ===== helper kecil untuk loading tombol (tanpa overlay)
   function setBtnLoading(btn, loading) {
     if (!btn) return;
     if (loading) {
@@ -3481,7 +3479,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ====== Bind tombol
   const btn = document.getElementById('download-pdf-rekap');
   btn?.addEventListener('click', pdfRekapDownload);
 
@@ -3496,11 +3493,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // >>> TANPA OVERLAY: hanya status di tombol
     setBtnLoading(btn, true);
 
     try {
-      // ===== 1) Ambil ABSENSI (range)
+      // 1) Ambil ABSENSI
       const absUrl = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
       const resAbs = await fetch(absUrl);
       if (!resAbs.ok) throw new Error('Gagal mengambil data absensi.');
@@ -3510,29 +3506,23 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // ===== 2) Ambil ROSTER untuk injeksi NIS/NAMA/ID/SEMESTER
+      // 2) Ambil ROSTER
       const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
       const santriData = await resSantri.json().catch(()=>[]) || [];
 
-      // helper key dan index—meniru loadSantriData
+      // helper index
       const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
       const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
       const keyName = v => String(v || "").trim().toLowerCase();
-      const byIdMap = (arr, pick = x => x) => {
-        const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m;
-      };
-      const byNisMap = (arr, pick = x => x) => {
-        const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m;
-      };
-      const byNameMap = (arr, pick = x => x) => {
-        const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m;
-      };
+      const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
+      const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
+      const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
 
       const rosterById   = byIdMap(santriData, s => s);
       const rosterByNis  = byNisMap(santriData, s => s);
       const rosterByName = byNameMap(santriData, s => s);
 
-      // ===== 3) NORMALISASI ABSENSI: isi NIS bila kosong (id→nis, nama→nis), isi nama/id/semester dari roster
+      // 3) Normalisasi + injeksi NIS/Nama/ID/Semester
       const allDataNorm = allData.map(r => {
         let id   = keyId(r?.id ?? "");
         let nis  = keyNis(r?.nis ?? "");
@@ -3551,7 +3541,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-        // semester fallback dari roster bila kosong
         let semester = (r?.semester != null) ? Number(r.semester) : null;
         if (semester == null) {
           if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
@@ -3561,11 +3550,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return { ...r, id, nis, nama, semester };
       });
 
-      // ===== 4) Agregasi berdiri sendiri (pakai data NORMALISASI)
+      // 4) Agregasi
       const aggMap = PDF_buildRekapPerKey(allDataNorm);
-      const rows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
+      const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
 
-      // Ringkasan total
+      // >>> FILTER: hanya output yang punya NIS
+      const rows = allRows.filter(r => {
+        // true jika string non-kosong (termasuk '0' tetap dianggap ada)
+        return typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis;
+      });
+
+      if (rows.length === 0) {
+        alert('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
+        return;
+      }
+
+      // Ringkasan total dari rows ber-NIS saja
       let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
       rows.forEach(r=>{
         totJuz += r.totalJuz;
@@ -3573,7 +3573,7 @@ document.addEventListener("DOMContentLoaded", () => {
         totPages += r.totalPageSum;
       });
 
-      // ===== 5) Buat PDF
+      // 5) Buat PDF
       const { jsPDF } = window.jspdf || {};
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
       const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
@@ -3596,10 +3596,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const juzT = PDF_ringkasJuzTerbaca(r.juzSet);
         const st = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
 
-        // Baris 1: Nama | NIS | Semester
+        // Baris 1: Nama | NIS | Semester (NIS pasti ada karena sudah disaring)
         doc.setFontSize(10);
         doc.text(`${i+1}. ${nama}`, 14, y);
-        doc.text(`NIS: ${r.nis || '-'}`, 100, y);
+        doc.text(`NIS: ${r.nis}`, 100, y);
         doc.text(`Sem: ${r.semester ?? '-'}`, 155, y);
         y += lineH;
 
@@ -3628,18 +3628,16 @@ document.addEventListener("DOMContentLoaded", () => {
         14, y
       );
 
-      // >>> langsung unduh
       doc.save(`Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.pdf`);
     } catch (err) {
       console.error(err);
       alert('Gagal mengunduh PDF: ' + (err.message || err));
     } finally {
-      // >>> TANPA OVERLAY
       setBtnLoading(btn, false);
     }
   }
 
-  // ================== Helper khusus PDF (TETAP) ==================
+  // ===== Helper PDF (tetap)
   function PDF_normKey(v){ return String(v ?? '').trim(); }
   function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
   function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
@@ -3677,7 +3675,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return out.join('; ');
   }
-
   function PDF_parseJuzTerbacaField(val){
     const out = new Set();
     if (val == null) return out;
@@ -3708,7 +3705,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return out;
   }
-
   function PDF_totalAllJuzStatus(totalJuzNum, semester){
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
     if (totalJuzNum >= 30) return { label: 'KHATAM' };
@@ -3721,7 +3717,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return { label: '0%' };
   }
-
   function PDF_buildRekapPerKey(items){
     const map = Object.create(null);
     for (const it of (items||[])) {
@@ -3744,7 +3739,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const r = map[key];
       if (!r.nama && it?.nama) r.nama = it.nama;
 
-      // Absensi
       const st = PDF_normStatus(it?.absensi ?? it?.status);
       if (st==='hadir') r.hadir++;
       else if (st==='alpha') r.alpha++;
@@ -3752,13 +3746,11 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (st==='izin') r.izin++;
       else r.lainnya++;
 
-      // Setoran
       const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
       const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
       if (dari && (!r.dariMin || PDF_compareSA(dari, r.dariMin) < 0)) r.dariMin = dari;
       if (smp  && (!r.sampaiMax || PDF_compareSA(smp, r.sampaiMax) > 0)) r.sampaiMax = smp;
 
-      // Page & TotalPage
       const rng = PDF_parseRange(it?.halaman || it?.page);
       const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
       if (tp!=null) r.totalPageSum += tp;
@@ -3769,16 +3761,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
       }
 
-      // Juz total
       const vJ = PDF_num2(it?.totalJuz ?? it?.juz); if (vJ!=null) r.totalJuz += vJ;
 
-      // Nilai per tanggal
       const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
       const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
       const vN = PDF_num2(vNraw);
       if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
 
-      // Juz Terbaca (berbagai field/format)
       const jtRaw =
         it?.juzTerbaca ??
         it?.juz_terbaca ??
@@ -3789,11 +3778,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const set = PDF_parseJuzTerbacaField(jtRaw);
       if (set.size) set.forEach(n=> r.juzSet.add(n));
 
-      // Semester fallback
       if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
     }
 
-    // finalize nilai
     for (const k in map){
       const r = map[k];
       r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
@@ -3811,6 +3798,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 })();
 </script>
+
 
 	
 </body>
