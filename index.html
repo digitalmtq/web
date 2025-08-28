@@ -2842,7 +2842,7 @@ const num = v => {
 };
 
 // ============================
-// === Helper TAMBAHAN (rekap semua metrik) ===
+// === Helper TAMBAHAN (rekap semua metrik + NILAI PER TANGGAL) ===
 // ============================
 (function ensureRekapHelpers(){
   if (window.__rekapHelpersLoaded) return;
@@ -2861,11 +2861,25 @@ const num = v => {
   window._compareSA = (x,y)=>{ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; };
   window._fmtSA = o => o?`${o.s}:${o.a}`:"-";
   window._parseRange = r => { const m=String(r||"").trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; };
+
+  // Peta predikat seperti fungsimu (hitungNilai)
+  window._predikatFromScore = nilai => {
+    const map = [
+      { max: 59,  text: "ROSIB",          huruf: "E", color: "red"    },
+      { max: 69,  text: "MAQBUL",         huruf: "D", color: "orange" },
+      { max: 79,  text: "JAYYID",         huruf: "C", color: "gold"   },
+      { max: 89,  text: "JAYYID JIDDAN",  huruf: "B", color: "blue"   },
+      { max: 100, text: "MUMTAZ",         huruf: "A", color: "green"  }
+    ];
+    const p = map.find(p => nilai <= p.max) || map[map.length-1];
+    return p;
+  };
 })();
 
-// Build rekap lengkap per santri (key = nis||id)
+// Build rekap lengkap per santri (key = nis||id) — NILAI dirata2 PER TANGGAL unik
 function buildRekapPerKey(items){
   const map = Object.create(null);
+
   for (const it of (items||[])) {
     const id  = normKey(it?.id);
     const nis = normKey(it?.nis);
@@ -2878,6 +2892,8 @@ function buildRekapPerKey(items){
       dariMin:null, sampaiMax:null,
       pageStartMin:null, pageEndMax:null, totalPageSum:0,
       totalJuz:0,
+      // ====== NILAI (akan dihitung per tanggal unik) ======
+      _nilaiByDate: Object.create(null), // { 'YYYY-MM-DD': nilai }
       nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
       semester: it?.semester!=null ? Number(it.semester) : null
     };
@@ -2909,25 +2925,44 @@ function buildRekapPerKey(items){
       if (Number.isFinite(b) && (r.pageEndMax==null   || b > r.pageEndMax))   r.pageEndMax   = b;
     }
 
-    // Juz
+    // Juz (penjumlahan)
     const vJ = _num2(it?.totalJuz ?? it?.juz); if (vJ!=null) r.totalJuz += vJ;
 
-    // Nilai
-    const vN = _num2(it?.nilai ?? it?.score);
-    if (vN!=null){ r.nilaiSum += vN; r.nilaiCount++; if (vN<r.nilaiMin) r.nilaiMin=vN; if (vN>r.nilaiMax) r.nilaiMax=vN; }
-
-    // Semester fallback
+    // ====== NILAI (ambil dari buttonCell.nilai; fallback nilai/score). Dirata2 PER TANGGAL ======
+    const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null; // "YYYY-MM-DD"
+    const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
+    const vN = _num2(vNraw);
+    if (tgl && vN!=null) {
+      // jika ada beberapa entry di tanggal sama, ambil yang terakhir (override)
+      r._nilaiByDate[tgl] = vN;
+    }
+    // semester fallback
     if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
   }
+
+  // finalize nilai per santri (sum/min/max & count tanggal unik)
   for (const k in map){
     const r = map[k];
+    r.nilaiSum = 0;
+    r.nilaiCount = 0;
+    r.nilaiMin = Infinity;
+    r.nilaiMax = -Infinity;
+    for (const tgl in r._nilaiByDate){
+      const v = r._nilaiByDate[tgl];
+      r.nilaiSum += v;
+      r.nilaiCount += 1;
+      if (v < r.nilaiMin) r.nilaiMin = v;
+      if (v > r.nilaiMax) r.nilaiMax = v;
+    }
     if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
     if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
   }
+
   return map;
 }
 
-// Tulis rekap ke 1 baris (TIDAK menyentuh .total-all-juz; itu tetap pakai logika lamamu)
+// Tulis rekap ke 1 baris (non-JUZ)
+// - Absensi (4 kolom), Setoran (1 kolom), Page, Total Page, Nilai (avg per tanggal + predikat)
 function fillRowRekapNonJuz(row, r){
   // Absensi 4 kolom (jika ada)
   const tdH=row.querySelector(".rekap-hadir");  if (tdH) tdH.innerHTML = `<span class="abs-badge abs-hadir">${r.hadir}</span>`;
@@ -2951,12 +2986,13 @@ function fillRowRekapNonJuz(row, r){
   // Total Page sum
   const tdTP = row.querySelector(".rekap-total-page, .rekap-totalpage"); if (tdTP) tdTP.textContent = Math.round(r.totalPageSum);
 
-  // Nilai avg (+ tooltip min/max)
+  // Nilai avg per tanggal + predikat
   const tdNil = row.querySelector(".rekap-nilai");
   if (tdNil){
     const avg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-    tdNil.textContent = avg.toFixed(2);
-    tdNil.title = r.nilaiCount ? `n=${r.nilaiCount} · Min ${r.nilaiMin.toFixed(2)} · Max ${r.nilaiMax.toFixed(2)}` : "n=0";
+    const p = _predikatFromScore(avg);
+    tdNil.innerHTML = `${avg.toFixed(2)} <span style="background-color:${p.color};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
+    tdNil.title = r.nilaiCount ? `n=${r.nilaiCount} tanggal · Min ${r.nilaiMin.toFixed(2)} · Max ${r.nilaiMax.toFixed(2)}` : "n=0";
   }
 }
 
@@ -2993,7 +3029,7 @@ async function hitungTotalAllJuzFromTable() {
     if (!res.ok) throw new Error("Gagal ambil data absensi.");
     const allData = await res.json();
 
-    // === REKAP LENGKAP utk semua metrik ===
+    // === REKAP LENGKAP utk semua metrik (termasuk NILAI per tanggal) ===
     const aggMap = buildRekapPerKey(allData);
 
     const rows = santriTableBody.querySelectorAll("tr");
@@ -3117,7 +3153,6 @@ function bukaOverlayTotalAllJuz() {
   document.getElementById("juzOverlay").style.display = "flex";
 }
 
-// Tombol overlay (tetap)
 document.getElementById("btnHitungTotalJuz")?.addEventListener("click", hitungTotalAllJuzFromTable);
 
 // ==================================
@@ -3160,7 +3195,7 @@ async function hitungTotalAllJuzOtomatis() {
     if (!resAbs.ok) throw new Error("Gagal ambil data absensi.");
     const allData = await resAbs.json();
 
-    // === REKAP LENGKAP utk kolom2 tambahan ===
+    // === REKAP LENGKAP utk kolom2 tambahan (termasuk NILAI per tanggal) ===
     const aggMap = buildRekapPerKey(allData);
 
     // === REKAP JUZ (logika lamamu) ===
@@ -3225,15 +3260,13 @@ function afterTableRendered() {
   setTimeout(hitungTotalAllJuzOtomatis, 50);
 }
 
-// Integrasi ke loadSantriData atau fungsi render tabel (tidak dihapus, hanya diselip bind ulang)
+// Integrasi ke loadSantriData atau fungsi render tabel
 const originalLoadSantriData = window.loadSantriData;
 window.loadSantriData = async function (...args) {
-  if (typeof originalLoadSantriData === "function") {
-    await originalLoadSantriData.apply(this, args);
-  }
+  await originalLoadSantriData.apply(this, args);
   afterTableRendered();
 
-  // jaga-jaga re-bind kalau thead di-render ulang
+  // re-bind kalau thead di-render ulang
   document.getElementById("totalAllJuzHeader")
     ?.addEventListener("click", bukaOverlayTotalAllJuz, { once:false });
 };
@@ -3242,6 +3275,12 @@ window.loadSantriData = async function (...args) {
 tanggalInput?.addEventListener("change", () => loadSantriData());
 kelasSelect?.addEventListener("change", () => loadSantriData());
 </script>
+
+
+
+
+
+	
 
 
 
