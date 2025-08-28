@@ -2987,12 +2987,16 @@ function fillRowRekapNonJuz(row, r){
   const tdTP = row.querySelector(".rekap-total-page, .rekap-totalpage"); if (tdTP) tdTP.textContent = Math.round(r.totalPageSum);
 
   // Nilai avg per tanggal + predikat
-  const tdNil = row.querySelector(".rekap-nilai");
-  if (tdNil){
-    const avg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-    const p = _predikatFromScore(avg);
-    tdNil.innerHTML = `${avg.toFixed(2)} <span style="background-color:${p.color};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
-    tdNil.title = r.nilaiCount ? `n=${r.nilaiCount} tanggal · Min ${r.nilaiMin.toFixed(2)} · Max ${r.nilaiMax.toFixed(2)}` : "n=0";
+const tdNil = row.querySelector(".rekap-nilai");
+if (tdNil){
+  const avg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+  if (r.nilaiCount) {
+    const p = _predikatFromScore(avg); // -> {text, huruf, color}
+    tdNil.innerHTML = `${avg.toFixed(2)} - ${p.text} <span style="background-color:${p.color};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
+    tdNil.title = `n=${r.nilaiCount} tanggal · Min ${r.nilaiMin.toFixed(2)} · Max ${r.nilaiMax.toFixed(2)}`;
+  } else {
+    tdNil.innerHTML = `0.00 - <span style="background-color:red;color:white;padding:0 4px;border-radius:3px;">-</span>`;
+    tdNil.title = "n=0";
   }
 }
 
