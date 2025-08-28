@@ -2808,7 +2808,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
 
 // ============================
-// hitungTotalAllJuzFromTable
+// HITUNG hitungTotalAllJuzFromTable
 // ============================
 // --- util kecil untuk normalisasi kunci & angka ---
 const normKey = v => String(v ?? "").trim();
@@ -2817,26 +2817,43 @@ const num = v => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// --- helper aman: ambil overlay kalau ada ---
+function getOverlayEl() {
+  return document.getElementById("juzOverlay")
+      || document.getElementById("overlay")
+      || window.overlay
+      || null;
+}
+
 // ============================
 // HITUNG MANUAL (via overlay)
 // ============================
 async function hitungTotalAllJuzFromTable() {
-  const kelas = kelasSelect.value;
-  const dari = document.getElementById("rangeDari")?.value;
+  const kelasSelectEl = (typeof kelasSelect !== "undefined" && kelasSelect) ? kelasSelect : document.getElementById("kelasSelect");
+  const kelas  = kelasSelectEl?.value || "";
+  const dari   = document.getElementById("rangeDari")?.value;
   const sampai = document.getElementById("rangeSampai")?.value;
 
   if (!dari)   { alert("Mohon pilih tanggal Dari.");   return; }
   if (!sampai) { alert("Mohon pilih tanggal Sampai."); return; }
 
-  overlay.style.display = "flex";
+  const overlayEl = getOverlayEl();
+  if (overlayEl) overlayEl.style.display = "flex";
 
   try {
-    // Ambil data absensi rentang
-    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}`);
+    // Ambil data absensi rentang (cache-buster t=Date.now())
+    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
     if (!res.ok) throw new Error("Gagal ambil data absensi.");
     const allData = await res.json();
 
-    const rows = santriTableBody.querySelectorAll("tr");
+    // Pastikan tbody ada
+    const santriTableBodyEl =
+      window.santriTableBody ||
+      document.getElementById("santriTableBody") ||
+      document.querySelector("table tbody");
+    if (!santriTableBodyEl) throw new Error("Tabel santri tidak ditemukan.");
+
+    const rows = santriTableBodyEl.querySelectorAll("tr");
     const rekap = Object.create(null); // key => { totalJuz, semester, id, nis }
 
     // Rekap: pakai kunci stabil (nis || id)
@@ -2859,8 +2876,10 @@ async function hitungTotalAllJuzFromTable() {
     const dataToSave = [];
 
     rows.forEach(row => {
-      // >>> JANGAN ambil dari kolom: ambil dari dataset
-      const key = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
+      // kunci: dataset dulu; fallback ke kolom NIS jika perlu
+      const key =
+        normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id) ||
+        normKey(row.querySelector(".col-nis")?.textContent);
       const cell = row.querySelector(".total-all-juz");
       if (!cell) return;
 
@@ -2929,7 +2948,8 @@ async function hitungTotalAllJuzFromTable() {
     console.error(err);
     alert("❌ Terjadi kesalahan: " + err.message);
   } finally {
-    overlay.style.display = "none";
+    const overlayEl2 = getOverlayEl();
+    if (overlayEl2) overlayEl2.style.display = "none";
   }
 }
 
@@ -2955,20 +2975,28 @@ function bukaOverlayTotalAllJuz() {
     if (!rangeSampai.value) rangeSampai.value = todayStr;
   }
 
-  document.getElementById("juzOverlay").style.display = "flex";
+  const ov = getOverlayEl();
+  if (ov) ov.style.display = "flex";
 }
 
-document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTotalAllJuzFromTable);
+// Bind tombol hitung (aman bila elemen belum ada)
+document.getElementById("btnHitungTotalJuz")
+  ?.addEventListener("click", hitungTotalAllJuzFromTable);
 
 // ==================================
 // HITUNG OTOMATIS (setelah render)
 // ==================================
 async function hitungTotalAllJuzOtomatis() {
-  const kelas = kelasSelect.value;
+  const kelasSelectEl = (typeof kelasSelect !== "undefined" && kelasSelect) ? kelasSelect : document.getElementById("kelasSelect");
+  const kelas = kelasSelectEl?.value || "";
 
   // Tunggu tabel terisi
-  const rows = santriTableBody.querySelectorAll("tr");
-  if (rows.length === 0) {
+  const santriTableBodyEl =
+    window.santriTableBody ||
+    document.getElementById("santriTableBody") ||
+    document.querySelector("table tbody");
+  const rows = santriTableBodyEl ? santriTableBodyEl.querySelectorAll("tr") : [];
+  if (!rows || rows.length === 0) {
     setTimeout(hitungTotalAllJuzOtomatis, 200);
     return;
   }
@@ -2977,7 +3005,7 @@ async function hitungTotalAllJuzOtomatis() {
   const rangeDari = document.getElementById("rangeDari");
   const rangeSampai = document.getElementById("rangeSampai");
   try {
-    const res = await fetch("/.netlify/functions/getAutoUpdateAllJuz");
+    const res = await fetch(`/ .netlify/functions/getAutoUpdateAllJuz`.replace(" /", "/"));
     const allData = await res.json();
     const kelasData = (allData || []).find(item => item.kelas === kelas);
     if (kelasData) {
@@ -2995,7 +3023,7 @@ async function hitungTotalAllJuzOtomatis() {
   // Ambil absensi & hitung
   try {
     const resAbs = await fetch(
-      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}`
+      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`
     );
     if (!resAbs.ok) throw new Error("Gagal ambil data absensi.");
     const allData = await resAbs.json();
@@ -3016,7 +3044,9 @@ async function hitungTotalAllJuzOtomatis() {
 
     rows.forEach(row => {
       // >>> AMBIL KUNCI DARI DATASET, bukan kolom pertama
-      const key = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
+      const key =
+        normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id) ||
+        normKey(row.querySelector(".col-nis")?.textContent);
       const cell = row.querySelector(".total-all-juz");
       if (!cell) return;
 
