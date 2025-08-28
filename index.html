@@ -1229,11 +1229,11 @@ async function submitTambahKelasBaru() {
     </div>
 
     <!-- Baris aksi nilai + tombol rekam -->
-<div class="manual-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-  <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:90px;" placeholder="Nilai Manual">
-  <button id="btn-beri-nilai">Acc Nilai Manual</button>
-  <button id="btn-open-record">Recording</button>
-</div>
+    <div class="manual-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <input type="number" id="input-nilai-manual" min="0" max="100" step="0.1" style="width:90px;" placeholder="Nilai Manual">
+      <button id="btn-beri-nilai">Acc Nilai Manual</button>
+      <button id="btn-open-record">Recording</button>
+    </div>
 
     <style>
       .keterangan-row{
@@ -1351,7 +1351,12 @@ let markData = {};
 let currentIdSiswa = null;     // id/nis baris aktif
 let currentRowEl = null;       // <tr> aktif
 const recordListEl   = document.getElementById('record-list'); // hanya di modal rekaman
-const WORKER_DIR = window.WEB_AUDIO_WORKER_DIR || '/js/';       // penting untuk worker + .mem
+
+/* ========= PENTING: paksa WORKER_DIR absolute ke folder /js/ ========= */
+const WORKER_DIR = '/js/';                         // FIX: absolute
+if (window.WebAudioRecorder) {                     // FIX: konfigurasi global .mem
+  WebAudioRecorder.config = { workerDir: WORKER_DIR };
+}
 
 /* ========= UTIL KELAS/TANGGAL ========= */
 function getKelasTanggalAktif() {
@@ -1507,7 +1512,7 @@ document.addEventListener('click', async function (e) {
 
   // baris yang diklik
   const row = e.target.closest('tr');
-  if (!row) return;                   /* guard */
+  if (!row) return;
   currentRowEl = row;
   currentIdSiswa = row.cells[0].innerText.trim();  // STRING
 
@@ -1592,7 +1597,7 @@ document.addEventListener('click', async function (e) {
       const angka = strong ? parseFloat(String(strong.textContent).replace(',', '.')) : NaN;
       if (!Number.isNaN(angka)) nilaiEl.textContent = angka.toFixed(1);
       const sisa = ringkas.textContent.replace(strong?.textContent || '', '').trim();
-      predEl.innerHTML = sisa || '-';  /* FIX typo */
+      predEl.innerHTML = sisa || '-';
     }
   }
 });
@@ -1620,8 +1625,8 @@ document.getElementById("toggle-keterangan").addEventListener("click", () => {
   const box = document.getElementById("keterangan-box");
   box.style.display = (box.style.display === "block") ? "none" : "block";
 });
-document.getElementById('close-overlay').addEventListener('click', () => {
-  document.getElementById('overlay-quran').style.display = 'none';
+document.getElementById("close-overlay").addEventListener("click", () => {
+  document.getElementById("overlay-quran").style.display = "none";
 });
 
 /* ========= MODAL REKAMAN (BUKA/TUTUP) ========= */
@@ -1679,13 +1684,16 @@ recordStartBtn.addEventListener('click', async () => {
     await ensureMicNodes();
 
     mp3Recorder = new WebAudioRecorder(sourceNode, {
-      workerDir: WORKER_DIR,   // ← pastikan ke /js/
+      workerDir: WORKER_DIR,   // FIX: pastikan ke /js/
       encoding: 'mp3',
-      numChannels: 2,          // ← MP3 encoder butuh stereo
+      numChannels: 2,          // FIX: MP3 encoder butuh stereo
       onComplete: async function(rec, blob){
         await handleRecordedBlobMP3(blob);
       },
-      onError: function(rec, err){ console.error(err); alert('Terjadi kesalahan saat rekam/encode.'); }
+      onError: function(rec, err){
+        console.error(err);
+        alert('Terjadi kesalahan saat rekam/encode.');
+      }
     });
 
     mp3Recorder.setOptions({
@@ -1781,7 +1789,6 @@ async function handleRecordedBlobMP3(blob){
   recordSpinEl.style.display = 'none';
 }
 </script>
-
 
 
 <!-- Overlay Hitung Total All Juz -->
