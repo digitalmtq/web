@@ -3442,7 +3442,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
     try {
       // ===== 1) Ambil ABSENSI (range)
-      const absUrl = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
+      const absUrl = `/.netlify/functions/getAbsensiRange2?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
       const resAbs = await fetch(absUrl);
       if (!resAbs.ok) throw new Error('Gagal mengambil data absensi.');
       let allData = await resAbs.json();
@@ -3452,7 +3452,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
       }
 
       // ===== 2) Ambil ROSTER untuk injeksi NIS/NAMA/ID/SEMESTER
-      const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+      const resSantri = await fetch(`/.netlify/functions/getSantri2?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
       const santriData = await resSantri.json().catch(()=>[]) || [];
 
       // helper key dan index—meniru loadSantriData
@@ -3751,6 +3751,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
   }
 })();
 </script>
+
 
 
 
