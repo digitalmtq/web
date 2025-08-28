@@ -3420,236 +3420,187 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 
+
+
+
+
+<button id="download-pdf-rekap" type="button">Download PDF</button>
+
 <script>
 (function(){
-  //============================= UI OVERLAY (dibuat 1x) =============================
-  const OVERLAY_ID = 'pdfRekapOverlay';
-  const BTN_ID     = 'download-pdf-rekap';
+  // ===== util DOM ringkas
+  const $ = sel => document.querySelector(sel);
 
-  // buat overlay hanya jika belum ada
-  function ensureOverlay(){
-    if (document.getElementById(OVERLAY_ID)) return;
-    const wrap = document.createElement('div');
-    wrap.id = OVERLAY_ID;
-    wrap.style.cssText = `
-      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-      background:rgba(0,0,0,.5); z-index:99999;`;
-    wrap.innerHTML = `
-      <div style="background:#fff; width:min(680px,92vw); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.25); overflow:hidden; font-family:system-ui,Segoe UI,Arial;">
-        <div style="padding:14px 18px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between">
-          <strong>Print Rekap (PDF)</strong>
-          <button type="button" id="pdfRekapClose" style="border:none;background:none;font-size:18px;cursor:pointer">✕</button>
-        </div>
-        <div style="padding:16px 18px; display:grid; gap:12px;">
-          <div style="display:grid; grid-template-columns:120px 1fr; gap:10px; align-items:center;">
-            <label for="pdfKelasInput"><b>Kelas</b></label>
-            <input id="pdfKelasInput" type="text" placeholder="mis. kelas_1" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
-          </div>
-          <div style="display:grid; grid-template-columns:120px 1fr 1fr; gap:10px; align-items:center;">
-            <label><b>Rentang Tanggal</b></label>
-            <input id="pdf-start-date-ov" type="date" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
-            <input id="pdf-end-date-ov"   type="date" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
-          </div>
-          <div id="pdfRekapHint" style="font-size:12px;color:#666;">Pilih kelas & tanggal, lalu klik Print PDF.</div>
-        </div>
-        <div style="padding:12px 18px; border-top:1px solid #eee; display:flex; gap:10px; justify-content:flex-end; align-items:center;">
-          <div id="pdfRekapSpinner" style="display:none; font-size:13px;">⏳ memproses…</div>
-          <button type="button" id="pdfRekapPrint" style="padding:8px 14px;border-radius:8px;border:1px solid #0d6efd;background:#0d6efd;color:#fff;cursor:pointer">Print PDF</button>
-          <button type="button" id="pdfRekapCancel" style="padding:8px 14px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer">Batal</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(wrap);
+  // ====== Bind tombol
+  const btn = document.getElementById('download-pdf-rekap');
+  btn?.addEventListener('click', pdfRekapDownload);
 
-    // close handlers
-    const hide = () => { wrap.style.display = 'none'; };
-    wrap.querySelector('#pdfRekapClose').addEventListener('click', hide);
-    wrap.querySelector('#pdfRekapCancel').addEventListener('click', hide);
-  }
-
-  // buka overlay dan prefilling kelas dari #kelasSelect (jika ada)
-  function openOverlay(){
-    ensureOverlay();
-    const ov = document.getElementById(OVERLAY_ID);
-    const kelasInput = document.getElementById('pdfKelasInput');
-    const startEl = document.getElementById('pdf-start-date-ov');
-    const endEl   = document.getElementById('pdf-end-date-ov');
-
-    // max = hari ini; tidak auto-set (sesuai permintaan)
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth()+1).padStart(2,'0');
-    const dd = String(today.getDate()).padStart(2,'0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-    startEl.max = todayStr;
-    endEl.max   = todayStr;
-
-    // default kelas dari select global jika ada
-    const kelasSelect = (typeof window.kelasSelect !== 'undefined' && window.kelasSelect) ? window.kelasSelect : document.getElementById('kelasSelect');
-    if (kelasSelect && !kelasInput.value) kelasInput.value = kelasSelect.value || '';
-
-    ov.style.display = 'flex';
-  }
-
-  // bind tombol utama
-  (function bindButton(){
-    const btn = document.getElementById(BTN_ID);
+  function setLoading(loading){
     if (!btn) return;
-    btn.addEventListener('click', openOverlay);
-  })();
+    if (loading){
+      btn.dataset._label = btn.textContent;
+      btn.textContent = 'Menyiapkan…';
+      btn.disabled = true;
+      btn.setAttribute('aria-busy','true');
+    } else {
+      btn.textContent = btn.dataset._label || 'Download PDF';
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+    }
+  }
 
-  // bind Print PDF (delegasi setelah overlay dibuat)
-  document.addEventListener('click', async (ev)=>{
-    if (ev.target?.id !== 'pdfRekapPrint') return;
-    ev.preventDefault();
-    const kelas = (document.getElementById('pdfKelasInput')?.value || '').trim();
-    const startDate = document.getElementById('pdf-start-date-ov')?.value;
-    const endDate   = document.getElementById('pdf-end-date-ov')?.value;
+  async function pdfRekapDownload(){
+    const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
+    const kelas = kelasEl?.value || '';
+    const startDate = $('#pdf-start-date')?.value;
+    const endDate   = $('#pdf-end-date')?.value;
 
-    if (!kelas)     { alert('Mohon isi Kelas (mis. kelas_1).'); return; }
-    if (!startDate || !endDate) { alert('Mohon pilih tanggal mulai & akhir.'); return; }
+    if (!startDate || !endDate) {
+      alert('Mohon pilih tanggal mulai dan tanggal akhir.');
+      return;
+    }
 
-    const spinner = document.getElementById('pdfRekapSpinner');
-    const hint    = document.getElementById('pdfRekapHint');
-    const printBtn= document.getElementById('pdfRekapPrint');
-    spinner.style.display = 'inline-block';
-    hint.textContent = 'Mengambil data & membangun PDF…';
-    printBtn.disabled = true;
+    setLoading(true);
 
     try {
-      await doMakePdf({ kelas, startDate, endDate });
-      // sukses → tutup overlay
-      document.getElementById(OVERLAY_ID).style.display = 'none';
-    } catch (e) {
-      console.error(e);
-      alert('Gagal membuat PDF: ' + (e?.message || e));
-    } finally {
-      spinner.style.display = 'none';
-      hint.textContent = 'Pilih kelas & tanggal, lalu klik Print PDF.';
-      printBtn.disabled = false;
-    }
-  });
-
-  //============================= PROSES PDF (mandiri) =============================
-  async function doMakePdf({kelas, startDate, endDate}){
-    // 1) ambil absensi rentang
-    const absUrl = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
-    const resAbs = await fetch(absUrl);
-    if (!resAbs.ok) throw new Error('Gagal mengambil data absensi.');
-    let allData = await resAbs.json();
-    if (!Array.isArray(allData) || allData.length === 0) throw new Error('Tidak ada data pada rentang tersebut.');
-
-    // 2) ambil roster untuk injeksi NIS/Nama/ID/Semester
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
-    const santriData = await resSantri.json().catch(()=>[]) || [];
-
-    // 3) normalisasi absensi (tiru loadSantriData)
-    const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-    const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
-    const keyName = v => String(v || "").trim().toLowerCase();
-    const byIdMap = (arr, pick = x => x) => { const m=new Map(); for(const a of arr||[]){ const id=keyId(a?.id); if(id) m.set(id, pick(a)); } return m; };
-    const byNisMap= (arr, pick = x => x) => { const m=new Map(); for(const a of arr||[]){ const nis=keyNis(a?.nis); if(nis) m.set(nis, pick(a)); } return m; };
-    const byNameMap=(arr,pick=x=>x)=>{ const m=new Map(); for(const a of arr||[]){ const nm=keyName(a?.nama); if(nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
-
-    const rosterById   = byIdMap(santriData, s=>s);
-    const rosterByNis  = byNisMap(santriData, s=>s);
-    const rosterByName = byNameMap(santriData, s=>s);
-
-    const allDataNorm = allData.map(r=>{
-      let id   = keyId(r?.id ?? "");
-      let nis  = keyNis(r?.nis ?? "");
-      const nmK = keyName(r?.nama);
-
-      if (!nis && id && rosterById.get(id)?.nis)       nis = keyNis(rosterById.get(id).nis);
-      if (!nis && nmK && rosterByName.get(nmK)?.nis)   nis = keyNis(rosterByName.get(nmK).nis);
-
-      let nama = r?.nama;
-      if (!nama && nis && rosterByNis.get(nis)?.nama)  nama = rosterByNis.get(nis).nama;
-      if (!nama && id  && rosterById.get(id)?.nama)    nama = rosterById.get(id).nama;
-
-      if (!id && nis && rosterByNis.get(nis)?.id)      id = keyId(rosterByNis.get(nis).id);
-
-      // semester fallback dari roster bila kosong
-      let semester = (r?.semester != null) ? Number(r.semester) : null;
-      if (semester == null) {
-        if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
-        else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
+      // ===== 1) Ambil ABSENSI (range)
+      const absUrl = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
+      const resAbs = await fetch(absUrl);
+      if (!resAbs.ok) throw new Error('Gagal mengambil data absensi.');
+      let allData = await resAbs.json();
+      if (!Array.isArray(allData) || allData.length === 0) {
+        alert('Tidak ada data pada rentang tanggal tersebut.');
+        return;
       }
 
-      return { ...r, id, nis, nama, semester };
-    });
+      // ===== 2) Ambil ROSTER untuk injeksi NIS/NAMA/ID/SEMESTER
+      const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+      const santriData = await resSantri.json().catch(()=>[]) || [];
 
-    // 4) agregasi mandiri
-    const aggMap = PDF_buildRekapPerKey(allDataNorm);
-    const rows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
+      // helper key dan index—meniru loadSantriData
+      const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
+      const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
+      const keyName = v => String(v || "").trim().toLowerCase();
+      const byIdMap = (arr, pick = x => x) => {
+        const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m;
+      };
+      const byNisMap = (arr, pick = x => x) => {
+        const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m;
+      };
+      const byNameMap = (arr, pick = x => x) => {
+        const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m;
+      };
 
-    // ringkasan total
-    let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
-    rows.forEach(r=>{
-      totJuz += r.totalJuz;
-      totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin;
-      totPages += r.totalPageSum;
-    });
+      const rosterById   = byIdMap(santriData, s => s);
+      const rosterByNis  = byNisMap(santriData, s => s);
+      const rosterByName = byNameMap(santriData, s => s);
 
-    // 5) build PDF
-    const { jsPDF } = window.jspdf || {};
-    if (!jsPDF) throw new Error('jsPDF belum dimuat di halaman.');
-    const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
+      // ===== 3) NORMALISASI ABSENSI: isi NIS bila kosong (id→nis, nama→nis), isi nama/id/semester dari roster
+      const allDataNorm = allData.map(r => {
+        let id   = keyId(r?.id ?? "");
+        let nis  = keyNis(r?.nis ?? "");
+        const nmK = keyName(r?.nama);
 
-    doc.setFontSize(14);
-    doc.text('Rekap Absensi & Setoran', 14, 15);
-    doc.setFontSize(11);
-    doc.text(`Kelas: ${kelas || '-'} | Rentang: ${startDate} s.d. ${endDate}`, 14, 22);
+        if (!nis && id && rosterById.get(id)?.nis) {
+          nis = keyNis(rosterById.get(id).nis);
+        }
+        if (!nis && nmK && rosterByName.get(nmK)?.nis) {
+          nis = keyNis(rosterByName.get(nmK).nis);
+        }
 
-    let y = 30;
-    const lineH = 6;
+        let nama = r?.nama;
+        if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
+        if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
 
-    rows.forEach((r, i) => {
-      const nama = r.nama || r.nis || r.id || `#${i+1}`;
-      const nilaiAvg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-      const p = PDF_predikatFromScore(nilaiAvg);
-      const nilaiText = `${nilaiAvg.toFixed(2)} - ${p.text} ${p.huruf}`;
-      const setoranText = `${r.dariMin ? PDF_fmtSA(r.dariMin) : '-'} → ${r.sampaiMax ? PDF_fmtSA(r.sampaiMax) : '-'}`;
-      const pageText = (r.pageStartMin!=null && r.pageEndMax!=null) ? `${r.pageStartMin}-${r.pageEndMax}` : '-';
-      const juzT = PDF_ringkasJuzTerbaca(r.juzSet);
-      const st = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+        if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-      // Baris 1: Nama | NIS | Semester
-      doc.setFontSize(10);
-      doc.text(`${i+1}. ${nama}`, 14, y);
-      doc.text(`NIS: ${r.nis || '-'}`, 100, y);
-      doc.text(`Sem: ${r.semester ?? '-'}`, 155, y);
-      y += lineH;
+        // semester fallback dari roster bila kosong
+        let semester = (r?.semester != null) ? Number(r.semester) : null;
+        if (semester == null) {
+          if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
+          else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
+        }
 
-      // Baris 2: Absensi & Nilai
-      doc.text(`H:${r.hadir} A:${r.alpha} S:${r.sakit} I:${r.izin}`, 14, y);
-      doc.text(`Nilai: ${nilaiText}`, 100, y);
-      y += lineH;
+        return { ...r, id, nis, nama, semester };
+      });
 
-      // Baris 3: Setoran, Page, TotalPage
-      doc.text(`Setoran: ${setoranText} | Page: ${pageText} | TotalPage: ${Math.round(r.totalPageSum)}`, 14, y);
-      y += lineH;
+      // ===== 4) Agregasi berdiri sendiri (pakai data NORMALISASI)
+      const aggMap = PDF_buildRekapPerKey(allDataNorm);
+      const rows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
 
-      // Baris 4: Total All Juz + status + Juz Terbaca (wrap)
-      const line4 = `Total All Juz: ${r.totalJuz.toFixed(2)} - ${st.label} | Juz Terbaca: ${juzT}`;
-      const wrapped = doc.splitTextToSize(line4, 180);
-      wrapped.forEach(line => { doc.text(line, 14, y); y += lineH; });
+      // Ringkasan total
+      let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
+      rows.forEach(r=>{
+        totJuz += r.totalJuz;
+        totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin;
+        totPages += r.totalPageSum;
+      });
 
-      y += 2;
-      if (y > 280) { doc.addPage(); y = 20; }
-    });
+      // ===== 5) Buat PDF
+      const { jsPDF } = window.jspdf || {};
+      if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
+      const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
 
-    y += 4;
-    doc.setFontSize(11);
-    doc.text(
-      `Ringkasan: Hadir ${totH} | Alpha ${totA} | Sakit ${totS} | Izin ${totI} | Total Page ${Math.round(totPages)} | Total Juz ${totJuz.toFixed(2)}`,
-      14, y
-    );
+      doc.setFontSize(14);
+      doc.text('Rekap Absensi & Setoran', 14, 15);
+      doc.setFontSize(11);
+      doc.text(`Kelas: ${kelas || '-'} | Rentang: ${startDate} s.d. ${endDate}`, 14, 22);
 
-    doc.save(`Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.pdf`);
+      let y = 30;
+      const lineH = 6;
+
+      rows.forEach((r, i) => {
+        const nama = r.nama || r.nis || r.id || `#${i+1}`;
+        const nilaiAvg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+        const p = PDF_predikatFromScore(nilaiAvg);
+        const nilaiText = `${nilaiAvg.toFixed(2)} - ${p.text} ${p.huruf}`;
+        const setoranText = `${r.dariMin ? PDF_fmtSA(r.dariMin) : '-'} → ${r.sampaiMax ? PDF_fmtSA(r.sampaiMax) : '-'}`;
+        const pageText = (r.pageStartMin!=null && r.pageEndMax!=null) ? `${r.pageStartMin}-${r.pageEndMax}` : '-';
+        const juzT = PDF_ringkasJuzTerbaca(r.juzSet);
+        const st = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+
+        // Baris 1: Nama | NIS | Semester
+        doc.setFontSize(10);
+        doc.text(`${i+1}. ${nama}`, 14, y);
+        doc.text(`NIS: ${r.nis || '-'}`, 100, y);
+        doc.text(`Sem: ${r.semester ?? '-'}`, 155, y);
+        y += lineH;
+
+        // Baris 2: Absensi & Nilai
+        doc.text(`H:${r.hadir} A:${r.alpha} S:${r.sakit} I:${r.izin}`, 14, y);
+        doc.text(`Nilai: ${nilaiText}`, 100, y);
+        y += lineH;
+
+        // Baris 3: Setoran, Page, TotalPage
+        doc.text(`Setoran: ${setoranText} | Page: ${pageText} | TotalPage: ${Math.round(r.totalPageSum)}`, 14, y);
+        y += lineH;
+
+        // Baris 4: Total All Juz + status + Juz Terbaca (wrap)
+        const line4 = `Total All Juz: ${r.totalJuz.toFixed(2)} - ${st.label} | Juz Terbaca: ${juzT}`;
+        const wrapped = doc.splitTextToSize(line4, 180);
+        wrapped.forEach(line => { doc.text(line, 14, y); y += lineH; });
+
+        y += 2;
+        if (y > 280) { doc.addPage(); y = 20; }
+      });
+
+      y += 4;
+      doc.setFontSize(11);
+      doc.text(
+        `Ringkasan: Hadir ${totH} | Alpha ${totA} | Sakit ${totS} | Izin ${totI} | Total Page ${Math.round(totPages)} | Total Juz ${totJuz.toFixed(2)}`,
+        14, y
+      );
+
+      doc.save(`Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengunduh PDF: ' + (err.message || err));
+    } finally {
+      setLoading(false);
+    }
   }
 
-  //============================= Helper agregasi (mandiri) =============================
+  // ================== Helper khusus PDF (TETAP) ==================
   function PDF_normKey(v){ return String(v ?? '').trim(); }
   function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
   function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
@@ -3688,7 +3639,6 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
     return out.join('; ');
   }
 
-  // parser juz terbaca yang robust (menerima "Juz 2-4", "2-4", "5,7-9", variasi minus/s.d.)
   function PDF_parseJuzTerbacaField(val){
     const out = new Set();
     if (val == null) return out;
@@ -3703,10 +3653,9 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
     if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
 
     let str = String(val);
-    str = str.replace(/[–—−]/g, '-');                            // variasi minus
-    str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');    // s/d, sd, sampai, to
-    str = str.replace(/juz\s*:?/gi, 'juz ');                      // normalisasi label
-
+    str = str.replace(/[–—−]/g, '-');
+    str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
+    str = str.replace(/juz\s*:?/gi, 'juz ');
     const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
     let m;
     while ((m = re.exec(str)) !== null) {
@@ -3771,7 +3720,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
       if (smp  && (!r.sampaiMax || PDF_compareSA(smp, r.sampaiMax) > 0)) r.sampaiMax = smp;
 
       // Page & TotalPage
-      const rng = PDF_parseRange(it?.halaman || it?.page);
+      const rng = PDF_parseRange(it?.halaman atau it?.page);
       const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
       if (tp!=null) r.totalPageSum += tp;
       else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
@@ -3781,7 +3730,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
         if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
       }
 
-      // Total All Juz
+      // Juz total
       const vJ = PDF_num2(it?.totalJuz ?? it?.juz); if (vJ!=null) r.totalJuz += vJ;
 
       // Nilai per tanggal
@@ -3823,11 +3772,6 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
   }
 })();
 </script>
-
-
-
-
-
 
 </body>
 </html>
