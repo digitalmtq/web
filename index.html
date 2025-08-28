@@ -3418,40 +3418,6 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 <script>
-// 1. Fungsi untuk memberi warna hanya huruf predikat
-function bgHuruf(huruf, predikatText = "") {
-  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
-  // huruf diberi background, predikatText normal
-  return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
-}
-
-// 2. Data dari server / dataSantri
-let dataSantri = []; // nanti diisi fetch atau data.push
-
-// 3. Fungsi render tabel
-function renderTabelPredikat() {
-  dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
-  });
-}
-</script>
-
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const eye = document.getElementById("toggle-password");
-  const input = document.getElementById("password");
-  if (eye && input) {
-    eye.addEventListener("click", () => {
-      input.type = (input.type === "password") ? "text" : "password";
-    });
-  }
-});
-</script>
-
-
-<script>
 (function(){
   // ===== util DOM ringkas
   const $ = sel => document.querySelector(sel);
@@ -3519,6 +3485,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const pageText = (r.pageStartMin!=null && r.pageEndMax!=null) ? `${r.pageStartMin}-${r.pageEndMax}` : '-';
         const juzT = PDF_ringkasJuzTerbaca(r.juzSet);
 
+        // === HITUNG STATUS TOTAL ALL JUZ (meniru logika tabelmu)
+        const st = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+
         // baris 1
         doc.setFontSize(10);
         doc.text(`${i+1}. ${nama}`, 14, y);
@@ -3530,9 +3499,9 @@ document.addEventListener("DOMContentLoaded", () => {
         doc.text(`Setoran: ${setoranText} | Page: ${pageText} | TotalPage: ${Math.round(r.totalPageSum)}`, 14, y);
         y += lineH;
 
-        // baris 3 (wrap untuk Juz Terbaca agar tidak kepotong)
-        const juzLine = `Total Juz: ${r.totalJuz.toFixed(2)} | Juz Terbaca: ${juzT}`;
-        const wrapped = doc.splitTextToSize(juzLine, 180);
+        // baris 3 (wrap: sertakan “Total All Juz” + status + Juz Terbaca)
+        const line3 = `Total All Juz: ${r.totalJuz.toFixed(2)} - ${st.label} | Juz Terbaca: ${juzT}`;
+        const wrapped = doc.splitTextToSize(line3, 180);
         wrapped.forEach(line => { doc.text(line, 14, y); y += lineH; });
 
         y += 2;
@@ -3597,36 +3566,25 @@ document.addEventListener("DOMContentLoaded", () => {
     return out.join('; ');
   }
 
-  // ==== Parser Juz Terbaca yang lebih tangguh (mendukung banyak format) ====
+  // ==== Parser Juz Terbaca yang tangguh (boleh "Juz 2-4", "2-4", "5,7-9", dst) ====
   function PDF_parseJuzTerbacaField(val){
     const out = new Set();
     if (val == null) return out;
 
-    // Jika sudah array angka/string
     if (Array.isArray(val)) {
       val.forEach(v => {
         if (typeof v === 'number' && Number.isFinite(v)) out.add(v);
-        else if (typeof v === 'string') {
-          PDF_parseJuzTerbacaField(v).forEach(n => out.add(n));
-        }
+        else if (typeof v === 'string') PDF_parseJuzTerbacaField(v).forEach(n => out.add(n));
       });
       return out;
     }
-
-    // Jika satu angka
     if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
 
-    // Normalisasi string
     let str = String(val);
-    // Samakan tanda minus (– — −) -> -
-    str = str.replace(/[–—−]/g, '-');
-    // Samakan “s/d”, “sd”, “sampai”, “to” -> -
-    str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
-    // Hilangkan label yang tidak perlu (mis: "Juz:")
-    str = str.replace(/juz\s*:?/gi, 'juz ');
+    str = str.replace(/[–—−]/g, '-');                            // variasi minus
+    str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');    // s/d, sd, sampai, to
+    str = str.replace(/juz\s*:?/gi, 'juz ');                      // normalisasi label
 
-    // Tangkap pola: dengan/atau tanpa kata "Juz", dukung juga daftar/komma
-    // Contoh: "Juz 2-4; Juz 10", "2-4; 10", "Juz 5,6,7", "5, 7-9"
     const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
     let m;
     while ((m = re.exec(str)) !== null) {
@@ -3634,12 +3592,25 @@ document.addEventListener("DOMContentLoaded", () => {
       let b = m[2] ? parseInt(m[2], 10) : a;
       if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
       if (a > b) [a, b] = [b, a];
-      // batas aman 1..30
       a = Math.max(1, Math.min(30, a));
       b = Math.max(1, Math.min(30, b));
       for (let x = a; x <= b; x++) out.add(x);
     }
     return out;
+  }
+
+  // ==== STATUS TOTAL ALL JUZ (KHATAM/TUNTAS/%), meniru logika tabel ====
+  function PDF_totalAllJuzStatus(totalJuzNum, semester){
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    if (totalJuzNum >= 30) return { label: 'KHATAM' };
+    const batas = batasSemester[Number(semester)] || 0;
+    if (batas > 0) {
+      let persen = Math.floor((Number(totalJuzNum) / batas) * 100);
+      if (persen > 100) persen = 100;
+      if (persen >= 100) return { label: 'TUNTAS' };
+      return { label: `${persen}%` };
+    }
+    return { label: '0%' };
   }
 
   function PDF_buildRekapPerKey(items){
@@ -3659,6 +3630,7 @@ document.addEventListener("DOMContentLoaded", () => {
         _nilaiByDate:Object.create(null),
         nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
         juzSet:new Set(),
+        semester: (it?.semester!=null ? Number(it.semester) : null) // <<=== penting utk status
       };
       const r = map[key];
       if (!r.nama && it?.nama) r.nama = it.nama;
@@ -3688,7 +3660,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
       }
 
-      // Juz total
+      // Juz total (akumulasi rentang)
       const vJ = PDF_num2(it?.totalJuz ?? it?.juz); if (vJ!=null) r.totalJuz += vJ;
 
       // Nilai per tanggal (ambil buttonCell.nilai; fallback nilai/score)
@@ -3697,7 +3669,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const vN = PDF_num2(vNraw);
       if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
 
-      // === Juz Terbaca (Set angka) — dukung berbagai field/format ===
+      // Juz Terbaca (berbagai field/format)
       const jtRaw =
         it?.juzTerbaca ??
         it?.juz_terbaca ??
@@ -3707,6 +3679,9 @@ document.addEventListener("DOMContentLoaded", () => {
         it?.juz;
       const set = PDF_parseJuzTerbacaField(jtRaw);
       if (set.size) set.forEach(n=> r.juzSet.add(n));
+
+      // Semester fallback bila item selanjutnya punya nilai
+      if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
     }
 
     // finalize nilai
@@ -3727,6 +3702,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 })();
 </script>
+
 
 </body>
 </html>
