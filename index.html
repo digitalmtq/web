@@ -1806,7 +1806,7 @@ async function handleRecordedBlobMP3(blob){
 
 
 <!-- Overlay Hitung Total All Juz -->
-<div id="juzOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+<div id="juzOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
 background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center;">
   <div style="background:white; padding:20px; border-radius:8px; min-width:300px;">
     <h3>Hitung Total All Juz</h3>
@@ -2986,17 +2986,13 @@ function fillRowRekapNonJuz(row, r){
   // Total Page sum
   const tdTP = row.querySelector(".rekap-total-page, .rekap-totalpage"); if (tdTP) tdTP.textContent = Math.round(r.totalPageSum);
 
-  // Nilai avg per tanggal + predikat
-const tdNil = row.querySelector(".rekap-nilai");
-if (tdNil){
-  const avg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-  if (r.nilaiCount) {
-    const p = _predikatFromScore(avg); // -> {text, huruf, color}
+  // Nilai avg per tanggal + predikat (format: "92.67 - MUMTAZ A")
+  const tdNil = row.querySelector(".rekap-nilai");
+  if (tdNil){
+    const avg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+    const p = _predikatFromScore(avg);
     tdNil.innerHTML = `${avg.toFixed(2)} - ${p.text} <span style="background-color:${p.color};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
-    tdNil.title = `n=${r.nilaiCount} tanggal · Min ${r.nilaiMin.toFixed(2)} · Max ${r.nilaiMax.toFixed(2)}`;
-  } else {
-    tdNil.innerHTML = `0.00 - <span style="background-color:red;color:white;padding:0 4px;border-radius:3px;">-</span>`;
-    tdNil.title = "n=0";
+    tdNil.title = r.nilaiCount ? `n=${r.nilaiCount} tanggal · Min ${r.nilaiMin.toFixed(2)} · Max ${r.nilaiMax.toFixed(2)}` : "n=0";
   }
 }
 
@@ -3132,8 +3128,11 @@ async function hitungTotalAllJuzFromTable() {
   }
 }
 
-// Buka overlay (rangeDari dibatasi hari ini; rangeSampai bebas)
-function bukaOverlayTotalAllJuz() {
+// Pastikan fungsi manual bisa dipanggil global (untuk lingkungan module)
+window.hitungTotalAllJuzFromTable = window.hitungTotalAllJuzFromTable || hitungTotalAllJuzFromTable;
+
+// Buka overlay (rangeDari dibatasi hari ini; rangeSampai bebas) — dibuat global agar aman dipanggil listener
+window.bukaOverlayTotalAllJuz = function () {
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -3155,9 +3154,12 @@ function bukaOverlayTotalAllJuz() {
   }
 
   document.getElementById("juzOverlay").style.display = "flex";
-}
+};
 
-document.getElementById("btnHitungTotalJuz")?.addEventListener("click", hitungTotalAllJuzFromTable);
+// Tombol overlay — pakai wrapper aman
+document.getElementById("btnHitungTotalJuz")?.addEventListener("click", () => {
+  if (typeof window.hitungTotalAllJuzFromTable === "function") window.hitungTotalAllJuzFromTable();
+});
 
 // ==================================
 // HITUNG OTOMATIS (setelah render) — DIPERLUAS
@@ -3272,7 +3274,7 @@ window.loadSantriData = async function (...args) {
 
   // re-bind kalau thead di-render ulang
   document.getElementById("totalAllJuzHeader")
-    ?.addEventListener("click", bukaOverlayTotalAllJuz, { once:false });
+    ?.addEventListener("click", () => window.bukaOverlayTotalAllJuz && window.bukaOverlayTotalAllJuz(), { once:false });
 };
 
 // Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
