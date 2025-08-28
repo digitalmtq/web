@@ -2810,14 +2810,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 // ============================
 // hitungTotalAllJuzFromTable
 (() => {
-  // ====== Helper aman (tak bentrok) ======
-  const _normKey = v => String(v ?? "").trim();
-  const _num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
-
-  // Expose hanya bila belum ada (jaga kompat)
-  if (typeof window.normKey !== "function") window.normKey = _normKey;
-  if (typeof window.num     !== "function") window.num     = _num;
-
+  // ---------- Helper aman (tanpa bentrok) ----------
+  const nk = v => String(v ?? "").trim();
+  const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
   const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
   const getTbody = () =>
@@ -2828,24 +2823,137 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   const getKelas = () =>
     ((typeof kelasSelect !== "undefined" && kelasSelect) ? kelasSelect : document.getElementById("kelasSelect"))?.value || "";
 
-  // ============================
-  // HITUNG MANUAL (via overlay)
-  // ============================
+  const getOverlay = () => window.overlay || document.getElementById("juzOverlay") || null;
+
+  // Sumber tanggal: overlay jika ada & terisi, kalau tidak pakai filter utama, kalau tidak pakai hari ini.
+  function resolveDateRangeAuto() {
+    const d1 = document.getElementById("rangeDari")?.value || "";
+    const d2 = document.getElementById("rangeSampai")?.value || "";
+    if (d1 && d2) return { dari: d1, sampai: d2 };
+
+    const tAwal  = (window.tanggalInput || document.getElementById("tanggalInput"))?.value || "";
+    const tAkhir = (window.tanggalFilterAkhir || document.getElementById("tanggalFilterAkhir"))?.value || "";
+    if (tAwal) return { dari: tAwal, sampai: (tAkhir && tAkhir !== tAwal) ? tAkhir : tAwal };
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm   = String(today.getMonth() + 1).padStart(2, "0");
+    const dd   = String(today.getDate()).padStart(2, "0");
+    const s    = `${yyyy}-${mm}-${dd}`;
+    return { dari: s, sampai: s };
+  }
+
+  // Bersihkan semua spinner supaya tidak "muter-muter"
+  function clearAllSpinners() {
+    const tbody = getTbody(); if (!tbody) return;
+    tbody.querySelectorAll("td.total-all-juz").forEach(td => {
+      td.innerHTML = `0.00 <span style="color:red; font-size:12px">0%</span>`;
+    });
+  }
+
+  // ---------- Render UI dari data rekap ----------
+  function renderTotalAllJuz(rows, rekap) {
+    rows.forEach(row => {
+      const key =
+        nk(row.dataset?.key || row.dataset?.nis || row.dataset?.id) ||
+        nk(row.querySelector(".col-nis")?.textContent);
+
+      const cell = row.querySelector(".total-all-juz");
+      if (!cell) return;
+
+      const r = rekap[key];
+      if (!r) {
+        cell.innerHTML = `0.00 <span style="color:red; font-size:12px">0%</span>`;
+        return;
+      }
+
+      const totalJuzNum = num(r.totalJuz);
+      const totalJuzStr = totalJuzNum.toFixed(2);
+
+      let semester = Number(row.querySelector(".semester")?.value);
+      if (!semester && r.semester) semester = Number(r.semester);
+
+      const batas = batasSemester[semester] || 0;
+
+      let label, warna;
+      if (totalJuzNum >= 30) { label = "KHATAM"; warna = "green"; }
+      else {
+        let persen = batas > 0 ? Math.floor((totalJuzNum / batas) * 100) : 0;
+        if (persen > 100) persen = 100;
+        if (persen >= 100) { label = "TUNTAS"; warna = "green"; }
+        else { label = `${persen}%`; warna = "red"; }
+      }
+
+      cell.innerHTML = `${totalJuzStr} <span style="color:${warna}; font-size:12px">${label}</span>`;
+    });
+  }
+
+  // ---------- Hitung & render (dipakai otomatis) ----------
+  async function hitungTotalAllJuzOtomatis() {
+    const kelas = getKelas();
+    const tbody = getTbody();
+    if (!tbody) { setTimeout(hitungTotalAllJuzOtomatis, 200); return; }
+
+    const rows = tbody.querySelectorAll("tr");
+    if (rows.length === 0) { setTimeout(hitungTotalAllJuzOtomatis, 200); return; }
+
+    // agar tidak terlihat “loading” lama
+    clearAllSpinners();
+
+    // isi tanggal otomatis dari meta bila ada (tidak wajib)
+    try {
+      const rangeDari = document.getElementById("rangeDari");
+      const rangeSampai = document.getElementById("rangeSampai");
+      const metaRes = await fetch("/.netlify/functions/getAutoUpdateAllJuz?t=" + Date.now());
+      const meta = await metaRes.json();
+      const k = (meta || []).find(x => x.kelas === kelas);
+      if (k) {
+        if (rangeDari)   rangeDari.value   = k.fromDate || "";
+        if (rangeSampai) rangeSampai.value = k.toDate   || "";
+      }
+    } catch (e) {
+      // silent
+    }
+
+    const { dari, sampai } = resolveDateRangeAuto();
+
+    try {
+      const url = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Gagal ambil data absensi.");
+      const allData = await res.json();
+
+      // rekap (nis || id)
+      const rekap = Object.create(null);
+      (allData || []).forEach(item => {
+        const id  = nk(item?.id);
+        const nis = nk(item?.nis);
+        const key = nk(nis || id);
+        if (!key) return;
+        if (!rekap[key]) rekap[key] = { totalJuz: 0, semester: item?.semester ?? null };
+        rekap[key].totalJuz += num(item?.totalJuz);
+      });
+
+      renderTotalAllJuz(rows, rekap);
+    } catch (err) {
+      console.error("TotalAllJuz otomatis error:", err);
+      // sudah dibersihkan ke nol
+    }
+  }
+
+  // ---------- Hitung manual (overlay) + SIMPAN ----------
   async function hitungTotalAllJuzFromTable() {
     const kelas = getKelas();
-    const dariEl = document.getElementById("rangeDari");
-    const smpEl  = document.getElementById("rangeSampai");
-    const dari   = dariEl?.value;
-    const sampai = smpEl?.value;
+    const dari = document.getElementById("rangeDari")?.value;
+    const sampai = document.getElementById("rangeSampai")?.value;
 
     if (!dari)   { alert("Mohon pilih tanggal Dari.");   return; }
     if (!sampai) { alert("Mohon pilih tanggal Sampai."); return; }
 
-    const ov = window.overlay || document.getElementById("juzOverlay");
+    const ov = getOverlay();
     if (ov) ov.style.display = "flex";
 
     try {
-      // Ambil data absensi rentang (pakai cache-buster)
       const url = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal ambil data absensi.");
@@ -2855,87 +2963,53 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (!tbody) throw new Error("Tabel santri belum tersedia.");
       const rows = tbody.querySelectorAll("tr");
 
-      // Rekap: pakai kunci stabil (nis || id)
+      // rekap utk render + simpan
       const rekap = Object.create(null); // key => { totalJuz, semester, id, nis }
       (allData || []).forEach(item => {
-        const id  = _normKey(item?.id);
-        const nis = _normKey(item?.nis);
-        const key = _normKey(nis || id);
+        const id  = nk(item?.id);
+        const nis = nk(item?.nis);
+        const key = nk(nis || id);
         if (!key) return;
         if (!rekap[key]) rekap[key] = { totalJuz: 0, semester: item?.semester ?? null, id, nis };
-        rekap[key].totalJuz += _num(item?.totalJuz);
+        rekap[key].totalJuz += num(item?.totalJuz);
       });
 
-      // Update tabel + siapkan data simpan
+      renderTotalAllJuz(rows, rekap);
+
+      // siapkan payload simpan (hanya saat manual)
       const dataToSave = [];
-
       rows.forEach(row => {
-        // >>> Ambil kunci dari dataset; fallback dari .col-nis (isi NIS/ID di kolom pertama)
         const key =
-          _normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id) ||
-          _normKey(row.querySelector(".col-nis")?.textContent);
-
-        const cell = row.querySelector(".total-all-juz");
-        if (!cell) return;
+          nk(row.dataset?.key || row.dataset?.nis || row.dataset?.id) ||
+          nk(row.querySelector(".col-nis")?.textContent);
 
         const r = rekap[key];
-        if (r) {
-          const totalJuzNum = _num(r.totalJuz);
-          const totalJuzStr = totalJuzNum.toFixed(2);
+        if (!r) return;
 
-          let semester = Number(row.querySelector(".semester")?.value);
-          if (!semester && r.semester) semester = Number(r.semester);
+        const totalJuzNum = num(r.totalJuz);
+        const totalJuzStr = totalJuzNum.toFixed(2);
 
-          const batas = batasSemester[semester] || 0;
+        let semester = Number(row.querySelector(".semester")?.value);
+        if (!semester && r.semester) semester = Number(r.semester);
 
-          // Hitung persen, prioritaskan KHATAM
-          let label, warna;
-          if (totalJuzNum >= 30) {
-            label = "KHATAM";
-            warna = "green";
-          } else {
-            let prosentase = batas > 0 ? Math.floor((totalJuzNum / batas) * 100) : 0;
-            if (prosentase > 100) prosentase = 100;
-            if (prosentase >= 100) {
-              label = "TUNTAS";
-              warna = "green";
-            } else {
-              label = `${prosentase}%`;
-              warna = "red";
-            }
-          }
-
-          cell.innerHTML = `${totalJuzStr} <span style="color:${warna}; font-size:12px;">${label}</span>`;
-
-          // Siapkan data simpan (sertakan id & nis untuk kompatibel)
-          dataToSave.push({
-            key,
-            id: r.id || "",
-            nis: r.nis || "",
-            totalJuz: Number(totalJuzStr),
-            semester: semester || null,
-            isKhatam: totalJuzNum >= 30
-          });
-        } else {
-          cell.innerHTML = `0.00 <span style="color:red; font-size:10px">0%</span>`;
-        }
+        dataToSave.push({
+          key,
+          id: r.id || "",
+          nis: r.nis || "",
+          totalJuz: Number(totalJuzStr),
+          semester: semester || null,
+          isKhatam: totalJuzNum >= 30
+        });
       });
 
-      // Simpan hasil rekap ke backend (meta tanggal & kelas)
       const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fromDate: dari,
-          toDate: sampai,
-          kelas,
-          data: dataToSave
-        }),
+        body: JSON.stringify({ fromDate: dari, toDate: sampai, kelas, data: dataToSave }),
       });
-
       if (!saveRes.ok) {
-        const errText = await saveRes.text().catch(()=>"(no body)");
-        throw new Error(`Gagal menyimpan data: ${errText}`);
+        const t = await saveRes.text().catch(()=>"(no body)");
+        throw new Error(`Gagal menyimpan data: ${t}`);
       }
 
       alert("✅ Total All Juz berhasil dihitung dan disimpan.");
@@ -2947,7 +3021,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     }
   }
 
-  // Buka overlay (rangeDari dibatasi hari ini; rangeSampai bebas)
+  // ---------- Overlay open ----------
   function bukaOverlayTotalAllJuz() {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -2962,130 +3036,43 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       rangeDari.max = todayStr;
       if (!rangeDari.value || rangeDari.value > todayStr) rangeDari.value = todayStr;
     }
-
     if (rangeSampai) {
       rangeSampai.removeAttribute("max");
       rangeSampai.disabled = false;
       if (!rangeSampai.value) rangeSampai.value = todayStr;
     }
 
-    const ov = document.getElementById("juzOverlay");
+    const ov = getOverlay();
     if (ov) ov.style.display = "flex";
   }
 
-  // ==================================
-  // HITUNG OTOMATIS (setelah render)
-  // ==================================
-  async function hitungTotalAllJuzOtomatis() {
-    const kelas = getKelas();
-
-    const tbody = getTbody();
-    if (!tbody) { setTimeout(hitungTotalAllJuzOtomatis, 200); return; }
-    const rows = tbody.querySelectorAll("tr");
-    if (rows.length === 0) { setTimeout(hitungTotalAllJuzOtomatis, 200); return; }
-
-    // Ambil tanggal otomatis dari server → set ke input overlay jika ada
-    const rangeDari = document.getElementById("rangeDari");
-    const rangeSampai = document.getElementById("rangeSampai");
-    try {
-      const res = await fetch("/.netlify/functions/getAutoUpdateAllJuz?t=" + Date.now());
-      const allMeta = await res.json();
-      const kelasData = (allMeta || []).find(item => item.kelas === kelas);
-      if (kelasData) {
-        if (rangeDari)   rangeDari.value   = kelasData.fromDate || "";
-        if (rangeSampai) rangeSampai.value = kelasData.toDate   || "";
-      }
-    } catch (err) {
-      console.warn("getAutoUpdateAllJuz gagal:", err);
-    }
-
-    const dari = rangeDari?.value;
-    const sampai = rangeSampai?.value;
-    if (!dari || !sampai) return;
-
-    // Ambil absensi & hitung
-    try {
-      const url = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`;
-      const resAbs = await fetch(url);
-      if (!resAbs.ok) throw new Error("Gagal ambil data absensi.");
-      const allData = await resAbs.json();
-
-      // Rekap by key (nis || id)
-      const rekap = Object.create(null);
-      (allData || []).forEach(item => {
-        const id  = _normKey(item?.id);
-        const nis = _normKey(item?.nis);
-        const key = _normKey(nis || id);
-        if (!key) return;
-
-        if (!rekap[key]) rekap[key] = { totalJuz: 0, semester: item?.semester ?? null };
-        rekap[key].totalJuz += _num(item?.totalJuz);
-      });
-
-      rows.forEach(row => {
-        const key =
-          _normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id) ||
-          _normKey(row.querySelector(".col-nis")?.textContent);
-
-        const cell = row.querySelector(".total-all-juz");
-        if (!cell) return;
-
-        const r = rekap[key];
-        if (r) {
-          const totalJuzNum = _num(r.totalJuz);
-          const totalJuzStr = totalJuzNum.toFixed(2);
-
-          let semester = Number(row.querySelector(".semester")?.value);
-          if (!semester && r.semester) semester = Number(r.semester);
-
-          const target = batasSemester[semester] || 0;
-
-          let label, warna;
-          if (totalJuzNum >= 30) {
-            label = "KHATAM";  warna = "purple";
-          } else {
-            let prosentase = target > 0 ? Math.floor((totalJuzNum / target) * 100) : 0;
-            if (prosentase > 100) prosentase = 100;
-            if (prosentase >= 100) { label = "TUNTAS"; warna = "green"; }
-            else { label = `${prosentase}%`; warna = "red"; }
-          }
-
-          cell.innerHTML = `${totalJuzStr} <span style="color:${warna}; font-size:14px">${label}</span>`;
-        } else {
-          cell.innerHTML = `0.00 <span style="color:red; font-size:16px">0%</span>`;
-        }
-      });
-    } catch (err) {
-      console.error("Gagal ambil data absensi:", err);
-    }
-  }
-
-  // ====== Hook & Listener ======
-  // Tombol overlay
+  // ---------- Hook & Listener ----------
+  // Tombol overlay (jika ada)
   document.getElementById("btnHitungTotalJuz")?.addEventListener("click", hitungTotalAllJuzFromTable);
-  // Header pembuka overlay (kalau ada)
+  // Header pembuka overlay (jika ada)
   document.getElementById("totalAllJuzHeader")?.addEventListener("click", bukaOverlayTotalAllJuz);
 
-  // Jalankan saat pertama kali halaman selesai dimuat
-  window.addEventListener("DOMContentLoaded", () => setTimeout(hitungTotalAllJuzOtomatis, 50));
+  // Auto pertama kali
+  window.addEventListener("DOMContentLoaded", () => setTimeout(hitungTotalAllJuzOtomatis, 80));
 
-  // Pastikan otomatis jalan lagi setelah tabel diperbarui
-  if (typeof window.afterTableRendered !== "function") {
-    window.afterTableRendered = function(){ setTimeout(hitungTotalAllJuzOtomatis, 50); };
-  }
-  if (typeof window.loadSantriData === "function" && !window.__allJuzHooked) {
-    const originalLoadSantriData = window.loadSantriData;
-    window.loadSantriData = async function (...args) {
-      const out = await originalLoadSantriData.apply(this, args);
-      window.afterTableRendered();
-      return out;
-    };
-    window.__allJuzHooked = true;
-  }
+  // Re-run saat kelas / tanggal berubah
+  (window.tanggalInput || document.getElementById("tanggalInput"))?.addEventListener("change", () => setTimeout(hitungTotalAllJuzOtomatis, 50));
+  (window.kelasSelect  || document.getElementById("kelasSelect")) ?.addEventListener("change", () => setTimeout(hitungTotalAllJuzOtomatis, 50));
+  (window.tanggalFilterAkhir || document.getElementById("tanggalFilterAkhir"))?.addEventListener("change", () => setTimeout(hitungTotalAllJuzOtomatis, 50));
 
-  // Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
-  window.tanggalInput?.addEventListener("change", () => loadSantriData?.());
-  window.kelasSelect?.addEventListener("change", () => loadSantriData?.());
+  // Observe perubahan baris tabel agar selalu refresh (tanpa sentuh loadSantriData)
+  const attachObserver = () => {
+    const tbody = getTbody();
+    if (!tbody) { setTimeout(attachObserver, 200); return; }
+    const mo = new MutationObserver(() => setTimeout(hitungTotalAllJuzOtomatis, 30));
+    mo.observe(tbody, { childList: true });
+  };
+  attachObserver();
+
+  // Ekspor ke global kalau mau dipanggil manual di console
+  window.hitungTotalAllJuzFromTable = hitungTotalAllJuzFromTable;
+  window.hitungTotalAllJuzOtomatis  = hitungTotalAllJuzOtomatis;
+  window.bukaOverlayTotalAllJuz     = bukaOverlayTotalAllJuz;
 })();
 </script>
 
