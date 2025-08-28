@@ -3530,9 +3530,12 @@ document.addEventListener("DOMContentLoaded", () => {
         doc.text(`Setoran: ${setoranText} | Page: ${pageText} | TotalPage: ${Math.round(r.totalPageSum)}`, 14, y);
         y += lineH;
 
-        // baris 3
-        doc.text(`Total Juz: ${r.totalJuz.toFixed(2)} | Juz Terbaca: ${juzT}`, 14, y);
-        y += (lineH + 2);
+        // baris 3 (wrap untuk Juz Terbaca agar tidak kepotong)
+        const juzLine = `Total Juz: ${r.totalJuz.toFixed(2)} | Juz Terbaca: ${juzT}`;
+        const wrapped = doc.splitTextToSize(juzLine, 180);
+        wrapped.forEach(line => { doc.text(line, 14, y); y += lineH; });
+
+        y += 2;
 
         // paging
         if (y > 280) { doc.addPage(); y = 20; }
@@ -3593,21 +3596,48 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return out.join('; ');
   }
-  function PDF_parseJuzTerbacaField(str){
+
+  // ==== Parser Juz Terbaca yang lebih tangguh (mendukung banyak format) ====
+  function PDF_parseJuzTerbacaField(val){
     const out = new Set();
-    const matches = String(str||'').match(/Juz\s+(\d+)(?:\s*-\s*(\d+))?/gi);
-    if (matches){
-      matches.forEach(m=>{
-        const parts = m.match(/Juz\s+(\d+)(?:\s*-\s*(\d+))?/i);
-        if (parts){
-          const a = parseInt(parts[1],10);
-          const b = parts[2] ? parseInt(parts[2],10) : a;
-          if (Number.isFinite(a) && Number.isFinite(b)){
-            const s = Math.min(a,b), e = Math.max(a,b);
-            for (let x=s; x<=e; x++) out.add(x);
-          }
+    if (val == null) return out;
+
+    // Jika sudah array angka/string
+    if (Array.isArray(val)) {
+      val.forEach(v => {
+        if (typeof v === 'number' && Number.isFinite(v)) out.add(v);
+        else if (typeof v === 'string') {
+          PDF_parseJuzTerbacaField(v).forEach(n => out.add(n));
         }
       });
+      return out;
+    }
+
+    // Jika satu angka
+    if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
+
+    // Normalisasi string
+    let str = String(val);
+    // Samakan tanda minus (– — −) -> -
+    str = str.replace(/[–—−]/g, '-');
+    // Samakan “s/d”, “sd”, “sampai”, “to” -> -
+    str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
+    // Hilangkan label yang tidak perlu (mis: "Juz:")
+    str = str.replace(/juz\s*:?/gi, 'juz ');
+
+    // Tangkap pola: dengan/atau tanpa kata "Juz", dukung juga daftar/komma
+    // Contoh: "Juz 2-4; Juz 10", "2-4; 10", "Juz 5,6,7", "5, 7-9"
+    const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
+    let m;
+    while ((m = re.exec(str)) !== null) {
+      let a = parseInt(m[1], 10);
+      let b = m[2] ? parseInt(m[2], 10) : a;
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+      if (a > b) [a, b] = [b, a];
+      // batas aman 1..30
+      a = Math.max(1, Math.min(30, a));
+      b = Math.max(1, Math.min(30, b));
+      for (let x = a; x <= b; x++) out.add(x);
     }
     return out;
   }
@@ -3667,11 +3697,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const vN = PDF_num2(vNraw);
       if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
 
-      // Juz Terbaca (Set angka)
-      if (it?.juzTerbaca) {
-        const set = PDF_parseJuzTerbacaField(it.juzTerbaca);
-        set.forEach(n=> r.juzSet.add(n));
-      }
+      // === Juz Terbaca (Set angka) — dukung berbagai field/format ===
+      const jtRaw =
+        it?.juzTerbaca ??
+        it?.juz_terbaca ??
+        it?.juzTerbacaText ??
+        it?.juzText ??
+        it?.juzs ??
+        it?.juz;
+      const set = PDF_parseJuzTerbacaField(jtRaw);
+      if (set.size) set.forEach(n=> r.juzSet.add(n));
     }
 
     // finalize nilai
@@ -3691,6 +3726,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return map;
   }
 })();
-</script>	
+</script>
+
 </body>
 </html>
