@@ -13,19 +13,6 @@
   font-size: 12px; /* ini akan kecilkan semua font */
 }
 
-  .total-all-juz span {
-    font-weight: bold;
-    background: #e0f2f1;
-    border-radius: 4px;
-    padding: 1px 4px;
-  }
-  /* Opsional: badge kecil utk angka absensi */
-  .abs-badge { display:inline-block; min-width:1.75em; padding:1px 6px; border-radius:999px; font-weight:600; font-size:12px; text-align:center; }
-  .abs-hadir { background:#e8f5e9; }
-  .abs-alpha { background:#ffebee; }
-  .abs-sakit { background:#e3f2fd; }
-  .abs-izin  { background:#fff8e1; }
-
     button.lihat-quran-btn {
   all: unset; /* reset semua style bawaan */
   display: inline-block;
@@ -1117,15 +1104,7 @@ async function submitTambahKelasBaru() {
             <th>Total Juz</th>
             <th>Semester</th>
             <th>Nilai</th>
-            <th>Total Hadir</th>
-			<th>Total Alpha</th>
-			<th>Total Sakit</th>         
-			<th>Total Izin</th>            
-			<th>Total Setoran</th>  
-			<th>Total Page</th>          
-			<th>Total Bobot Page</th>
-			<th>Total Nilai</th>
-			<th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Total All Juz</th>	
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Total All Juz</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -1816,6 +1795,7 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
     <button onclick="document.getElementById('juzOverlay').style.display='none'">Close</button>
   </div>
 </div>
+
   
  <script>
   // === Deklarasi elemen ===
@@ -2299,15 +2279,9 @@ async function loadSantriData() {
             </div>
             <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
           </td>
-          <td class="rekap-hadir">0</td>
-		  <td class="rekap-alpha">0</td>
-		  <td class="rekap-sakit">0</td>
-		  <td class="rekap-izin">0</td>
-		  <td class="rekap-setoran">-</td>            <!-- tampil: 1:1 → 114:6 -->
-		  <td class="rekap-page">-</td>               <!-- min–max halaman -->
-		  <td class="rekap-total-page">0</td>         <!-- jumlah halaman -->
-  		  <td class="rekap-nilai">0.00</td> 
-		  <td class="total-all-juz">0</td>            <!-- milikmu yang lama --> 
+          <td class="total-all-juz">
+            <img src="https://raw.githubusercontent.com/digitalmtq/web/main/meeting.gif" style="width:70px;height:18px;">
+          </td>
         `;
 
         // DATASET stabil (dipakai proses lain)
@@ -2828,13 +2802,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
   overlay.style.display = "none";
 });
- </script>
 
 
-<script>
 // ============================
-// Util lama
+// hitungTotalAllJuzFromTable
 // ============================
+// --- util kecil untuk normalisasi kunci & angka ---
 const normKey = v => String(v ?? "").trim();
 const num = v => {
   const n = Number(v);
@@ -2842,176 +2815,7 @@ const num = v => {
 };
 
 // ============================
-// === Helper TAMBAHAN (rekap semua metrik + NILAI PER TANGGAL) ===
-// ============================
-(function ensureRekapHelpers(){
-  if (window.__rekapHelpersLoaded) return;
-  window.__rekapHelpersLoaded = true;
-
-  window._num2 = v => { if (v===0 || v==="0") return 0; const n=parseFloat(String(v??"").replace(",", ".")); return Number.isFinite(n)?n:null; };
-  window._normStatus = s => {
-    s = String(s||"").trim().toLowerCase();
-    if (["hadir","h"].includes(s)) return "hadir";
-    if (["alpha","alfa","alpa","a"].includes(s)) return "alpha";
-    if (["sakit","skt","s"].includes(s)) return "sakit";
-    if (["izin","ijin","izn","i"].includes(s)) return "izin";
-    return "lainnya";
-  };
-  window._parseSA = sa => { const m=String(sa||"").trim().match(/^(\d+)\s*:\s*(\d+)$/); return m?{s:+m[1], a:+m[2]}:null; };
-  window._compareSA = (x,y)=>{ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; };
-  window._fmtSA = o => o?`${o.s}:${o.a}`:"-";
-  window._parseRange = r => { const m=String(r||"").trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; };
-
-  // Peta predikat seperti fungsimu (hitungNilai)
-  window._predikatFromScore = nilai => {
-    const map = [
-      { max: 59,  text: "ROSIB",          huruf: "E", color: "red"    },
-      { max: 69,  text: "MAQBUL",         huruf: "D", color: "orange" },
-      { max: 79,  text: "JAYYID",         huruf: "C", color: "gold"   },
-      { max: 89,  text: "JAYYID JIDDAN",  huruf: "B", color: "blue"   },
-      { max: 100, text: "MUMTAZ",         huruf: "A", color: "green"  }
-    ];
-    const p = map.find(p => nilai <= p.max) || map[map.length-1];
-    return p;
-  };
-})();
-
-// Build rekap lengkap per santri (key = nis||id) — NILAI dirata2 PER TANGGAL unik
-function buildRekapPerKey(items){
-  const map = Object.create(null);
-
-  for (const it of (items||[])) {
-    const id  = normKey(it?.id);
-    const nis = normKey(it?.nis);
-    const key = normKey(nis || id);
-    if (!key) continue;
-
-    if (!map[key]) map[key] = {
-      id:id||"", nis:nis||"",
-      hadir:0, alpha:0, sakit:0, izin:0, lainnya:0,
-      dariMin:null, sampaiMax:null,
-      pageStartMin:null, pageEndMax:null, totalPageSum:0,
-      totalJuz:0,
-      // ====== NILAI (akan dihitung per tanggal unik) ======
-      _nilaiByDate: Object.create(null), // { 'YYYY-MM-DD': nilai }
-      nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
-      semester: it?.semester!=null ? Number(it.semester) : null
-    };
-
-    const r = map[key];
-
-    // Absensi
-    const st = _normStatus(it?.absensi ?? it?.status);
-    if (st==="hadir") r.hadir++;
-    else if (st==="alpha") r.alpha++;
-    else if (st==="sakit") r.sakit++;
-    else if (st==="izin") r.izin++;
-    else r.lainnya++;
-
-    // Setoran
-    const dari = _parseSA(it?.dari || it?.dariSetoran);
-    const smp  = _parseSA(it?.sampai || it?.sampaiSetoran);
-    if (dari && (!r.dariMin || _compareSA(dari, r.dariMin) < 0)) r.dariMin = dari;
-    if (smp  && (!r.sampaiMax || _compareSA(smp, r.sampaiMax) > 0)) r.sampaiMax = smp;
-
-    // Page & Total Page
-    const rng = _parseRange(it?.halaman || it?.page);
-    const tp  = _num2(it?.totalHalaman ?? it?.totalPage);
-    if (tp!=null) r.totalPageSum += tp;
-    else if (rng) r.totalPageSum += Math.max(0, rng[1] - rng[0] + 1);
-    if (rng){
-      const [a,b] = rng;
-      if (Number.isFinite(a) && (r.pageStartMin==null || a < r.pageStartMin)) r.pageStartMin = a;
-      if (Number.isFinite(b) && (r.pageEndMax==null   || b > r.pageEndMax))   r.pageEndMax   = b;
-    }
-
-    // Juz (penjumlahan)
-    const vJ = _num2(it?.totalJuz ?? it?.juz); if (vJ!=null) r.totalJuz += vJ;
-
-    // ====== NILAI (ambil dari buttonCell.nilai; fallback nilai/score). Dirata2 PER TANGGAL ======
-    const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null; // "YYYY-MM-DD"
-    const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
-    const vN = _num2(vNraw);
-    if (tgl && vN!=null) {
-      // jika ada beberapa entry di tanggal sama, ambil yang terakhir (override)
-      r._nilaiByDate[tgl] = vN;
-    }
-    // semester fallback
-    if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
-  }
-
-  // finalize nilai per santri (sum/min/max & count tanggal unik)
-  for (const k in map){
-    const r = map[k];
-    r.nilaiSum = 0;
-    r.nilaiCount = 0;
-    r.nilaiMin = Infinity;
-    r.nilaiMax = -Infinity;
-    for (const tgl in r._nilaiByDate){
-      const v = r._nilaiByDate[tgl];
-      r.nilaiSum += v;
-      r.nilaiCount += 1;
-      if (v < r.nilaiMin) r.nilaiMin = v;
-      if (v > r.nilaiMax) r.nilaiMax = v;
-    }
-    if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
-    if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
-  }
-
-  return map;
-}
-
-// Tulis rekap ke 1 baris (non-JUZ)
-// - Absensi (4 kolom), Setoran (1 kolom), Page, Total Page, Nilai (avg per tanggal + predikat)
-function fillRowRekapNonJuz(row, r){
-  // Absensi 4 kolom (jika ada)
-  const tdH=row.querySelector(".rekap-hadir");  if (tdH) tdH.innerHTML = `<span class="abs-badge abs-hadir">${r.hadir}</span>`;
-  const tdA=row.querySelector(".rekap-alpha");  if (tdA) tdA.innerHTML = `<span class="abs-badge abs-alpha">${r.alpha}</span>`;
-  const tdS=row.querySelector(".rekap-sakit");  if (tdS) tdS.innerHTML = `<span class="abs-badge abs-sakit">${r.sakit}</span>`;
-  const tdI=row.querySelector(".rekap-izin");   if (tdI) tdI.innerHTML = `<span class="abs-badge abs-izin">${r.izin}</span>`;
-
-  // Kompat lama: jika masih ada .rekap-absensi (ringkas)
-  const tdAbsLama = row.querySelector(".rekap-absensi");
-  if (tdAbsLama) tdAbsLama.innerHTML = `H:<b>${r.hadir}</b> · A:<b>${r.alpha}</b> · S:<b>${r.sakit}</b> · I:<b>${r.izin}</b>${r.lainnya?` · L:<b>${r.lainnya}</b>`:''}`;
-
-  // Setoran 1 kolom (Dari → Sampai)
-  const txtSet = `${r.dariMin ? _fmtSA(r.dariMin) : '-'} → ${r.sampaiMax ? _fmtSA(r.sampaiMax) : '-'}`;
-  const tdSet = row.querySelector(".rekap-setoran") || row.querySelector(".rekap-setoran-dari");
-  if (tdSet) tdSet.textContent = txtSet;
-  const tdSS = row.querySelector(".rekap-setoran-sampai"); if (tdSS) tdSS.textContent = "";
-
-  // Page min–max
-  const tdPage = row.querySelector(".rekap-page"); if (tdPage) tdPage.textContent = (r.pageStartMin!=null && r.pageEndMax!=null) ? `${r.pageStartMin}-${r.pageEndMax}` : "-";
-
-  // Total Page sum
-  const tdTP = row.querySelector(".rekap-total-page, .rekap-totalpage"); if (tdTP) tdTP.textContent = Math.round(r.totalPageSum);
-
-  // Nilai avg per tanggal + predikat (format: "92.67 - MUMTAZ A")
-  const tdNil = row.querySelector(".rekap-nilai");
-  if (tdNil){
-    const avg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-    const p = _predikatFromScore(avg);
-    tdNil.innerHTML = `${avg.toFixed(2)} - ${p.text} <span style="background-color:${p.color};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
-    tdNil.title = r.nilaiCount ? `n=${r.nilaiCount} tanggal · Min ${r.nilaiMin.toFixed(2)} · Max ${r.nilaiMax.toFixed(2)}` : "n=0";
-  }
-}
-
-// Kosongkan kolom rekap non-juz (kalau tidak ada data)
-function clearRowRekapNonJuz(row){
-  row.querySelector(".rekap-hadir")?.replaceChildren(document.createTextNode("0"));
-  row.querySelector(".rekap-alpha")?.replaceChildren(document.createTextNode("0"));
-  row.querySelector(".rekap-sakit")?.replaceChildren(document.createTextNode("0"));
-  row.querySelector(".rekap-izin")?.replaceChildren(document.createTextNode("0"));
-  row.querySelector(".rekap-absensi")?.replaceChildren(document.createTextNode("-"));
-  (row.querySelector(".rekap-setoran") || row.querySelector(".rekap-setoran-dari"))?.replaceChildren(document.createTextNode("-"));
-  const tdSS=row.querySelector(".rekap-setoran-sampai"); if (tdSS) tdSS.textContent = "";
-  row.querySelector(".rekap-page")?.replaceChildren(document.createTextNode("-"));
-  row.querySelector(".rekap-total-page, .rekap-totalpage")?.replaceChildren(document.createTextNode("0"));
-  row.querySelector(".rekap-nilai")?.replaceChildren(document.createTextNode("0.00"));
-}
-
-// ============================
-// HITUNG MANUAL (via overlay) — DIPERLUAS
+// HITUNG MANUAL (via overlay)
 // ============================
 async function hitungTotalAllJuzFromTable() {
   const kelas = kelasSelect.value;
@@ -3021,7 +2825,7 @@ async function hitungTotalAllJuzFromTable() {
   if (!dari)   { alert("Mohon pilih tanggal Dari.");   return; }
   if (!sampai) { alert("Mohon pilih tanggal Sampai."); return; }
 
-  overlay && (overlay.style.display = "flex");
+  overlay.style.display = "flex";
 
   try {
     // Ambil data absensi rentang
@@ -3029,33 +2833,31 @@ async function hitungTotalAllJuzFromTable() {
     if (!res.ok) throw new Error("Gagal ambil data absensi.");
     const allData = await res.json();
 
-    // === REKAP LENGKAP utk semua metrik (termasuk NILAI per tanggal) ===
-    const aggMap = buildRekapPerKey(allData);
-
     const rows = santriTableBody.querySelectorAll("tr");
-
-    // === REKAP JUZ (logika lamamu) + siapkan data simpan ===
     const rekap = Object.create(null); // key => { totalJuz, semester, id, nis }
+
+    // Rekap: pakai kunci stabil (nis || id)
     (allData || []).forEach(item => {
       const id  = normKey(item?.id);
       const nis = normKey(item?.nis);
       const key = normKey(nis || id);
       if (!key) return;
-      if (!rekap[key]) rekap[key] = { totalJuz: 0, semester: item?.semester ?? null, id, nis };
+
+      if (!rekap[key]) {
+        rekap[key] = { totalJuz: 0, semester: item?.semester ?? null, id, nis };
+      }
       rekap[key].totalJuz += num(item?.totalJuz);
     });
 
+    // Batas ketuntasan per semester
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+
+    // Update tabel + siapkan data simpan
     const dataToSave = [];
 
     rows.forEach(row => {
+      // >>> JANGAN ambil dari kolom: ambil dari dataset
       const key = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
-
-      // === TULIS rekap NON-JUZ terlebih dulu (jika ada data) ===
-      const agg = aggMap[key];
-      if (agg) fillRowRekapNonJuz(row, agg); else clearRowRekapNonJuz(row);
-
-      // === Lanjut isi .total-all-juz (logika asli) ===
       const cell = row.querySelector(".total-all-juz");
       if (!cell) return;
 
@@ -3088,7 +2890,7 @@ async function hitungTotalAllJuzFromTable() {
 
         cell.innerHTML = `${totalJuz} <span style="color:${warna}; font-size:12px;">${label}</span>`;
 
-        // Payload simpan (kompatibel)
+        // Siapkan data simpan (sertakan id & nis untuk kompatibel)
         dataToSave.push({
           key,
           id: r.id || "",
@@ -3102,7 +2904,7 @@ async function hitungTotalAllJuzFromTable() {
       }
     });
 
-    // Simpan hasil rekap (file meta tanggal tetap sama)
+    // Simpan hasil rekap ke backend
     const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3119,20 +2921,17 @@ async function hitungTotalAllJuzFromTable() {
       throw new Error(`Gagal menyimpan data: ${errText}`);
     }
 
-    alert("✅ Total All Juz & rekap lain berhasil dihitung dan disimpan.");
+    alert("✅ Total All Juz berhasil dihitung dan disimpan.");
   } catch (err) {
     console.error(err);
     alert("❌ Terjadi kesalahan: " + err.message);
   } finally {
-    overlay && (overlay.style.display = "none");
+    overlay.style.display = "none";
   }
 }
 
-// Pastikan fungsi manual bisa dipanggil global (untuk lingkungan module)
-window.hitungTotalAllJuzFromTable = window.hitungTotalAllJuzFromTable || hitungTotalAllJuzFromTable;
-
-// Buka overlay (rangeDari dibatasi hari ini; rangeSampai bebas) — dibuat global agar aman dipanggil listener
-window.bukaOverlayTotalAllJuz = function () {
+// Buka overlay (rangeDari dibatasi hari ini; rangeSampai bebas)
+function bukaOverlayTotalAllJuz() {
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -3154,15 +2953,12 @@ window.bukaOverlayTotalAllJuz = function () {
   }
 
   document.getElementById("juzOverlay").style.display = "flex";
-};
+}
 
-// Tombol overlay — pakai wrapper aman
-document.getElementById("btnHitungTotalJuz")?.addEventListener("click", () => {
-  if (typeof window.hitungTotalAllJuzFromTable === "function") window.hitungTotalAllJuzFromTable();
-});
+document.getElementById("btnHitungTotalJuz").addEventListener("click", hitungTotalAllJuzFromTable);
 
 // ==================================
-// HITUNG OTOMATIS (setelah render) — DIPERLUAS
+// HITUNG OTOMATIS (setelah render)
 // ==================================
 async function hitungTotalAllJuzOtomatis() {
   const kelas = kelasSelect.value;
@@ -3201,16 +2997,14 @@ async function hitungTotalAllJuzOtomatis() {
     if (!resAbs.ok) throw new Error("Gagal ambil data absensi.");
     const allData = await resAbs.json();
 
-    // === REKAP LENGKAP utk kolom2 tambahan (termasuk NILAI per tanggal) ===
-    const aggMap = buildRekapPerKey(allData);
-
-    // === REKAP JUZ (logika lamamu) ===
+    // Rekap by key (nis || id)
     const rekap = Object.create(null);
     (allData || []).forEach(item => {
       const id  = normKey(item?.id);
       const nis = normKey(item?.nis);
       const key = normKey(nis || id);
       if (!key) return;
+
       if (!rekap[key]) rekap[key] = { totalJuz: 0, semester: item?.semester ?? null };
       rekap[key].totalJuz += num(item?.totalJuz);
     });
@@ -3218,13 +3012,8 @@ async function hitungTotalAllJuzOtomatis() {
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
     rows.forEach(row => {
+      // >>> AMBIL KUNCI DARI DATASET, bukan kolom pertama
       const key = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
-
-      // Tulis rekap non-juz (atau kosongkan)
-      const agg = aggMap[key];
-      if (agg) fillRowRekapNonJuz(row, agg); else clearRowRekapNonJuz(row);
-
-      // Isi .total-all-juz (logika asli)
       const cell = row.querySelector(".total-all-juz");
       if (!cell) return;
 
@@ -3271,23 +3060,12 @@ const originalLoadSantriData = window.loadSantriData;
 window.loadSantriData = async function (...args) {
   await originalLoadSantriData.apply(this, args);
   afterTableRendered();
-
-  // re-bind kalau thead di-render ulang
-  document.getElementById("totalAllJuzHeader")
-    ?.addEventListener("click", () => window.bukaOverlayTotalAllJuz && window.bukaOverlayTotalAllJuz(), { once:false });
 };
 
 // Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
 tanggalInput?.addEventListener("change", () => loadSantriData());
 kelasSelect?.addEventListener("change", () => loadSantriData());
 </script>
-
-
-
-
-
-	
-
 
 
 
