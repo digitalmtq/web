@@ -1116,10 +1116,10 @@ async function submitTambahKelasBaru() {
       <div class="actions">
         <button id="save-btn">Simpan Data Mutaba'ah</button>
         <div class="pdf-rekap-controls" style="margin:.5rem 0;">
-		<button id="download-pdf-rekap" style="margin-left:.5rem;">Download PDF Rekap</button>
   		<label>Dari: <input type="date" id="pdf-start-date"></label>
   		<label style="margin-left:.5rem;">Sampai: <input type="date" id="pdf-end-date"></label>
-  		</div>
+  		<button id="download-pdf-rekap" style="margin-left:.5rem;">Download PDF Rekap</button>
+		</div>
         <button class="logout-btn" id="logout-btn">Logout</button>
       </div>
     </div>
@@ -3456,32 +3456,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 	
-
-
-
-
 <script>
 (function(){
   // ===== util DOM ringkas
   const $ = sel => document.querySelector(sel);
-
-  // ===== helper kecil untuk loading tombol (tanpa overlay)
-  function setBtnLoading(btn, loading) {
-    if (!btn) return;
-    if (loading) {
-      btn.dataset._oldText = btn.textContent;
-      btn.textContent = 'Membuat PDF…';
-      btn.disabled = true;
-      btn.style.opacity = '0.7';
-      btn.style.cursor = 'not-allowed';
-    } else {
-      if (btn.dataset._oldText) btn.textContent = btn.dataset._oldText;
-      btn.disabled = false;
-      btn.style.opacity = '';
-      btn.style.cursor = '';
-      delete btn.dataset._oldText;
-    }
-  }
 
   // ====== Bind tombol
   const btn = document.getElementById('download-pdf-rekap');
@@ -3498,8 +3476,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // >>> TANPA OVERLAY: hanya status di tombol
-    setBtnLoading(btn, true);
+    const spinner = document.getElementById('juzOverlay') || window.overlay;
+    if (spinner) spinner.style.display = 'flex';
 
     try {
       // ===== 1) Ambil ABSENSI (range)
@@ -3630,14 +3608,13 @@ document.addEventListener("DOMContentLoaded", () => {
         14, y
       );
 
-      // >>> langsung unduh
       doc.save(`Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.pdf`);
     } catch (err) {
       console.error(err);
       alert('Gagal mengunduh PDF: ' + (err.message || err));
     } finally {
-      // >>> TANPA OVERLAY
-      setBtnLoading(btn, false);
+      const spinner = document.getElementById('juzOverlay') || window.overlay;
+      if (spinner) spinner.style.display = 'none';
     }
   }
 
@@ -3813,7 +3790,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 })();
 </script>
-
 	
 </body>
 </html>
