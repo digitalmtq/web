@@ -3484,29 +3484,30 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
         const setoranText = `${r.dariMin ? PDF_fmtSA(r.dariMin) : '-'} → ${r.sampaiMax ? PDF_fmtSA(r.sampaiMax) : '-'}`;
         const pageText = (r.pageStartMin!=null && r.pageEndMax!=null) ? `${r.pageStartMin}-${r.pageEndMax}` : '-';
         const juzT = PDF_ringkasJuzTerbaca(r.juzSet);
-
-        // === HITUNG STATUS TOTAL ALL JUZ (meniru logika tabelmu)
         const st = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
 
-        // baris 1
+        // ===== Baris 1: Nama | NIS | Semester
         doc.setFontSize(10);
         doc.text(`${i+1}. ${nama}`, 14, y);
-        doc.text(`H:${r.hadir} A:${r.alpha} S:${r.sakit} I:${r.izin}`, 100, y);
-        doc.text(`Nilai: ${nilaiText}`, 155, y);
+        doc.text(`NIS: ${r.nis || '-'}`, 100, y);
+        doc.text(`Sem: ${r.semester ?? '-'}`, 155, y);
         y += lineH;
 
-        // baris 2
+        // ===== Baris 2: Absensi & Nilai
+        doc.text(`H:${r.hadir} A:${r.alpha} S:${r.sakit} I:${r.izin}`, 14, y);
+        doc.text(`Nilai: ${nilaiText}`, 100, y);
+        y += lineH;
+
+        // ===== Baris 3: Setoran, Page, TotalPage
         doc.text(`Setoran: ${setoranText} | Page: ${pageText} | TotalPage: ${Math.round(r.totalPageSum)}`, 14, y);
         y += lineH;
 
-        // baris 3 (wrap: sertakan “Total All Juz” + status + Juz Terbaca)
-        const line3 = `Total All Juz: ${r.totalJuz.toFixed(2)} - ${st.label} | Juz Terbaca: ${juzT}`;
-        const wrapped = doc.splitTextToSize(line3, 180);
+        // ===== Baris 4: Total All Juz + status + Juz Terbaca (wrap)
+        const line4 = `Total All Juz: ${r.totalJuz.toFixed(2)} - ${st.label} | Juz Terbaca: ${juzT}`;
+        const wrapped = doc.splitTextToSize(line4, 180);
         wrapped.forEach(line => { doc.text(line, 14, y); y += lineH; });
 
         y += 2;
-
-        // paging
         if (y > 280) { doc.addPage(); y = 20; }
       });
 
@@ -3566,7 +3567,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
     return out.join('; ');
   }
 
-  // ==== Parser Juz Terbaca yang tangguh (boleh "Juz 2-4", "2-4", "5,7-9", dst) ====
+  // ==== Parser Juz Terbaca (tangguh) ====
   function PDF_parseJuzTerbacaField(val){
     const out = new Set();
     if (val == null) return out;
@@ -3599,7 +3600,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
     return out;
   }
 
-  // ==== STATUS TOTAL ALL JUZ (KHATAM/TUNTAS/%), meniru logika tabel ====
+  // ==== STATUS TOTAL ALL JUZ (KHATAM/TUNTAS/%)
   function PDF_totalAllJuzStatus(totalJuzNum, semester){
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
     if (totalJuzNum >= 30) return { label: 'KHATAM' };
@@ -3630,7 +3631,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
         _nilaiByDate:Object.create(null),
         nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
         juzSet:new Set(),
-        semester: (it?.semester!=null ? Number(it.semester) : null) // <<=== penting utk status
+        semester: (it?.semester!=null ? Number(it.semester) : null)
       };
       const r = map[key];
       if (!r.nama && it?.nama) r.nama = it.nama;
@@ -3660,7 +3661,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
         if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
       }
 
-      // Juz total (akumulasi rentang)
+      // Total All Juz (akumulasi rentang)
       const vJ = PDF_num2(it?.totalJuz ?? it?.juz); if (vJ!=null) r.totalJuz += vJ;
 
       // Nilai per tanggal (ambil buttonCell.nilai; fallback nilai/score)
@@ -3680,7 +3681,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
       const set = PDF_parseJuzTerbacaField(jtRaw);
       if (set.size) set.forEach(n=> r.juzSet.add(n));
 
-      // Semester fallback bila item selanjutnya punya nilai
+      // Semester fallback
       if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
     }
 
@@ -3702,6 +3703,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
   }
 })();
 </script>
+
 
 
 </body>
