@@ -2734,19 +2734,103 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 	 
     downloadBtn.addEventListener("click", async () => {
   const kelas = kelasSelect.value;
-  const startDate = document.getElementById("start-date").value;
-  const endDate = document.getElementById("end-date").value;
+  const startDate = document.getElementById("start-date")?.value;
+  const endDate   = document.getElementById("end-date")?.value;
 
   if (!startDate || !endDate) {
     alert("Mohon pilih tanggal mulai dan tanggal akhir.");
     return;
   }
 
+  // ===== Helpers aman disisipkan (tidak bentrok dengan yang lain) =====
+  const normKey = (v) => String(v ?? "").trim();
+  const parseNum = (v) => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+    let s = String(v ?? "").trim();
+    if (!s) return 0;
+    s = s.replace(/[^0-9.,-]/g, "");
+    const c = s.lastIndexOf(","), d = s.lastIndexOf(".");
+    if (c > -1 && d > -1) s = c > d ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+    else if (c > -1)      s = s.replace(/\./g, "").replace(",", ".");
+    else                  s = s.replace(/,/g, "");
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  };
+  // Batas ketuntasan per semester
+  const BATAS_SEM = { 1:8, 2:13, 3:18, 4:23, 5:28, 6:30 };
+
+  function statusKetuntasan(totalJuz, semester) {
+    if (totalJuz >= 30) return { label: "KHATAM", persen: 100, warna: "#16a34a" };
+    const target = BATAS_SEM[semester] || 0;
+    let persen = target > 0 ? Math.floor((totalJuz / target) * 100) : 0;
+    if (persen > 100) persen = 100;
+    return { label: persen >= 100 ? "TUNTAS" : `${persen}%`, persen, warna: persen >= 100 ? "#16a34a" : "#ef4444" };
+  }
+
+  async function ensureSemesterMap(kelas) {
+    if (window.semesterMap && Object.keys(window.semesterMap).length) return;
+    try {
+      const res = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+      const santri = await res.json();
+      window.semesterMap = {};
+      (santri || []).forEach(s => {
+        const k = normKey(s?.nis) || normKey(s?.id);
+        if (k) window.semesterMap[k] = String(s?.semester ?? "1");
+      });
+    } catch (e) {
+      console.warn("ensureSemesterMap gagal:", e);
+      window.semesterMap ??= {};
+    }
+  }
+
+  function ringkasJuzTerbaca(set) {
+    const arr = Array.from(set).sort((a,b)=>a-b);
+    if (arr.length === 0) return "-";
+    const out = [];
+    let start = arr[0], prev = arr[0];
+    for (let i = 1; i <= arr.length; i++) {
+      const curr = arr[i];
+      if (curr === prev + 1) { prev = curr; continue; }
+      out.push(start === prev ? `Juz ${start}` : `Juz ${start}-${prev}`);
+      start = curr; prev = curr;
+    }
+    return out.join("; ");
+  }
+
+  function extractJuzToSet(txt, set) {
+    if (!txt) return;
+    // match: "juz 2", "JUZ 3-5", "Juz10", "juz 7 , 9-10"
+    const re = /juz\s*(\d+)(?:\s*-\s*(\d+))?/gi;
+    let m;
+    while ((m = re.exec(txt)) !== null) {
+      const a = parseInt(m[1], 10);
+      const b = m[2] ? parseInt(m[2], 10) : a;
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+      const start = Math.min(a, b), end = Math.max(a, b);
+      for (let i = start; i <= end; i++) set.add(i);
+    }
+  }
+
+  // Ambil nama tampilan dari tabel saat ini (agar nama konsisten & handle arsip yg tidak punya NIS/ID)
+  function getNamaFromCell(cell) {
+    if (!cell) return "";
+    const first = cell.childNodes && cell.childNodes[0];
+    const txt = (first && first.textContent) ? first.textContent : cell.textContent;
+    return String(txt).trim();
+  }
+
   overlay.style.display = "flex";
 
   try {
-    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${kelas}&start=${startDate}&end=${endDate}`);
-    const allData = await res.json();
+    await ensureSemesterMap(kelas);
+
+    // Ambil data absensi rentang (anti-cache)
+    const res = await fetch(
+      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`
+    );
+    if (!res.ok) throw new Error("Gagal ambil data absensi.");
+    let allData = await res.json();
+    if (!Array.isArray(allData)) allData = (allData?.list || []);
 
     if (allData.length === 0) {
       alert("Tidak ada data pada rentang tanggal tersebut.");
@@ -2754,101 +2838,175 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       return;
     }
 
-    // Hitung rekap
-    const rekap = {};
-    let totalJuz = 0;
-
-    allData.forEach(item => {
-      if (!rekap[item.nama]) {
-        rekap[item.nama] = {
-          hadir: 0,
-          alpha: 0,
-          sakit: 0,
-          izin: 0,
-          totalJuz: 0,
-          juzTerbacaSet: new Set()
-        };
-      }
-
-      rekap[item.nama][item.absensi.toLowerCase()]++;
-      const juz = parseFloat(item.totalJuz || 0);
-      rekap[item.nama].totalJuz += juz;
-      totalJuz += juz;
-
-      // Ekstrak Juz ke dalam Set angka
-      if (item.juzTerbaca) {
-        const matches = item.juzTerbaca.match(/Juz (\d+)(?:-(\d+))?/g);
-        if (matches) {
-          matches.forEach(match => {
-            const parts = match.match(/Juz (\d+)(?:-(\d+))?/);
-            if (parts) {
-              const start = parseInt(parts[1]);
-              const end = parseInt(parts[2] || parts[1]);
-              for (let i = start; i <= end; i++) {
-                rekap[item.nama].juzTerbacaSet.add(i);
-              }
-            }
-          });
-        }
-      }
+    // Peta nama→key dan key→nama dari DOM (untuk fallback & display)
+    const rowsDOM = [...(santriTableBody?.querySelectorAll("tr") || [])];
+    const nameToKey = new Map();
+    const keyToNama = new Map();
+    rowsDOM.forEach(row => {
+      const key = normKey(row.dataset?.nis || row.dataset?.id || row.dataset?.key);
+      const nm  = getNamaFromCell(row.children?.[1]);
+      if (key && nm) { nameToKey.set(nm.toLowerCase(), key); keyToNama.set(key, nm); }
     });
 
-    // Fungsi untuk meringkas Juz ke bentuk: Juz 2-4; Juz 10
-    function ringkasJuzTerbaca(set) {
-      const arr = Array.from(set).sort((a, b) => a - b);
-      if (arr.length === 0) return "-";
+    // ===== Rekap by key (NIS → ID → fallback Nama) =====
+    const rekapMap = new Map(); // key -> { nis, id, nama, hadir, alpha, sakit, izin, totalJuz, juzSet, semester }
+    let grandTotalJuz = 0;
 
-      const result = [];
-      let start = arr[0];
-      let prev = arr[0];
-
-      for (let i = 1; i <= arr.length; i++) {
-        const curr = arr[i];
-        if (curr === prev + 1) {
-          prev = curr;
-          continue;
-        }
-        if (start === prev) {
-          result.push(`Juz ${start}`);
-        } else {
-          result.push(`Juz ${start}-${prev}`);
-        }
-        start = curr;
-        prev = curr;
+    for (const item of allData) {
+      let id  = normKey(item?.id);
+      let nis = normKey(item?.nis);
+      let key = normKey(nis || id);
+      if (!key) {
+        const nm = normKey(item?.nama).toLowerCase();
+        if (nm && nameToKey.has(nm)) key = nameToKey.get(nm);
       }
+      if (!key) continue;
 
-      return result.join("; ");
+      const abs = String(item?.absensi || "").toLowerCase(); // "hadir", "alpha", "sakit", "izin"
+      const juzNum = parseNum(item?.totalJuz);
+      grandTotalJuz += juzNum;
+
+      const rec = rekapMap.get(key) || {
+        nis: nis || "",
+        id: id || "",
+        nama: keyToNama.get(key) || item?.nama || key,
+        hadir: 0, alpha: 0, sakit: 0, izin: 0,
+        totalJuz: 0,
+        juzSet: new Set(),
+        semester: Number(window.semesterMap?.[key] ?? item?.semester ?? 1)
+      };
+
+      if (abs === "hadir") rec.hadir++;
+      else if (abs === "alpha") rec.alpha++;
+      else if (abs === "sakit") rec.sakit++;
+      else if (abs === "izin") rec.izin++;
+
+      rec.totalJuz += juzNum;
+      if (item?.juzTerbaca) extractJuzToSet(item.juzTerbaca, rec.juzSet);
+
+      // keep better id/nis/nama when available
+      if (!rec.nis && nis) rec.nis = nis;
+      if (!rec.id && id)   rec.id = id;
+      if (!keyToNama.get(key) && item?.nama) rec.nama = item.nama;
+
+      rekapMap.set(key, rec);
     }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    // Bentuk array & sort by nama
+    const dataRows = [...rekapMap.values()].sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
+    const sumTotalJuz = dataRows.reduce((s, r) => s + r.totalJuz, 0);
+    const avgTotalJuz = dataRows.length ? (sumTotalJuz / dataRows.length) : 0;
+
+    // ===== PDF =====
+    const { jsPDF } = window.jspdf || {};
+    if (!jsPDF) throw new Error("jsPDF tidak ditemukan. Pastikan script jsPDF sudah dimuat.");
+
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const hasAutoTable = typeof doc.autoTable === "function";
+
+    const title = "Rekap Absensi & Hafalan";
     doc.setFontSize(14);
-    doc.text(`Rekap Absensi & Hafalan`, 14, 15);
+    doc.text(title, 14, 15);
     doc.setFontSize(11);
-    doc.text(`Kelas: ${kelas} | Tanggal: ${startDate} - ${endDate}`, 14, 23);
+    doc.text(`Kelas: ${kelas} | Periode: ${startDate} s.d. ${endDate}`, 14, 22);
+    doc.text(`Total Santri: ${dataRows.length} | Rata-rata Total Juz: ${avgTotalJuz.toFixed(2)}`, 14, 28);
 
-    let y = 35;
-    Object.entries(rekap).forEach(([nama, data], i) => {
-      const juzList = ringkasJuzTerbaca(data.juzTerbacaSet);
-      const text = `${i + 1}. ${nama} | Hadir: ${data.hadir || 0}, | Alpha: ${data.alpha || 0}, Sakit: ${data.sakit || 0}, Izin: ${data.izin || 0} | Juz Terbaca: ${juzList} | Total Juz: ${data.totalJuz.toFixed(2)}`;
-      doc.text(text, 14, y);
-      y += 8;
-      if (y > 280) {
-        doc.addPage();
-        y = 20;
-      }
-    });
+    if (hasAutoTable) {
+      // ===== Dengan AutoTable (jika plugin tersedia) =====
+      const head = [[
+        "No","NIS/ID","Nama","Sem","Hadir","Alpha","Sakit","Izin","Juz Terbaca","Total Juz","Status"
+      ]];
+      const body = dataRows.map((r, idx) => {
+        const keyDisp = r.nis || r.id || "-";
+        const juzList = ringkasJuzTerbaca(r.juzSet);
+        const st = statusKetuntasan(r.totalJuz, r.semester);
+        return [
+          idx + 1,
+          keyDisp,
+          r.nama,
+          r.semester,
+          r.hadir,
+          r.alpha,
+          r.sakit,
+          r.izin,
+          juzList,
+          r.totalJuz.toFixed(2),
+          st.label
+        ];
+      });
 
-    y += 10;
-    doc.setFontSize(12);
-    doc.text(`Total Juz Keseluruhan: ${totalJuz.toFixed(2)}`, 14, y);
-    doc.save(`Rekap_${kelas}_${startDate}_sd_${endDate}.pdf`);
+      doc.autoTable({
+        head, body,
+        startY: 34,
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [243, 244, 246], textColor: 20 },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 8 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 40 },
+          3: { halign: "center", cellWidth: 10 },
+          4: { halign: "center", cellWidth: 12 },
+          5: { halign: "center", cellWidth: 12 },
+          6: { halign: "center", cellWidth: 12 },
+          7: { halign: "center", cellWidth: 12 },
+          8: { cellWidth: 40 },
+          9: { halign: "right", cellWidth: 18 },
+          10:{ halign: "center", cellWidth: 18 }
+        },
+        didDrawPage: (data) => {
+          // Footer halaman
+          const pageSize = doc.internal.pageSize;
+          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+          doc.setFontSize(9);
+          doc.text(`Total Juz Keseluruhan: ${sumTotalJuz.toFixed(2)}`, 14, pageHeight - 10);
+        }
+      });
+    } else {
+      // ===== Tanpa AutoTable → fallback manual =====
+      let y = 36;
+      const lineH = 6;
+      doc.setFontSize(9);
+      doc.text("No NIS/ID     Nama                              Sem H  A  S  I  Juz Terbaca                 Total  Status", 14, y);
+      y += 3; doc.line(14, y, 196, y); y += 4;
+
+      dataRows.forEach((r, i) => {
+        const keyDisp = r.nis || r.id || "-";
+        const st = statusKetuntasan(r.totalJuz, r.semester);
+        const juzList = ringkasJuzTerbaca(r.juzSet);
+        const juzWrapped = doc.splitTextToSize(juzList, 70);
+
+        const leftX = 14;
+        const line1 = `${String(i+1).padStart(2," ")} ${String(keyDisp).padEnd(10," ").slice(0,10)} ${String(r.nama).padEnd(30," ").slice(0,30)} ${String(r.semester).padStart(3," ")} ${String(r.hadir).padStart(2," ")} ${String(r.alpha).padStart(2," ")} ${String(r.sakit).padStart(2," ")} ${String(r.izin).padStart(2," ")}`;
+        doc.text(line1, leftX, y);
+        doc.text(juzWrapped, leftX + 120, y); // kolom “Juz Terbaca”
+        doc.text(r.totalJuz.toFixed(2), 180, y, { align: "right" });
+        doc.text(st.label, 188, y, { align: "right" });
+        y += Math.max(lineH, (juzWrapped.length * (lineH-1)));
+        if (y > 280) { doc.addPage(); y = 20; }
+      });
+
+      y += 4;
+      doc.setFontSize(10);
+      doc.text(`Total Juz Keseluruhan: ${sumTotalJuz.toFixed(2)}`, 14, y);
+    }
+
+    // Simpan + (opsional) pratinjau & cetak
+    const fileName = `Rekap_${kelas}_${startDate}_sd_${endDate}.pdf`;
+    doc.save(fileName);
+    try {
+      // Buka tab untuk cetak
+      if (doc.autoPrint) doc.autoPrint();
+      const blobUrl = doc.output("bloburl");
+      const win = window.open(blobUrl, "_blank");
+      if (!win) console.warn("Popup diblokir browser. PDF sudah disimpan.");
+    } catch {}
+
   } catch (err) {
     console.error(err);
-    alert("Gagal mengunduh PDF!");
+    alert("Gagal membuat PDF: " + err.message);
+  } finally {
+    overlay.style.display = "none";
   }
-
-  overlay.style.display = "none";
 });
 
 
