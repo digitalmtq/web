@@ -2745,9 +2745,12 @@ downloadBtn.addEventListener("click", async () => {
     return;
   }
 
+  // ====== Opsi ======
+  const LAMPIRKAN_DAFTAR_NAMA_DI_HALAMAN_TERPISAH = true; // set false jika ingin di header
+
   overlay.style.display = "flex";
 
-  // ===== Helpers =====
+  // ===== Helpers ringkas (sama seperti versi sebelumnya) =====
   const normKey = v => String(v ?? "").trim();
   const parseNum = (v) => {
     if (typeof v === "number") return Number.isFinite(v) ? v : 0;
@@ -2755,80 +2758,15 @@ downloadBtn.addEventListener("click", async () => {
     if (!s) return 0;
     s = s.replace(/[^0-9.,-]/g, "");
     const c = s.lastIndexOf(","), d = s.lastIndexOf(".");
-    if (c > -1 && d > -1) s = c > d ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
-    else if (c > -1)      s = s.replace(/\./g, "").replace(",", ".");
-    else                  s = s.replace(/,/g, "");
+    if (c>-1 && d>-1) s = c>d ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+    else if (c>-1)    s = s.replace(/\./g, "").replace(",", ".");
+    else              s = s.replace(/,/g, "");
     const n = parseFloat(s);
     return Number.isFinite(n) ? n : 0;
   };
+  const BATAS_SEM = { 1:8, 2:13, 3:18, 4:23, 5:28, 6:30 };
 
-  // Surah helpers (pakai surahList global bila ada)
-  const surahIndex = new Map();
-  const surahName  = new Map();
-  if (Array.isArray(window.surahList)) {
-    window.surahList.forEach((s, idx) => {
-      const id = Number(s.id ?? (idx+1));
-      surahIndex.set(id, idx + 1);
-      surahName.set(id, s.nama || `Surah ${id}`);
-    });
-  }
-  // ubah "s:a" -> object + ordinal utk pembandingan
-  function parsePos(sa) {
-    const m = String(sa ?? "").match(/^\s*(\d+)\s*:\s*(\d+)\s*$/);
-    if (!m) return null;
-    const s = Number(m[1]), a = Number(m[2]);
-    if (!Number.isFinite(s) || !Number.isFinite(a)) return null;
-    const ordS = surahIndex.size ? (surahIndex.get(s) || s) : s;
-    return { s, a, ord: ordS * 1000 + a };
-  }
-  function minPos(p1, p2) { if (!p1) return p2; if (!p2) return p1; return (p1.ord <= p2.ord) ? p1 : p2; }
-  function maxPos(p1, p2) { if (!p1) return p2; if (!p2) return p1; return (p1.ord >= p2.ord) ? p1 : p2; }
-  function fmtPos(p) {
-    if (!p) return "-";
-    const nm = surahName.size ? (surahName.get(p.s) || `S${p.s}`) : `S${p.s}`;
-    return `${nm} ${p.s}:${p.a}`;
-  }
-
-  // Pages parser: ambil min/max angka dari string seperti "12-15", "12 s/d 15", "12, 14-18"
-  function extractPagesRange(txt) {
-    const s = String(txt ?? "");
-    const nums = [];
-    // range "x-y"
-    s.replace(/(\d+)\s*(?:-|s\/d)\s*(\d+)/gi, (_, a, b) => {
-      nums.push(Number(a), Number(b));
-      return _;
-    });
-    // angka lepas
-    s.replace(/(^|[^\d])(\d+)(?!\d)/g, (_, __, n) => {
-      nums.push(Number(n));
-      return _;
-    });
-    const valid = nums.filter(n => Number.isFinite(n));
-    if (valid.length === 0) return { min: null, max: null };
-    return { min: Math.min(...valid), max: Math.max(...valid) };
-  }
-
-  // Juz parser: "Juz 2-4", "juz 10", "JUZ 3,5"
-  function addJuzToSet(txt, set) {
-    if (!txt) return;
-    const re = /juz\s*(\d+)(?:\s*-\s*(\d+))?/gi;
-    let m;
-    while ((m = re.exec(txt)) !== null) {
-      const a = parseInt(m[1], 10);
-      const b = m[2] ? parseInt(m[2], 10) : a;
-      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-      const lo = Math.min(a, b), hi = Math.max(a, b);
-      for (let i = lo; i <= hi; i++) set.add(i);
-    }
-  }
-  function rangeFromSet(set) {
-    const arr = Array.from(set).sort((a,b)=>a-b);
-    if (arr.length === 0) return { min:null, max:null, label:"-" };
-    return { min: arr[0], max: arr[arr.length-1], label: arr.length===1 ? `Juz ${arr[0]}` : `Juz ${arr[0]}-${arr[arr.length-1]}` };
-  }
-
-  // Predikat dari skor rata-rata (fallback jika tidak ada huruf dominan)
-  function gradeFromScore(x) {
+  function gradeFromScore(x){
     if (!Number.isFinite(x)) return { huruf:"-", teks:"-" };
     if (x >= 85) return { huruf:"A", teks:"Sangat Baik" };
     if (x >= 75) return { huruf:"B", teks:"Baik" };
@@ -2836,7 +2774,59 @@ downloadBtn.addEventListener("click", async () => {
     if (x >= 55) return { huruf:"D", teks:"Kurang" };
     return { huruf:"E", teks:"Sangat Kurang" };
   }
-  const BATAS_SEM = { 1:8, 2:13, 3:18, 4:23, 5:28, 6:30 };
+  function getNamaFromCell(cell) {
+    if (!cell) return "";
+    const first = cell.childNodes && cell.childNodes[0];
+    const txt = (first && first.textContent) ? first.textContent : cell.textContent;
+    return String(txt).trim();
+  }
+  // Surah utils (gunakan window.surahList jika ada)
+  const surahIndex = new Map(), surahName = new Map();
+  if (Array.isArray(window.surahList)) {
+    window.surahList.forEach((s, idx) => {
+      const id = Number(s.id ?? (idx+1));
+      surahIndex.set(id, idx + 1);
+      surahName.set(id, s.nama || `Surah ${id}`);
+    });
+  }
+  function parsePos(sa) {
+    const m = String(sa ?? "").match(/^\s*(\d+)\s*:\s*(\d+)\s*$/);
+    if (!m) return null;
+    const s = Number(m[1]), a = Number(m[2]);
+    const ordS = surahIndex.size ? (surahIndex.get(s) || s) : s;
+    return { s, a, ord: ordS * 1000 + a };
+  }
+  const minPos = (p1, p2) => (!p1 ? p2 : !p2 ? p1 : (p1.ord <= p2.ord ? p1 : p2));
+  const maxPos = (p1, p2) => (!p1 ? p2 : !p2 ? p1 : (p1.ord >= p2.ord ? p1 : p2));
+  const fmtPos = (p) => {
+    if (!p) return "-";
+    const nm = surahName.size ? (surahName.get(p.s) || `S${p.s}`) : `S${p.s}`;
+    return `${nm} ${p.s}:${p.a}`;
+  };
+  function extractPagesRange(txt) {
+    const s = String(txt ?? "");
+    const nums = [];
+    s.replace(/(\d+)\s*(?:-|s\/d)\s*(\d+)/gi, (_, a, b) => { nums.push(Number(a), Number(b)); return _; });
+    s.replace(/(^|[^\d])(\d+)(?!\d)/g, (_, __, n) => { nums.push(Number(n)); return _; });
+    const v = nums.filter(n => Number.isFinite(n));
+    if (!v.length) return { min:null, max:null };
+    return { min: Math.min(...v), max: Math.max(...v) };
+  }
+  function addJuzToSet(txt, set) {
+    if (!txt) return;
+    const re = /juz\s*(\d+)(?:\s*-\s*(\d+))?/gi;
+    let m; while ((m = re.exec(txt)) !== null) {
+      const a = parseInt(m[1], 10);
+      const b = m[2] ? parseInt(m[2], 10) : a;
+      const lo = Math.min(a,b), hi = Math.max(a,b);
+      for (let i = lo; i <= hi; i++) set.add(i);
+    }
+  }
+  function rangeFromSet(set) {
+    const arr = Array.from(set).sort((a,b)=>a-b);
+    if (!arr.length) return { min:null, max:null, label:"-" };
+    return { min: arr[0], max: arr[arr.length-1], label: arr.length===1 ? `Juz ${arr[0]}` : `Juz ${arr[0]}-${arr[arr.length-1]}` };
+  }
 
   async function ensureSemesterMap(kelas) {
     if (window.semesterMap && Object.keys(window.semesterMap).length) return;
@@ -2854,43 +2844,30 @@ downloadBtn.addEventListener("click", async () => {
     }
   }
 
-  // Ambil nama DOM utk daftar nama & fallback key dari nama
-  function getNamaFromCell(cell) {
-    if (!cell) return "";
-    const first = cell.childNodes && cell.childNodes[0];
-    const txt = (first && first.textContent) ? first.textContent : cell.textContent;
-    return String(txt).trim();
-  }
-
   try {
     await ensureSemesterMap(kelas);
 
-    // Ambil data arsip rentang
+    // Ambil arsip rentang
     const res = await fetch(
       `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`
     );
     if (!res.ok) throw new Error("Gagal mengambil data.");
     let allData = await res.json();
     if (!Array.isArray(allData)) allData = (allData?.list || []);
-    if (allData.length === 0) {
-      alert("Tidak ada data pada rentang tanggal tersebut.");
-      overlay.style.display = "none";
-      return;
-    }
+    if (!allData.length) { alert("Tidak ada data pada rentang tanggal tersebut."); overlay.style.display="none"; return; }
 
-    // Peta nama DOM → key & daftar nama santri (untuk header)
+    // Peta nama DOM (untuk daftar nama + fallback key)
     const rowsDOM = [...(santriTableBody?.querySelectorAll("tr") || [])];
-    const nameToKey = new Map();
-    const keyToNama = new Map();
+    const nameToKey = new Map(), keyToNama = new Map();
     rowsDOM.forEach(row => {
       const key = normKey(row.dataset?.nis || row.dataset?.id || row.dataset?.key);
       const nm  = getNamaFromCell(row.children?.[1]);
       if (key && nm) { nameToKey.set(nm.toLowerCase(), key); keyToNama.set(key, nm); }
     });
-    const daftarNamaHeader = rowsDOM.map(r => getNamaFromCell(r.children?.[1])).filter(Boolean).join(", ");
+    const daftarNamaArr = rowsDOM.map(r => getNamaFromCell(r.children?.[1])).filter(Boolean);
 
-    // Rekap per key
-    const map = new Map(); // key -> record rekap
+    // Rekap per santri (key)
+    const map = new Map();
     for (const it of allData) {
       let id  = normKey(it?.id);
       let nis = normKey(it?.nis);
@@ -2906,13 +2883,9 @@ downloadBtn.addEventListener("click", async () => {
         nama: keyToNama.get(key) || it?.nama || key,
         semester: Number(window.semesterMap?.[key] ?? it?.semester ?? 1),
         hadir: 0, alpha: 0, sakit: 0, izin: 0,
-        // setoran surah-ayat rentang
         posMin: null, posMax: null,
-        // pages rentang + total
         pageMin: null, pageMax: null, totalPages: 0,
-        // juz rentang + total
         juzSet: new Set(), totalAllJuz: 0,
-        // nilai
         sumNilai: 0, cntNilai: 0, hurufList: []
       };
 
@@ -2922,23 +2895,19 @@ downloadBtn.addEventListener("click", async () => {
       else if (abs === "sakit") rec.sakit++;
       else if (abs === "izin") rec.izin++;
 
-      // setoran surah:ayat
       const pD = parsePos(it?.dari);
       const pS = parsePos(it?.sampai);
       if (pD) rec.posMin = minPos(rec.posMin, pD);
       if (pS) rec.posMax = maxPos(rec.posMax, pS);
 
-      // pages
       const pr = extractPagesRange(it?.halaman);
       if (Number.isFinite(pr.min)) rec.pageMin = (rec.pageMin == null) ? pr.min : Math.min(rec.pageMin, pr.min);
       if (Number.isFinite(pr.max)) rec.pageMax = (rec.pageMax == null) ? pr.max : Math.max(rec.pageMax, pr.max);
       rec.totalPages += parseNum(it?.totalHalaman);
 
-      // juz
       addJuzToSet(it?.juzTerbaca, rec.juzSet);
       rec.totalAllJuz += parseNum(it?.totalJuz);
 
-      // nilai (buttonCell)
       const bc = it?.buttonCell;
       if (bc && typeof bc.nilai !== "undefined") {
         const n = parseNum(bc.nilai);
@@ -2946,7 +2915,6 @@ downloadBtn.addEventListener("click", async () => {
         if (bc.predikatHuruf) rec.hurufList.push(String(bc.predikatHuruf).toUpperCase());
       }
 
-      // perbaiki nama/id/nis jika ada data lebih baik
       if (!rec.nis && nis) rec.nis = nis;
       if (!rec.id  && id)  rec.id  = id;
       if (!keyToNama.get(key) && it?.nama) rec.nama = it.nama;
@@ -2954,137 +2922,180 @@ downloadBtn.addEventListener("click", async () => {
       map.set(key, rec);
     }
 
-    // Selesaikan rekap (hitung % capaian, nilai rata2 & predikat)
     const rows = [...map.values()].sort((a,b)=> (a.nama||"").localeCompare(b.nama||""));
-    const totals = { santri: rows.length };
     const mode = (arr) => {
-      const freq = new Map();
-      arr.forEach(x => freq.set(x, (freq.get(x) || 0) + 1));
-      let best = null, cnt = 0;
-      freq.forEach((v,k)=>{ if (v>cnt){cnt=v; best=k;} });
-      return best;
+      const freq = new Map(); arr.forEach(x => freq.set(x,(freq.get(x)||0)+1));
+      let best=null,c=0; freq.forEach((v,k)=>{if(v>c){c=v;best=k;}}); return best;
     };
 
-    // ====== PDF ======
+    // ========== PDF (LANDSCAPE) ==========
     const { jsPDF } = window.jspdf || {};
-    if (!jsPDF) throw new Error("jsPDF tidak ditemukan. Pastikan jsPDF sudah dimuat.");
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    if (!jsPDF) throw new Error("jsPDF tidak ditemukan.");
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    const pageWidth  = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = { left: 12, right: 12, top: 12, bottom: 12 };
+
+    // Header ringkas (biar tabel muat)
+    doc.setFontSize(14);
+    doc.text("Rekap Dashboard (Rentang)", margin.left, margin.top);
+    doc.setFontSize(10);
+    doc.text(`Kelas: ${kelas}`, margin.left, margin.top + 6);
+    doc.text(`Periode: ${startDate} s.d. ${endDate}`, margin.left, margin.top + 12);
+    doc.text(`Total Santri: ${rows.length}`, margin.left, margin.top + 18);
+
+    if (!LAMPIRKAN_DAFTAR_NAMA_DI_HALAMAN_TERPISAH) {
+      // (opsional) tulis daftar nama kecil di bawah header, dibungkus agar muat
+      const namesWrapped = doc.splitTextToSize(rows.map(r=>r.nama).join(", "), pageWidth - margin.left - margin.right);
+      doc.text("Daftar Santri:", margin.left, margin.top + 24);
+      doc.text(namesWrapped, margin.left, margin.top + 29);
+    }
+
     const useAutoTable = typeof doc.autoTable === "function";
 
-    // Header
-    doc.setFontSize(14);
-    doc.text("Rekap Dashboard (Rentang)", 14, 14);
-    doc.setFontSize(11);
-    doc.text(`Kelas: ${kelas}`, 14, 21);                                         // 1. Kelas
-    doc.text(`Periode: ${startDate} s.d. ${endDate}`, 14, 27);                    // 2. Periode
-    doc.text(`Total Santri: ${totals.santri}`, 14, 33);                           // 3. Total santri
-    // 4. Daftar nama-nama santri
-    const namesWrapped = doc.splitTextToSize(daftarNamaHeader || "-", 182);
-    doc.text("Daftar Santri:", 14, 39);
-    doc.text(namesWrapped, 14, 44);
-    let startY = 44 + (namesWrapped.length * 5) + 2;
-
-    // Bentuk data tabel sesuai 5-13
-    // Kolom: No, NIS, Nama, Sem, Hadir, Alpha, Sakit, Izin, Setoran (S:A→S:A), Pages (→), Total Pages, Juz (→), Total Juz, % Capaian, Nilai Rata2, Predikat
+    // Tabel
     const head = [[
       "No","NIS","Nama","Sem","H","A","S","I",
-      "Setoran (S:A → S:A)",               // 8
-      "Pages (→)",                         // 9
-      "Total Pages",                       // 10
-      "Juz (→)",                           // 11
-      "Total Juz",                         // 12 (a)
-      "%",                                 // 12 (b)
-      "Nilai Rata2",                       // 13 (a)
-      "Predikat"                           // 13 (b)
+      "Setoran (S:A → S:A)",
+      "Pages (→)",
+      "Total Pages",
+      "Juz (→)",
+      "Total Juz",
+      "%",
+      "Nilai Rata2",
+      "Predikat"
     ]];
 
     const body = rows.map((r, i) => {
-      // Juz rentang
       const jz = rangeFromSet(r.juzSet);
-      // % capaian
       const target = BATAS_SEM[r.semester] || 0;
       const persen = target > 0 ? Math.min(100, Math.floor((r.totalAllJuz / target) * 100)) : 0;
-      // Nilai
       const avgNilai = r.cntNilai ? (r.sumNilai / r.cntNilai) : 0;
       const predHuruf = mode(r.hurufList) || gradeFromScore(avgNilai).huruf;
 
       return [
-        i+1,                                   // No
-        r.nis || r.id || "-",                  // 5. NIS
-        r.nama || "-",                         // 4. Nama
-        r.semester,                            // 6. Semester
-        r.hadir, r.alpha, r.sakit, r.izin,     // 7. Absensi rinci
-        `${fmtPos(r.posMin)} → ${fmtPos(r.posMax)}`,                                       // 8. Setoran S:A→S:A
-        (r.pageMin!=null||r.pageMax!=null) ? `${r.pageMin??"-"} → ${r.pageMax??"-"}` : "-", // 9. Pages → 
-        (r.totalPages || 0).toFixed(0),        // 10. Total pages
-        (jz.min!=null||jz.max!=null) ? (jz.min===jz.max?`Juz ${jz.min}`:`Juz ${jz.min}-${jz.max}`) : "-", // 11. Juz →
-        r.totalAllJuz.toFixed(2),              // 12a. Total all juz
-        `${persen}%`,                          // 12b. Persen capaian
-        avgNilai ? avgNilai.toFixed(1) : "-",  // 13a. Nilai rata2
-        predHuruf || "-"                       // 13b. Predikat (huruf)
+        i+1,
+        r.nis || r.id || "-",
+        r.nama || "-",
+        r.semester,
+        r.hadir, r.alpha, r.sakit, r.izin,
+        `${fmtPos(r.posMin)} → ${fmtPos(r.posMax)}`,
+        (r.pageMin!=null||r.pageMax!=null) ? `${r.pageMin??"-"} → ${r.pageMax??"-"}` : "-",
+        (r.totalPages || 0).toFixed(0),
+        (jz.min!=null||jz.max!=null) ? (jz.min===jz.max?`Juz ${jz.min}`:`Juz ${jz.min}-${jz.max}`) : "-",
+        r.totalAllJuz.toFixed(2),
+        `${persen}%`,
+        avgNilai ? avgNilai.toFixed(1) : "-",
+        predHuruf || "-"
       ];
     });
 
     if (useAutoTable) {
+      // Lebar konten yang tersedia
+      const contentWidth = pageWidth - margin.left - margin.right;
+
+      // Desain kolom agar muat di landscape
+      const colW = {
+        no: 8, nis: 24, nama: 46, sem: 10, h: 10, a: 10, s: 10, i: 10,
+        setoran: 48, pages: 24, totPages: 18, juz: 26, totJuz: 18, persen: 12, nilai: 14, pred: 16
+      };
+      const targetWidth = Object.values(colW).reduce((a,b)=>a+b,0);
+      // scaling kalau kebablasan
+      const scale = Math.min(1, contentWidth / targetWidth);
+
+      const cw = Object.fromEntries(Object.entries(colW).map(([k,v])=>[k, Math.floor(v*scale)]));
+
       doc.autoTable({
         head, body,
-        startY,
-        styles: { fontSize: 8, cellPadding: 1.5 },
+        startY: LAMPIRKAN_DAFTAR_NAMA_DI_HALAMAN_TERPISAH ? (margin.top + 26) : (margin.top + 34),
+        margin,
+        tableWidth: contentWidth,
+        styles: { fontSize: 8, cellPadding: 1.5, overflow: "linebreak" },
         headStyles: { fillColor: [243,244,246], textColor: 20 },
         columnStyles: {
-          0:{halign:"center", cellWidth: 8},
-          1:{cellWidth: 22},   // NIS
-          2:{cellWidth: 36},   // Nama
-          3:{halign:"center", cellWidth: 10},
-          4:{halign:"center", cellWidth: 8},
-          5:{halign:"center", cellWidth: 8},
-          6:{halign:"center", cellWidth: 8},
-          7:{halign:"center", cellWidth: 8},
-          8:{cellWidth: 40},
-          9:{cellWidth: 22},
-          10:{halign:"right", cellWidth: 18},
-          11:{cellWidth: 22},
-          12:{halign:"right", cellWidth: 16},
-          13:{halign:"center", cellWidth: 12},
-          14:{halign:"right", cellWidth: 16},
-          15:{halign:"center", cellWidth: 16},
+          0: { halign:"center", cellWidth: cw.no },
+          1: { cellWidth: cw.nis },
+          2: { cellWidth: cw.nama },
+          3: { halign:"center", cellWidth: cw.sem },
+          4: { halign:"center", cellWidth: cw.h },
+          5: { halign:"center", cellWidth: cw.a },
+          6: { halign:"center", cellWidth: cw.s },
+          7: { halign:"center", cellWidth: cw.i },
+          8: { cellWidth: cw.setoran },
+          9: { cellWidth: cw.pages },
+          10:{ halign:"right", cellWidth: cw.totPages },
+          11:{ cellWidth: cw.juz },
+          12:{ halign:"right", cellWidth: cw.totJuz },
+          13:{ halign:"center", cellWidth: cw.persen },
+          14:{ halign:"right", cellWidth: cw.nilai },
+          15:{ halign:"center", cellWidth: cw.pred },
+        },
+        rowPageBreak: "auto",
+        showHead: "everyPage",
+        didDrawPage: (data) => {
+          // footer
+          const str = `Hal. ${doc.internal.getNumberOfPages()}`;
+          doc.setFontSize(8);
+          doc.text(str, pageWidth - margin.right, pageHeight - 5, { align: "right" });
         }
       });
-    } else {
-      // Fallback manual (tanpa autoTable)
-      let y = startY;
-      doc.setFontSize(9);
-      const headerLine = "No NIS           Nama                           Sem H A S I  Setoran(S:A→S:A)        Pages(→)    TotPg  Juz(→)       TotJuz   %  Nilai Pred";
-      doc.text(headerLine, 14, y);
-      y += 3; doc.line(14, y, 196, y); y += 4;
 
-      body.forEach(row => {
-        const line = [
-          String(row[0]).padStart(2," "),
-          String(row[1]).padEnd(12," ").slice(0,12),
-          String(row[2]).padEnd(28," ").slice(0,28),
-          String(row[3]).padStart(3," "),
-          String(row[4]).padStart(2," "),
-          String(row[5]).padStart(2," "),
-          String(row[6]).padStart(2," "),
-          String(row[7]).padEnd(22," ").slice(0,22),
-          String(row[8]).padEnd(10," ").slice(0,10),
-          String(row[9]).padStart(6," "),
-          String(row[10]).padEnd(12," ").slice(0,12),
-          String(row[11]).padStart(6," "),
-          String(row[12]).padStart(5," "),
-          String(row[13]).padStart(6," "),
-          String(row[14]).padStart(4," ")
-        ].join("  ");
-        doc.text(line, 14, y);
+      // Lampiran daftar nama (opsional)
+      if (LAMPIRKAN_DAFTAR_NAMA_DI_HALAMAN_TERPISAH) {
+        doc.addPage("a4", "landscape");
+        doc.setFontSize(12);
+        doc.text("Lampiran: Daftar Nama Santri", margin.left, margin.top);
+        doc.setFontSize(9);
+
+        // tulis dalam 3 kolom
+        const colCount = 3;
+        const colGap = 6;
+        const colWidth = (pageWidth - margin.left - margin.right - (colGap * (colCount - 1))) / colCount;
+
+        let x = margin.left, y = margin.top + 8, lineH = 6, colIdx = 0;
+        daftarNamaArr.sort((a,b)=>a.localeCompare(b)).forEach((name, idx) => {
+          doc.text(`${idx+1}. ${name}`, x, y);
+          y += lineH;
+          if (y > pageHeight - margin.bottom) {
+            // next column
+            colIdx++;
+            if (colIdx < colCount) {
+              x = margin.left + colIdx * (colWidth + colGap);
+              y = margin.top + 8;
+            } else {
+              doc.addPage("a4", "landscape");
+              colIdx = 0; x = margin.left; y = margin.top + 8;
+            }
+          }
+        });
+      }
+
+    } else {
+      // Fallback manual (tanpa autoTable) – tetap landscape & wrap sederhana
+      let y = margin.top + 30;
+      doc.setFontSize(9);
+      doc.text("No  NIS               Nama                              Sem H  A  S  I   Setoran(S:A→S:A)            Pages(→)     TotPg   Juz(→)        TotJuz   %  Nilai Pred", margin.left, y);
+      y += 3; doc.line(margin.left, y, pageWidth - margin.right, y); y += 5;
+
+      rows.forEach((r, i) => {
+        const jz = rangeFromSet(r.juzSet);
+        const target = BATAS_SEM[r.semester] || 0;
+        const persen = target > 0 ? Math.min(100, Math.floor((r.totalAllJuz / target) * 100)) : 0;
+        const avgNilai = r.cntNilai ? (r.sumNilai / r.cntNilai) : 0;
+        const predHuruf = (r.hurufList.length ? r.hurufList[0] : gradeFromScore(avgNilai).huruf);
+
+        const setoran = `${fmtPos(r.posMin)} → ${fmtPos(r.posMax)}`;
+        const pages = (r.pageMin!=null||r.pageMax!=null) ? `${r.pageMin??"-"} → ${r.pageMax??"-"}` : "-";
+        const line = `${String(i+1).padStart(2," ")}  ${(r.nis||r.id||"-").padEnd(16," ").slice(0,16)} ${String(r.nama||"-").padEnd(30," ").slice(0,30)}  ${String(r.semester).padStart(3," ")} ${String(r.hadir).padStart(2," ")} ${String(r.alpha).padStart(2," ")} ${String(r.sakit).padStart(2," ")} ${String(r.izin).padStart(2," ")}  ${setoran.slice(0,26).padEnd(26," ")}  ${String(pages).padEnd(10," ").slice(0,10)}  ${String((r.totalPages||0)).padStart(5," ")}   ${((jz.min!=null||jz.max!=null)?(jz.min===jz.max?`Juz ${jz.min}`:`Juz ${jz.min}-${jz.max}`):"-").padEnd(12," ").slice(0,12)}  ${r.totalAllJuz.toFixed(2).padStart(6," ")}  ${String(persen).padStart(3," ")} ${avgNilai?avgNilai.toFixed(1):"-".padStart(5," ")} ${String(predHuruf).padStart(4," ")}`;
+        doc.text(line, margin.left, y);
         y += 6;
-        if (y > 280) { doc.addPage(); y = 20; }
+        if (y > pageHeight - margin.bottom) { doc.addPage("a4", "landscape"); y = margin.top + 10; }
       });
     }
 
     const fileName = `Rekap_Dashboard_${kelas}_${startDate}_sd_${endDate}.pdf`;
     doc.save(fileName);
-
   } catch (err) {
     console.error(err);
     alert("Gagal membuat PDF: " + err.message);
