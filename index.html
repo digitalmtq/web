@@ -2592,12 +2592,11 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     return String(txt).trim();
   }
 
-  // KUNCI STABIL dari dataset (hindari baca dari kolom pertama)
-  function getStableKeys(row) {
-    const id  = String(row.dataset?.id  ?? "").trim();   // id numerik (string)
-    const nis = String(row.dataset?.nis ?? "").trim();   // nis string
-    const key = nis || id || "";                         // prioritas NIS
-    return { id, nis, key };
+  // Ambil ID baris (id numerik atau NIS string)
+  function getRowId(row) {
+    const raw = row.children[0]?.textContent?.trim() || "";
+    const asNum = parseInt(raw, 10);
+    return Number.isNaN(asNum) ? raw : asNum;
   }
 
   // ===== UI lock =====
@@ -2632,16 +2631,13 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
       // -- susun payload per baris (untuk tanggal ini)
       rowsTanggal.forEach((row) => {
-        const { id: rowId, nis: rowNis, key: keySem } = getStableKeys(row);
-        const existingIdx = dataMerged.findIndex(d =>
-          (String(d.id ?? "") === rowId && rowId) ||
-          (String(d.nis ?? "") === rowNis && rowNis)
-        );
-        const existing = existingIdx !== -1 ? dataMerged[existingIdx] : {};
+        const id = getRowId(row);
+        const existing = dataMerged.find(d => String(d.id) === String(id)) || {};
 
         const nama = getNamaFromCell(row.children[1]); // hanya nama
 
-        // === semester SELALU dari master (semesterMap), fallback existing
+        // ⬇️ KUNCI: semester selalu dari master
+        const keySem = String((row.dataset?.nis || row.dataset?.id || "")).trim();
         const semester = (window.semesterMap?.[keySem]) ?? existing.semester ?? "";
 
         const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
@@ -2649,24 +2645,17 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         const ayatDari  = row.querySelector(".ayat-dari")?.value ?? "";
         const surahSampai = row.querySelector(".surah-sampai")?.value ?? "";
         const ayatSampai  = row.querySelector(".ayat-sampai")?.value ?? "";
+        const totalJuz = row.querySelector(".total-juz")?.textContent ?? existing.totalJuz ?? "0";
+        const halaman = row.querySelector(".halaman-terbaca")?.textContent ?? existing.halaman ?? "";
+        const totalHalaman = row.querySelector(".total-halaman")?.textContent ?? existing.totalHalaman ?? "";
+        const juzTerbaca = row.querySelector(".juz-terbaca")?.textContent ?? existing.juzTerbaca ?? "";
 
-        // Ambil angka-angka dari cell (biarkan string jika memang string)
-        const totalJuzCell      = row.querySelector(".total-juz");
-        const halamanCell       = row.querySelector(".halaman-terbaca");
-        const totalHalamanCell  = row.querySelector(".total-halaman");
-        const juzTerbacaCell    = row.querySelector(".juz-terbaca");
-
-        const totalJuz     = (totalJuzCell?.textContent ?? existing.totalJuz ?? "0").toString().trim();
-        const halaman      = (halamanCell?.textContent ?? existing.halaman ?? "").toString().trim();
-        const totalHalaman = (totalHalamanCell?.textContent ?? existing.totalHalaman ?? "").toString().trim();
-        const juzTerbaca   = (juzTerbacaCell?.textContent ?? existing.juzTerbaca ?? "").toString().trim();
-
-        // nilai ringkas di sel (ambil langsung dari .nilai-ringkas)
-        const nilaiWrap = row.querySelector(".nilai-ringkas");
-        const nilaiStr = nilaiWrap?.textContent?.trim() || "";
+        // nilai ringkas di sel (div pertama pada sel tombol)
+        const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
+        const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
         const parsed = parseNilaiStr(nilaiStr);
 
-        // Jika ada nilai baru valid → pakai; else pertahankan existing.buttonCell
+        // Jika ada nilai baru valid → pakai, else pakai existing, else jangan timpa
         const adaNilaiBaru = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai));
         let buttonCell;
         if (adaNilaiBaru) {
@@ -2674,17 +2663,15 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-') ? parsed.predikatHuruf : (existing.buttonCell?.predikatHuruf ?? "-");
           buttonCell = { nilai: parsed.nilai, predikatText, predikatHuruf };
         } else if (existing.buttonCell) {
-          buttonCell = existing.buttonCell;
+          buttonCell = existing.buttonCell; // pertahankan
         }
 
-        // marks per baris (sudah ditempel ke row.markData saat edit modal)
+        // marks per baris
         const marks = row.markData || existing.marks || { audio: [] };
 
-        // === Susun data baru; sertakan NIS agar arsip makin stabil
         const base = {
           ...existing,
-          id: rowId || existing.id,     // jangan hilangkan id lama jika ada
-          nis: rowNis || existing.nis,  // sertakan nis
+          id,
           nama,
           semester,
           absensi,
@@ -2698,8 +2685,8 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         };
         const newData = buttonCell ? { ...base, buttonCell } : base;
 
-        if (existingIdx !== -1) dataMerged[existingIdx] = newData;
-        else dataMerged.push(newData);
+        const idx = dataMerged.findIndex(d => String(d.id) === String(id));
+        if (idx !== -1) dataMerged[idx] = newData; else dataMerged.push(newData);
       });
 
       // ===== 3) Kirim per-tanggal (endpoint sama) =====
@@ -2736,6 +2723,15 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   }
 }
 
+
+// Pasang event listener ke dua tombol Save
+document.getElementById("save-btn").addEventListener("click", function () {
+  simpanDataMutabaah(this);
+});
+document.getElementById("save-btn-modal").addEventListener("click", function () {
+  simpanDataMutabaah(this);
+});
+	 
     downloadBtn.addEventListener("click", async () => {
   const kelas = kelasSelect.value;
   const startDate = document.getElementById("start-date").value;
