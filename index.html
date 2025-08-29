@@ -2916,15 +2916,15 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const scale = Math.min(1, contentW / sumW);
       if (scale < 1) cols.forEach(c => c.w = Math.floor(c.w * scale));
 
-      // Bangun data tabel (pakai segmen)
+      // Bangun data tabel (pakai segmen) — plus sorting & format juz tunggal
       const tableData = rows.map((r, idx) => {
         const nilaiAvg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred = PDF_predikatFromScore(nilaiAvg);
         const persen = PDF_percentCapaian(r.totalJuz, r.semester);
 
-        const setoranText = PDF_joinSAsegments(r.saSegments);
-        const pagesText   = PDF_joinRangeSegments(r.pageSegments);
-        const juzText     = PDF_joinRangeSegments(r.juzSegments);
+        const setoranText = PDF_joinSAsegments(r.saSegments);              // diurut by SA
+        const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);   // urut naik, tetap a-b
+        const juzText     = PDF_joinRangeSegments(r.juzSegments, true);     // urut naik, a jika tunggal
 
         return {
           no: String(idx+1),
@@ -3052,7 +3052,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   function PDF_juzRangeText(set){
     if (!set || set.size===0) return '-';
     const arr = Array.from(set).sort((a,b)=>a-b);
-    return arr.length===1 ? `Juz ${arr[0]}` : `Juz ${arr[0]}-{arr[arr.length-1]}`;
+    return arr.length===1 ? `Juz ${arr[0]}` : `Juz ${arr[0]}-${arr[arr.length-1]}`;
   }
 
   function PDF_parseJuzTerbacaField(val){
@@ -3084,8 +3084,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return out;
   }
 
-  // === NEW: gabung & format segmen ===
+  // === NEW: sorter & join segmen ===
   function PDF_fmtSASegment(seg){ return `${seg.from.s}:${seg.from.a}-${seg.to.s}:${seg.to.a}`; }
+
   function PDF_dedupSASegments(arr){
     const seen = new Set(), out = [];
     for (const seg of (arr||[])) {
@@ -3096,25 +3097,42 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (!seen.has(key)) { seen.add(key); out.push(norm); }
     }
     return out;
-    // Catatan: Tidak merge overlap/adjacent → sesuai data, hanya dedup yang sama persis.
+  }
+  function PDF_sortSASegments(list){
+    return [...(list||[])].sort((A,B)=>{
+      const c1 = PDF_compareSA(A?.from, B?.from);
+      if (c1 !== 0) return c1;
+      return PDF_compareSA(A?.to, B?.to);
+    });
   }
   function PDF_joinSAsegments(arr){
-    const list = PDF_dedupSASegments(arr);
+    const list = PDF_sortSASegments(PDF_dedupSASegments(arr));
     if (!list.length) return '-';
     return list.map(PDF_fmtSASegment).join(', ');
   }
-  function PDF_joinRangeSegments(arr){
+
+  function PDF_sortRangeSegments(list){
+    return [...(list||[])].sort((a,b)=>{
+      const a0 = Number(a?.[0]), a1 = Number(a?.[1]);
+      const b0 = Number(b?.[0]), b1 = Number(b?.[1]);
+      if (a0 !== b0) return a0 - b0;
+      return a1 - b1;
+    });
+  }
+  // collapseSingle: true => "30" (bukan "30-30")
+  function PDF_joinRangeSegments(arr, collapseSingle=false){
     if (!arr || !arr.length) return '-';
-    const seen = new Set(), out = [];
+    const seen = new Set(), tmp = [];
     for (const seg of arr){
       if (!Array.isArray(seg) || seg.length<2) continue;
       let a = Number(seg[0]), b = Number(seg[1]);
       if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
       if (a > b) [a,b] = [b,a];
       const key = `${a}-${b}`;
-      if (!seen.has(key)) { seen.add(key); out.push(`${a}-${b}`); }
+      if (!seen.has(key)) { seen.add(key); tmp.push([a,b]); }
     }
-    return out.join(', ');
+    const out = PDF_sortRangeSegments(tmp).map(([a,b]) => (collapseSingle && a===b) ? `${a}` : `${a}-${b}`);
+    return out.length ? out.join(', ') : '-';
   }
 
   // Persentase capaian (target per semester)
@@ -3225,7 +3243,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
     }
 
-    // Hitung ringkasan nilai (avg) per santri
+    // Hitung ringkasan nilai (avg) per santri + dedup segmen
     for (const k in map){
       const r = map[k];
       r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
@@ -3238,7 +3256,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
       if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
 
-      // Dedup segmen (tanpa merge overlap → sesuai data)
+      // Dedup (tanpa merge overlap → sesuai data)
       r.saSegments   = PDF_dedupSASegments(r.saSegments);
       r.pageSegments = (function dedupRange(list){
         const seen = new Set(), out=[];
@@ -3283,6 +3301,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     });
   }
 })();
+
 
 
 
