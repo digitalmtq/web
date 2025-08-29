@@ -1113,13 +1113,13 @@ async function submitTambahKelasBaru() {
       <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
       <button id="btnHapusSantri">Hapus Santri</button>
 	  <button id="btnPindahKelas">Pindah Kelas</button>
-      <div class="actions">
-        <button id="save-btn">Simpan Data Mutaba'ah</button>
-       <div class="pdf-rekap-controls" style="margin:.5rem 0;">
+		<div class="pdf-rekap-controls" style="margin:.5rem 0;">
 		<button id="download-pdf-rekap" style="margin-left:.5rem;">Download PDF Rekap</button>
   		<label>Dari: <input type="date" id="pdf-start-date"></label>
   		<label style="margin-left:.5rem;">Sampai: <input type="date" id="pdf-end-date"></label>
 		</div>
+      <div class="actions">
+        <button id="save-btn">Simpan Data Mutaba'ah</button>
         <button class="logout-btn" id="logout-btn">Logout</button>
       </div>
     </div>
@@ -2852,6 +2852,13 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         return { ...r, id, nis, nama, semester };
       });
 
+      // === KBM days (jumlah hari pertemuan unik dalam rentang untuk kelas ini)
+      const kbmDaySet = new Set();
+      (allDataNorm||[]).forEach(it => {
+        if (it?.tanggal) kbmDaySet.add(String(it.tanggal).slice(0,10));
+      });
+      const kbmDays = kbmDaySet.size;
+
       // 4) Agregasi (versi segmen spesifik)
       const aggMap = PDF_buildRekapPerKey(allDataNorm);
       const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
@@ -2879,7 +2886,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const pageW  = doc.internal.pageSize.getWidth();
       const pageH  = doc.internal.pageSize.getHeight();
       const margin = { left: 12, right: 12, top: 12, bottom: 12 };
-      const headerGap = 22; // ruang setelah header meta
+
+      // Tambah 1 baris lagi untuk "KBM: X hari" → headerGap diperbesar
+      const headerGap = 28;
       const lineH = 6;
       const tblFont = 8;
 
@@ -2889,42 +2898,46 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.setFontSize(10);
         doc.text(kelasLine, margin.left, margin.top + 6);
         doc.text(`Periode: ${startDate} s.d. ${endDate}`, margin.left, margin.top + 12);
-        doc.text(`Total Santri: ${rows.length}`, margin.left, margin.top + 18);
+        doc.text(`KBM: ${kbmDays} hari`, margin.left, margin.top + 18);
+        doc.text(`Total Santri: ${rows.length}`, margin.left, margin.top + 24);
       }
 
-      // Kolom (pakai tanda -)
+      // Kolom (pakai tanda -) + "Hadir %"
       const cols = [
-        { key:'no',     title:'No',                  w:8,  align:'center' },
-        { key:'nis',    title:'NIS',                 w:24, align:'left'   },
-        { key:'nama',   title:'Nama',                w:46, align:'left'   },
-        { key:'sem',    title:'Sem',                 w:10, align:'center' },
-        { key:'h',      title:'H',                   w:8,  align:'center' },
-        { key:'a',      title:'A',                   w:8,  align:'center' },
-        { key:'s',      title:'S',                   w:8,  align:'center' },
-        { key:'i',      title:'I',                   w:8,  align:'center' },
-        { key:'setoran',title:'Setoran (S:A - S:A)', w:48, align:'left'   },
-        { key:'pages',  title:'Pages',               w:32, align:'left'   },
-        { key:'totPg',  title:'Total Pages',         w:16, align:'right'  },
-        { key:'juz',    title:'Juz',                 w:28, align:'left'   },
-        { key:'totJuz', title:'Total Juz',           w:16, align:'right'  },
-        { key:'persen', title:'%',                   w:12, align:'center' },
-        { key:'nilai',  title:'Nilai Rata2',         w:14, align:'right'  },
-        { key:'pred',   title:'Predikat',            w:14, align:'center' },
+        { key:'no',       title:'No',                  w:8,  align:'center' },
+        { key:'nis',      title:'NIS',                 w:24, align:'left'   },
+        { key:'nama',     title:'Nama',                w:46, align:'left'   },
+        { key:'sem',      title:'Sem',                 w:10, align:'center' },
+        { key:'h',        title:'H',                   w:8,  align:'center' },
+        { key:'a',        title:'A',                   w:8,  align:'center' },
+        { key:'s',        title:'S',                   w:8,  align:'center' },
+        { key:'i',        title:'I',                   w:8,  align:'center' },
+        { key:'hadirPct', title:'Hadir %',             w:14, align:'center' },
+        { key:'setoran',  title:'Setoran (S:A - S:A)', w:44, align:'left'   },
+        { key:'pages',    title:'Pages',               w:30, align:'left'   },
+        { key:'totPg',    title:'Total Pages',         w:16, align:'right'  },
+        { key:'juz',      title:'Juz',                 w:26, align:'left'   },
+        { key:'totJuz',   title:'Total Juz',           w:16, align:'right'  },
+        { key:'persen',   title:'Juz %',               w:12, align:'center' },
+        { key:'nilai',    title:'Nilai Rata2',         w:14, align:'right'  },
+        { key:'pred',     title:'Predikat',            w:14, align:'center' },
       ];
       const contentW = pageW - margin.left - margin.right;
       const sumW = cols.reduce((a,c)=>a+c.w,0);
       const scale = Math.min(1, contentW / sumW);
       if (scale < 1) cols.forEach(c => c.w = Math.floor(c.w * scale));
 
-      // Bangun data tabel (pakai segmen) — plus sorting & format juz tunggal
+      // Bangun data tabel (pakai segmen) — plus sorting & format juz tunggal + Hadir %
       const tableData = rows.map((r, idx) => {
         const nilaiAvg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred = PDF_predikatFromScore(nilaiAvg);
-        const persen = PDF_percentCapaian(r.totalJuz, r.semester);
+        const persenJuz = PDF_percentCapaian(r.totalJuz, r.semester);
 
         const setoranText = PDF_joinSAsegments(r.saSegments);              // diurut by SA
         const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);   // urut naik, tetap a-b
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);     // urut naik, a jika tunggal
+
+        const hadirPct = (kbmDays > 0) ? Math.round((r.hadir / kbmDays) * 100) : 0;
 
         return {
           no: String(idx+1),
@@ -2932,12 +2945,13 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           nama: r.nama || '-',
           sem: r.semester ?? '-',
           h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
+          hadirPct: `${hadirPct}%`,
           setoran: setoranText,
           pages: pagesText,
           totPg: String(Math.round(r.totalPageSum)),
           juz: juzText,
           totJuz: r.totalJuz.toFixed(2),
-          persen: `${persen}%`,
+          persen: `${persenJuz}%`,
           nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
           pred: pred.huruf
         };
@@ -2987,7 +3001,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         y += rowH;
       }
 
-      const ringkasan = `Ringkasan: Hadir ${totH} | Alpha ${totA} | Sakit ${totS} | Izin ${totI} | Total Page ${Math.round(totPages)} | Total Juz ${totJuz.toFixed(2)}`;
+      const ringkasan = `Ringkasan: KBM ${kbmDays} hari | Hadir ${totH} | Alpha ${totA} | Sakit ${totS} | Izin ${totI} | Total Page ${Math.round(totPages)} | Total Juz ${totJuz.toFixed(2)}`;
       const wrapSum = doc.splitTextToSize(ringkasan, contentW);
       const sumH = wrapSum.length * (lineH-1) + 2;
       if (y + sumH > pageH - margin.bottom) {
@@ -3091,7 +3105,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const seen = new Set(), out = [];
     for (const seg of (arr||[])) {
       if (!seg?.from || !seg?.to) continue;
-      // normalisasi urutan
       const norm = (PDF_compareSA(seg.from, seg.to) <= 0) ? seg : {from: seg.to, to: seg.from};
       const key = `${norm.from.s}:${norm.from.a}-${norm.to.s}:${norm.to.a}`;
       if (!seen.has(key)) { seen.add(key); out.push(norm); }
@@ -3227,9 +3240,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         it?.juzText ?? it?.juzs ?? it?.juz;
       const set = PDF_parseJuzTerbacaField(jtRaw);
       if (set.size) {
-        // simpan ke r.juzSet (lama)
         set.forEach(n=> r.juzSet.add(n));
-        // buat segmen per item (kontigu)
         const arr = Array.from(set).sort((a,b)=>a-b);
         let start = arr[0], prev = arr[0];
         for (let i=1; i<=arr.length; i++){
