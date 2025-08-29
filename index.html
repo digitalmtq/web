@@ -2741,6 +2741,37 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 (function(){
   const $ = sel => document.querySelector(sel);
 
+  // === Tambahan: helper untuk membangun teks "Kelas: X, Kelompok: Y" ===
+  function buildKelasKelompokLine(kelas, kelasEl) {
+    // Ambil angka kelas dari "kelas_1" → "1"
+    const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
+
+    // Peta nama custom: cek global kalau ada; kalau tidak, fallback default
+    const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {
+      kelas_1: "Kelompok Lebah",
+      kelas_2: "Kelompok Semut",
+      kelas_3: "Kelompok Burung",
+      kelas_4: "Kelompok Ikan",
+      kelas_5: "Kelompok Harimau",
+      kelas_6: "Kelompok Gajah"
+    };
+
+    // Coba dari map
+    let kelompok = custom[kelas] || "";
+
+    // Jika kosong, coba ambil dari label option dropdown (mis. "Kelompok Lebah" atau "1 - Kelompok Lebah")
+    if (!kelompok) {
+      const optText = kelasEl?.options?.[kelasEl.selectedIndex]?.text?.trim() || "";
+      const fromOpt = (optText.match(/Kelompok\s+(.+)/i)?.[1] || optText).trim();
+      if (fromOpt) kelompok = fromOpt;
+    }
+
+    // Bersihkan prefiks "Kelompok "
+    kelompok = (kelompok || '').replace(/^Kelompok\s+/i, '').trim() || '-';
+
+    return { kelasNum, kelompok, line: `Kelas: ${kelasNum}, Kelompok: ${kelompok}` };
+  }
+
   function setBtnLoading(btn, loading) {
     if (!btn) return;
     if (loading) {
@@ -2771,6 +2802,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       alert('Mohon pilih tanggal mulai dan tanggal akhir.');
       return;
     }
+
+    // === Tambahan: siapkan teks header kelas custom ===
+    const { kelasNum, kelompok, line: kelasLine } = buildKelasKelompokLine(kelas, kelasEl);
 
     setBtnLoading(btn, true);
 
@@ -2865,7 +2899,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.setFontSize(14);
         doc.text('Rekap Absensi & Setoran', margin.left, margin.top);
         doc.setFontSize(10);
-        doc.text(`Kelas: ${kelas || '-'}`, margin.left, margin.top + 6);
+        // === Perubahan: tampilkan format "Kelas: 1, Kelompok: Lebah"
+        doc.text(kelasLine, margin.left, margin.top + 6);
         doc.text(`Periode: ${startDate} s.d. ${endDate}`, margin.left, margin.top + 12);
         doc.text(`Total Santri: ${rows.length}`, margin.left, margin.top + 18);
       }
@@ -3195,6 +3230,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     });
   }
 })();
+
 
 
 // ============================
