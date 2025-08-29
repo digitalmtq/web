@@ -1133,7 +1133,7 @@ async function submitTambahKelasBaru() {
   align-items:center;">
   
   <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
-    <h3>Download PDF</h3>
+    <h3>Download Rekap Nilai</h3>
     
     <!-- Isi kontrol -->
     <div class="pdf-rekap-controls" style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:10px;">
@@ -2905,14 +2905,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         return { ...r, id, nis, nama, semester };
       });
 
-      // === KBM days (jumlah hari pertemuan unik dalam rentang untuk kelas ini)
+      // === KBM (kelas): jumlah tanggal unik yang tersedia di /absensi utk kelas ini
       const kbmDaySet = new Set();
       (allDataNorm||[]).forEach(it => {
         if (it?.tanggal) kbmDaySet.add(String(it.tanggal).slice(0,10));
       });
       const kbmDays = kbmDaySet.size;
 
-      // 4) Agregasi (versi segmen spesifik)
+      // 4) Agregasi (versi segmen spesifik + tracker hari per NIS)
       const aggMap = PDF_buildRekapPerKey(allDataNorm);
       const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
 
@@ -2940,7 +2940,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const pageH  = doc.internal.pageSize.getHeight();
       const margin = { left: 12, right: 12, top: 12, bottom: 12 };
 
-      // Tambah 1 baris lagi untuk "KBM: X hari" → headerGap diperbesar
+      // Header lebih tinggi (tambah baris KBM)
       const headerGap = 28;
       const lineH = 6;
       const tblFont = 8;
@@ -2980,17 +2980,22 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const scale = Math.min(1, contentW / sumW);
       if (scale < 1) cols.forEach(c => c.w = Math.floor(c.w * scale));
 
-      // Bangun data tabel (pakai segmen) — plus sorting & format juz tunggal + Hadir %
+      // Bangun data tabel (pakai segmen) + Hadir % berdasarkan hari unik ber-NIS
       const tableData = rows.map((r, idx) => {
-        const nilaiAvg = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-        const pred = PDF_predikatFromScore(nilaiAvg);
+        const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+        const pred      = PDF_predikatFromScore(nilaiAvg);
         const persenJuz = PDF_percentCapaian(r.totalJuz, r.semester);
 
-        const setoranText = PDF_joinSAsegments(r.saSegments);              // diurut by SA
-        const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);   // urut naik, tetap a-b
-        const juzText     = PDF_joinRangeSegments(r.juzSegments, true);     // urut naik, a jika tunggal
+        const setoranText = PDF_joinSAsegments(r.saSegments);              // terurut
+        const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);   // a-b
+        const juzText     = PDF_joinRangeSegments(r.juzSegments, true);     // a jika tunggal
 
-        const hadirPct = (kbmDays > 0) ? Math.round((r.hadir / kbmDays) * 100) : 0;
+        // === Persentase kehadiran spesifik NIS:
+        // denominator = jumlah tanggal unik yang ADA record untuk NIS tsb
+        // numerator   = jumlah tanggal unik dengan status 'hadir' untuk NIS tsb
+        const personalDays = Number(r.daysCount || 0);
+        const hadirDays    = Number(r.hadirDays || 0);
+        const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
 
         return {
           no: String(idx+1),
@@ -3218,7 +3223,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return { label: `${p}%`, percent:p };
   }
 
-  // === Rewriter agregator: simpan segmen spesifik ===
+  // === Rewriter agregator: simpan segmen spesifik + tracker hari per NIS ===
   function PDF_buildRekapPerKey(items){
     const map = Object.create(null);
     for (const it of (items||[])) {
@@ -3230,29 +3235,41 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (!map[key]) map[key] = {
         id:id||'', nis:nis||'', nama: it?.nama || '',
         hadir:0, alpha:0, sakit:0, izin:0, lainnya:0,
-        dariMin:null, sampaiMax:null,            // (dipertahankan utk kompat)
-        pageStartMin:null, pageEndMax:null,      // (dipertahankan utk kompat)
+        dariMin:null, sampaiMax:null,            // kompat
+        pageStartMin:null, pageEndMax:null,      // kompat
         totalPageSum:0,
         totalJuz:0,
         _nilaiByDate:Object.create(null),
         nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
-        juzSet:new Set(),                        // (dipertahankan)
+        juzSet:new Set(),
         semester: (it?.semester!=null ? Number(it.semester) : null),
 
-        // === NEW fields ===
+        // NEW fields
         saSegments: [],
         pageSegments: [],
-        juzSegments: []
+        juzSegments: [],
+        _datesAll:  new Set(),   // semua tanggal yang ADA record utk NIS ini
+        _datesHadir:new Set()    // tanggal unik dengan status 'hadir' utk NIS ini
       };
       const r = map[key];
       if (!r.nama && it?.nama) r.nama = it.nama;
 
-      const st = PDF_normStatus(it?.absensi ?? it?.status);
+      // tanggal + status (dinormalisasi)
+      const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
+      const st  = PDF_normStatus(it?.absensi ?? it?.status);
+
+      // Hitung counter (berbasis record)
       if (st==='hadir') r.hadir++;
       else if (st==='alpha') r.alpha++;
       else if (st==='sakit') r.sakit++;
       else if (st==='izin') r.izin++;
       else r.lainnya++;
+
+      // Track hari unik untuk NIS *yang sama*
+      if (tgl && r.nis && nis && nis === r.nis) {
+        r._datesAll.add(tgl);
+        if (st === 'hadir') r._datesHadir.add(tgl);
+      }
 
       // Setoran per item → segmen SA
       const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
@@ -3282,7 +3299,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (vJ!=null) r.totalJuz += vJ;
 
       // Nilai per tanggal
-      const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
       const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
       const vN = PDF_num2(vNraw);
       if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
@@ -3307,7 +3323,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
     }
 
-    // Hitung ringkasan nilai (avg) per santri + dedup segmen
+    // Finalisasi: nilai & dedup segmen + hitung hari unik per NIS
     for (const k in map){
       const r = map[k];
       r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
@@ -3319,6 +3335,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       }
       if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
       if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
+
+      // jumlah hari unik berdasarkan data yang ADA untuk NIS bersangkutan
+      r.daysCount  = r._datesAll.size;
+      r.hadirDays  = r._datesHadir.size;
 
       // Dedup (tanpa merge overlap → sesuai data)
       r.saSegments   = PDF_dedupSASegments(r.saSegments);
