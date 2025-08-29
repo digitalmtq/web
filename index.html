@@ -2016,6 +2016,9 @@ async function loadSantriData() {
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
+  // === cache semester dari master
+  window.semesterMap ??= {}; // key = NIS (prioritas) atau ID → "1".."6"
+
   // Helpers kecil
   const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
   const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
@@ -2083,16 +2086,24 @@ async function loadSantriData() {
   }
 
   try {
-    // Roster santri
+    // Roster santri (MASTER)
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     let santriData = await resSantri.json();
+
+    // Bangun peta semester dari master
+    window.semesterMap = {};
+    (santriData || []).forEach(s => {
+      const k = (s?.nis != null && s.nis !== "") ? String(s.nis).trim()
+              : (s?.id != null ? String(s.id).trim() : "");
+      if (k) window.semesterMap[k] = String(s?.semester ?? "1");
+    });
 
     // Index roster
     const rosterById   = byIdMap(santriData, s => s);
     const rosterByNis  = byNisMap(santriData, s => s);
     const rosterByName = byNameMap(santriData, s => s);
 
-    // Ambil absensi (single / range) lalu NORMALISASI
+    // Ambil absensi (single / range)
     let absensiRaw = [];
     const endFilter = tanggalFilterAkhir ? tanggalFilterAkhir.value : "";
 
@@ -2110,12 +2121,8 @@ async function loadSantriData() {
       absensiRaw = Array.isArray(d) ? d : (d?.list || []);
     }
 
-    // Normalisasi absensi:
-    // - isi nis jika kosong dari rosterById(id) → nis
-    // - jika masih kosong, cocokkan nama → nis
-    // - isi nama bila kosong dari roster (nis/id)
-    // - pertahankan id asli, tapi kalau id kosong dan nis ketemu di roster, isi id roster
-    let absensiData = absensiRaw.map((r, i) => {
+    // Normalisasi absensi + sematkan semester tampilan dari master
+    let absensiData = absensiRaw.map((r) => {
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
       const nm = keyName(r?.nama);
@@ -2135,7 +2142,10 @@ async function loadSantriData() {
       // isi id bila kosong lewat nis
       if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-      return { ...r, id, nis, nama };
+      const keySem = nis || id || "";
+      const semesterFix = window.semesterMap?.[keySem] ?? r.semester;
+
+      return { ...r, id, nis, nama, semester: semesterFix };
     });
 
     // Ambil user login & filter akses santri (tetap)
@@ -2237,6 +2247,10 @@ async function loadSantriData() {
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
           : "";
 
+        // === Semester dari master
+        const kSem   = (snis || sid || "");
+        const semNow = (window.semesterMap?.[kSem]) ?? santri.semester ?? "1";
+
         // TAMPILAN: NIS → fallback ID
         row.innerHTML = `
           <td class="col-nis">${santri.nis ?? santri.id ?? ""}</td>
@@ -2261,14 +2275,14 @@ async function loadSantriData() {
           <td class="total-halaman">${dataAbsensi?.totalHalaman ?? '-'}</td>
           <td class="juz-terbaca">${dataAbsensi?.juzTerbaca ?? '-'}</td>
           <td class="total-juz">${dataAbsensi?.totalJuz ?? 0}</td>
-		  <td>
+          <td>
             <select class="semester">
-              <option value="1" ${santri.semester == 1 ? 'selected' : ''}>Semester 1</option>
-              <option value="2" ${santri.semester == 2 ? 'selected' : ''}>Semester 2</option>
-              <option value="3" ${santri.semester == 3 ? 'selected' : ''}>Semester 3</option>
-              <option value="4" ${santri.semester == 4 ? 'selected' : ''}>Semester 4</option>
-              <option value="5" ${santri.semester == 5 ? 'selected' : ''}>Semester 5</option>
-              <option value="6" ${santri.semester == 6 ? 'selected' : ''}>Semester 6</option>
+              <option value="1" ${semNow == 1 || semNow == "1" ? 'selected' : ''}>Semester 1</option>
+              <option value="2" ${semNow == 2 || semNow == "2" ? 'selected' : ''}>Semester 2</option>
+              <option value="3" ${semNow == 3 || semNow == "3" ? 'selected' : ''}>Semester 3</option>
+              <option value="4" ${semNow == 4 || semNow == "4" ? 'selected' : ''}>Semester 4</option>
+              <option value="5" ${semNow == 5 || semNow == "5" ? 'selected' : ''}>Semester 5</option>
+              <option value="6" ${semNow == 6 || semNow == "6" ? 'selected' : ''}>Semester 6</option>
             </select>
           </td>
           <td>
@@ -2333,6 +2347,43 @@ async function loadSantriData() {
         [ayatDari, ayatSampai, surahDari, surahSampai].forEach(el => {
           el.addEventListener("change", () => updateTotalJuz(row));
         });
+
+        // === Handler ubah semester → tulis balik ke kelas_{}.json
+        const semSel = row.querySelector(".semester");
+        semSel.addEventListener("change", async () => {
+          const key   = String(row.dataset?.nis || row.dataset?.id || "").trim(); // prioritas NIS
+          const oldSem = String(window.semesterMap?.[key] ?? semNow ?? "1");
+          const newSem = String(semSel.value || oldSem);
+
+          if (!/^[1-6]$/.test(newSem)) {
+            alert("Semester harus 1-6.");
+            semSel.value = oldSem;
+            return;
+          }
+
+          // Optimistic UI
+          semSel.disabled = true;
+          semSel.style.opacity = "0.6";
+          try {
+            const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ key, semester: newSem })
+            });
+            const out = await res.json().catch(() => ({}));
+            if (!res.ok || !out?.success) {
+              throw new Error(out?.error || "Gagal update semester.");
+            }
+            // sinkronkan cache master
+            window.semesterMap[key] = newSem;
+          } catch (e) {
+            alert("Gagal menyimpan semester ke kelas: " + e.message);
+            semSel.value = oldSem; // rollback UI
+          } finally {
+            semSel.disabled = false;
+            semSel.style.opacity = "";
+          }
+        });
       });
     });
   } catch (err) {
@@ -2342,7 +2393,6 @@ async function loadSantriData() {
 
   overlay.style.display = "none";
 }
-
 
 
 
@@ -2537,7 +2587,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   // Ambil nama murni dari cell nama (tanpa subTanggal <div>)
   function getNamaFromCell(cell) {
     if (!cell) return "";
-    // childNodes[0] biasanya text node "Nama"
     const first = cell.childNodes && cell.childNodes[0];
     const txt = (first && first.textContent) ? first.textContent : cell.textContent;
     return String(txt).trim();
@@ -2586,7 +2635,11 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         const existing = dataMerged.find(d => String(d.id) === String(id)) || {};
 
         const nama = getNamaFromCell(row.children[1]); // hanya nama
-        const semester = row.querySelector(".semester")?.value ?? existing.semester ?? "";
+
+        // ⬇️ KUNCI: semester selalu dari master
+        const keySem = String((row.dataset?.nis || row.dataset?.id || "")).trim();
+        const semester = (window.semesterMap?.[keySem]) ?? existing.semester ?? "";
+
         const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
         const ayatDari  = row.querySelector(".ayat-dari")?.value ?? "";
@@ -2602,7 +2655,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
         const parsed = parseNilaiStr(nilaiStr);
 
-        // Jika ada nilai baru valid → pakai, else pakai existing, else JANGAN tulis buttonCell (hindari reset 0)
+        // Jika ada nilai baru valid → pakai, else pakai existing, else jangan timpa
         const adaNilaiBaru = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai));
         let buttonCell;
         if (adaNilaiBaru) {
@@ -2611,9 +2664,9 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           buttonCell = { nilai: parsed.nilai, predikatText, predikatHuruf };
         } else if (existing.buttonCell) {
           buttonCell = existing.buttonCell; // pertahankan
-        } // else undefined → tidak ditulis agar tidak overwrite
+        }
 
-        // marks per baris (sudah ditempel ke row.markData saat edit modal)
+        // marks per baris
         const marks = row.markData || existing.marks || { audio: [] };
 
         const base = {
@@ -2630,7 +2683,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           juzTerbaca,
           marks
         };
-        // sisipkan buttonCell hanya jika ada (hindari reset)
         const newData = buttonCell ? { ...base, buttonCell } : base;
 
         const idx = dataMerged.findIndex(d => String(d.id) === String(id));
@@ -2670,19 +2722,6 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     saveBtn.textContent = originalText;
   }
 }
-
-
-
-
-
-// Pasang event listener ke dua tombol Save
-document.getElementById("save-btn").addEventListener("click", function () {
-  simpanDataMutabaah(this);
-});
-document.getElementById("save-btn-modal").addEventListener("click", function () {
-  simpanDataMutabaah(this);
-});
-
 
     downloadBtn.addEventListener("click", async () => {
   const kelas = kelasSelect.value;
