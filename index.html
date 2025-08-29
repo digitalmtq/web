@@ -1114,35 +1114,54 @@ async function submitTambahKelasBaru() {
       <button id="btnHapusSantri">Hapus Santri</button>
 	  <button id="btnPindahKelas">Pindah Kelas</button>
       
-	<div class="actions" 
+
+		<div class="actions" 
      style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
 
   <button id="save-btn">Simpan Data Mutaba'ah</button>
 
   <div class="pdf-rekap-controls" style="display:flex; align-items:center; gap:.5rem;">
     <button id="download-pdf-rekap">Download PDF Rekap</button>
-    <label>Dari: <input type="date" id="pdf-start-date"></label>
-    <label>Sampai: <input type="date" id="pdf-end-date"></label>
-    <button id="ok-download" style="display:none;">OK</button>
   </div>
 
   <button class="logout-btn" id="logout-btn">Logout</button>
 </div>
 
+<!-- === Modal Overlay Pilih Rentang Tanggal === -->
+<div id="rekap-modal" style="display:none; position:fixed; inset:0; 
+  background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; min-width:280px;">
+    <h3>Pilih Rentang Tanggal</h3>
+    <label>Dari: <input type="date" id="pdf-start-date"></label><br><br>
+    <label>Sampai: <input type="date" id="pdf-end-date"></label><br><br>
+    <div style="text-align:right; margin-top:10px;">
+      <button id="cancel-rekap">Batal</button>
+      <button id="ok-rekap">Ok Download PDF</button>
+    </div>
+  </div>
+</div>
+
+
 <script>
 (() => {
-  const btnDownload = document.getElementById("download-pdf-rekap");
-  const btnOk       = document.getElementById("ok-download");
-  const startEl     = document.getElementById("pdf-start-date");
-  const endEl       = document.getElementById("pdf-end-date");
+  const btnOpen   = document.getElementById("download-pdf-rekap");
+  const modal     = document.getElementById("rekap-modal");
+  const btnCancel = document.getElementById("cancel-rekap");
+  const btnOk     = document.getElementById("ok-rekap");
+  const startEl   = document.getElementById("pdf-start-date");
+  const endEl     = document.getElementById("pdf-end-date");
 
-  // Step 1: klik tombol download → tampilkan pilihan tanggal + tombol OK
-  btnDownload.addEventListener("click", () => {
-    btnOk.style.display = "inline-block";
-    startEl.focus();
+  // buka modal
+  btnOpen.addEventListener("click", () => {
+    modal.style.display = "flex";
   });
 
-  // Step 2: klik OK → validasi tanggal → jalankan proses PDF
+  // batal
+  btnCancel.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  // ok → validasi → proses PDF
   btnOk.addEventListener("click", () => {
     const start = startEl.value;
     const end   = endEl.value;
@@ -1155,18 +1174,21 @@ async function submitTambahKelasBaru() {
       return;
     }
 
-    // --- Panggil fungsi pembuat PDF milikmu di sini ---
-    createAndDownloadPDFRekap(start, end);
-    // -------------------------------------------------
+    modal.style.display = "none";
 
-    // setelah jalan, sembunyikan kembali tombol OK
-    btnOk.style.display = "none";
+    // Panggil fungsi pembuat PDF kamu di sini:
+    createAndDownloadPDFRekap(start, end);
   });
 
-  // Contoh placeholder (ganti dengan jsPDF/fetch milikmu)
+  // klik di luar konten modal → tutup
+  modal.addEventListener("click", e => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+
+  // contoh fungsi placeholder (ganti dengan jsPDF/fetch milikmu)
   function createAndDownloadPDFRekap(start, end) {
     console.log("Generate PDF dari", start, "sampai", end);
-    alert(`Mulai generate PDF\nDari: ${start}\nSampai: ${end}`);
+    alert(`Generate PDF Rekap\nDari: ${start}\nSampai: ${end}`);
   }
 })();
 </script>
