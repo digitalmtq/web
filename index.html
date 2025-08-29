@@ -1141,6 +1141,7 @@ async function submitTambahKelasBaru() {
   </div>
 </div>
 
+
 <script>
 (() => {
   const btnOpen   = document.getElementById("download-pdf-rekap");
@@ -1160,10 +1161,18 @@ async function submitTambahKelasBaru() {
     modal.style.display = "none";
   });
 
-  // ok → langsung proses PDF tanpa alert
+  // ok → validasi → proses PDF
   btnOk.addEventListener("click", () => {
     const start = startEl.value;
     const end   = endEl.value;
+    if (!start || !end) {
+      alert("Mohon pilih tanggal mulai dan tanggal akhir.");
+      return;
+    }
+    if (start > end) {
+      alert("Tanggal 'Dari' tidak boleh melebihi 'Sampai'.");
+      return;
+    }
 
     modal.style.display = "none";
 
@@ -1179,7 +1188,7 @@ async function submitTambahKelasBaru() {
   // contoh fungsi placeholder (ganti dengan jsPDF/fetch milikmu)
   function createAndDownloadPDFRekap(start, end) {
     console.log("Generate PDF dari", start, "sampai", end);
-    // tempatkan logika jsPDF milikmu di sini
+    alert(`Generate PDF Rekap\nDari: ${start}\nSampai: ${end}`);
   }
 })();
 </script>
@@ -2847,11 +2856,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const kelas = kelasEl?.value || '';
     const startDate = $('#pdf-start-date')?.value;
     const endDate   = $('#pdf-end-date')?.value;
-
-    if (!startDate || !endDate) {
-      alert('Mohon pilih tanggal mulai dan tanggal akhir.');
-      return;
-    }
 
     const { line: kelasLine } = buildKelasKelompokLine(kelas, kelasEl);
 
