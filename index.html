@@ -1115,23 +1115,11 @@ async function submitTambahKelasBaru() {
 	  <button id="btnPindahKelas">Pindah Kelas</button>
       
 
-		<div class="actions" 
-     style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
-
-  <button id="save-btn">Simpan Data Mutaba'ah</button>
-
-  <div class="pdf-rekap-controls" style="display:flex; align-items:center; gap:.5rem;">
-    <!-- type="button" agar tidak submit form -->
-    <button id="download-pdf-rekap" type="button">Download PDF Rekap</button>
-  </div>
-
-  <button class="logout-btn" id="logout-btn">Logout</button>
-</div>
-
-<!-- Modal -->
+		<!-- Modal -->
 <div id="rekap-modal" style="display:none; position:fixed; inset:0; 
   background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
-  <div style="background:#fff; padding:20px; border-radius:8px; min-width:280px;">
+  <div id="rekap-modal-content" class="modal-content" 
+       style="background:#fff; padding:20px; border-radius:8px; min-width:280px;">
     <h3>Pilih Rentang Tanggal</h3>
     <label>Dari: <input type="date" id="pdf-start-date"></label><br><br>
     <label>Sampai: <input type="date" id="pdf-end-date"></label><br><br>
@@ -1142,28 +1130,25 @@ async function submitTambahKelasBaru() {
     </div>
   </div>
 </div>
-
-
 <script>
 (() => {
   const btnOpen   = document.getElementById("download-pdf-rekap");
   const modal     = document.getElementById("rekap-modal");
+  const content   = document.getElementById("rekap-modal-content");
   const btnCancel = document.getElementById("cancel-rekap");
   const btnOk     = document.getElementById("ok-rekap");
   const startEl   = document.getElementById("pdf-start-date");
   const endEl     = document.getElementById("pdf-end-date");
   const errEl     = document.getElementById("rekap-error");
 
-  // Buka modal (cek listener lama dan blokir)
+  // Buka modal (tanpa validasi)
   btnOpen.addEventListener("click", (e) => {
-    // Cegah listener lama yang mungkin memunculkan alert
     e.preventDefault();
     e.stopImmediatePropagation();
     openModal();
-  }, true); // <<=== capture: true supaya dieksekusi lebih dulu
+  }, true);
 
   function openModal(){
-    // set default tanggal = hari ini (biar tidak kosong)
     const d = new Date();
     const pad = (n) => String(n).padStart(2, "0");
     const today = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -1173,11 +1158,14 @@ async function submitTambahKelasBaru() {
     errEl.textContent = "";
     modal.style.display = "flex";
   }
-
   function closeModal(){ modal.style.display = "none"; }
 
+  // === Penting: cegah klik di dalam konten menutup modal ===
+  content.addEventListener("click", (e) => e.stopPropagation());
+  // Klik backdrop (area gelap) saja yang menutup
+  modal.addEventListener("click", () => closeModal());
+
   btnCancel.addEventListener("click", () => closeModal());
-  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 
   btnOk.addEventListener("click", () => {
     const start = startEl.value;
@@ -1200,7 +1188,6 @@ async function submitTambahKelasBaru() {
   // Placeholder: ganti dengan jsPDF/fetch milikmu
   function createAndDownloadPDFRekap(start, end){
     console.log("Generate PDF:", start, "->", end);
-    // doc.save(...);
   }
 })();
 </script>
