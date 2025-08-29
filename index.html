@@ -1113,19 +1113,59 @@ async function submitTambahKelasBaru() {
       <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
       <button id="btnHapusSantri">Hapus Santri</button>
 	  <button id="btnPindahKelas">Pindah Kelas</button>
-      <div class="actions" 
+      
+		<div class="actions" 
      style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
 
   <button id="save-btn">Simpan Data Mutaba'ah</button>
 
-  <div class="pdf-rekap-controls" style="display:flex; align-items:center; gap:.5rem;">
-    <button id="download-pdf-rekap">Download PDF Rekap</button>
+  <!-- Kontrol PDF: awalnya tersembunyi -->
+  <div class="pdf-rekap-controls" id="pdf-controls"
+       style="display:none; align-items:center; gap:.5rem;">
     <label>Dari: <input type="date" id="pdf-start-date"></label>
     <label>Sampai: <input type="date" id="pdf-end-date"></label>
+    <button id="do-download-pdf">Download PDF Rekap</button>
   </div>
+
+  <!-- Trigger -->
+  <button id="download-pdf-rekap">Download PDF Rekap</button>
 
   <button class="logout-btn" id="logout-btn">Logout</button>
 </div>
+
+<script>
+  const triggerBtn   = document.getElementById('download-pdf-rekap');
+  const pdfControls  = document.getElementById('pdf-controls');
+  const doDownload   = document.getElementById('do-download-pdf');
+  const startInput   = document.getElementById('pdf-start-date');
+  const endInput     = document.getElementById('pdf-end-date');
+
+  // Klik trigger → tampilkan rentang tanggal + tombol download
+  triggerBtn.addEventListener('click', () => {
+    pdfControls.style.display = 'flex';
+  });
+
+  // Klik download → jalankan logika PDF lalu sembunyikan lagi
+  doDownload.addEventListener('click', async () => {
+    if (!startInput.value || !endInput.value) {
+      alert('Isi rentang tanggal dulu.');
+      return;
+    }
+
+    try {
+      // === taruh logika generate PDF milikmu di sini ===
+      console.log("Download PDF dari", startInput.value, "sampai", endInput.value);
+
+      // Setelah sukses
+      pdfControls.style.display = 'none';
+      startInput.value = '';
+      endInput.value   = '';
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat PDF.');
+    }
+  });
+</script>
 
 
 
