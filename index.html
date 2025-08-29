@@ -1113,17 +1113,20 @@ async function submitTambahKelasBaru() {
       <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
       <button id="btnHapusSantri">Hapus Santri</button>
 	  <button id="btnPindahKelas">Pindah Kelas</button>
-		<div class="pdf-rekap-controls" style="margin:.5rem 0;">
-		<button id="download-pdf-rekap" style="margin-left:.5rem;">Download PDF Rekap</button>
-  		<label>Dari: <input type="date" id="pdf-start-date"></label>
-  		<label style="margin-left:.5rem;">Sampai: <input type="date" id="pdf-end-date"></label>
-		</div>
-      <div class="actions">
-        <button id="save-btn">Simpan Data Mutaba'ah</button>
-        <button class="logout-btn" id="logout-btn">Logout</button>
-      </div>
-    </div>
+      <div class="actions" 
+     style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+
+  <button id="save-btn">Simpan Data Mutaba'ah</button>
+
+  <div class="pdf-rekap-controls" style="display:flex; align-items:center; gap:.5rem;">
+    <button id="download-pdf-rekap">Download PDF Rekap</button>
+    <label>Dari: <input type="date" id="pdf-start-date"></label>
+    <label>Sampai: <input type="date" id="pdf-end-date"></label>
   </div>
+
+  <button class="logout-btn" id="logout-btn">Logout</button>
+</div>
+
 
 
 	<!-- Modal Sederhana -->
