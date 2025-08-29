@@ -1119,50 +1119,59 @@ async function submitTambahKelasBaru() {
 
   <button id="save-btn">Simpan Data Mutaba'ah</button>
 
-  <!-- Kontrol PDF: awalnya tersembunyi -->
-  <div class="pdf-rekap-controls" id="pdf-controls"
-       style="display:none; align-items:center; gap:.5rem;">
-    <label>Dari: <input type="date" id="pdf-start-date"></label>
-    <label>Sampai: <input type="date" id="pdf-end-date"></label>
-    <button id="do-download-pdf">Download PDF Rekap</button>
-  </div>
+  <button id="openPdfModal">Modal Download PDF</button>
 
-  <!-- Trigger -->
-  <button id="download-pdf-rekap">Download PDF Rekap</button>
+<!-- Overlay Modal -->
+<div id="pdfModalOverlay" style="
+  display:none; 
+  position:fixed; 
+  top:0; left:0; 
+  width:100%; height:100%; 
+  background:rgba(0,0,0,0.5); 
+  z-index:999; 
+  justify-content:center; 
+  align-items:center;">
+  
+  <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
+    <h3>Download PDF Rekap</h3>
+    
+    <!-- Isi kontrol -->
+    <div class="pdf-rekap-controls" style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:10px;">
+      <button id="download-pdf-rekap">Download PDF Rekap</button>
+      <label>Dari: <input type="date" id="pdf-start-date"></label>
+      <label>Sampai: <input type="date" id="pdf-end-date"></label>
+    </div>
+
+    <!-- Tombol tutup -->
+    <div style="text-align:right; margin-top:15px;">
+      <button id="closePdfModal">Tutup</button>
+    </div>
+  </div>
+</div>
 
   <button class="logout-btn" id="logout-btn">Logout</button>
 </div>
 
-<script>
-  const triggerBtn   = document.getElementById('download-pdf-rekap');
-  const pdfControls  = document.getElementById('pdf-controls');
-  const doDownload   = document.getElementById('do-download-pdf');
-  const startInput   = document.getElementById('pdf-start-date');
-  const endInput     = document.getElementById('pdf-end-date');
 
-  // Klik trigger → tampilkan rentang tanggal + tombol download
-  triggerBtn.addEventListener('click', () => {
-    pdfControls.style.display = 'flex';
+<script>
+  const openPdfModal = document.getElementById("openPdfModal");
+  const pdfModalOverlay = document.getElementById("pdfModalOverlay");
+  const closePdfModal = document.getElementById("closePdfModal");
+
+  // buka modal
+  openPdfModal.addEventListener("click", () => {
+    pdfModalOverlay.style.display = "flex";
   });
 
-  // Klik download → jalankan logika PDF lalu sembunyikan lagi
-  doDownload.addEventListener('click', async () => {
-    if (!startInput.value || !endInput.value) {
-      alert('Isi rentang tanggal dulu.');
-      return;
-    }
+  // tutup modal
+  closePdfModal.addEventListener("click", () => {
+    pdfModalOverlay.style.display = "none";
+  });
 
-    try {
-      // === taruh logika generate PDF milikmu di sini ===
-      console.log("Download PDF dari", startInput.value, "sampai", endInput.value);
-
-      // Setelah sukses
-      pdfControls.style.display = 'none';
-      startInput.value = '';
-      endInput.value   = '';
-    } catch (err) {
-      console.error(err);
-      alert('Gagal membuat PDF.');
+  // klik luar area modal untuk tutup
+  pdfModalOverlay.addEventListener("click", (e) => {
+    if (e.target === pdfModalOverlay) {
+      pdfModalOverlay.style.display = "none";
     }
   });
 </script>
