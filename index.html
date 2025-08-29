@@ -1113,7 +1113,8 @@ async function submitTambahKelasBaru() {
       <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
       <button id="btnHapusSantri">Hapus Santri</button>
 	  <button id="btnPindahKelas">Pindah Kelas</button>
-      <div class="actions" 
+      
+	<div class="actions" 
      style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
 
   <button id="save-btn">Simpan Data Mutaba'ah</button>
@@ -1122,10 +1123,54 @@ async function submitTambahKelasBaru() {
     <button id="download-pdf-rekap">Download PDF Rekap</button>
     <label>Dari: <input type="date" id="pdf-start-date"></label>
     <label>Sampai: <input type="date" id="pdf-end-date"></label>
+    <button id="ok-download" style="display:none;">OK</button>
   </div>
 
   <button class="logout-btn" id="logout-btn">Logout</button>
 </div>
+
+<script>
+(() => {
+  const btnDownload = document.getElementById("download-pdf-rekap");
+  const btnOk       = document.getElementById("ok-download");
+  const startEl     = document.getElementById("pdf-start-date");
+  const endEl       = document.getElementById("pdf-end-date");
+
+  // Step 1: klik tombol download → tampilkan pilihan tanggal + tombol OK
+  btnDownload.addEventListener("click", () => {
+    btnOk.style.display = "inline-block";
+    startEl.focus();
+  });
+
+  // Step 2: klik OK → validasi tanggal → jalankan proses PDF
+  btnOk.addEventListener("click", () => {
+    const start = startEl.value;
+    const end   = endEl.value;
+    if (!start || !end) {
+      alert("Mohon pilih tanggal mulai dan tanggal akhir.");
+      return;
+    }
+    if (start > end) {
+      alert("Tanggal 'Dari' tidak boleh melebihi 'Sampai'.");
+      return;
+    }
+
+    // --- Panggil fungsi pembuat PDF milikmu di sini ---
+    createAndDownloadPDFRekap(start, end);
+    // -------------------------------------------------
+
+    // setelah jalan, sembunyikan kembali tombol OK
+    btnOk.style.display = "none";
+  });
+
+  // Contoh placeholder (ganti dengan jsPDF/fetch milikmu)
+  function createAndDownloadPDFRekap(start, end) {
+    console.log("Generate PDF dari", start, "sampai", end);
+    alert(`Mulai generate PDF\nDari: ${start}\nSampai: ${end}`);
+  }
+})();
+</script>
+
 
 
 
