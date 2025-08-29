@@ -1113,85 +1113,76 @@ async function submitTambahKelasBaru() {
       <button onclick="bukaModalSantri()" style="margin-left:0px;">Tambah Santri</button>
       <button id="btnHapusSantri">Hapus Santri</button>
 	  <button id="btnPindahKelas">Pindah Kelas</button>
-      
 
-		<!-- Modal -->
+
+	<div class="actions" 
+     style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+
+  <button id="save-btn">Simpan Data Mutaba'ah</button>
+
+  <div class="pdf-rekap-controls" style="display:flex; align-items:center; gap:.5rem;">
+    <button id="download-pdf-rekap">Download PDF Rekap</button>
+  </div>
+
+  <button class="logout-btn" id="logout-btn">Logout</button>
+</div>
+
+<!-- === Modal Overlay Pilih Rentang Tanggal === -->
 <div id="rekap-modal" style="display:none; position:fixed; inset:0; 
   background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
-  <div id="rekap-modal-content" class="modal-content" 
-       style="background:#fff; padding:20px; border-radius:8px; min-width:280px;">
+  <div style="background:#fff; padding:20px; border-radius:8px; min-width:280px;">
     <h3>Pilih Rentang Tanggal</h3>
     <label>Dari: <input type="date" id="pdf-start-date"></label><br><br>
     <label>Sampai: <input type="date" id="pdf-end-date"></label><br><br>
-    <div id="rekap-error" style="color:#c62828; min-height:1.2em;"></div>
     <div style="text-align:right; margin-top:10px;">
-      <button id="cancel-rekap" type="button">Batal</button>
-      <button id="ok-rekap" type="button">Ok Download PDF</button>
+      <button id="cancel-rekap">Batal</button>
+      <button id="ok-rekap">Ok Download PDF</button>
     </div>
   </div>
 </div>
+
 <script>
 (() => {
   const btnOpen   = document.getElementById("download-pdf-rekap");
   const modal     = document.getElementById("rekap-modal");
-  const content   = document.getElementById("rekap-modal-content");
   const btnCancel = document.getElementById("cancel-rekap");
   const btnOk     = document.getElementById("ok-rekap");
   const startEl   = document.getElementById("pdf-start-date");
   const endEl     = document.getElementById("pdf-end-date");
-  const errEl     = document.getElementById("rekap-error");
 
-  // Buka modal (tanpa validasi)
-  btnOpen.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    openModal();
-  }, true);
-
-  function openModal(){
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, "0");
-    const today = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-    if (!startEl.value) startEl.value = today;
-    if (!endEl.value)   endEl.value   = today;
-
-    errEl.textContent = "";
+  // buka modal
+  btnOpen.addEventListener("click", () => {
     modal.style.display = "flex";
-  }
-  function closeModal(){ modal.style.display = "none"; }
+  });
 
-  // === Penting: cegah klik di dalam konten menutup modal ===
-  content.addEventListener("click", (e) => e.stopPropagation());
-  // Klik backdrop (area gelap) saja yang menutup
-  modal.addEventListener("click", () => closeModal());
+  // batal
+  btnCancel.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
 
-  btnCancel.addEventListener("click", () => closeModal());
-
+  // ok → langsung proses PDF tanpa alert
   btnOk.addEventListener("click", () => {
     const start = startEl.value;
     const end   = endEl.value;
 
-    if (!start || !end) {
-      errEl.textContent = "Mohon pilih tanggal mulai dan tanggal akhir.";
-      return;
-    }
-    if (start > end) {
-      errEl.textContent = "Tanggal 'Dari' tidak boleh melebihi 'Sampai'.";
-      return;
-    }
+    modal.style.display = "none";
 
-    closeModal();
-    // Panggil generator PDF-mu di sini
+    // Panggil fungsi pembuat PDF kamu di sini:
     createAndDownloadPDFRekap(start, end);
   });
 
-  // Placeholder: ganti dengan jsPDF/fetch milikmu
-  function createAndDownloadPDFRekap(start, end){
-    console.log("Generate PDF:", start, "->", end);
+  // klik di luar konten modal → tutup
+  modal.addEventListener("click", e => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+
+  // contoh fungsi placeholder (ganti dengan jsPDF/fetch milikmu)
+  function createAndDownloadPDFRekap(start, end) {
+    console.log("Generate PDF dari", start, "sampai", end);
+    // tempatkan logika jsPDF milikmu di sini
   }
 })();
 </script>
-
 
 
 
