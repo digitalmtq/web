@@ -2789,10 +2789,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 });
  </script>
 
-<script>	
-// ============================
-// Download PDF
-// ============================
+<script>
 (function(){
   const $ = sel => document.querySelector(sel);
 
@@ -3070,8 +3067,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       let x0 = margin.left;
       let y  = margin.top + headerGap;
 
-      drawTableHeader(doc, cols, x0, y, lineH, tblFont, contentW, theme);
-      y += lineH + 2;
+      // pakai tinggi header aktual
+      let headerH = drawTableHeader(doc, cols, x0, y, lineH, tblFont, contentW, theme);
+      y += headerH + 2;
 
       let rowIndex = 0;
       for (const row of tableData) {
@@ -3088,8 +3086,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           doc.addPage('a4', 'landscape');
           drawMeta();
           y = margin.top + headerGap;
-          drawTableHeader(doc, cols, x0, y, lineH, tblFont, contentW, theme);
-          y += lineH + 2;
+          headerH = drawTableHeader(doc, cols, x0, y, lineH, tblFont, contentW, theme);
+          y += headerH + 2;
           rowIndex = 0;
         }
 
@@ -3360,7 +3358,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (smp  && (!r.sampaiMax || PDF_compareSA(smp, r.sampaiMax) > 0)) r.sampaiMax = smp;
 
       // Pages
-      const rng = PDF_parseRange(it?.halaman || it?.page);
+      const rng = PDF_parseRange(it?.halaman atau it?.page);
       const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
       if (tp!=null) r.totalPageSum += tp;
       else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
@@ -3444,25 +3442,55 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return map;
   }
 
-  // ======= Drawer tabel (header berulang) =======
-  function drawTableHeader(doc, cols, x, y, lineH, fontSize, contentW, theme){
-    let cx = x;
+  // ======= Drawer tabel (header berulang, presisi) =======
+  function drawTableHeader(doc, cols, x, y, baseLineH, fontSize, _contentW, theme){
+    const padX = 1.6;    // padding horizontal teks header (mm)
+    const gapY = 4.2;    // jarak antar-baris header (mm)
+
+    // hitung total lebar kolom
+    const totalW = cols.reduce((a,c)=>a + c.w, 0);
+
+    // siapkan wrap & tinggi header
+    const wrapped = cols.map(c => doc.splitTextToSize(String(c.title || ''), c.w - 2*padX));
+    const headerH = Math.max(
+      baseLineH,
+      ...wrapped.map(lines => Math.max(baseLineH, lines.length * gapY + 2))
+    );
+
+    // bar latar header
     doc.setFillColor(...theme.tableHeadFill);
     doc.setDrawColor(...theme.border);
-    doc.rect(cx-2, y-1, contentW+4, lineH+2, 'FD'); // bar header
+    doc.rect(x-0.5, y-0.5, totalW+1, headerH+1, 'FD');
+
+    // teks per kolom (center vertikal + align sesuai kolom)
     doc.setFontSize(fontSize + 1);
-    cols.forEach(col => {
-      const tx = (col.align==='right') ? (cx + col.w - 1)
-               : (col.align==='center') ? (cx + col.w/2)
-               : (cx + 1);
-      const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
-      doc.text(col.title, tx, y + lineH - 2, opt);
-      doc.rect(cx, y, col.w, lineH); // kotak header individual
+    let cx = x;
+    for (let i=0; i<cols.length; i++){
+      const col = cols[i];
+      const lines = wrapped[i];
+      const blockH = lines.length * gapY;
+      let ty = y + (headerH - blockH)/2 + 3.0; // kompensasi baseline jsPDF
+
+      const opt = col.align === 'right' ? { align:'right' }
+               : col.align === 'center' ? { align:'center' } : {};
+      const tx  = col.align === 'right'  ? (cx + col.w - padX)
+               : col.align === 'center' ? (cx + col.w/2)
+               : (cx + padX);
+
+      for (const ln of lines){
+        doc.text(String(ln), tx, ty, opt);
+        ty += gapY;
+      }
+
+      doc.rect(cx, y, col.w, headerH);
       cx += col.w;
-    });
+    }
+
+    return headerH;
   }
 })();
 </script>
+
 
 
 
