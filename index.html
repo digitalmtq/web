@@ -6,6 +6,7 @@
   <title>Absensi & Hafalan Santri</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
   <style>
     body {
   font-family: Arial, sans-serif;
@@ -2809,7 +2810,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 (function(){
   const $ = sel => document.querySelector(sel);
 
-  // ===== Inject minimal CSS agar kontrol rapi =====
+  // ===== Inject CSS kontrol (tidak mengubah logika) =====
   (function injectStyles(){
     if (document.getElementById('rekap-style')) return;
     const s = document.createElement('style');
@@ -2876,7 +2877,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
   // ====== Tombol ======
   const pdfBtn = document.getElementById('download-pdf-rekap');
-  // Buat tombol Excel kalau belum ada
   let xlsBtn = document.getElementById('download-xls-rekap');
   if (!xlsBtn) {
     const wrap = document.querySelector('.pdf-rekap-controls');
@@ -2889,7 +2889,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     }
   }
   pdfBtn?.classList.add('rekap-btn');
-
   pdfBtn?.addEventListener('click', pdfRekapDownload);
   xlsBtn?.addEventListener('click', xlsRekapDownload);
 
@@ -2910,7 +2909,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const kelas = kelasEl?.value || '';
     const startDate = document.querySelector('#pdf-start-date')?.value;
     const endDate   = document.querySelector('#pdf-end-date')?.value;
-
     if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai dan tanggal akhir.');
 
     const { line: kelasLine } = buildKelasKelompokLine(kelas, kelasEl);
@@ -2933,7 +2931,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
     const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
     const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
-
     const rosterById   = byIdMap(santriData, s => s);
     const rosterByNis  = byNisMap(santriData, s => s);
     const rosterByName = byNameMap(santriData, s => s);
@@ -2943,18 +2940,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
       const nmK = keyName(r?.nama);
-
-      if (!nis && id && rosterById.get(id)?.nis) {
-        nis = keyNis(rosterById.get(id).nis);
-      }
-      if (!nis && nmK && rosterByName.get(nmK)?.nis) {
-        nis = keyNis(rosterByName.get(nmK).nis);
-      }
+      if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
+      if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
 
       let nama = r?.nama;
       if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
       if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
-
       if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
       let semester = (r?.semester != null) ? Number(r.semester) : null;
@@ -2962,33 +2953,25 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
         else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
       }
-
       return { ...r, id, nis, nama, semester, tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null };
     });
 
-    // === KBM (kelas): jumlah tanggal unik tersedia di rentang utk kelas ini
+    // KBM hari unik (kelas)
     const kbmDaySet = new Set();
     (allDataNorm||[]).forEach(it => { if (it?.tanggal) kbmDaySet.add(String(it.tanggal)); });
     const kbmDays = kbmDaySet.size;
 
-    // 4) Agregasi (versi segmen spesifik + tracker hari per NIS)
+    // Agregasi
     const aggMap = PDF_buildRekapPerKey(allDataNorm);
     const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
-
-    // >>> OUTPUT: hanya yang punya NIS
     const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
     if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
 
     // Ringkasan total
     let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
-    rows.forEach(r=>{
-      totJuz += r.totalJuz;
-      totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin;
-      totPages += r.totalPageSum;
-    });
+    rows.forEach(r=>{ totJuz += r.totalJuz; totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin; totPages += r.totalPageSum; });
 
-    return {
-      kelas, startDate, endDate, kelasLine, kbmDays, rows,
+    return { kelas, startDate, endDate, kelasLine, kbmDays, rows,
       totals: { totJuz, totH, totA, totS, totI, totPages }
     };
   }
@@ -2997,44 +2980,47 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   async function pdfRekapDownload(){
     setBtnLoading(pdfBtn, true, 'Membuat PDF…');
     try {
-      const {
-        kelas, startDate, endDate, kelasLine, kbmDays, rows, totals
-      } = await collectRekapData();
+      const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
       const { jsPDF } = window.jspdf || {};
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+
+      // === Tema: mirip dashboard (Tailwind-like) ===
       const theme = {
-        headerFill: [243,244,246],    // #f3f4f6
-        headerText: [17,24,39],       // #111827
-        tableHeadFill: [224,242,254], // biru muda (sky-100)
-        zebraFill: [250,250,250],     // #fafafa
-        border: [209,213,219],        // #d1d5db
-        text: [31,41,55]              // #1f2937
+        cardBorder: [229,231,235],      // border-slate-200
+        headerFill: [255,255,255],      // card header bg
+        headerText: [17,24,39],         // slate-900
+        tableHeadFill: [239,246,255],   // bg-blue-50
+        zebraFill: [248,250,252],       // even:bg-slate-50
+        border: [229,231,235],          // slate-200
+        text: [31,41,55]                // slate-800
       };
 
       const pageW  = doc.internal.pageSize.getWidth();
       const pageH  = doc.internal.pageSize.getHeight();
       const margin = { left: 12, right: 12, top: 12, bottom: 12 };
 
-      const headerGap = 30;
-      const lineH = 6;
-      const tblFont = 8;
+      const headerGap = 30;     // ruang judul
+      const lineH = 7;          // baris sedikit lebih tinggi
+      const tblFont = 8.5;      // font kecil tapi jelas
 
+      // ===== Card header ala dashboard =====
       function drawHeaderBar(){
-        doc.setFillColor(...theme.headerFill);
-        doc.setDrawColor(...theme.border);
-        doc.roundedRect(margin.left-2, margin.top-4, pageW-margin.left-margin.right+4, 18, 3, 3, 'FD');
+        // card frame tipis
+        doc.setDrawColor(...theme.cardBorder);
+        doc.roundedRect(margin.left-3, margin.top-6, pageW - margin.left - margin.right + 6, 22, 3, 3);
+        // title
         doc.setTextColor(...theme.headerText);
-        doc.setFontSize(14);
-        doc.text('Rekap Absensi & Setoran', margin.left+2, margin.top+2);
-        doc.setFontSize(10);
-        doc.text(kelasLine, margin.left+2, margin.top+8);
-        doc.text(`Periode: ${startDate} s.d. ${endDate}`, margin.left+2, margin.top+14);
+        doc.setFont('helvetica','bold'); doc.setFontSize(14);
+        doc.text('Rekap Absensi & Setoran', margin.left, margin.top);
+        doc.setFont('helvetica','normal'); doc.setFontSize(10);
+        doc.text(kelasLine, margin.left, margin.top + 6);
+        doc.text(`Periode: ${startDate} s.d. ${endDate}`, margin.left, margin.top + 12);
         // meta kanan
-        const rightX = pageW - margin.right - 60;
-        doc.text(`KBM: ${kbmDays} hari`, rightX, margin.top+8);
-        doc.text(`Total Santri: ${rows.length}`, rightX, margin.top+14);
+        const rightX = pageW - margin.right - 65;
+        doc.text(`KBM: ${kbmDays} hari`, rightX, margin.top + 6);
+        doc.text(`Total Santri: ${rows.length}`, rightX, margin.top + 12);
         doc.setTextColor(...theme.text);
       }
       function drawFooter(pageNo, totalPages, printedAt){
@@ -3047,11 +3033,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       }
       function drawMeta(){ drawHeaderBar(); }
 
-      // Definisi kolom dasar (nanti di-fit fleksibel)
+      // ===== Definisi kolom (tetap, tapi fleksibel lebar) =====
       const cols = [
         { key:'no',       title:'No',                  w:8,  minW:6,  maxW:12, align:'center' },
         { key:'nis',      title:'NIS',                 w:24, minW:18, maxW:34, align:'left'   },
-        { key:'nama',     title:'Nama',                w:46, minW:36, maxW:70, align:'left'   },
+        { key:'nama',     title:'Nama',                w:46, minW:36, maxW:72, align:'left'   },
         { key:'sem',      title:'Sem',                 w:10, minW:8,  maxW:12, align:'center' },
         { key:'h',        title:'H',                   w:8,  minW:6,  maxW:10, align:'center' },
         { key:'a',        title:'A',                   w:8,  minW:6,  maxW:10, align:'center' },
@@ -3069,16 +3055,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       ];
       const contentW = pageW - margin.left - margin.right;
 
-      // Data tabel
+      // ===== Data tabel + kalkulasi fleksibel lebar kolom =====
       const tableData = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const persenJuz = PDF_percentCapaian(r.totalJuz, r.semester);
-
         const setoranText = PDF_joinSAsegments(r.saSegments);
         const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
-
         const personalDays = Number(r.daysCount || 0);
         const hadirDays    = Number(r.hadirDays || 0);
         const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
@@ -3101,10 +3085,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         };
       });
 
-      // === NEW: Fit kolom fleksibel berbasis bobot konten ===
       fitColumnsFlex(doc, cols, tableData, tblFont, contentW);
 
-      // Gambar tabel
+      // ===== Menggambar =====
       drawMeta();
       let x0 = margin.left;
       let y  = margin.top + headerGap;
@@ -3114,13 +3097,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       let rowIndex = 0;
       for (const row of tableData) {
-        const wraps = cols.map(col => {
-          const text = String(row[col.key] ?? '');
-          return doc.splitTextToSize(text, col.w - 2);
-        });
+        const wraps = cols.map(col => doc.splitTextToSize(String(row[col.key] ?? ''), col.w - 2));
         const maxLines = Math.max(...wraps.map(w=>w.length));
         const rowH = Math.max(lineH, maxLines * (lineH - 1) + 2);
 
+        // page break
         if (y + rowH > pageH - margin.bottom) {
           doc.addPage('a4', 'landscape');
           drawMeta();
@@ -3130,7 +3111,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           rowIndex = 0;
         }
 
-        // zebra
+        // zebra seperti even:bg-slate-50
         if (rowIndex % 2 === 1) {
           doc.setFillColor(...theme.zebraFill);
           doc.rect(x0, y, contentW, rowH, 'F');
@@ -3138,13 +3119,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
         // cells
         let x = x0;
+        doc.setFont('helvetica','normal');
         doc.setFontSize(tblFont);
         doc.setTextColor(...theme.text);
         doc.setDrawColor(...theme.border);
         for (let ci=0; ci<cols.length; ci++){
           const col = cols[ci];
           const lines = wraps[ci];
-          let yy = y + (lineH - 1);
+          let yy = y + (lineH - 1); // padding-top 1mm
           for (let li=0; li<lines.length; li++){
             const tx = (col.align==='right') ? (x + col.w - 1)
                      : (col.align==='center') ? (x + col.w/2)
@@ -3153,6 +3135,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
             doc.text(String(lines[li]), tx, yy, opt);
             yy += (lineH - 1);
           }
+          // grid
           doc.rect(x, y, col.w, rowH);
           x += col.w;
         }
@@ -3160,6 +3143,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         rowIndex++;
       }
 
+      // Ringkasan box ala card
       const ringkasan = `Ringkasan: KBM ${kbmDays} hari | Hadir ${totals.totH} | Alpha ${totals.totA} | Sakit ${totals.totS} | Izin ${totals.totI} | Total Page ${Math.round(totals.totPages)} | Total Juz ${totals.totJuz.toFixed(2)}`;
       const wrapSum = doc.splitTextToSize(ringkasan, contentW);
       const sumH = wrapSum.length * (lineH-1) + 4;
@@ -3168,7 +3152,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         drawMeta();
         y = margin.top + headerGap;
       }
-      doc.setFillColor(...theme.headerFill);
+      doc.setFillColor(245, 245, 246);
       doc.setDrawColor(...theme.border);
       doc.roundedRect(x0-2, y, contentW+4, sumH+4, 2, 2, 'FD');
       doc.setFontSize(10);
@@ -3195,17 +3179,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     setBtnLoading(xlsBtn, true, 'Membuat Excel…');
     try {
       await ensureXLSX();
+      const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
-      const {
-        kelas, startDate, endDate, kelasLine, kbmDays, rows, totals
-      } = await collectRekapData();
-
-      // Siapkan data utama (AOA)
       const header = [
         "No","NIS","Nama","Sem","H","A","S","I","Hadir %",
         "Setoran (S:A - S:A)","Pages","Total Pages","Juz","Total Juz","Juz %","Nilai Rata2","Predikat"
       ];
-
       const body = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
@@ -3235,18 +3214,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         ];
       });
 
-      // Workbook
       const wb = XLSX.utils.book_new();
-
-      // Sheet 1: Rekap
       const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
-
-      // Auto-fit lebar kolom
       ws['!cols'] = autoFitColumns([header, ...body]);
-
       XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
 
-      // Sheet 2: Meta & Ringkasan
       const meta = [
         ["Rekap Absensi & Setoran", ""],
         ["Kelas / Kelompok", kelasLine],
@@ -3367,9 +3339,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return out;
   }
 
-  // === NEW: sorter & join segmen ===
+  // === sorter & join segmen ===
   function PDF_fmtSASegment(seg){ return `${seg.from.s}:${seg.from.a}-${seg.to.s}:${seg.to.a}`; }
-
   function PDF_dedupSASegments(arr){
     const seen = new Set(), out = [];
     for (const seg of (arr||[])) {
@@ -3401,7 +3372,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       return a1 - b1;
     });
   }
-  // collapseSingle: true => "30" (bukan "30-30")
   function PDF_joinRangeSegments(arr, collapseSingle=false){
     if (!arr || !arr.length) return '-';
     const seen = new Set(), tmp = [];
@@ -3417,7 +3387,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return out.length ? out.join(', ') : '-';
   }
 
-  // Persentase capaian (target per semester)
+  // Persentase capaian
   function PDF_percentCapaian(totalJuzNum, semester){
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
     if (!Number.isFinite(Number(totalJuzNum))) return 0;
@@ -3455,12 +3425,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         juzSet:new Set(),
         semester: (it?.semester!=null ? Number(it.semester) : null),
 
-        // NEW fields
-        saSegments: [],
-        pageSegments: [],
-        juzSegments: [],
-        _datesAll:  new Set(),
-        _datesHadir:new Set()
+        saSegments: [], pageSegments: [], juzSegments: [],
+        _datesAll: new Set(), _datesHadir: new Set()
       };
       const r = map[key];
       if (!r.nama && it?.nama) r.nama = it.nama;
@@ -3568,49 +3534,50 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return map;
   }
 
-  // ======= Drawer tabel (header berulang) =======
+  // ======= Header tabel (meniru bg-blue-50, text bold, center vertikal) =======
   function drawTableHeader(doc, cols, x, y, lineH, fontSize, contentW, theme){
     let cx = x;
+    // bar header full
     doc.setFillColor(...theme.tableHeadFill);
     doc.setDrawColor(...theme.border);
-    doc.rect(cx-2, y-1, contentW+4, lineH+2, 'FD'); // bar header
+    doc.roundedRect(cx-2, y-1, contentW+4, lineH+2, 2, 2, 'FD');
+
+    // teks header
+    doc.setFont('helvetica','bold');
     doc.setFontSize(fontSize + 1);
     cols.forEach(col => {
-      // Posisi vertikal PRESISI (center)
       const ty = textMiddleY(doc, y, lineH, col.title, fontSize + 1);
       const tx = (col.align==='right') ? (cx + col.w - 1)
                : (col.align==='center') ? (cx + col.w/2)
-               : (cx + 1);
+               : (cx + 1.2);
       const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
       doc.text(col.title, tx, ty, opt);
-      doc.rect(cx, y, col.w, lineH); // kotak header individual
+      // garis sel header tipis
+      doc.rect(cx, y, col.w, lineH);
       cx += col.w;
     });
+    // kembali ke normal
+    doc.setFont('helvetica','normal');
   }
 
-  // ======= NEW: alat bantu fit kolom fleksibel =======
+  // ======= Fit kolom fleksibel (berdasar bobot konten) =======
   function fitColumnsFlex(doc, cols, tableData, fontSize, contentW){
-    // Bobot = max(len(header), max panjang sel) per kolom
     const keys = cols.map(c => c.key);
     const weights = keys.map((k,i) => {
       const headLen = String(cols[i].title || '').length;
       let maxLen = headLen;
-      const sampleLimit = Math.min(250, tableData.length);
+      const sampleLimit = Math.min(300, tableData.length);
       for (let r=0; r<sampleLimit; r++){
-        const v = tableData[r][k];
-        const s = String(v ?? '');
+        const s = String(tableData[r][k] ?? '');
         if (s.length > maxLen) maxLen = s.length;
       }
-      // Sedikit boosting untuk kolom penting
-      if (['nama','setoran','pages','juz'].includes(k)) maxLen *= 1.2;
+      if (['nama','setoran','pages','juz'].includes(k)) maxLen *= 1.25; // boost kolom teks panjang
       return maxLen;
     });
 
-    // Ruang minimum
     const minSum = cols.reduce((a,c)=>a+(c.minW||c.w||8),0);
     let free = Math.max(0, contentW - minSum);
 
-    // Target awal = minW + proporsi free
     const sumWgt = weights.reduce((a,b)=>a+b,0) || 1;
     let widths = cols.map((c,i)=>{
       const minW = c.minW ?? c.w ?? 8;
@@ -3619,7 +3586,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       return Math.max(minW, Math.min(maxW, minW + add));
     });
 
-    // Jika masih ada sisa ruang (karena ter-clamp), distribusikan ke kolom yang belum capai maxW
+    // distribusi sisa ruang bila masih ada (karena clamp ke maxW)
     let used = widths.reduce((a,b)=>a+b,0);
     let leftover = contentW - used;
     let guard = 0;
@@ -3641,13 +3608,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       leftover = contentW - used;
     }
 
-    // Terapkan
     for (let i=0;i<cols.length;i++){
       cols[i].w = Math.round(widths[i]);
     }
   }
 
-  // ======= NEW: posisi teks tengah vertikal presisi =======
+  // ======= Posisi teks pusat vertikal presisi =======
   function textMiddleY(doc, yTop, cellH, text, fontSize){
     const prev = doc.getFontSize();
     doc.setFontSize(fontSize);
@@ -3656,12 +3622,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const dim = doc.getTextDimensions(String(text));
       h = dim?.h || (fontSize * 0.3528);
     } else {
-      // fallback: 1pt ≈ 0.3528mm
-      h = fontSize * 0.3528;
+      h = fontSize * 0.3528; // 1pt ≈ 0.3528mm
     }
     doc.setFontSize(prev);
-    // letakkan baseline sehingga teks berada di tengah visual
-    return yTop + (cellH + h)/2 - 1; // -1 agar terlihat proporsional
+    return yTop + (cellH + h)/2 - 1;
   }
 
 })();
