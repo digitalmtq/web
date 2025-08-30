@@ -2925,6 +2925,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
     // helper index
     const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
+    a=1
     const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
     const keyName = v => String(v || "").trim().toLowerCase();
     const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
@@ -2966,7 +2967,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
     if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
 
-    // Ringkasan total
+    // Ringkasan total (tetap dihitung, walau tak ditampilkan di PDF)
     let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
     rows.forEach(r=>{ totJuz += r.totalJuz; totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin; totPages += r.totalPageSum; });
 
@@ -2987,29 +2988,27 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       // === Tema (mirip dashboard) ===
       const theme = {
-        cardBorder: [229,231,235],     // slate-200
-        headerText: [15,23,42],        // slate-900
+        cardBorder: [229,231,235],
+        headerText: [15,23,42],
         tableHeadFill: [239,246,255],  // blue-50
         zebraFill: [248,250,252],      // slate-50
-        border: [229,231,235],         // slate-200
-        text: [31,41,55]               // slate-800
+        border: [229,231,235],
+        text: [31,41,55]
       };
 
       const pageW  = doc.internal.pageSize.getWidth();
       const pageH  = doc.internal.pageSize.getHeight();
       const margin = { left: 12, right: 12, top: 12, bottom: 12 };
 
-      // Layout metrics
-      const headerGap = 30;   // ruang meta di atas tabel
-      const fontBody = 8.5;   // ukuran font isi
+      const headerGap = 30;
+      const fontBody = 8.5;
       const fontHead = fontBody + 1;
-      const lineFactor = 1.18;                // line-height factor
-      const lineH = fontBody * 0.3528 * lineFactor; // mm per baris
-      const cellPadX = 1.6;   // padding kiri/kanan
-      const cellPadY = 1.2;   // padding atas/bawah
+      const lineFactor = 1.18;
+      const lineH = fontBody * 0.3528 * lineFactor;
+      const cellPadX = 1.6;
+      const cellPadY = 1.2;
       const headerRowH = Math.max(9, fontHead * 0.3528 * lineFactor + 2*cellPadY);
 
-      // ===== Card header ala dashboard =====
       function drawHeaderBar(){
         doc.setDrawColor(...theme.cardBorder);
         doc.roundedRect(margin.left-3, margin.top-6, pageW - margin.left - margin.right + 6, 22, 3, 3);
@@ -3034,7 +3033,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       }
       function drawMeta(){ drawHeaderBar(); }
 
-      // ===== Definisi kolom (dengan min/max agar fleksibel) =====
+      // ===== Definisi kolom =====
       const cols = [
         { key:'no',       title:'No',                  w:8,  minW:6,  maxW:12, align:'center' },
         { key:'nis',      title:'NIS',                 w:24, minW:18, maxW:34, align:'left'   },
@@ -3086,10 +3085,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         };
       });
 
-      // ===== Hitung lebar kolom fleksibel & kunci total pas contentW =====
+      // ===== Fit kolom ke lebar halaman =====
       fitColumnsFlex(doc, cols, tableData, fontBody, contentW, cellPadX);
 
-      // ===== Gambar =====
+      // ===== Render =====
       drawMeta();
       let x0 = margin.left;
       let y  = margin.top + headerGap;
@@ -3098,17 +3097,15 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       y += headerRowH + 2;
 
       let rowIndex = 0;
-      doc.setLineWidth(0.2); // grid tipis
+      doc.setLineWidth(0.2);
 
       for (const row of tableData) {
-        // wrap per kolom + tinggi baris dinamis
         const wraps = cols.map(col =>
           doc.splitTextToSize(String(row[col.key] ?? ''), Math.max(1, col.w - 2*cellPadX))
         );
         const rowTextHeights = wraps.map(lines => lines.length * lineH);
         const rowH = Math.max(lineH + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
 
-        // page break?
         if (y + rowH > pageH - margin.bottom) {
           doc.addPage('a4', 'landscape');
           drawMeta();
@@ -3118,13 +3115,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           rowIndex = 0;
         }
 
-        // zebra (even: slate-50)
         if (rowIndex % 2 === 1) {
           doc.setFillColor(...theme.zebraFill);
           doc.rect(x0, y, sumWidth(cols), rowH, 'F');
         }
 
-        // cells
         let x = x0;
         doc.setFont('helvetica','normal');
         doc.setFontSize(fontBody);
@@ -3135,30 +3130,19 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           const col = cols[ci];
           const lines = wraps[ci];
 
-          // posisi teks: center vertikal dalam sel
           const textBlockH = lines.length * lineH;
-          let yy = y + (rowH - textBlockH)/2 + lineH*0.82; // 0.82 ≈ baseline tweak agar optik pas
+          let yy = y + (rowH - textBlockH)/2 + lineH*0.82;
 
-          // posisi X berdasar align (+ padding)
-          let tx;
-          let opt = {};
-          if (col.align === 'right') {
-            tx = x + col.w - cellPadX;
-            opt = { align:'right' };
-          } else if (col.align === 'center') {
-            tx = x + col.w/2;
-            opt = { align:'center' };
-          } else {
-            tx = x + cellPadX;
-          }
+          let tx, opt = {};
+          if (col.align === 'right') { tx = x + col.w - cellPadX; opt = { align:'right' }; }
+          else if (col.align === 'center') { tx = x + col.w/2; opt = { align:'center' }; }
+          else { tx = x + cellPadX; }
 
-          // render tiap baris teks
           for (let li=0; li<lines.length; li++){
             doc.text(String(lines[li]), tx, yy, opt);
             yy += lineH;
           }
 
-          // grid kotak sel
           doc.rect(x, y, col.w, rowH);
           x += col.w;
         }
@@ -3167,26 +3151,51 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         rowIndex++;
       }
 
-      // Ringkasan (card halus)
-      const ringkasan = `Ringkasan: KBM ${kbmDays} hari | Hadir ${totals.totH} | Alpha ${totals.totA} | Sakit ${totals.totS} | Izin ${totals.totI} | Total Page ${Math.round(totals.totPages)} | Total Juz ${totals.totJuz.toFixed(2)}`;
-      const wrapSum = doc.splitTextToSize(ringkasan, sumWidth(cols) - 2*cellPadX);
-      const sumH = Math.max(lineH + 2*cellPadY, wrapSum.length * lineH + 2*cellPadY);
-      if (y + sumH > pageH - margin.bottom) {
+      // ======= BLOK TANDA TANGAN (ganti Ringkasan) =======
+      function fmtDDMMYYYY(iso){
+        // iso 'YYYY-MM-DD' → 'DD-MM-YYYY'
+        if (!iso) return null;
+        const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        return `${m[3]}-${m[2]}-${m[1]}`;
+      }
+      const printedAt = new Date();
+      const printedISO = printedAt.toISOString().slice(0,10);
+      const ttdDate = fmtDDMMYYYY(endDate) || fmtDDMMYYYY(printedISO) || printedAt.toLocaleDateString('id-ID');
+
+      // beri jarak dari tabel agar tidak nempel
+      const spaceTop = 10; // mm
+      const neededH  = 36; // kira-kira tinggi blok tanda tangan
+      if (y + spaceTop + neededH > pageH - margin.bottom){
         doc.addPage('a4', 'landscape');
         drawMeta();
         y = margin.top + headerGap;
       }
-      doc.setFillColor(246, 247, 248);
-      doc.setDrawColor(...theme.border);
-      doc.roundedRect(x0, y, sumWidth(cols), sumH, 2, 2, 'FD');
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(10);
-      doc.text(wrapSum, x0 + cellPadX, y + cellPadY + lineH*0.82);
+      y += spaceTop;
 
-      // Footer
-      const printedAt = new Date().toLocaleString();
+      const totalW = sumWidth(cols);
+      const colGap = 8;
+      const colW   = (totalW - colGap) / 2;
+      const leftX  = x0;
+      const rightX = x0 + colW + colGap;
+
+      // Tanggal & tempat di kanan
+      doc.setFont('helvetica','normal'); doc.setFontSize(11);
+      doc.text(`Tengaran, ${ttdDate}`, x0 + totalW, y, { align:'right' });
+
+      const headY = y + 8;
+      doc.text('Mengetahui,', leftX, headY);
+      doc.text('Pengampu Kelas,', rightX, headY);
+
+      // garis tanda tangan
+      const lineY = headY + 24;
+      doc.setDrawColor(...theme.border);
+      doc.line(leftX,  lineY, leftX  + colW - 10, lineY);
+      doc.line(rightX, lineY, rightX + colW - 10, lineY);
+
+      // ===== Footer halaman (tetap) =====
       const totalPages = doc.internal.getNumberOfPages();
-      for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooter(p, totalPages, printedAt); }
+      for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooter(p, totalPages, printedAt.toLocaleString()); }
 
       const fileName = `Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.pdf`;
       doc.save(fileName);
@@ -3241,7 +3250,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
-      ws['!cols'] = autoFitColumns([header, ...body]); // auto-fit by text length
+      ws['!cols'] = autoFitColumns([header, ...body]);
       XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
 
       const meta = [
@@ -3276,7 +3285,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
   // ===== Util: sum width & auto-fit kolom (XLSX) =====
   function sumWidth(cols){ return cols.reduce((s,c)=>s + (Number(c.w)||0), 0); }
-
   function autoFitColumns(aoa){
     const colCount = Math.max(...aoa.map(r => r.length));
     const cols = Array.from({length: colCount}, (_,i) => {
@@ -3291,9 +3299,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return cols;
   }
 
-  // ======= Fit kolom fleksibel (rapi & total pas ke contentW) =======
+  // ======= Fit kolom fleksibel =======
   function fitColumnsFlex(doc, cols, tableData, fontSize, contentW, padX){
-    // bobot berdasarkan panjang header + sample konten
     const keys = cols.map(c => c.key);
     const weights = keys.map((k,i) => {
       const headLen = String(cols[i].title || '').length;
@@ -3303,7 +3310,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         const s = String(tableData[r][k] ?? '');
         if (s.length > maxLen) maxLen = s.length;
       }
-      if (['nama','setoran','pages','juz'].includes(k)) maxLen *= 1.25; // prefer luas
+      if (['nama','setoran','pages','juz'].includes(k)) maxLen *= 1.25;
       return maxLen;
     });
 
@@ -3311,7 +3318,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const maxSum = cols.reduce((a,c)=>a+(c.maxW||c.w||8),0);
     const target = Math.max(minSum, Math.min(maxSum, contentW));
 
-    // alokasi awal proporsional terhadap bobot
     const sumWgt = weights.reduce((a,b)=>a+b,0) || 1;
     let widths = cols.map((c,i)=>{
       const minW = c.minW ?? c.w ?? 8;
@@ -3321,10 +3327,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       return Math.max(minW, Math.min(maxW, raw));
     });
 
-    // normalize supaya jumlah tepat = target (perbedaan rounding)
     let used = widths.reduce((a,b)=>a+b,0);
     let diff = target - used;
-    // distribusi diff kecil ke kolom yang masih bisa melebar/menyusut
     const step = diff >= 0 ? 0.1 : -0.1;
     let guard = 0;
     while (Math.abs(diff) > 0.09 && guard++ < 200){
@@ -3337,7 +3341,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       }
     }
 
-    // round ke 0.1mm dan kunci kolom terakhir agar total pas
     widths = widths.map(w => Math.round(w*10)/10);
     const sumRounded = widths.reduce((a,b)=>a+b,0);
     const fix = Math.round((target - sumRounded)*10)/10;
@@ -3346,14 +3349,13 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     for (let i=0;i<cols.length;i++) cols[i].w = widths[i];
   }
 
-  // ====== Helper PDF & Aggregator (dipertahankan) ======
+  // ======= Helper PDF & Aggregator (dipertahankan) =======
   function PDF_normKey(v){ return String(v ?? '').trim(); }
   function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
   function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
   function PDF_parseSA(sa){ const m=String(sa||'').trim().match(/^(\d+)\s*:\s*(\d+)$/); return m?{s:+m[1], a:+m[2]}:null; }
   function PDF_compareSA(x,y){ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; }
   function PDF_fmtSA(o){ return o?`${o.s}:${o.a}`:'-'; }
-
   function PDF_normStatus(s){
     s = String(s||'').trim().toLowerCase();
     if (['hadir','h'].includes(s)) return 'hadir';
@@ -3372,12 +3374,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     ];
     return map.find(p => nilai <= p.max) || map[map.length-1];
   }
-
   function PDF_ringkasJuzTerbaca(set){
     if (!set || set.size===0) return '-';
     const arr = Array.from(set).sort((a,b)=>a-b);
-    const out = [];
-    let start = arr[0], prev = arr[0];
+    const out = []; let start = arr[0], prev = arr[0];
     for (let i=1; i<=arr.length; i++){
       const curr = arr[i];
       if (curr === prev + 1) { prev = curr; continue; }
@@ -3391,7 +3391,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const arr = Array.from(set).sort((a,b)=>a-b);
     return arr.length===1 ? `Juz ${arr[0]}` : `Juz ${arr[0]}-${arr[arr.length-1]}`;
   }
-
   function PDF_parseJuzTerbacaField(val){
     const out = new Set();
     if (val == null) return out;
@@ -3412,7 +3411,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     while ((m = re.exec(str)) !== null) {
       let a = parseInt(m[1], 10);
       let b = m[2] ? parseInt(m[2], 10) : a;
-      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
       if (a > b) [a, b] = [b, a];
       a = Math.max(1, Math.min(30, a));
       b = Math.max(1, Math.min(30, b));
@@ -3420,8 +3418,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     }
     return out;
   }
-
-  // === sorter & join segmen ===
   function PDF_fmtSASegment(seg){ return `${seg.from.s}:${seg.from.a}-${seg.to.s}:${seg.to.a}`; }
   function PDF_dedupSASegments(arr){
     const seen = new Set(), out = [];
@@ -3445,7 +3441,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     if (!list.length) return '-';
     return list.map(PDF_fmtSASegment).join(', ');
   }
-
   function PDF_sortRangeSegments(list){
     return [...(list||[])].sort((a,b)=>{
       const a0 = Number(a?.[0]), a1 = Number(a?.[1]);
@@ -3469,24 +3464,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return out.length ? out.join(', ') : '-';
   }
 
-  // Persentase capaian
-  function PDF_percentCapaian(totalJuzNum, semester){
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
-    if (!Number.isFinite(Number(totalJuzNum))) return 0;
-    const batas = batasSemester[Number(semester)] || 0;
-    if (totalJuzNum >= 30) return 100;
-    if (batas <= 0) return 0;
-    let p = Math.floor((Number(totalJuzNum) / batas) * 100);
-    return Math.max(0, Math.min(100, p));
-  }
-  function PDF_totalAllJuzStatus(totalJuzNum, semester){
-    const p = PDF_percentCapaian(totalJuzNum, semester);
-    if (Number(totalJuzNum) >= 30) return { label:'KHATAM', percent:100 };
-    if (p >= 100) return { label:'TUNTAS', percent:p };
-    return { label: `${p}%`, percent:p };
-  }
-
-  // === Agregator: segmen spesifik + tracker hari per NIS ===
+  // === Agregator ===
   function PDF_buildRekapPerKey(items){
     const map = Object.create(null);
     for (const it of (items||[])) {
@@ -3506,7 +3484,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
         juzSet:new Set(),
         semester: (it?.semester!=null ? Number(it.semester) : null),
-
         saSegments: [], pageSegments: [], juzSegments: [],
         _datesAll: new Set(), _datesHadir: new Set()
       };
@@ -3571,7 +3548,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
     }
 
-    // Finalisasi
     for (const k in map){
       const r = map[k];
       r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
@@ -3616,7 +3592,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return map;
   }
 
-  // ======= Header tabel (presisi center, pas ke lebar) =======
+  // ======= Header tabel =======
   function drawTableHeader(doc, cols, x, y, rowH, fontSize, theme, padX){
     const totalW = sumWidth(cols);
     doc.setFillColor(...theme.tableHeadFill);
@@ -3627,24 +3603,23 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     doc.setFontSize(fontSize);
     let cx = x;
     for (const col of cols){
-      // teks header center vertikal & sesuai align
       const lines = doc.splitTextToSize(String(col.title||''), Math.max(1, col.w - 2*padX));
-      const lineH = fontSize * 0.3528 * 1.18; // sama dengan body factor
-      const textH = lines.length * lineH;
-      const yy = y + (rowH - textH)/2 + lineH*0.82;
+      const lh = fontSize * 0.3528 * 1.18;
+      const textH = lines.length * lh;
+      const yy = y + (rowH - textH)/2 + lh*0.82;
       const tx = (col.align==='right') ? (cx + col.w - padX)
                : (col.align==='center') ? (cx + col.w/2)
                : (cx + padX);
       const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
-      for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lineH, opt);
+      for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
 
-      // grid header
       doc.rect(cx, y, col.w, rowH);
       cx += col.w;
     }
     doc.setFont('helvetica','normal');
   }
 })();
+
 
 
 
