@@ -2989,8 +2989,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const theme = {
         cardBorder: [229,231,235],
         headerText: [15,23,42],
-        tableHeadFill: [239,246,255],  // blue-50
-        zebraFill: [248,250,252],      // slate-50
+        tableHeadFill: [30,136,229],   // #1E88E5 (permintaan)
+        zebraFill: [248,250,252],
         border: [229,231,235],
         text: [31,41,55]
       };
@@ -3093,7 +3093,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       let y  = margin.top + headerGap;
 
       drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-      y += headerRowH + 2;
+      y += headerRowH; // ← NEMPEL ke baris pertama (tanpa celah)
 
       let rowIndex = 0;
       doc.setLineWidth(0.2);
@@ -3110,7 +3110,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           drawMeta();
           y = margin.top + headerGap;
           drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-          y += headerRowH + 2;
+          y += headerRowH; // ← juga rapat setelah page break
           rowIndex = 0;
         }
 
@@ -3461,7 +3461,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return out.length ? out.join(', ') : '-';
   }
 
-  // >>>>> DITAMBAHKAN: capaian target per semester (FIX) <<<<<
+  // >>>>> Capaian target per semester (FIX) <<<<<
   function PDF_percentCapaian(totalJuzNum, semester){
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
     const total = Number(totalJuzNum);
@@ -3616,8 +3616,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     doc.setDrawColor(...theme.border);
     doc.roundedRect(x, y, totalW, rowH, 2, 2, 'FD');
 
+    // teks header putih & tebal
     doc.setFont('helvetica','bold');
     doc.setFontSize(fontSize);
+    doc.setTextColor(255,255,255);
+
     let cx = x;
     const lh = fontSize * 0.3528 * 1.18;
     for (const col of cols){
@@ -3629,13 +3632,15 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
                : (cx + padX);
       const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
       for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
-      doc.rect(cx, y, col.w, rowH);
+      doc.rect(cx, y, col.w, rowH); // garis kolom header
       cx += col.w;
     }
+
+    // kembalikan warna teks ke default
+    doc.setTextColor(...theme.text);
     doc.setFont('helvetica','normal');
   }
 })();
-
 
 
 
