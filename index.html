@@ -2958,13 +2958,13 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
       const theme = {
-        headerFill: [243,244,246],    // #f3f4f6
-        headerText: [17,24,39],       // #111827
-        tableHeadFill: [229,231,235], // #e5e7eb
-        zebraFill: [250,250,250],     // #fafafa
-        border: [209,213,219],        // #d1d5db
-        accent: [14,165,233],         // #0ea5e9
-        text: [31,41,55]              // #1f2937
+        headerFill: [243,244,246],    // top header bar
+        headerText: [17,24,39],
+        tableHeadFill: [224,242,254], // **biru muda** (#e0f2fe)
+        zebraFill: [250,250,250],
+        border: [209,213,219],
+        accent: [14,165,233],
+        text: [31,41,55]
       };
 
       const pageW  = doc.internal.pageSize.getWidth();
@@ -3004,32 +3004,29 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       function drawMeta(){ drawHeaderBar(); }
 
-      // Kolom (pakai tanda -) + "Hadir %"
+      // ===== Definisi kolom (tanpa width tetap; gunakan min/max) =====
       const cols = [
-        { key:'no',       title:'No',                  w:8,  align:'center' },
-        { key:'nis',      title:'NIS',                 w:24, align:'left'   },
-        { key:'nama',     title:'Nama',                w:46, align:'left'   },
-        { key:'sem',      title:'Sem',                 w:10, align:'center' },
-        { key:'h',        title:'H',                   w:8,  align:'center' },
-        { key:'a',        title:'A',                   w:8,  align:'center' },
-        { key:'s',        title:'S',                   w:8,  align:'center' },
-        { key:'i',        title:'I',                   w:8,  align:'center' },
-        { key:'hadirPct', title:'Hadir %',             w:14, align:'center' },
-        { key:'setoran',  title:'Setoran (S:A - S:A)', w:44, align:'left'   },
-        { key:'pages',    title:'Pages',               w:30, align:'left'   },
-        { key:'totPg',    title:'Total Pages',         w:16, align:'right'  },
-        { key:'juz',      title:'Juz',                 w:26, align:'left'   },
-        { key:'totJuz',   title:'Total Juz',           w:16, align:'right'  },
-        { key:'persen',   title:'Juz %',               w:12, align:'center' },
-        { key:'nilai',    title:'Nilai Rata2',         w:14, align:'right'  },
-        { key:'pred',     title:'Predikat',            w:14, align:'center' },
+        { key:'no',       title:'No',                  align:'center', minW:8,  maxW:10 },
+        { key:'nis',      title:'NIS',                 align:'left',   minW:20, maxW:34 },
+        { key:'nama',     title:'Nama',                align:'left',   minW:36, maxW:60 },
+        { key:'sem',      title:'Sem',                 align:'center', minW:10, maxW:12 },
+        { key:'h',        title:'H',                   align:'center', minW:8,  maxW:10 },
+        { key:'a',        title:'A',                   align:'center', minW:8,  maxW:10 },
+        { key:'s',        title:'S',                   align:'center', minW:8,  maxW:10 },
+        { key:'i',        title:'I',                   align:'center', minW:8,  maxW:10 },
+        { key:'hadirPct', title:'Hadir %',             align:'center', minW:12, maxW:16 },
+        { key:'setoran',  title:'Setoran (S:A - S:A)', align:'left',   minW:38, maxW:80 },
+        { key:'pages',    title:'Pages',               align:'left',   minW:26, maxW:60 },
+        { key:'totPg',    title:'Total Pages',         align:'right',  minW:16, maxW:20 },
+        { key:'juz',      title:'Juz',                 align:'left',   minW:24, maxW:42 },
+        { key:'totJuz',   title:'Total Juz',           align:'right',  minW:16, maxW:20 },
+        { key:'persen',   title:'Juz %',               align:'center', minW:12, maxW:14 },
+        { key:'nilai',    title:'Nilai Rata2',         align:'right',  minW:14, maxW:18 },
+        { key:'pred',     title:'Predikat',            align:'center', minW:14, maxW:16 },
       ];
       const contentW = pageW - margin.left - margin.right;
-      const sumW = cols.reduce((a,c)=>a+c.w,0);
-      const scale = Math.min(1, contentW / sumW);
-      if (scale < 1) cols.forEach(c => c.w = Math.floor(c.w * scale));
 
-      // Bangun data tabel (pakai segmen) + Hadir % berdasarkan hari unik ber-NIS
+      // ===== Data tabel =====
       const tableData = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
@@ -3062,26 +3059,26 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         };
       });
 
-      // ===== Gambar tabel manual (header shaded + zebra row + footer) =====
+      // ===== Hitung lebar kolom fleksibel (berdasarkan teks) =====
+      computeFlexibleColumns(doc, cols, tableData, contentW, tblFont);
+
+      // ===== Gambar tabel =====
       drawMeta();
       let x0 = margin.left;
       let y  = margin.top + headerGap;
 
-      // pakai tinggi header aktual
       let headerH = drawTableHeader(doc, cols, x0, y, lineH, tblFont, contentW, theme);
       y += headerH + 2;
 
       let rowIndex = 0;
       for (const row of tableData) {
-        // wrap per kolom
         const wraps = cols.map(col => {
           const text = String(row[col.key] ?? '');
-          return doc.splitTextToSize(text, col.w - 2); // padding 1mm kiri-kanan
+          return doc.splitTextToSize(text, (col.w || col.minW) - 2);
         });
         const maxLines = Math.max(...wraps.map(w=>w.length));
         const rowH = Math.max(lineH, maxLines * (lineH - 1) + 2);
 
-        // page break?
         if (y + rowH > pageH - margin.bottom) {
           doc.addPage('a4', 'landscape');
           drawMeta();
@@ -3091,14 +3088,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           rowIndex = 0;
         }
 
-        // zebra background
         const zebra = (rowIndex % 2 === 1);
         if (zebra) {
           doc.setFillColor(...theme.zebraFill);
           doc.rect(x0, y, contentW, rowH, 'F');
         }
 
-        // draw row cells
         let x = x0;
         doc.setFontSize(tblFont);
         doc.setTextColor(...theme.text);
@@ -3115,7 +3110,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
             doc.text(String(lines[li]), tx, yy, opt);
             yy += (lineH - 1);
           }
-          // cell border
           doc.rect(x, y, col.w, rowH);
           x += col.w;
         }
@@ -3131,7 +3125,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         drawMeta();
         y = margin.top + headerGap;
       }
-      // ringkasan box
       doc.setFillColor(...theme.headerFill);
       doc.setDrawColor(...theme.border);
       doc.roundedRect(x0-2, y, contentW+4, sumH+4, 2, 2, 'FD');
@@ -3266,7 +3259,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       return a1 - b1;
     });
   }
-  // collapseSingle: true => "30" (bukan "30-30")
   function PDF_joinRangeSegments(arr, collapseSingle=false){
     if (!arr || !arr.length) return '-';
     const seen = new Set(), tmp = [];
@@ -3358,7 +3350,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (smp  && (!r.sampaiMax || PDF_compareSA(smp, r.sampaiMax) > 0)) r.sampaiMax = smp;
 
       // Pages
-      const rng = PDF_parseRange(it?.halaman atau it?.page);
+      const rng = PDF_parseRange(it?.halaman || it?.page);
       const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
       if (tp!=null) r.totalPageSum += tp;
       else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
@@ -3442,54 +3434,91 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return map;
   }
 
+  // ======= Hitung lebar kolom fleksibel =======
+  function computeFlexibleColumns(doc, cols, rows, contentW, tblFont){
+    const pad = 2; // mm
+    doc.setFontSize(tblFont);
+
+    const desired = cols.map(col => {
+      let maxW = doc.getTextWidth(String(col.title||'')) + 2*pad;
+      for (const r of rows){
+        const txt = String(r[col.key] ?? '');
+        const w = doc.getTextWidth(txt) + 2*pad;
+        if (w > maxW) maxW = w;
+      }
+      const minW = Math.max(6, col.minW ?? 8);
+      const maxWcap = col.maxW ?? 80;
+      const want = Math.min(maxWcap, Math.max(minW, maxW));
+      return { min:minW, max:maxWcap, want };
+    });
+
+    let sumWant = desired.reduce((a,d)=>a+d.want,0);
+
+    if (sumWant <= contentW){
+      cols.forEach((c,i)=> c.w = round1(desired[i].want));
+      return;
+    }
+
+    const baseSum = desired.reduce((a,d)=>a+d.min,0);
+    let flexSpace = contentW - baseSum;
+    if (flexSpace < 0) flexSpace = 0;
+    const flexTotal = desired.reduce((a,d)=>a+(d.want - d.min),0);
+    const factor = flexTotal > 0 ? (flexSpace / flexTotal) : 0;
+
+    cols.forEach((c,i)=>{
+      const d = desired[i];
+      const w = d.min + (d.want - d.min) * factor;
+      c.w = round1(Math.max(d.min, Math.min(d.max, w)));
+    });
+
+    function round1(v){ return Math.round(v*10)/10; }
+  }
+
   // ======= Drawer tabel (header berulang, presisi) =======
   function drawTableHeader(doc, cols, x, y, baseLineH, fontSize, _contentW, theme){
     const padX = 1.6;    // padding horizontal teks header (mm)
     const gapY = 4.2;    // jarak antar-baris header (mm)
 
-    // hitung total lebar kolom
-    const totalW = cols.reduce((a,c)=>a + c.w, 0);
+    const totalW = cols.reduce((a,c)=>a + (c.w||c.minW), 0);
 
-    // siapkan wrap & tinggi header
-    const wrapped = cols.map(c => doc.splitTextToSize(String(c.title || ''), c.w - 2*padX));
+    // wrap & tinggi header
+    doc.setFontSize(fontSize + 1);
+    const wrapped = cols.map(c => doc.splitTextToSize(String(c.title || ''), (c.w||c.minW) - 2*padX));
     const headerH = Math.max(
       baseLineH,
       ...wrapped.map(lines => Math.max(baseLineH, lines.length * gapY + 2))
     );
 
-    // bar latar header
+    // bar latar header (BIRU MUDA)
     doc.setFillColor(...theme.tableHeadFill);
     doc.setDrawColor(...theme.border);
     doc.rect(x-0.5, y-0.5, totalW+1, headerH+1, 'FD');
 
-    // teks per kolom (center vertikal + align sesuai kolom)
-    doc.setFontSize(fontSize + 1);
+    // teks per kolom (center vertikal + align)
     let cx = x;
     for (let i=0; i<cols.length; i++){
       const col = cols[i];
+      const colW = (col.w || col.minW);
       const lines = wrapped[i];
       const blockH = lines.length * gapY;
-      let ty = y + (headerH - blockH)/2 + 3.0; // kompensasi baseline jsPDF
+      let ty = y + (headerH - blockH)/2 + 3.0;
 
       const opt = col.align === 'right' ? { align:'right' }
                : col.align === 'center' ? { align:'center' } : {};
-      const tx  = col.align === 'right'  ? (cx + col.w - padX)
-               : col.align === 'center' ? (cx + col.w/2)
+      const tx  = col.align === 'right'  ? (cx + colW - padX)
+               : col.align === 'center' ? (cx + colW/2)
                : (cx + padX);
 
-      for (const ln of lines){
-        doc.text(String(ln), tx, ty, opt);
-        ty += gapY;
-      }
+      for (const ln of lines){ doc.text(String(ln), tx, ty, opt); ty += gapY; }
 
-      doc.rect(cx, y, col.w, headerH);
-      cx += col.w;
+      doc.rect(cx, y, colW, headerH);
+      cx += colW;
     }
-
     return headerH;
   }
 })();
 </script>
+
 
 
 
