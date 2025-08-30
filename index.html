@@ -2840,7 +2840,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     document.head.appendChild(s);
   })();
 
-  // === Tambahan: helper untuk "Kelas: X, Kelompok: Y" ===
+  // === Helper untuk "Kelas: X, Kelompok: Y" ===
   function buildKelasKelompokLine(kelas, kelasEl) {
     const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
     const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {
@@ -2925,7 +2925,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
     // helper index
     const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-    a=1
     const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
     const keyName = v => String(v || "").trim().toLowerCase();
     const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
@@ -2980,7 +2979,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   async function pdfRekapDownload(){
     setBtnLoading(pdfBtn, true, 'Membuat PDF…');
     try {
-      const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
+      const { kelas, startDate, endDate, kelasLine, kbmDays, rows } = await collectRekapData();
 
       const { jsPDF } = window.jspdf || {};
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
@@ -3033,7 +3032,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       }
       function drawMeta(){ drawHeaderBar(); }
 
-      // ===== Definisi kolom =====
+      // ===== Kolom =====
       const cols = [
         { key:'no',       title:'No',                  w:8,  minW:6,  maxW:12, align:'center' },
         { key:'nis',      title:'NIS',                 w:24, minW:18, maxW:34, align:'left'   },
@@ -3055,7 +3054,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       ];
       const contentW = pageW - margin.left - margin.right;
 
-      // ===== Data tabel =====
+      // ===== Data =====
       const tableData = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
@@ -3085,7 +3084,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         };
       });
 
-      // ===== Fit kolom ke lebar halaman =====
+      // ===== Fit kolom =====
       fitColumnsFlex(doc, cols, tableData, fontBody, contentW, cellPadX);
 
       // ===== Render =====
@@ -3151,9 +3150,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         rowIndex++;
       }
 
-      // ======= BLOK TANDA TANGAN (ganti Ringkasan) =======
+      // ======= BLOK TANDA TANGAN =======
       function fmtDDMMYYYY(iso){
-        // iso 'YYYY-MM-DD' → 'DD-MM-YYYY'
         if (!iso) return null;
         const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (!m) return null;
@@ -3163,9 +3161,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const printedISO = printedAt.toISOString().slice(0,10);
       const ttdDate = fmtDDMMYYYY(endDate) || fmtDDMMYYYY(printedISO) || printedAt.toLocaleDateString('id-ID');
 
-      // beri jarak dari tabel agar tidak nempel
-      const spaceTop = 10; // mm
-      const neededH  = 36; // kira-kira tinggi blok tanda tangan
+      const spaceTop = 10; // jarak dari tabel
+      const neededH  = 36; // tinggi blok tanda tangan
       if (y + spaceTop + neededH > pageH - margin.bottom){
         doc.addPage('a4', 'landscape');
         drawMeta();
@@ -3193,7 +3190,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       doc.line(leftX,  lineY, leftX  + colW - 10, lineY);
       doc.line(rightX, lineY, rightX + colW - 10, lineY);
 
-      // ===== Footer halaman (tetap) =====
+      // ===== Footer halaman =====
       const totalPages = doc.internal.getNumberOfPages();
       for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooter(p, totalPages, printedAt.toLocaleString()); }
 
@@ -3349,7 +3346,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     for (let i=0;i<cols.length;i++) cols[i].w = widths[i];
   }
 
-  // ======= Helper PDF & Aggregator (dipertahankan) =======
+  // ======= Helper PDF & Aggregator =======
   function PDF_normKey(v){ return String(v ?? '').trim(); }
   function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
   function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
@@ -3463,6 +3460,26 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const out = PDF_sortRangeSegments(tmp).map(([a,b]) => (collapseSingle && a===b) ? `${a}` : `${a}-${b}`);
     return out.length ? out.join(', ') : '-';
   }
+
+  // >>>>> DITAMBAHKAN: capaian target per semester (FIX) <<<<<
+  function PDF_percentCapaian(totalJuzNum, semester){
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    const total = Number(totalJuzNum);
+    const sem   = Number(semester);
+    if (!Number.isFinite(total)) return 0;
+    if (total >= 30) return 100;
+    const batas = batasSemester[sem] || 0;
+    if (batas <= 0) return 0;
+    let p = Math.floor((total / batas) * 100);
+    return Math.max(0, Math.min(100, p));
+  }
+  function PDF_totalAllJuzStatus(totalJuzNum, semester){
+    const p = PDF_percentCapaian(totalJuzNum, semester);
+    if (Number(totalJuzNum) >= 30) return { label:'KHATAM', percent:100 };
+    if (p >= 100) return { label:'TUNTAS', percent:p };
+    return { label: `${p}%`, percent:p };
+  }
+  // >>>>> END FIX <<<<<
 
   // === Agregator ===
   function PDF_buildRekapPerKey(items){
@@ -3602,9 +3619,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     doc.setFont('helvetica','bold');
     doc.setFontSize(fontSize);
     let cx = x;
+    const lh = fontSize * 0.3528 * 1.18;
     for (const col of cols){
       const lines = doc.splitTextToSize(String(col.title||''), Math.max(1, col.w - 2*padX));
-      const lh = fontSize * 0.3528 * 1.18;
       const textH = lines.length * lh;
       const yy = y + (rowH - textH)/2 + lh*0.82;
       const tx = (col.align==='right') ? (cx + col.w - padX)
@@ -3612,7 +3629,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
                : (cx + padX);
       const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
       for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
-
       doc.rect(cx, y, col.w, rowH);
       cx += col.w;
     }
