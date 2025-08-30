@@ -2925,7 +2925,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
     // helper index
     const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-    const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
+       const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
     const keyName = v => String(v || "").trim().toLowerCase();
     const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
     const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
@@ -2966,7 +2966,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
     if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
 
-    // Ringkasan total (tetap dihitung, walau tak ditampilkan di PDF)
+    // Ringkasan total (untuk sheet Meta)
     let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
     rows.forEach(r=>{ totJuz += r.totalJuz; totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin; totPages += r.totalPageSum; });
 
@@ -2985,11 +2985,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
 
-      // === Tema (mirip dashboard) ===
+      // === Tema ===
       const theme = {
         cardBorder: [229,231,235],
         headerText: [15,23,42],
-        tableHeadFill: [30,136,229],   // #1E88E5 (permintaan)
+        tableHeadFill: [30,136,229],   // #1E88E5
         zebraFill: [248,250,252],
         border: [229,231,235],
         text: [31,41,55]
@@ -3093,7 +3093,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       let y  = margin.top + headerGap;
 
       drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-      y += headerRowH; // ← NEMPEL ke baris pertama (tanpa celah)
+      y += headerRowH; // nempel ke baris pertama
 
       let rowIndex = 0;
       doc.setLineWidth(0.2);
@@ -3110,7 +3110,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           drawMeta();
           y = margin.top + headerGap;
           drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-          y += headerRowH; // ← juga rapat setelah page break
+          y += headerRowH; // tetap rapat setelah page break
           rowIndex = 0;
         }
 
@@ -3369,7 +3369,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       { max: 89,  text: 'JAYYID JIDDAN', huruf: 'B' },
       { max: 100, text: 'MUMTAZ',        huruf: 'A' }
     ];
-    return map.find(p => nilai <= p.max) || map[map.length-1];
+    return map.find(p => nilai <= p.max) atau map[map.length-1];
   }
   function PDF_ringkasJuzTerbaca(set){
     if (!set || set.size===0) return '-';
@@ -3461,7 +3461,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return out.length ? out.join(', ') : '-';
   }
 
-  // >>>>> Capaian target per semester (FIX) <<<<<
   function PDF_percentCapaian(totalJuzNum, semester){
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
     const total = Number(totalJuzNum);
@@ -3479,7 +3478,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     if (p >= 100) return { label:'TUNTAS', percent:p };
     return { label: `${p}%`, percent:p };
   }
-  // >>>>> END FIX <<<<<
 
   // === Agregator ===
   function PDF_buildRekapPerKey(items){
@@ -3609,12 +3607,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return map;
   }
 
-  // ======= Header tabel =======
+  // ======= Header tabel (KOTAK, tanpa rounded) =======
   function drawTableHeader(doc, cols, x, y, rowH, fontSize, theme, padX){
     const totalW = sumWidth(cols);
     doc.setFillColor(...theme.tableHeadFill);
     doc.setDrawColor(...theme.border);
-    doc.roundedRect(x, y, totalW, rowH, 2, 2, 'FD');
+
+    // latar header: persegi biasa (bukan rounded)
+    doc.rect(x, y, totalW, rowH, 'FD');
 
     // teks header putih & tebal
     doc.setFont('helvetica','bold');
@@ -3632,16 +3632,17 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
                : (cx + padX);
       const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
       for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
-      doc.rect(cx, y, col.w, rowH); // garis kolom header
+
+      // garis pemisah kolom header (kotak)
+      doc.rect(cx, y, col.w, rowH);
       cx += col.w;
     }
 
-    // kembalikan warna teks ke default
+    // kembali ke default teks
     doc.setTextColor(...theme.text);
     doc.setFont('helvetica','normal');
   }
 })();
-
 
 
 
