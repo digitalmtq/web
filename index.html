@@ -2809,12 +2809,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 (function(){
   const $ = sel => document.querySelector(sel);
 
-	function fmtD_M_YYYY(iso){
-  if (!iso) return '';
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return iso; // fallback kalau bukan ISO
-  return `${Number(m[3])}-${Number(m[2])}-${m[1]}`;
-}
+  function fmtD_M_YYYY(iso){
+    if (!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return iso;
+    return `${Number(m[3])}-${Number(m[2])}-${m[1]}`;
+  }
 
   // ===== Inject CSS kontrol (UI kecil di halaman) =====
   (function injectStyles(){
@@ -2973,7 +2973,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
     if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
 
-    // Ringkasan total (tetap dihitung, walau tak ditampilkan di PDF)
+    // Ringkasan total (untuk sheet Meta)
     let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
     rows.forEach(r=>{ totJuz += r.totalJuz; totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin; totPages += r.totalPageSum; });
 
@@ -2996,7 +2996,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const theme = {
         cardBorder: [229,231,235],
         headerText: [15,23,42],
-        tableHeadFill: [30,136,229],   // #1E88E5 (permintaan)
+        tableHeadFill: [30,136,229],   // #1E88E5
         zebraFill: [248,250,252],
         border: [229,231,235],
         text: [31,41,55]
@@ -3041,23 +3041,23 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       // ===== Kolom =====
       const cols = [
-        { key:'no',       title:'No.',                 w:11,  minW:11,  maxW:12, align:'center' },
-        { key:'nis',      title:'NIS',                 w:24, minW:18, maxW:34, align:'left'   },
-        { key:'nama',     title:'Nama',                w:46, minW:36, maxW:80, align:'left'   },
-        { key:'sem',      title:'Semester',            w:22, minW:22,  maxW:22, align:'center' },
-        { key:'h',        title:'H',                   w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'a',        title:'A',                   w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'s',        title:'S',                   w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'i',        title:'I',                   w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'hadirPct', title:'Hadir %',             w:16, minW:16, maxW:18, align:'center' },
-        { key:'setoran',  title:'Setoran',			   w:32, minW:32, maxW:80, align:'left'   },
-        { key:'pages',    title:'Pages',               w:24, minW:24, maxW:40, align:'left'   },
-        { key:'totPg',    title:'Total',         	   w:16, minW:16, maxW:22, align:'right'  },
-        { key:'juz',      title:'Juz',                 w:18, minW:18, maxW:18, align:'left'   },
-        { key:'totJuz',   title:'Total',           	   w:16, minW:16, maxW:22, align:'right'  },
-        { key:'persen',   title:'Juz %',               w:14, minW:14, maxW:16, align:'center' },
-        { key:'nilai',    title:'Nilai',         	   w:14, minW:14, maxW:20, align:'right'  },
-        { key:'pred',     title:'Predikat',            w:18, minW:18, maxW:18, align:'center' },
+        { key:'no',       title:'No.',        w:11, minW:11, maxW:12, align:'center' },
+        { key:'nis',      title:'NIS',        w:24, minW:18, maxW:34, align:'left'   },
+        { key:'nama',     title:'Nama',       w:46, minW:36, maxW:80, align:'left'   },
+        { key:'sem',      title:'Semester',   w:22, minW:22, maxW:22, align:'center' },
+        { key:'h',        title:'H',          w:8,  minW:6,  maxW:10, align:'center' },
+        { key:'a',        title:'A',          w:8,  minW:6,  maxW:10, align:'center' },
+        { key:'s',        title:'S',          w:8,  minW:6,  maxW:10, align:'center' },
+        { key:'i',        title:'I',          w:8,  minW:6,  maxW:10, align:'center' },
+        { key:'hadirPct', title:'Hadir %',    w:16, minW:16, maxW:18, align:'center' },
+        { key:'setoran',  title:'Setoran',    w:32, minW:32, maxW:80, align:'left'   },
+        { key:'pages',    title:'Pages',      w:24, minW:24, maxW:40, align:'left'   },
+        { key:'totPg',    title:'Total',      w:16, minW:16, maxW:22, align:'right'  },
+        { key:'juz',      title:'Juz',        w:18, minW:18, maxW:18, align:'left'   },
+        { key:'totJuz',   title:'Total',      w:16, minW:16, maxW:22, align:'right'  },
+        { key:'persen',   title:'Juz @%',     w:14, minW:14, maxW:16, align:'center' },
+        { key:'nilai',    title:'Nilai',      w:14, minW:14, maxW:20, align:'right'  },
+        { key:'pred',     title:'Predikat',   w:18, minW:18, maxW:18, align:'center' },
       ];
       const contentW = pageW - margin.left - margin.right;
 
@@ -3066,6 +3066,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const persenJuz = PDF_percentCapaian(r.totalJuz, r.semester);
+        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester); // KHATAM/TUNTAS/%
+
         const setoranText = PDF_joinSAsegments(r.saSegments);
         const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
@@ -3085,7 +3087,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           totPg: String(Math.round(r.totalPageSum)),
           juz: juzText,
           totJuz: r.totalJuz.toFixed(2),
-          persen: `${persenJuz}%`,
+          persen: statusJuz.label, // <-- pakai label
           nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
           pred: pred.huruf
         };
@@ -3100,7 +3102,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       let y  = margin.top + headerGap;
 
       drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-      y += headerRowH; // ← NEMPEL ke baris pertama (tanpa celah)
+      y += headerRowH; // header rapat ke baris 1
 
       let rowIndex = 0;
       doc.setLineWidth(0.2);
@@ -3117,7 +3119,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           drawMeta();
           y = margin.top + headerGap;
           drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-          y += headerRowH; // ← juga rapat setelah page break
+          y += headerRowH; // juga rapat setelah page break
           rowIndex = 0;
         }
 
@@ -3221,12 +3223,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       const header = [
         "No","NIS","Nama","Sem","H","A","S","I","Hadir %",
-        "Setoran (S:A - S:A)","Pages","Total Pages","Juz","Total Juz","Juz %","Nilai Rata2","Predikat"
+        "Setoran (S:A - S:A)","Pages","Total Pages","Juz","Total Juz","Juz @%","Nilai Rata2","Predikat"
       ];
       const body = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const persenJuz = PDF_percentCapaian(r.totalJuz, r.semester);
+        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester); // KHATAM/TUNTAS/%
+
         const setoranText = PDF_joinSAsegments(r.saSegments);
         const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
@@ -3246,7 +3250,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           Math.round(r.totalPageSum),
           juzText,
           Number(r.totalJuz.toFixed(2)),
-          persenJuz,
+          statusJuz.label,               // <-- pakai label di XLSX juga
           (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
           pred.huruf
         ];
@@ -3621,7 +3625,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const totalW = sumWidth(cols);
     doc.setFillColor(...theme.tableHeadFill);
     doc.setDrawColor(...theme.border);
-    doc.rect(x, y, totalW, rowH, 'FD');
+    doc.rect(x, y, totalW, rowH, 'FD'); // KOTAK (bukan rounded)
 
     // teks header putih & tebal
     doc.setFont('helvetica','bold');
@@ -3643,7 +3647,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       cx += col.w;
     }
 
-    // kembalikan warna teks ke default
+    // kembali ke default
     doc.setTextColor(...theme.text);
     doc.setFont('helvetica','normal');
   }
