@@ -1117,11 +1117,71 @@ async function submitTambahKelasBaru() {
       
 		<div class="actions" 
      style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
-<button class="logout-btn" id="logout-btn">Logout</button>
+
   <button id="save-btn">Simpan Data Mutaba'ah</button>
-<button id="openPdfModal">Download Laporan</button>
 
+  <button id="openPdfModal">Download Laporan</button>
 
+<!-- Modal Utama: Rentang Tanggal + Aksi -->
+<div id="pdfModalOverlay" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:999;">
+  <div class="rekap-modal-card">
+    <h3>Download Rekap Nilai</h3>
+
+    <!-- Kontrol Rekap -->
+    <div class="pdf-rekap-controls">
+      <label for="pdf-start-date">
+        <span>Mulai</span>
+        <input type="date" id="pdf-start-date" />
+      </label>
+
+      <label for="pdf-end-date">
+        <span>s/d</span>
+        <input type="date" id="pdf-end-date" />
+      </label>
+
+      <!-- Tombol unduh -->
+      <button id="download-pdf-rekap" class="rekap-btn">Download PDF</button>
+      <button id="download-xls-rekap" class="rekap-btn">Download Excel</button>
+      <button id="download-pdf-santri" class="rekap-btn">PDF per Santri</button>
+    </div>
+
+    <!-- Tombol tutup -->
+    <div style="text-align:right; margin-top:15px;">
+      <button id="closePdfModal">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Kedua: Pilih Santri (muncul saat klik "PDF per Santri") -->
+<div id="santriModalOverlay" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:1000;">
+  <div class="rekap-modal-card">
+    <h3>Pilih Santri</h3>
+
+    <div class="pdf-rekap-controls" style="margin-top:.75rem;">
+      <label for="pdf-santri-select" style="min-width:260px;">
+        <span>Santri</span>
+        <select id="pdf-santri-select">
+          <option value="">Memuat…</option>
+        </select>
+      </label>
+
+      <button id="okSantriSelect" class="rekap-btn" style="background:#0ea5e9;">OK</button>
+      <button id="cancelSantriSelect" class="rekap-btn" style="background:#6b7280;">Batal</button>
+    </div>
+  </div>
+</div>
+
+<button class="logout-btn" id="logout-btn">Logout</button>
 
 <script>
   // -------- Modal Utama --------
@@ -1130,7 +1190,7 @@ async function submitTambahKelasBaru() {
   const closePdfModal = document.getElementById("closePdfModal");
 
   openPdfModal?.addEventListener("click", () => {
-    pdfModalOverlay.style.display = "flex";
+    pdfModalOverlay.style.display = "block";   // <== ganti flex -> block
   });
 
   closePdfModal?.addEventListener("click", () => {
@@ -1148,7 +1208,7 @@ async function submitTambahKelasBaru() {
 
   // Buka modal kedua saat klik "PDF per Santri"
   document.getElementById("download-pdf-santri")?.addEventListener("click", async () => {
-    santriModalOverlay.style.display = "flex";
+    santriModalOverlay.style.display = "block";  // <== ganti flex -> block
     try { if (window._populateSantriSelect) await window._populateSantriSelect(); } catch(e){}
   });
 
@@ -2787,6 +2847,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
 
 
+
+
 // ==================================
 // Download PDF / Excel / PDF per Santri
 (function(){
@@ -2799,35 +2861,54 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return `${Number(m[3])}-${Number(m[2])}-${m[1]}`;
   }
 
-  // ===== Inject CSS kontrol =====
+  // ===== Inject CSS (scoped & center modal tanpa flex) =====
   (function injectStyles(){
     if (document.getElementById('rekap-style')) return;
     const s = document.createElement('style');
     s.id = 'rekap-style';
     s.textContent = `
-      .pdf-rekap-controls{
+      /* Kotak modal diposisikan tengah tanpa flex */
+      #pdfModalOverlay .rekap-modal-card,
+      #santriModalOverlay .rekap-modal-card{
+        position:absolute;
+        left:50%; top:50%;
+        transform:translate(-50%,-50%);
+        background:#fff;
+        padding:20px;
+        border-radius:8px;
+        min-width:320px;
+        max-width:min(90vw, 840px);
+        text-align:left; /* cegah warisan align center */
+      }
+
+      /* Scope semua kontrol ke dalam overlay agar tidak bocor */
+      #pdfModalOverlay .pdf-rekap-controls,
+      #santriModalOverlay .pdf-rekap-controls{
         display:flex; flex-wrap:wrap; gap:.6rem; align-items:center;
         background:#fff; border:1px solid #e5e7eb; border-radius:12px;
         padding:.6rem .8rem; box-shadow:0 1px 2px rgba(0,0,0,.04);
         margin:.6rem 0 .9rem;
       }
-      .pdf-rekap-controls label{
+      #pdfModalOverlay .pdf-rekap-controls label,
+      #santriModalOverlay .pdf-rekap-controls label{
         display:flex; gap:.35rem; align-items:center; font-weight:600; color:#111827;
       }
-      .pdf-rekap-controls input[type="date"],
-      .pdf-rekap-controls select{
+      #pdfModalOverlay .pdf-rekap-controls input[type="date"],
+      #santriModalOverlay .pdf-rekap-controls input[type="date"],
+      #pdfModalOverlay .pdf-rekap-controls select,
+      #santriModalOverlay .pdf-rekap-controls select{
         padding:.42rem .55rem; border:1px solid #d1d5db; border-radius:10px;
         min-height:2.1rem; font:inherit; color:#111827; background:#fff;
       }
-      .pdf-rekap-controls .rekap-btn{
+      #pdfModalOverlay .rekap-btn, #santriModalOverlay .rekap-btn{
         padding:.55rem .9rem; border:none; border-radius:10px; font-weight:700; letter-spacing:.2px;
         box-shadow:0 1px 1px rgba(0,0,0,.05); color:#fff; cursor:pointer;
       }
       #download-pdf-rekap.rekap-btn{ background:#0ea5e9; }
       #download-xls-rekap.rekap-btn{ background:#22c55e; }
       #download-pdf-santri.rekap-btn{ background:#8b5cf6; }
-      .pdf-rekap-controls .rekap-btn:hover{ filter:brightness(.97); }
-      .pdf-rekap-controls .rekap-btn:disabled{ opacity:.6; cursor:not-allowed; }
+      #pdfModalOverlay .rekap-btn:hover, #santriModalOverlay .rekap-btn:hover{ filter:brightness(.97); }
+      #pdfModalOverlay .rekap-btn:disabled, #santriModalOverlay .rekap-btn:disabled{ opacity:.6; cursor:not-allowed; }
     `;
     document.head.appendChild(s);
   })();
@@ -3075,7 +3156,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.text(`Dicetak: ${printedAt}`, margin.left, y);
         doc.text(`Halaman ${pageNo} / ${totalPages}`, pageW - margin.right - 30, y);
       }
-      function drawMeta(){ drawHeaderBar(); }
 
       const cols = [
         { key:'no',       title:'No.',        w:11, minW:11, maxW:12, align:'center' },
@@ -3417,7 +3497,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         border: [229,231,235],
         text: [31,41,55],
         statusFill: { tuntas: [220,252,231], khatam: [237,233,254] },
-        rekapFill: [255, 249, 196] // kuning muda (#FFF9C4)
+        rekapFill: [255, 249, 196] // kuning muda
       };
 
       const pageW  = doc.internal.pageSize.getWidth();
@@ -3485,7 +3565,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       doc.setLineWidth(0.2);
 
       for (const row of tableRows) {
-        // wraps
         const wraps = cols.map(col => doc.splitTextToSize(String(row[col.key] ?? ''), Math.max(1, col.w - 2*cellPadX)));
         const nisIdx = cols.findIndex(c => c.key === 'nis');
         if (nisIdx >= 0) {
@@ -3495,16 +3574,13 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         }
 
         const baseLH = fontBody * 0.3528 * 1.18;
-        const lineHSmall = fontBodySmall * 0.3528 * 1.18;
+        const lineHSmall = Math.max(6.5, fontBody - 0.8) * 0.3528 * 1.18;
         const rowTextHeights = wraps.map((lines, i) => {
-          if (cols[i].key === 'nis' && lines.length === 2) {
-            return baseLH + lineHSmall;
-          }
+          if (cols[i].key === 'nis' && lines.length === 2) return baseLH + lineHSmall;
           return lines.length * baseLH;
         });
         const rowH = Math.max(baseLH + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
 
-        // page break
         if (y + rowH > pageH - margin.bottom) {
           doc.addPage('a4', 'landscape');
           drawHeaderBarS();
@@ -3514,17 +3590,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           rowIndex = 0;
         }
 
-        // >>> REKAP full-row background (kuning muda) <<<
         if (row._isRekap) {
           doc.setFillColor(...theme.rekapFill);
           doc.rect(x0, y, sumWidth(cols), rowH, 'F');
         } else if (rowIndex % 2 === 1) {
-          // zebra biasa
           doc.setFillColor(...theme.zebraFill);
           doc.rect(x0, y, sumWidth(cols), rowH, 'F');
         }
 
-        // draw cells
         let x = x0;
         doc.setFont('helvetica','normal');
         doc.setFontSize(fontBody);
@@ -3535,7 +3608,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           const col = cols[ci];
           const lines = wraps[ci];
 
-          // highlight 'persen' hanya untuk baris non-REKAP (biar kuningnya full)
           if (!row._isRekap && col.key === 'persen') {
             const val = String(row[col.key] || '').toUpperCase();
             if (val === 'TUNTAS' || val === 'KHATAM') {
@@ -3558,7 +3630,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
             doc.text(String(lines[0]), tx, yy, opt);
 
             yy += baseLH;
-            doc.setFontSize(fontBodySmall);
+            doc.setFontSize(Math.max(6.5, fontBody - 0.8));
             doc.setTextColor(156,163,175);
             doc.text(String(lines[1]), tx, yy, opt);
 
