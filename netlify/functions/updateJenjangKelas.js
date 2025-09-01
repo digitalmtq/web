@@ -1,21 +1,21 @@
 // netlify/functions/updateJenjangKelas.js
-// Update field "jenjang" untuk satu santri di kelas_{}.json (master) via GitHub Contents API
+// Update field "jenjang" untuk satu santri di kelas_{}.json via GitHub Contents API
 
 const API_BASE = "https://api.github.com/repos/digitalmtq/server/contents";
 const token = process.env.MTQ_TOKEN;
 
 function ghHeaders() {
   return {
-    "Authorization": `Bearer ${token}`,
-    "Accept": "application/vnd.github+json",
-    "User-Agent": "netlify-fn-update-jenjang"
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "User-Agent": "netlify-fn-update-jenjang",
   };
 }
 
 function b64enc(str) { return Buffer.from(str, "utf8").toString("base64"); }
 function b64dec(str) { return Buffer.from(str, "base64").toString("utf8"); }
 
-// Normalisasi kunci: cari nis → id
+// Cari index santri: nis → id (string) → id (number)
 function matchIndex(list, key) {
   if (!Array.isArray(list)) return -1;
   const keyStr = String(key ?? "").trim();
@@ -53,23 +53,25 @@ exports.handler = async (event) => {
     try {
       body = JSON.parse(event.body || "{}");
     } catch {
-      return { statusCode: 400, body: JSON.stringify({ error: "Body harus JSON." }) });
+      // ← DI SINI TADI ADA ‘)’ LEBIH → bikin crash
+      return { statusCode: 400, body: JSON.stringify({ error: "Body harus JSON." }) };
     }
 
     const key = String(body?.key ?? "").trim();
     const jen = String(body?.jenjang ?? "").trim();
+
     if (!key) {
       return { statusCode: 400, body: JSON.stringify({ error: "Field 'key' wajib." }) };
     }
-    // Validasi jenjang: wajib A1..A8 (mirip semester yang wajib 1..6)
+    // Jenjang A1..A8 (kalau mau boleh kosong, ubah jadi: if (jen && !/^A[1-8]$/.test(jen)) {...})
     if (!/^A[1-8]$/.test(jen)) {
       return { statusCode: 400, body: JSON.stringify({ error: "Jenjang harus A1-A8." }) };
     }
 
     // --- Ambil file master
     const filePath = `${encodeURIComponent(`${kelas}.json`)}`;
-    const getUrl = `${API_BASE}/${filePath}`;
-    const getRes = await fetch(getUrl, { headers: ghHeaders() });
+    const url = `${API_BASE}/${filePath}`;
+    const getRes = await fetch(url, { headers: ghHeaders() });
 
     if (getRes.status === 404) {
       return { statusCode: 404, body: JSON.stringify({ error: `File ${kelas}.json tidak ditemukan.` }) };
@@ -88,12 +90,11 @@ exports.handler = async (event) => {
     } catch {
       return { statusCode: 500, body: JSON.stringify({ error: "Gagal parse JSON kelas_{}.json." }) };
     }
-
     if (!Array.isArray(data)) {
       return { statusCode: 500, body: JSON.stringify({ error: "Struktur kelas_{}.json tidak valid (bukan array)." }) };
     }
 
-    // --- Cari santri dan update jenjang
+    // --- Cari santri & patch jenjang
     const idx = matchIndex(data, key);
     if (idx === -1) {
       return { statusCode: 404, body: JSON.stringify({ error: `Santri dengan key '${key}' tidak ditemukan.` }) };
@@ -102,17 +103,14 @@ exports.handler = async (event) => {
     data[idx].jenjang = jen;
 
     const newContent = JSON.stringify(data, null, 2);
-    const putBody = {
-      message: `chore: update jenjang (${kelas}) key=${key} -> ${jen}`,
-      content: b64enc(newContent),
-      sha
-    };
-
-    // --- Simpan ke GitHub
-    const putRes = await fetch(getUrl, {
+    const putRes = await fetch(url, {
       method: "PUT",
       headers: { ...ghHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify(putBody)
+      body: JSON.stringify({
+        message: `chore: update jenjang (${kelas}) key=${key} -> ${jen}`,
+        content: b64enc(newContent),
+        sha
+      })
     });
 
     if (!putRes.ok) {
@@ -121,8 +119,8 @@ exports.handler = async (event) => {
     }
 
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
-
   } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
+    // Perkuat visibilitas error
+    return { statusCode: 500, body: JSON.stringify({ error: e.message || "Internal error" }) };
   }
 };
