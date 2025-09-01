@@ -1137,22 +1137,21 @@ async function submitTambahKelasBaru() {
     <h3>Download Rekap Nilai</h3>
     
     <!-- Kontrol Rekap -->
-    <div class="pdf-rekap-controls">
-      <label for="pdf-start-date">
-        <span>Mulai</span>
-        <input type="date" id="pdf-start-date" />
-      </label>
+<div class="pdf-rekap-controls">
+  <label for="pdf-start-date">
+    <span>Mulai</span>
+    <input type="date" id="pdf-start-date" />
+  </label>
 
-      <label for="pdf-end-date">
-        <span>s/d</span>
-        <input type="date" id="pdf-end-date" />
-      </label>
+  <label for="pdf-end-date">
+    <span>s/d</span>
+    <input type="date" id="pdf-end-date" />
+  </label>
 
-      <!-- Tombol unduh -->
-      <button id="download-pdf-rekap" class="rekap-btn">Download PDF</button>
-      <button id="download-xls-rekap" class="rekap-btn">Download Excel</button>
-      <button id="download-pdf-santri" class="rekap-btn">PDF per Santri</button>
-    </div>
+  <!-- Tombol unduh -->
+  <button id="download-pdf-rekap" class="rekap-btn">Download PDF</button>
+  <button id="download-xls-rekap" class="rekap-btn">Download Excel</button>
+</div>
 
     <!-- Tombol tutup -->
     <div style="text-align:right; margin-top:15px;">
@@ -1161,7 +1160,9 @@ async function submitTambahKelasBaru() {
   </div>
 </div>
 
-<button class="logout-btn" id="logout-btn">Logout</button>
+  <button class="logout-btn" id="logout-btn">Logout</button>
+</div>
+
 
 <script>
   const openPdfModal = document.getElementById("openPdfModal");
@@ -2803,7 +2804,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
 
 // ==================================
-// Download PDF / Excel / PDF per Santri
+// Download PDF
 (function(){
   const $ = sel => document.querySelector(sel);
 
@@ -2837,9 +2838,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         padding:.55rem .9rem; border:none; border-radius:10px; font-weight:700; letter-spacing:.2px;
         box-shadow:0 1px 1px rgba(0,0,0,.05); color:#fff; cursor:pointer;
       }
-      #download-pdf-rekap.rekap-btn{ background:#0ea5e9; }   /* biru */
-      #download-xls-rekap.rekap-btn{ background:#22c55e; }   /* hijau */
-      #download-pdf-santri.rekap-btn{ background:#8b5cf6; }  /* ungu */
+      #download-pdf-rekap.rekap-btn{ background:#0ea5e9; }
+      #download-xls-rekap.rekap-btn{ background:#22c55e; }
       .pdf-rekap-controls .rekap-btn:hover{ filter:brightness(.97); }
       .pdf-rekap-controls .rekap-btn:disabled{ opacity:.6; cursor:not-allowed; }
     `;
@@ -2883,8 +2883,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   // ====== Tombol ======
   const pdfBtn = document.getElementById('download-pdf-rekap');
   let xlsBtn = document.getElementById('download-xls-rekap');
-  let pdfSantriBtn = document.getElementById('download-pdf-santri');
-
   if (!xlsBtn) {
     const wrap = document.querySelector('.pdf-rekap-controls');
     if (wrap) {
@@ -2898,8 +2896,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   pdfBtn?.classList.add('rekap-btn');
   pdfBtn?.addEventListener('click', pdfRekapDownload);
   xlsBtn?.addEventListener('click', xlsRekapDownload);
-  pdfSantriBtn?.classList.add('rekap-btn');
-  pdfSantriBtn?.addEventListener('click', pdfSantriDownload);
 
   // ====== Loader XLSX (SheetJS) bila belum ada ======
   async function ensureXLSX(){
@@ -2980,12 +2976,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
     rows.forEach(r=>{ totJuz += r.totalJuz; totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin; totPages += r.totalPageSum; });
 
-    return { kelas, startDate, endDate, kelasLine, kbmDays, rows, allDataNorm,
+    return { kelas, startDate, endDate, kelasLine, kbmDays, rows,
       totals: { totJuz, totH, totA, totS, totI, totPages }
     };
   }
 
-  // ================= PDF (rekap kelas) =================
+  // ================= PDF =================
   async function pdfRekapDownload(){
     setBtnLoading(pdfBtn, true, 'Membuat PDF…');
     try {
@@ -3003,9 +2999,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         zebraFill: [248,250,252],
         border: [229,231,235],
         text: [31,41,55],
+        // Pewarnaan status sel "Juz @%"
         statusFill: {
-          tuntas: [220,252,231], // hijau muda
-          khatam: [237,233,254]  // ungu muda
+          tuntas: [220,252,231], // hijau muda (#DCFCE7)
+          khatam: [237,233,254]  // ungu muda (#EDE9FE)
         }
       };
 
@@ -3072,6 +3069,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const tableData = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
+        const persenJuz = PDF_percentCapaian(r.totalJuz, r.semester);
         const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester); // KHATAM/TUNTAS/%
 
         const setoranText = PDF_joinSAsegments(r.saSegments);
@@ -3093,7 +3091,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           totPg: String(Math.round(r.totalPageSum)),
           juz: juzText,
           totJuz: r.totalJuz.toFixed(2),
-          persen: statusJuz.label,
+          persen: statusJuz.label, // tampilkan KHATAM/TUNTAS/% sesuai capaian
           nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
           pred: pred.huruf
         };
@@ -3146,13 +3144,13 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           const col = cols[ci];
           const lines = wraps[ci];
 
-          // Highlight khusus kolom "Juz @%"
+          // === Highlight khusus untuk kolom "Juz @%" ===
           if (col.key === 'persen') {
             const val = String(row[col.key] || '').toUpperCase();
             if (val === 'TUNTAS' || val === 'KHATAM') {
               const fill = (val === 'TUNTAS') ? theme.statusFill.tuntas : theme.statusFill.khatam;
               doc.setFillColor(...fill);
-              doc.rect(x, y, col.w, rowH, 'F');
+              doc.rect(x, y, col.w, rowH, 'F'); // isi latar sel
             }
           }
 
@@ -3200,12 +3198,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const totalW = sumWidth(cols);
       const colGap = 8;
       const colW   = (totalW - colGap) / 2;
-      const leftX  = margin.left;
-      const rightX = margin.left + colW + colGap;
+      const leftX  = x0;
+      const rightX = x0 + colW + colGap;
 
       // Tanggal & tempat di kanan
       doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+      doc.text(`Tengaran, ${ttdDate}`, x0 + totalW, y, { align:'right' });
 
       const headY = y + 8;
       doc.text('Mengetahui,', leftX, headY);
@@ -3232,361 +3230,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     }
   }
 
-  // ============== PDF per Santri (PERTANGGAL + baris REKAP total) ==============
-  async function pdfSantriDownload(){
-    setBtnLoading(pdfSantriBtn, true, 'Membuat PDF per santri…');
-    try {
-      const { kelas, startDate, endDate, kelasLine, rows: aggRows, allDataNorm } = await collectRekapData();
-
-      const query = (prompt('Masukkan NIS atau Nama santri:') || '').trim();
-      if (!query) { setBtnLoading(pdfSantriBtn, false); return; }
-      const q = query.toLowerCase();
-
-      // Cari kandidat berdasarkan NIS/ID/nama
-      const cands = allDataNorm.filter(it =>
-        (it.nis && String(it.nis).toLowerCase() === q) ||
-        (String(it.id||'').toLowerCase() === q) ||
-        (it.nama && it.nama.toLowerCase().includes(q))
-      );
-      if (!cands.length) throw new Error('Santri tidak ditemukan pada rentang tanggal tersebut.');
-
-      // Tentukan key santri
-      let key = null;
-      const exactNIS = cands.find(it => it.nis && String(it.nis).toLowerCase() === q);
-      if (exactNIS) key = exactNIS.nis;
-      if (!key) {
-        const exactNama = cands.find(it => it.nama && it.nama.toLowerCase() === q);
-        if (exactNama) key = exactNama.nis || exactNama.id;
-      }
-      if (!key) {
-        const countByKey = new Map();
-        for (const it of cands) {
-          const k = it.nis || it.id;
-          countByKey.set(k, (countByKey.get(k)||0) + 1);
-        }
-        key = [...countByKey.entries()].sort((a,b)=>b[1]-a[1])[0][0];
-      }
-
-      // Kumpulan data untuk santri terpilih
-      const mine = allDataNorm.filter(it => (it.nis || it.id) === key);
-      if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih.');
-
-      const namaSantri = (mine.find(it => it.nama)?.nama) || '-';
-      const semesterSantri = (mine.find(it => it.semester!=null)?.semester) ?? null;
-
-      // Agregasi per-tanggal
-      const byDate = new Map();
-      for (const it of mine) {
-        const tgl = it.tanggal || '-';
-        if (!byDate.has(tgl)) {
-          byDate.set(tgl, {
-            tanggal: tgl,
-            cnt: { hadir:0, alpha:0, sakit:0, izin:0, lainnya:0 },
-            sa: [], pages: [], juz: [],
-            totalPage: 0, totalJuz: 0,
-            nilaiSum: 0, nilaiCount: 0
-          });
-        }
-        const d = byDate.get(tgl);
-
-        const st = PDF_normStatus(it?.absensi ?? it?.status);
-        if (d.cnt[st] != null) d.cnt[st]++; else d.cnt.lainnya++;
-
-        const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
-        const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
-        if (dari && smp) d.sa.push((PDF_compareSA(dari, smp) <= 0) ? {from:dari, to:smp} : {from:smp, to:dari});
-
-        const rng = PDF_parseRange(it?.halaman || it?.page);
-        const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
-        if (tp!=null) d.totalPage += tp; else if (rng) d.totalPage += Math.max(0, rng[1]-rng[0]+1);
-        if (rng) {
-          let [a,b] = rng; if (a>b) [a,b]=[b,a];
-          d.pages.push([a,b]);
-        }
-
-        const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
-        if (vJ!=null) d.totalJuz += vJ;
-
-        const jtSet = PDF_parseJuzTerbacaField(it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? null);
-        if (jtSet.size) {
-          const arr = Array.from(jtSet).sort((a,b)=>a-b);
-          let start = arr[0], prev = arr[0];
-          for (let i=1; i<=arr.length; i++){
-            const curr = arr[i];
-            if (curr === prev + 1) { prev = curr; continue; }
-            d.juz.push([start, prev]);
-            start = curr; prev = curr;
-          }
-        }
-
-        const vN = PDF_num2(it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
-        if (vN!=null) { d.nilaiSum += vN; d.nilaiCount++; }
-      }
-
-      const dayRows = [...byDate.values()].sort((a,b)=> (a.tanggal||'').localeCompare(b.tanggal||''));
-
-      // Ambil rekap total dari aggregator global
-      const agg = aggRows.find(r => r.nis === key || (!r.nis && r.id === key));
-      const totH = agg?.hadir ?? dayRows.reduce((s,d)=>s+d.cnt.hadir,0);
-      const totA = agg?.alpha ?? dayRows.reduce((s,d)=>s+d.cnt.alpha,0);
-      const totS = agg?.sakit ?? dayRows.reduce((s,d)=>s+d.cnt.sakit,0);
-      const totI = agg?.izin  ?? dayRows.reduce((s,d)=>s+d.cnt.izin,0);
-      const totPages = Math.round(agg?.totalPageSum ?? dayRows.reduce((s,d)=>s+d.totalPage,0));
-      const totJuz   = +(agg?.totalJuz ?? dayRows.reduce((s,d)=>s+d.totalJuz,0)).toFixed(2);
-      const nilaiAvg = (agg?.nilaiCount ? agg.nilaiSum/agg.nilaiCount : 0);
-      const statusJuzTotal = PDF_totalAllJuzStatus(totJuz, agg?.semester ?? semesterSantri);
-
-      // Hitung hadir% untuk baris REKAP (berbasis hari: ada hadir di hari tsb)
-      const daysCount = agg?.daysCount ?? dayRows.length;
-      const hadirDays = agg?.hadirDays ?? dayRows.filter(d => d.cnt.hadir > 0).length;
-      const hadirPctTotal = daysCount > 0 ? Math.round((hadirDays / daysCount) * 100) : 0;
-
-      // === Susun baris harian (KOLUMNYA SAMA DENGAN REKAP KELAS) ===
-      const tableRows = dayRows.map((d, idx) => {
-        const validSessions = d.cnt.hadir + d.cnt.alpha + d.cnt.sakit + d.cnt.izin;
-        const hadirPct = validSessions > 0 ? Math.round(100 * d.cnt.hadir / validSessions) : 0;
-        const nilaiHarian = d.nilaiCount ? (d.nilaiSum/d.nilaiCount) : 0;
-        const predHarian  = PDF_predikatFromScore(nilaiHarian);
-        const statusJuzHarian = PDF_totalAllJuzStatus(d.totalJuz, semesterSantri);
-
-        return {
-          no: String(idx+1),
-          nis: key,
-          nama: namaSantri,
-          sem: semesterSantri ?? (agg?.semester ?? '-'),
-          h: d.cnt.hadir,
-          a: d.cnt.alpha,
-          s: d.cnt.sakit,
-          i: d.cnt.izin,
-          hadirPct: `${hadirPct}%`,
-          setoran: PDF_joinSAsegments(d.sa),
-          pages: PDF_joinRangeSegments(d.pages, false),
-          totPg: String(Math.round(d.totalPage)),
-          juz: PDF_joinRangeSegments(d.juz, true),
-          totJuz: d.totalJuz ? d.totalJuz.toFixed(2) : '0.00',
-          persen: statusJuzHarian.label,             // Juz @% harian
-          nilai: nilaiHarian ? nilaiHarian.toFixed(1) : '-',
-          pred: predHarian.huruf
-        };
-      });
-
-      // === Tambahkan baris REKAP TOTAL (paling bawah) ===
-      const predTotal = PDF_predikatFromScore(nilaiAvg);
-      const setoranTotal = agg ? PDF_joinSAsegments(agg.saSegments) : '-';
-      const pagesTotal   = agg ? PDF_joinRangeSegments(agg.pageSegments, false) : '-';
-      const juzTotalTxt  = agg ? PDF_joinRangeSegments(agg.juzSegments, true) : '-';
-
-      tableRows.push({
-        _isRekap: true,
-        no: '',
-        nis: key,
-        nama: 'REKAP',
-        sem: semesterSantri ?? (agg?.semester ?? '-'),
-        h: totH, a: totA, s: totS, i: totI,
-        hadirPct: `${hadirPctTotal}%`,
-        setoran: setoranTotal,
-        pages: pagesTotal,
-        totPg: String(totPages),
-        juz: juzTotalTxt,
-        totJuz: totJuz.toFixed(2),
-        persen: statusJuzTotal.label,               // Juz @% total
-        nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
-        pred: predTotal.huruf
-      });
-
-      // === PDF ===
-      const { jsPDF } = window.jspdf || {};
-      if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
-      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
-
-      const theme = {
-        cardBorder: [229,231,235],
-        headerText: [15,23,42],
-        tableHeadFill: [30,136,229],
-        zebraFill: [248,250,252],
-        border: [229,231,235],
-        text: [31,41,55],
-        statusFill: { tuntas: [220,252,231], khatam: [237,233,254] } // hijau muda / ungu muda
-      };
-
-      const pageW  = doc.internal.pageSize.getWidth();
-      const pageH  = doc.internal.pageSize.getHeight();
-      const margin = { left: 12, right: 12, top: 12, bottom: 12 };
-      const headerGap = 30, fontBody = 8.5, fontHead = fontBody + 1;
-      const lineFactor = 1.18, lineH = fontBody * 0.3528 * lineFactor;
-      const cellPadX = 1.6, cellPadY = 1.2;
-      const headerRowH = Math.max(9, fontHead * 0.3528 * lineFactor + 2*cellPadY);
-
-      function drawHeaderBarS(){
-        doc.setDrawColor(...theme.cardBorder);
-        doc.roundedRect(margin.left-3, margin.top-6, pageW - margin.left - margin.right + 6, 22, 3, 3);
-        doc.setTextColor(...theme.headerText);
-        doc.setFont('helvetica','bold'); doc.setFontSize(14);
-        doc.text('Rincian Per Santri — Absensi & Setoran', margin.left, margin.top);
-        doc.setFont('helvetica','normal'); doc.setFontSize(10);
-        doc.text(kelasLine, margin.left, margin.top + 6);
-        doc.text(`Santri: ${key} — ${namaSantri}`, margin.left, margin.top + 12);
-        const rightX = pageW - margin.right - 78;
-        doc.text(`Semester: ${semesterSantri ?? (agg?.semester ?? '-')}`, rightX, margin.top + 6);
-        doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, rightX, margin.top + 12);
-        doc.setTextColor(...theme.text);
-      }
-      function drawFooterS(pageNo, totalPages, printedAt){
-        const y = pageH - 6;
-        doc.setDrawColor(...theme.border); doc.setLineWidth(0.2);
-        doc.line(margin.left-2, y-3, pageW-margin.right+2, y-3);
-        doc.setFontSize(8);
-        doc.text(`Dicetak: ${printedAt}`, margin.left, y);
-        doc.text(`Halaman ${pageNo} / ${totalPages}`, pageW - margin.right - 30, y);
-      }
-
-      // Kolom tabel per-santri (SAMA DENGAN REKAP KELAS)
-      const cols = [
-        { key:'no',       title:'No.',        w:11, minW:11, maxW:12, align:'center' },
-        { key:'nis',      title:'NIS',        w:24, minW:18, maxW:34, align:'left'   },
-        { key:'nama',     title:'Nama',       w:46, minW:36, maxW:80, align:'left'   },
-        { key:'sem',      title:'Semester',   w:22, minW:22, maxW:22, align:'center' },
-        { key:'h',        title:'H',          w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'a',        title:'A',          w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'s',        title:'S',          w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'i',        title:'I',          w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'hadirPct', title:'Hadir %',    w:16, minW:16, maxW:18, align:'center' },
-        { key:'setoran',  title:'Setoran',    w:32, minW:32, maxW:80, align:'left'   },
-        { key:'pages',    title:'Pages',      w:24, minW:24, maxW:40, align:'left'   },
-        { key:'totPg',    title:'Total',      w:14, minW:14, maxW:22, align:'right'  },
-        { key:'juz',      title:'Juz',        w:18, minW:18, maxW:18, align:'left'   },
-        { key:'totJuz',   title:'Total',      w:14, minW:14, maxW:22, align:'right'  },
-        { key:'persen',   title:'Juz @%',     w:17, minW:17, maxW:18, align:'center' },
-        { key:'nilai',    title:'Nilai',      w:14, minW:14, maxW:20, align:'right'  },
-        { key:'pred',     title:'Predikat',   w:18, minW:18, maxW:18, align:'center' },
-      ];
-      const contentW = pageW - margin.left - margin.right;
-      fitColumnsFlex(doc, cols, tableRows, fontBody, contentW, cellPadX);
-
-      // Render
-      drawHeaderBarS();
-      let x0 = margin.left;
-      let y  = margin.top + headerGap;
-
-      drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-      y += headerRowH;
-
-      let rowIndex = 0;
-      doc.setLineWidth(0.2);
-
-      for (const row of tableRows) {
-        const wraps = cols.map(col =>
-          doc.splitTextToSize(String(row[col.key] ?? ''), Math.max(1, col.w - 2*cellPadX))
-        );
-        const rowTextHeights = wraps.map(lines => lines.length * lineH);
-        const rowH = Math.max(lineH + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
-
-        if (y + rowH > pageH - margin.bottom) {
-          doc.addPage('a4', 'landscape');
-          drawHeaderBarS();
-          y = margin.top + headerGap;
-          drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-          y += headerRowH;
-          rowIndex = 0;
-        }
-
-        // zebra (kecuali kita tetap boleh zebra di semua baris)
-        if (rowIndex % 2 === 1 && !row._isRekap) {
-          doc.setFillColor(...theme.zebraFill);
-          doc.rect(x0, y, sumWidth(cols), rowH, 'F');
-        }
-
-        // cells
-        let x = x0;
-        doc.setFont('helvetica','normal');
-        doc.setFontSize(fontBody);
-        doc.setTextColor(...theme.text);
-        doc.setDrawColor(...theme.border);
-
-        for (let ci=0; ci<cols.length; ci++){
-          const col = cols[ci];
-          const lines = wraps[ci];
-
-          // Highlight kolom "Juz @%" untuk baris yang bernilai TUNTAS / KHATAM
-          if (col.key === 'persen') {
-            const val = String(row[col.key] || '').toUpperCase();
-            if (val === 'TUNTAS' || val === 'KHATAM') {
-              const fill = (val === 'TUNTAS') ? theme.statusFill.tuntas : theme.statusFill.khatam;
-              doc.setFillColor(...fill);
-              doc.rect(x, y, col.w, rowH, 'F');
-            }
-          }
-
-          const textBlockH = lines.length * lineH;
-          let yy = y + (rowH - textBlockH)/2 + lineH*0.82;
-
-          let tx, opt = {};
-          if (col.align === 'right') { tx = x + col.w - cellPadX; opt = { align:'right' }; }
-          else if (col.align === 'center') { tx = x + col.w/2; opt = { align:'center' }; }
-          else { tx = x + cellPadX; }
-
-          for (let li=0; li<lines.length; li++){
-            doc.text(String(lines[li]), tx, yy, opt);
-            yy += lineH;
-          }
-
-          doc.rect(x, y, col.w, rowH);
-          x += col.w;
-        }
-
-        y += rowH;
-        rowIndex++;
-      }
-
-      // Tanda tangan + footer
-      function fmtDDMMYYYY(iso){
-        const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
-      }
-      const printedAt = new Date();
-      const printedISO = printedAt.toISOString().slice(0,10);
-      const ttdDate = fmtDDMMYYYY(endDate) || fmtDDMMYYYY(printedISO) || printedAt.toLocaleDateString('id-ID');
-
-      const spaceTop = 10, neededH = 36;
-      if (y + spaceTop + neededH > pageH - margin.bottom){
-        doc.addPage('a4', 'landscape');
-        drawHeaderBarS();
-        y = margin.top + headerGap;
-      }
-      y += spaceTop;
-
-      const totalW = sumWidth(cols);
-      const colGap = 8;
-      const colW   = (totalW - colGap) / 2;
-      const leftX  = margin.left;
-      const rightX = margin.left + colW + colGap;
-
-      doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
-
-      const headY = y + 8;
-      doc.text('Mengetahui,', leftX, headY);
-      doc.text('Pengampu Kelas,', rightX, headY);
-
-      const lineY = headY + 24;
-      doc.setDrawColor(...theme.border);
-      doc.line(leftX,  lineY, leftX  + colW - 10, lineY);
-      doc.line(rightX, lineY, rightX + colW - 10, lineY);
-
-      const totalPages = doc.internal.getNumberOfPages();
-      for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooterS(p, totalPages, printedAt.toLocaleString()); }
-
-      const fileName = `Rekap_${kelas || 'kelas'}_perSantri_${key}_${startDate}_sd_${endDate}.pdf`;
-      doc.save(fileName);
-
-    } catch (err) {
-      console.error(err);
-      alert('Gagal mengunduh PDF per santri: ' + (err.message || err));
-    } finally {
-      setBtnLoading(pdfSantriBtn, false);
-    }
-  }
-
   // ================= Excel (.xlsx) =================
   async function xlsRekapDownload(){
     setBtnLoading(xlsBtn, true, 'Membuat Excel…');
@@ -3601,7 +3244,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const body = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
-        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+        const persenJuz = PDF_percentCapaian(r.totalJuz, r.semester);
+        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester); // KHATAM/TUNTAS/%
 
         const setoranText = PDF_joinSAsegments(r.saSegments);
         const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);
@@ -3622,7 +3266,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           Math.round(r.totalPageSum),
           juzText,
           Number(r.totalJuz.toFixed(2)),
-          statusJuz.label,               // KHATAM/TUNTAS/% di XLSX
+          statusJuz.label,               // label KHATAM/TUNTAS/% di XLSX
           (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
           pred.huruf
         ];
@@ -4024,7 +3668,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     doc.setFont('helvetica','normal');
   }
 })();
-
 
 
 
