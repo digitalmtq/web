@@ -3086,7 +3086,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const rosterByNis  = byNisMap(santriData, s => s);
     const rosterByName = byNameMap(santriData, s => s);
 
-    // 3) Normalisasi
+    // 3) Normalisasi (+ inject semester & jenjang)
     const allDataNorm = allData.map(r => {
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
@@ -3104,7 +3104,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
         else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
       }
-      return { ...r, id, nis, nama, semester, tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null };
+
+      let jenjang = r?.jenjang ?? null;
+      if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
+      if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
+
+      return { ...r, id, nis, nama, semester, jenjang, tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null };
     });
 
     // KBM hari unik (kelas)
@@ -3234,6 +3239,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         { key:'nis',      title:'NIS',        w:24, minW:18, maxW:34, align:'left'   },
         { key:'nama',     title:'Nama',       w:46, minW:36, maxW:80, align:'left'   },
         { key:'sem',      title:'Semester',   w:22, minW:22, maxW:22, align:'center' },
+        { key:'jenjang',  title:'Jenjang',    w:18, minW:16, maxW:22, align:'center' }, // << tambah kolom
         { key:'h',        title:'H',          w:8,  minW:6,  maxW:10, align:'center' },
         { key:'a',        title:'A',          w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',          w:8,  minW:6,  maxW:10, align:'center' },
@@ -3266,6 +3272,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           nis: r.nis || r.id || '-',
           nama: r.nama || '-',
           sem: r.semester ?? '-',
+          jenjang: r.jenjang ?? '-', // << isi kolom baru
           h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
           hadirPct: `${hadirPct}%`,
           setoran: setoranText,
@@ -3445,6 +3452,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       const namaSantri = selectedNama || (mine.find(it => it.nama)?.nama) || '-';
       const semesterSantri = (mine.find(it => it.semester!=null)?.semester) ?? null;
+      const jenjangSantri  = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.jenjang)
+                          ?? (mine.find(it => it.jenjang!=null)?.jenjang)
+                          ?? '-';
 
       const byDate = new Map();
       for (const it of mine) {
@@ -3520,6 +3530,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           nis: key,
           nama: namaSantri,
           sem: semesterSantri ?? (agg?.semester ?? '-'),
+          jenjang: jenjangSantri, // << kolom baru
           h: d.cnt.hadir, a: d.cnt.alpha, s: d.cnt.sakit, i: d.cnt.izin,
           hadirPct: `${hadirPct}%`,
           setoran: PDF_joinSAsegments(d.sa),
@@ -3544,6 +3555,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         nis: key,
         nama: 'REKAP',
         sem: semesterSantri ?? (agg?.semester ?? '-'),
+        jenjang: jenjangSantri, // << kolom baru di baris REKAP
         h: totH, a: totA, s: totS, i: totI,
         hadirPct: `${hadirPctTotal}%`,
         setoran: setoranTotal,
@@ -3609,6 +3621,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         { key:'nis',      title:'NIS',        w:26, minW:20, maxW:36, align:'left'   },
         { key:'nama',     title:'Nama',       w:46, minW:36, maxW:80, align:'left'   },
         { key:'sem',      title:'Semester',   w:22, minW:22, maxW:22, align:'center' },
+        { key:'jenjang',  title:'Jenjang',    w:18, minW:16, maxW:22, align:'center' }, // << tambah kolom
         { key:'h',        title:'H',          w:8,  minW:6,  maxW:10, align:'center' },
         { key:'a',        title:'A',          w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',          w:8,  minW:6,  maxW:10, align:'center' },
@@ -3801,7 +3814,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
       const header = [
-        "No","NIS","Nama","Sem","H","A","S","I","Hadir %",
+        "No","NIS","Nama","Sem","Jenjang","H","A","S","I","Hadir %",
         "Setoran (S:A - S:A)","Pages","Total Pages","Juz","Total Juz","Juz @%","Nilai Rata2","Predikat"
       ];
       const body = rows.map((r, idx) => {
@@ -3821,6 +3834,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           r.nis || r.id || '',
           r.nama || '',
           (r.semester ?? ''),
+          (r.jenjang ?? ''), // << kolom baru
           r.hadir, r.alpha, r.sakit, r.izin,
           hadirPct,
           setoranText,
@@ -4065,6 +4079,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
         juzSet:new Set(),
         semester: (it?.semester!=null ? Number(it.semester) : null),
+        jenjang: (it?.jenjang ?? null), // << simpan jenjang
         saSegments: [], pageSegments: [], juzSegments: [],
         _datesAll: new Set(), _datesHadir: new Set()
       };
@@ -4127,6 +4142,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       }
 
       if (r.semester==null && it?.semester!=null) r.semester = Number(it.semester);
+      if (r.jenjang == null && it?.jenjang != null) r.jenjang = it.jenjang; // << mutakhirkan jenjang
     }
 
     for (const k in map){
