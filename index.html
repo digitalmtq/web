@@ -2220,6 +2220,14 @@ async function loadSantriData() {
       if (k) window.semesterMap[k] = String(s?.semester ?? "1");
     });
 
+	// NEW: Bangun peta jenjang dari master
+	window.jenjangMap = {};
+	(santriData || []).forEach(s => {
+  	const k = (s?.nis != null && s.nis !== "") ? String(s.nis).trim()
+          	: (s?.id != null ? String(s.id).trim() : "");
+  	if (k) window.jenjangMap[k] = String(s?.jenjang ?? ""); // contoh default kosong
+	});
+
     // Index roster
     const rosterById   = byIdMap(santriData, s => s);
     const rosterByNis  = byNisMap(santriData, s => s);
@@ -2266,8 +2274,9 @@ async function loadSantriData() {
 
       const keySem = nis || id || "";
       const semesterFix = window.semesterMap?.[keySem] ?? r.semester;
+	  const jenjangFix  = window.jenjangMap?.[keySem]  ?? r.jenjang;
 
-      return { ...r, id, nis, nama, semester: semesterFix };
+      return { ...r, id, nis, nama, semester: semesterFix, jenjang: jenjangFix };
     });
 
     // Ambil user login & filter akses santri (tetap)
@@ -2372,6 +2381,8 @@ async function loadSantriData() {
         // === Semester dari master
         const kSem   = (snis || sid || "");
         const semNow = (window.semesterMap?.[kSem]) ?? santri.semester ?? "1";
+		  // NEW: Jenjang dari master
+		const jenNow = (window.jenjangMap?.[kSem]) ?? santri.jenjang ?? "A1";  // "" atau "A1" dst
 
         // TAMPILAN: NIS → fallback ID
         row.innerHTML = `
@@ -2397,6 +2408,19 @@ async function loadSantriData() {
           <td class="total-halaman">${dataAbsensi?.totalHalaman ?? '-'}</td>
           <td class="juz-terbaca">${dataAbsensi?.juzTerbaca ?? '-'}</td>
           <td class="total-juz">${dataAbsensi?.totalJuz ?? 0}</td>
+		  <td>
+  			<select class="jenjang">
+    		<option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>A1</option>
+    		<option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>A2</option>
+    		<option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>A3</option>
+    		<option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>A4</option>
+    		<option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>A5</option>
+    		<option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>A6</option>
+    		<option value="A7" ${jenNow === 'A7' ? 'selected' : ''}>A7</option>
+    		<option value="A8" ${jenNow === 'A8' ? 'selected' : ''}>A8</option>
+  		</select>
+		</td>
+
           <td>
             <select class="semester">
               <option value="1" ${semNow == 1 || semNow == "1" ? 'selected' : ''}>Semester 1</option>
@@ -2469,6 +2493,46 @@ async function loadSantriData() {
         [ayatDari, ayatSampai, surahDari, surahSampai].forEach(el => {
           el.addEventListener("change", () => updateTotalJuz(row));
         });
+
+		  // === Handler ubah jenjang → tulis balik ke kelas_{}.json
+const jenSel = row.querySelector(".jenjang");
+if (jenSel) {
+  jenSel.addEventListener("change", async () => {
+    const key   = String(row.dataset?.nis || row.dataset?.id || "").trim(); // prioritas NIS
+    const oldJ  = String(window.jenjangMap?.[kSem] ?? jenNow ?? "");
+    const newJ  = String(jenSel.value || "");
+
+    // validasi sederhana: kosong atau A1..A8
+    if (newJ && !/^A[1-8]$/.test(newJ)) {
+      alert("Jenjang harus A1 - A8 (atau kosong).");
+      jenSel.value = oldJ;
+      return;
+    }
+
+    // Optimistic UI
+    jenSel.disabled = true;
+    jenSel.style.opacity = "0.6";
+    try {
+      const res = await fetch(`/.netlify/functions/updateJenjangKelas?kelas=${encodeURIComponent(kelas)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, jenjang: newJ })
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || !out?.success) {
+        throw new Error(out?.error || "Gagal update jenjang.");
+      }
+      // sync cache master
+      window.jenjangMap[key] = newJ;
+    } catch (e) {
+      alert("Gagal menyimpan jenjang ke kelas: " + e.message);
+      jenSel.value = oldJ; // rollback
+    } finally {
+      jenSel.disabled = false;
+      jenSel.style.opacity = "";
+    }
+  });
+}
 
         // === Handler ubah semester → tulis balik ke kelas_{}.json
         const semSel = row.querySelector(".semester");
@@ -2761,6 +2825,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         // ⬇️ KUNCI: semester selalu dari master
         const keySem = String((row.dataset?.nis || row.dataset?.id || "")).trim();
         const semester = (window.semesterMap?.[keySem]) ?? existing.semester ?? "";
+		const jenjang  = (window.jenjangMap?.[keySem])  ?? existing.jenjang  ?? "";
 
         const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
@@ -2795,6 +2860,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           ...existing,
           id,
           nama,
+		  jenjang,
           semester,
           absensi,
           dari: `${surahDari}:${ayatDari}`,
@@ -4181,6 +4247,7 @@ async function ensureSemesterMap(kelas) {
   } catch (e) {
     console.warn("ensureSemesterMap gagal:", e);
     window.semesterMap ??= {};
+	window.jenjangMap  ??= {};
   }
 }
 
