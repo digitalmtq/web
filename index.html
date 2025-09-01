@@ -1148,17 +1148,10 @@ async function submitTambahKelasBaru() {
         <input type="date" id="pdf-end-date" />
       </label>
 
-      <label for="pdf-santri-select" style="min-width:240px;">
-        <span>Santri</span>
-        <select id="pdf-santri-select">
-          <option value="">— Pilih santri —</option>
-        </select>
-      </label>
-
       <!-- Tombol unduh -->
       <button id="download-pdf-rekap" class="rekap-btn">Download PDF</button>
       <button id="download-xls-rekap" class="rekap-btn">Download Excel</button>
-      <button id="download-pdf-santri" class="rekap-btn">PDF per Santri</button>
+      <button id="download-pdf-santri" class="rekap-btn">Download Persantri</button>
     </div>
 
     <!-- Tombol tutup -->
@@ -1176,10 +1169,8 @@ async function submitTambahKelasBaru() {
   const closePdfModal = document.getElementById("closePdfModal");
 
   // buka modal
-  openPdfModal.addEventListener("click", async () => {
+  openPdfModal.addEventListener("click", () => {
     pdfModalOverlay.style.display = "flex";
-    // Coba isi dropdown saat modal dibuka
-    try { if (window._populateSantriSelect) await window._populateSantriSelect(); } catch(e){}
   });
 
   // tutup modal
@@ -2812,7 +2803,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
 
 // ==================================
-// Download PDF / Excel / PDF per Santri
+// Download PDF / Excel / Persantri (dropdown muncul saat klik)
+// ==================================
 (function(){
   const $ = sel => document.querySelector(sel);
 
@@ -2823,7 +2815,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return `${Number(m[3])}-${Number(m[2])}-${m[1]}`;
   }
 
-  // ===== Inject CSS kontrol (UI kecil di halaman) =====
+  // ===== Inject CSS =====
   (function injectStyles(){
     if (document.getElementById('rekap-style')) return;
     const s = document.createElement('style');
@@ -2850,13 +2842,28 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       #download-pdf-rekap.rekap-btn{ background:#0ea5e9; }   /* biru */
       #download-xls-rekap.rekap-btn{ background:#22c55e; }   /* hijau */
       #download-pdf-santri.rekap-btn{ background:#8b5cf6; }  /* ungu */
+
       .pdf-rekap-controls .rekap-btn:hover{ filter:brightness(.97); }
       .pdf-rekap-controls .rekap-btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+      /* Popover pemilih santri */
+      .santri-popover{
+        position:absolute; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+        padding:.75rem; box-shadow:0 12px 24px rgba(0,0,0,.10); min-width:280px; max-width:90vw;
+      }
+      .santri-popover .row{ display:flex; gap:.5rem; align-items:center; }
+      .santri-popover select{ flex:1; padding:.42rem .55rem; border:1px solid #d1d5db; border-radius:10px; }
+      .santri-popover .act{ display:flex; gap:.5rem; justify-content:flex-end; margin-top:.6rem; }
+      .santri-popover .btn{
+        padding:.45rem .75rem; border:none; border-radius:10px; font-weight:700; color:#fff; cursor:pointer;
+      }
+      .santri-popover .btn.primary{ background:#8b5cf6; }
+      .santri-popover .btn.ghost{ background:#9ca3af; }
     `;
     document.head.appendChild(s);
   })();
 
-  // === Helper untuk "Kelas: X, Kelompok: Y" ===
+  // === Helper "Kelas: X, Kelompok: Y" ===
   function buildKelasKelompokLine(kelas, kelasEl) {
     const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
     const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {
@@ -2870,11 +2877,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     let kelompok = custom[kelas] || "";
     if (!kelompok) {
       const optText = kelasEl?.options?.[kelasEl.selectedIndex]?.text?.trim() || "";
-      const fromOpt = (optText.match(/Kelompok\s+(.+)/i)?.[1] || optText).trim();
+      const fromOpt = (optText.match(/Kelompok\\s+(.+)/i)?.[1] || optText).trim();
       if (fromOpt) kelompok = fromOpt;
     }
-    kelompok = (kelompok || '').replace(/^Kelompok\s+/i, '').trim() || '-';
-    return { kelasNum, kelompok, line: `Kelas: ${kelasNum}, Kelompok: ${kelompok}` };
+    kelompok = (kelompok || '').replace(/^Kelompok\\s+/i, '').trim() || '-';
+    return { kelasNum, kelompok, line: \`Kelas: \${kelasNum}, Kelompok: \${kelompok}\` };
   }
 
   function setBtnLoading(btn, loading, loadingText='Mengerjakan…') {
@@ -2893,8 +2900,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   // ====== Tombol ======
   const pdfBtn = document.getElementById('download-pdf-rekap');
   let xlsBtn = document.getElementById('download-xls-rekap');
-  let pdfSantriBtn = document.getElementById('download-pdf-santri');
-  const santriSelect = document.getElementById('pdf-santri-select');
+  const pdfSantriBtn = document.getElementById('download-pdf-santri');
 
   if (!xlsBtn) {
     const wrap = document.querySelector('.pdf-rekap-controls');
@@ -2906,17 +2912,96 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       wrap.appendChild(xlsBtn);
     }
   }
-  pdfBtn?.classList.add('rekap-btn');
   pdfBtn?.addEventListener('click', pdfRekapDownload);
   xlsBtn?.addEventListener('click', xlsRekapDownload);
-  pdfSantriBtn?.classList.add('rekap-btn');
-  pdfSantriBtn?.addEventListener('click', pdfSantriDownload);
 
-  // Saat tanggal berubah, muat ulang opsi santri
-  $('#pdf-start-date')?.addEventListener('change', () => { window._populateSantriSelect?.(); });
-  $('#pdf-end-date')?.addEventListener('change', () => { window._populateSantriSelect?.(); });
+  // Klik "Download Persantri" => tampilkan dropdown (popover) di dekat tombol
+  let currentPopover = null;
+  pdfSantriBtn?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (currentPopover) { closePopover(); return; }
+    currentPopover = await createSantriPopover(pdfSantriBtn);
+    document.body.appendChild(currentPopover.el);
+    positionPopover(currentPopover.el, pdfSantriBtn);
+    // Tutup bila klik di luar
+    setTimeout(() => {
+      document.addEventListener('click', outsideHandler);
+      window.addEventListener('resize', reposition);
+      window.addEventListener('scroll', reposition, true);
+    }, 0);
+    function outsideHandler(ev){
+      if (!currentPopover) return;
+      if (!currentPopover.el.contains(ev.target) && ev.target !== pdfSantriBtn) closePopover();
+    }
+    function reposition(){ if (currentPopover) positionPopover(currentPopover.el, pdfSantriBtn); }
+    currentPopover.cleanup = () => {
+      document.removeEventListener('click', outsideHandler);
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  });
 
-  // ====== Loader XLSX (SheetJS) bila belum ada ======
+  function closePopover(){
+    if (!currentPopover) return;
+    currentPopover.cleanup?.();
+    currentPopover.el.remove();
+    currentPopover = null;
+  }
+  function positionPopover(popEl, anchorBtn){
+    const r = anchorBtn.getBoundingClientRect();
+    popEl.style.position = 'absolute';
+    popEl.style.left = (window.scrollX + r.left) + 'px';
+    popEl.style.top  = (window.scrollY + r.bottom + 8) + 'px';
+  }
+
+  async function createSantriPopover(anchor){
+    const el = document.createElement('div');
+    el.className = 'santri-popover';
+    el.innerHTML = `
+      <div class="row">
+        <select id="santri-picker">
+          <option value="">Memuat…</option>
+        </select>
+      </div>
+      <div class="act">
+        <button class="btn ghost" id="santri-cancel">Batal</button>
+        <button class="btn primary" id="santri-go">Unduh</button>
+      </div>
+    `;
+    // Isi opsi dari kelas_{}.json
+    try {
+      const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
+      const kelas   = kelasEl?.value || '';
+      const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+      const data = await resSantri.json().catch(()=>[]) || [];
+      const arr = (data||[])
+        .map(s => ({ key: (s.nis||s.id||'').toString(), nama: s.nama||'-', nis: s.nis||'', id: s.id||'' }))
+        .filter(x => x.key)
+        .sort((a,b)=> a.nama.localeCompare(b.nama,'id'));
+      const sel = el.querySelector('#santri-picker');
+      sel.innerHTML = `<option value="">— Pilih santri —</option>` + 
+        arr.map(x => `<option value="${x.key}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis ? x.nis : x.id} — ${x.nama}</option>`).join('');
+    } catch(err){
+      console.error(err);
+      el.querySelector('#santri-picker').innerHTML = `<option value="">— Gagal memuat —</option>`;
+    }
+
+    el.querySelector('#santri-cancel').addEventListener('click', (ev)=>{ ev.stopPropagation(); closePopover(); });
+
+    el.querySelector('#santri-go').addEventListener('click', async (ev)=>{
+      ev.stopPropagation();
+      const sel = el.querySelector('#santri-picker');
+      const key = sel?.value;
+      const nama = sel?.options[sel.selectedIndex]?.dataset?.nama || '';
+      if (!key) { alert('Silakan pilih santri.'); return; }
+      closePopover();
+      await pdfSantriDownload(key, nama);
+    });
+
+    return { el };
+  }
+
+  // ====== Loader XLSX (SheetJS) ======
   async function ensureXLSX(){
     if (window.XLSX) return;
     await new Promise((resolve, reject) => {
@@ -2927,12 +3012,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     });
   }
 
-  // ====== Pengumpulan & agregasi data (dipakai PDF & Excel) ======
+  // ====== Kumpulkan data (dipakai semua) ======
   async function collectRekapData(){
     const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
     const kelas = kelasEl?.value || '';
-    const startDate = document.querySelector('#pdf-start-date')?.value;
-    const endDate   = document.querySelector('#pdf-end-date')?.value;
+    const startDate = $('#pdf-start-date')?.value;
+    const endDate   = $('#pdf-end-date')?.value;
     if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai dan tanggal akhir.');
 
     const { line: kelasLine } = buildKelasKelompokLine(kelas, kelasEl);
@@ -2959,7 +3044,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const rosterByNis  = byNisMap(santriData, s => s);
     const rosterByName = byNameMap(santriData, s => s);
 
-    // 3) Normalisasi + injeksi NIS/Nama/ID/Semester
+    // 3) Normalisasi
     const allDataNorm = allData.map(r => {
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
@@ -2980,7 +3065,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       return { ...r, id, nis, nama, semester, tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null };
     });
 
-    // KBM hari unik (kelas)
+    // KBM hari unik
     const kbmDaySet = new Set();
     (allDataNorm||[]).forEach(it => { if (it?.tanggal) kbmDaySet.add(String(it.tanggal)); });
     const kbmDays = kbmDaySet.size;
@@ -2991,63 +3076,25 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
     if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
 
-    // Ringkasan total (untuk sheet Meta)
+    // Ringkasan total
     let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
     rows.forEach(r=>{ totJuz += r.totalJuz; totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin; totPages += r.totalPageSum; });
 
-    return { kelas, startDate, endDate, kelasLine, kbmDays, rows, allDataNorm,
-      totals: { totJuz, totH, totA, totS, totI, totPages }
+    return { rows, allDataNorm, kbmDays,
+      totals: { totJuz, totH, totA, totS, totI, totPages },
+      // untuk header
+      ...(function(){
+        const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
+        const kelas = kelasEl?.value || '';
+        const { line } = buildKelasKelompokLine(kelas, kelasEl);
+        return { kelas, kelasLine: line, startDate: $('#pdf-start-date')?.value, endDate: $('#pdf-end-date')?.value };
+      })()
     };
   }
 
-  // === Util: isi dropdown santri ===
-  async function populateSantriSelect(){
-    const sel = santriSelect;
-    if (!sel) return;
-
-    const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
-    const kelas = kelasEl?.value || '';
-    const startDate = $('#pdf-start-date')?.value;
-    const endDate   = $('#pdf-end-date')?.value;
-
-    sel.innerHTML = `<option value="">Memuat…</option>`;
-
-    try {
-      if (startDate && endDate) {
-        // Prioritas: hanya santri yang punya data di rentang tanggal
-        const { allDataNorm } = await collectRekapData();
-        const map = new Map();
-        for (const it of allDataNorm) {
-          const key = (it.nis && String(it.nis).trim()) || (it.id && String(it.id).trim());
-          if (!key) continue;
-          const nama = it.nama || '-';
-          if (!map.has(key)) map.set(key, { key, nama, nis: it.nis||'', id: it.id||'' });
-        }
-        const arr = [...map.values()].sort((a,b)=>a.nama.localeCompare(b.nama,'id'));
-        if (!arr.length) {
-          sel.innerHTML = `<option value="">— Tidak ada data di rentang tanggal —</option>`;
-          return;
-        }
-        sel.innerHTML = `<option value="">— Pilih santri (ada data) —</option>` +
-          arr.map(x => `<option value="${x.key}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis ? x.nis : x.id} — ${x.nama}</option>`).join('');
-      } else {
-        // Fallback: tampilkan seluruh roster kelas
-        const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
-        const data = await resSantri.json().catch(()=>[]) || [];
-        const arr = (data||[]).map(s => ({ key: (s.nis||s.id||'').toString(), nama: s.nama||'-', nis: s.nis||'', id: s.id||'' }))
-                              .filter(x => x.key).sort((a,b)=>a.nama.localeCompare(b.nama,'id'));
-        sel.innerHTML = `<option value="">— Pilih santri —</option>` +
-          arr.map(x => `<option value="${x.key}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis ? x.nis : x.id} — ${x.nama}</option>`).join('');
-      }
-    } catch(e){
-      sel.innerHTML = `<option value="">— Gagal memuat daftar santri —</option>`;
-      console.error(e);
-    }
-  }
-  window._populateSantriSelect = populateSantriSelect;
-
-  // ================= PDF (rekap kelas) =================
+  // ================= PDF Rekap Kelas =================
   async function pdfRekapDownload(){
+    const pdfBtn = document.getElementById('download-pdf-rekap');
     setBtnLoading(pdfBtn, true, 'Membuat PDF…');
     try {
       const { kelas, startDate, endDate, kelasLine, kbmDays, rows } = await collectRekapData();
@@ -3056,18 +3103,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
 
-      // === Tema (mirip dashboard) ===
       const theme = {
         cardBorder: [229,231,235],
         headerText: [15,23,42],
-        tableHeadFill: [30,136,229],   // #1E88E5
+        tableHeadFill: [30,136,229],
         zebraFill: [248,250,252],
         border: [229,231,235],
         text: [31,41,55],
-        statusFill: {
-          tuntas: [220,252,231], // hijau muda
-          khatam: [237,233,254]  // ungu muda
-        }
+        statusFill: { tuntas: [220,252,231], khatam: [237,233,254] }
       };
 
       const pageW  = doc.internal.pageSize.getWidth();
@@ -3091,10 +3134,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.text('Rekap Absensi & Setoran', margin.left, margin.top);
         doc.setFont('helvetica','normal'); doc.setFontSize(10);
         doc.text(kelasLine, margin.left, margin.top + 6);
-        doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 12);
+        doc.text(\`Periode: \${fmtD_M_YYYY(startDate)} s.d. \${fmtD_M_YYYY(endDate)}\`, margin.left, margin.top + 12);
         const rightX = pageW - margin.right - 70;
-        doc.text(`KBM: ${kbmDays} hari`, rightX, margin.top + 6);
-        doc.text(`Total Santri: ${rows.length}`, rightX, margin.top + 12);
+        doc.text(\`KBM: \${kbmDays} hari\`, rightX, margin.top + 6);
+        doc.text(\`Total Santri: \${rows.length}\`, rightX, margin.top + 12);
         doc.setTextColor(...theme.text);
       }
       function drawFooter(pageNo, totalPages, printedAt){
@@ -3102,12 +3145,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.setDrawColor(...theme.border); doc.setLineWidth(0.2);
         doc.line(margin.left-2, y-3, pageW-margin.right+2, y-3);
         doc.setFontSize(8);
-        doc.text(`Dicetak: ${printedAt}`, margin.left, y);
-        doc.text(`Halaman ${pageNo} / ${totalPages}`, pageW - margin.right - 30, y);
+        doc.text(\`Dicetak: \${printedAt}\`, margin.left, y);
+        doc.text(\`Halaman \${pageNo} / \${totalPages}\`, pageW - margin.right - 30, y);
       }
       function drawMeta(){ drawHeaderBar(); }
 
-      // ===== Kolom =====
       const cols = [
         { key:'no',       title:'No.',        w:11, minW:11, maxW:12, align:'center' },
         { key:'nis',      title:'NIS',        w:24, minW:18, maxW:34, align:'left'   },
@@ -3129,12 +3171,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       ];
       const contentW = pageW - margin.left - margin.right;
 
-      // ===== Data =====
       const tableData = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
-        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester); // KHATAM/TUNTAS/%
-
+        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
         const setoranText = PDF_joinSAsegments(r.saSegments);
         const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
@@ -3148,7 +3188,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           nama: r.nama || '-',
           sem: r.semester ?? '-',
           h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
-          hadirPct: `${hadirPct}%`,
+          hadirPct: \`\${hadirPct}%\`,
           setoran: setoranText,
           pages: pagesText,
           totPg: String(Math.round(r.totalPageSum)),
@@ -3160,16 +3200,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         };
       });
 
-      // ===== Fit kolom =====
       fitColumnsFlex(doc, cols, tableData, fontBody, contentW, cellPadX);
 
-      // ===== Render =====
       drawMeta();
       let x0 = margin.left;
       let y  = margin.top + headerGap;
 
       drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-      y += headerRowH; // header rapat ke baris 1
+      y += headerRowH;
 
       let rowIndex = 0;
       doc.setLineWidth(0.2);
@@ -3186,17 +3224,15 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           drawMeta();
           y = margin.top + headerGap;
           drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
-          y += headerRowH; // juga rapat setelah page break
+          y += headerRowH;
           rowIndex = 0;
         }
 
-        // zebra row
         if (rowIndex % 2 === 1) {
           doc.setFillColor(...theme.zebraFill);
           doc.rect(x0, y, sumWidth(cols), rowH, 'F');
         }
 
-        // cells
         let x = x0;
         doc.setFont('helvetica','normal');
         doc.setFontSize(fontBody);
@@ -3207,11 +3243,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           const col = cols[ci];
           const lines = wraps[ci];
 
-          // Highlight khusus kolom "Juz @%"
           if (col.key === 'persen') {
             const val = String(row[col.key] || '').toUpperCase();
             if (val === 'TUNTAS' || val === 'KHATAM') {
-              const fill = (val === 'TUNTAS') ? theme.statusFill.tuntas : theme.statusFill.khatam;
+              const fill = (val === 'TUNTAS') ? [220,252,231] : [237,233,254];
               doc.setFillColor(...fill);
               doc.rect(x, y, col.w, rowH, 'F');
             }
@@ -3230,7 +3265,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
             yy += lineH;
           }
 
-          doc.rect(x, y, col.w, rowH); // border sel
+          doc.rect(x, y, col.w, rowH);
           x += col.w;
         }
 
@@ -3238,19 +3273,16 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         rowIndex++;
       }
 
-      // ======= BLOK TANDA TANGAN =======
+      // Tanda tangan + footer
       function fmtDDMMYYYY(iso){
-        if (!iso) return null;
-        const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!m) return null;
-        return `${m[3]}-${m[2]}-${m[1]}`;
+        const m = String(iso||'').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+        return m ? \`\${m[3]}-\${m[2]}-\${m[1]}\` : iso;
       }
       const printedAt = new Date();
       const printedISO = printedAt.toISOString().slice(0,10);
       const ttdDate = fmtDDMMYYYY(endDate) || fmtDDMMYYYY(printedISO) || printedAt.toLocaleDateString('id-ID');
 
-      const spaceTop = 10; // jarak dari tabel
-      const neededH  = 36; // tinggi blok tanda tangan
+      const spaceTop = 10, neededH  = 36;
       if (y + spaceTop + neededH > pageH - margin.bottom){
         doc.addPage('a4', 'landscape');
         drawMeta();
@@ -3264,25 +3296,22 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const leftX  = margin.left;
       const rightX = margin.left + colW + colGap;
 
-      // Tanggal & tempat di kanan
       doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+      doc.text(\`Tengaran, \${ttdDate}\`, margin.left + totalW, y, { align:'right' });
 
       const headY = y + 8;
       doc.text('Mengetahui,', leftX, headY);
       doc.text('Pengampu Kelas,', rightX, headY);
 
-      // garis tanda tangan
       const lineY = headY + 24;
       doc.setDrawColor(...theme.border);
       doc.line(leftX,  lineY, leftX  + colW - 10, lineY);
       doc.line(rightX, lineY, rightX + colW - 10, lineY);
 
-      // ===== Footer halaman =====
       const totalPages = doc.internal.getNumberOfPages();
       for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooter(p, totalPages, printedAt.toLocaleString()); }
 
-      const fileName = `Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.pdf`;
+      const fileName = \`Rekap_\${kelas || 'kelas'}_\${startDate}_sd_\${endDate}.pdf\`;
       doc.save(fileName);
 
     } catch (err) {
@@ -3293,29 +3322,22 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     }
   }
 
-  // ============== PDF per Santri (PERTANGGAL + baris REKAP total, tanggal di bawah NIS) ==============
-  async function pdfSantriDownload(){
-    setBtnLoading(pdfSantriBtn, true, 'Membuat PDF per santri…');
+  // ============== PDF per Santri (dropdown saat klik + tanggal di bawah NIS) ==============
+  async function pdfSantriDownload(key, selectedNama){
+    const btn = document.getElementById('download-pdf-santri');
+    setBtnLoading(btn, true, 'Membuat PDF per santri…');
     try {
-      const sel = santriSelect;
-      if (!sel || !sel.value) {
-        await populateSantriSelect();
-        alert('Silakan pilih santri dari dropdown terlebih dahulu.');
-        return;
-      }
-      const key = sel.value;
-      const selectedNama = sel.options[sel.selectedIndex]?.dataset?.nama || '';
+      if (!key) { alert('Silakan pilih santri.'); return; }
 
       const { kelas, startDate, endDate, kelasLine, rows: aggRows, allDataNorm } = await collectRekapData();
 
-      // Kumpulan data untuk santri terpilih (NIS atau ID)
       const mine = allDataNorm.filter(it => (String(it.nis||it.id||'') === key));
       if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih pada rentang tanggal.');
 
       const namaSantri = selectedNama || (mine.find(it => it.nama)?.nama) || '-';
       const semesterSantri = (mine.find(it => it.semester!=null)?.semester) ?? null;
 
-      // Agregasi per-tanggal
+      // Per-tanggal
       const byDate = new Map();
       for (const it of mine) {
         const tgl = it.tanggal || '-';
@@ -3363,7 +3385,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       const dayRows = [...byDate.values()].sort((a,b)=> (a.tanggal||'').localeCompare(b.tanggal||''));
 
-      // Ambil rekap total dari aggregator global
       const agg = aggRows.find(r => r.nis === key || (!r.nis && r.id === key));
       const totH = agg?.hadir ?? dayRows.reduce((s,d)=>s+d.cnt.hadir,0);
       const totA = agg?.alpha ?? dayRows.reduce((s,d)=>s+d.cnt.alpha,0);
@@ -3374,12 +3395,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const nilaiAvg = (agg?.nilaiCount ? agg.nilaiSum/agg.nilaiCount : 0);
       const statusJuzTotal = PDF_totalAllJuzStatus(totJuz, agg?.semester ?? semesterSantri);
 
-      // Hadir% total (berbasis hari yang ada 'hadir')
       const daysCount = agg?.daysCount ?? dayRows.length;
       const hadirDays = agg?.hadirDays ?? dayRows.filter(d => d.cnt.hadir > 0).length;
       const hadirPctTotal = daysCount > 0 ? Math.round((hadirDays / daysCount) * 100) : 0;
 
-      // === Susun baris harian (KOLUMNYA SAMA DENGAN REKAP KELAS), simpan tanggal untuk ditaruh di bawah NIS ===
       const tableRows = dayRows.map((d, idx) => {
         const validSessions = d.cnt.hadir + d.cnt.alpha + d.cnt.sakit + d.cnt.izin;
         const hadirPct = validSessions > 0 ? Math.round(100 * d.cnt.hadir / validSessions) : 0;
@@ -3388,7 +3407,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         const statusJuzHarian = PDF_totalAllJuzStatus(d.totalJuz, semesterSantri);
 
         return {
-          tanggal: d.tanggal,                               // <-- simpan tanggal
+          tanggal: d.tanggal,
           no: String(idx+1),
           nis: key,
           nama: namaSantri,
@@ -3397,7 +3416,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           a: d.cnt.alpha,
           s: d.cnt.sakit,
           i: d.cnt.izin,
-          hadirPct: `${hadirPct}%`,
+          hadirPct: \`\${hadirPct}%\`,
           setoran: PDF_joinSAsegments(d.sa),
           pages: PDF_joinRangeSegments(d.pages, false),
           totPg: String(Math.round(d.totalPage)),
@@ -3409,7 +3428,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         };
       });
 
-      // === Tambahkan baris REKAP TOTAL (paling bawah) ===
       const predTotal = PDF_predikatFromScore(nilaiAvg);
       const setoranTotal = agg ? PDF_joinSAsegments(agg.saSegments) : '-';
       const pagesTotal   = agg ? PDF_joinRangeSegments(agg.pageSegments, false) : '-';
@@ -3422,7 +3440,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         nama: 'REKAP',
         sem: semesterSantri ?? (agg?.semester ?? '-'),
         h: totH, a: totA, s: totS, i: totI,
-        hadirPct: `${hadirPctTotal}%`,
+        hadirPct: \`\${hadirPctTotal}%\`,
         setoran: setoranTotal,
         pages: pagesTotal,
         totPg: String(totPages),
@@ -3445,7 +3463,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         zebraFill: [248,250,252],
         border: [229,231,235],
         text: [31,41,55],
-        statusFill: { tuntas: [220,252,231], khatam: [237,233,254] } // hijau muda / ungu muda
+        statusFill: { tuntas: [220,252,231], khatam: [237,233,254] }
       };
 
       const pageW  = doc.internal.pageSize.getWidth();
@@ -3453,8 +3471,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const margin = { left: 12, right: 12, top: 12, bottom: 12 };
       const headerGap = 30, fontBody = 8.5, fontHead = fontBody + 1;
       const lineFactor = 1.18, lineH = fontBody * 0.3528 * lineFactor;
-      const fontBodySmall = Math.max(6.5, fontBody - 0.8);        // untuk tanggal (agak kecil)
-      const lineHSmall = fontBodySmall * 0.3528 * lineFactor;     // line height kecil
+      const fontBodySmall = Math.max(6.5, fontBody - 0.8);   // tanggal (kecil)
+      const lineHSmall = fontBodySmall * 0.3528 * lineFactor;
       const cellPadX = 1.6, cellPadY = 1.2;
       const headerRowH = Math.max(9, fontHead * 0.3528 * lineFactor + 2*cellPadY);
 
@@ -3466,10 +3484,10 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.text('Rincian Per Santri — Absensi & Setoran', margin.left, margin.top);
         doc.setFont('helvetica','normal'); doc.setFontSize(10);
         doc.text(kelasLine, margin.left, margin.top + 6);
-        doc.text(`Santri: ${key} — ${namaSantri}`, margin.left, margin.top + 12);
+        doc.text(\`Santri: \${key} — \${namaSantri}\`, margin.left, margin.top + 12);
         const rightX = pageW - margin.right - 78;
-        doc.text(`Semester: ${tableRows.find(r=>!r._isRekap)?.sem ?? '-'}`, rightX, margin.top + 6);
-        doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, rightX, margin.top + 12);
+        doc.text(\`Semester: \${tableRows.find(r=>!r._isRekap)?.sem ?? '-'}\`, rightX, margin.top + 6);
+        doc.text(\`Periode: \${fmtD_M_YYYY(startDate)} s.d. \${fmtD_M_YYYY(endDate)}\`, rightX, margin.top + 12);
         doc.setTextColor(...theme.text);
       }
       function drawFooterS(pageNo, totalPages, printedAt){
@@ -3477,14 +3495,13 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.setDrawColor(...theme.border); doc.setLineWidth(0.2);
         doc.line(margin.left-2, y-3, pageW-margin.right+2, y-3);
         doc.setFontSize(8);
-        doc.text(`Dicetak: ${printedAt}`, margin.left, y);
-        doc.text(`Halaman ${pageNo} / ${totalPages}`, pageW - margin.right - 30, y);
+        doc.text(\`Dicetak: \${printedAt}\`, margin.left, y);
+        doc.text(\`Halaman \${pageNo} / \${totalPages}\`, pageW - margin.right - 30, y);
       }
 
-      // Kolom tabel per-santri (SAMA DENGAN REKAP KELAS)
       const cols = [
         { key:'no',       title:'No.',        w:11, minW:11, maxW:12, align:'center' },
-        { key:'nis',      title:'NIS',        w:26, minW:20, maxW:36, align:'left'   }, // beri sedikit lebar untuk 2 baris
+        { key:'nis',      title:'NIS',        w:26, minW:20, maxW:36, align:'left'   }, // ruang 2 baris
         { key:'nama',     title:'Nama',       w:46, minW:36, maxW:80, align:'left'   },
         { key:'sem',      title:'Semester',   w:22, minW:22, maxW:22, align:'center' },
         { key:'h',        title:'H',          w:8,  minW:6,  maxW:10, align:'center' },
@@ -3504,7 +3521,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const contentW = pageW - margin.left - margin.right;
       fitColumnsFlex(doc, cols, tableRows, fontBody, contentW, cellPadX);
 
-      // Render
       drawHeaderBarS();
       let x0 = margin.left;
       let y  = margin.top + headerGap;
@@ -3516,9 +3532,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       doc.setLineWidth(0.2);
 
       for (const row of tableRows) {
-        // Buat wraps default
         const wraps = cols.map(col => doc.splitTextToSize(String(row[col.key] ?? ''), Math.max(1, col.w - 2*cellPadX)));
-        // Ganti wraps untuk kolom NIS: dua baris (NIS + tanggal)
+        // NIS => 2 baris (NIS + tanggal samar)
         const nisIdx = cols.findIndex(c => c.key === 'nis');
         if (nisIdx >= 0) {
           const lines = [String(row.nis || '-')];
@@ -3526,9 +3541,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           wraps[nisIdx] = lines;
         }
 
-        // Hitung tinggi baris (khusus 'nis' pakai 2 line dengan lineHSmall untuk baris kedua)
+        // tinggi baris (khusus 'nis' pakai line kecil di baris 2)
         const rowTextHeights = wraps.map((lines, i) => {
-          if (cols[i].key === 'nis' && lines.length === 2) {
+          if (cols[i].key === 'nis' && lines.length === 2 && !row._isRekap) {
             return lineH + lineHSmall;
           }
           return lines.length * lineH;
@@ -3544,13 +3559,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           rowIndex = 0;
         }
 
-        // zebra (kecuali baris rekap boleh ikut zebra juga; opsional)
         if (rowIndex % 2 === 1 && !row._isRekap) {
           doc.setFillColor(...theme.zebraFill);
           doc.rect(x0, y, sumWidth(cols), rowH, 'F');
         }
 
-        // cells
         let x = x0;
         doc.setFont('helvetica','normal');
         doc.setFontSize(fontBody);
@@ -3561,49 +3574,43 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           const col = cols[ci];
           const lines = wraps[ci];
 
-          // Highlight kolom "Juz @%"
           if (col.key === 'persen') {
             const val = String(row[col.key] || '').toUpperCase();
             if (val === 'TUNTAS' || val === 'KHATAM') {
-              const fill = (val === 'TUNTAS') ? theme.statusFill.tuntas : theme.statusFill.khatam;
+              const fill = (val === 'TUNTAS') ? [220,252,231] : [237,233,254];
               doc.setFillColor(...fill);
               doc.rect(x, y, col.w, rowH, 'F');
             }
           }
 
-          // posisi teks
-          let yy;
+          // render sel
           if (col.key === 'nis' && lines.length === 2 && !row._isRekap) {
-            // dua baris: NIS (normal), tanggal (kecil & abu-abu)
-            const totalTextH = lineH + lineHSmall;
-            yy = y + (rowH - totalTextH)/2 + lineH*0.82;
-
-            // Baris 1: NIS
+            // baris 1 (NIS) normal
             let tx = (col.align==='right') ? (x + col.w - cellPadX) : (col.align==='center' ? (x + col.w/2) : (x + cellPadX));
             let opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
+            const totalTextH = lineH + lineHSmall;
+            let yy = y + (rowH - totalTextH)/2 + lineH*0.82;
+
             doc.setFontSize(fontBody);
             doc.setTextColor(...theme.text);
             doc.text(String(lines[0]), tx, yy, opt);
 
-            // Baris 2: tanggal, kecil & abu-abu
+            // baris 2 (tanggal) kecil & abu-abu
             yy += lineH;
             doc.setFontSize(fontBodySmall);
             doc.setTextColor(156,163,175); // gray-400
             doc.text(String(lines[1]), tx, yy, opt);
 
-            // Kembalikan font & warna
+            // reset
             doc.setFontSize(fontBody);
             doc.setTextColor(...theme.text);
-
           } else {
-            // default render multi-line
             const textBlockH = lines.length * lineH;
-            yy = y + (rowH - textBlockH)/2 + lineH*0.82;
+            let yy = y + (rowH - textBlockH)/2 + lineH*0.82;
             let tx, opt = {};
             if (col.align === 'right') { tx = x + col.w - cellPadX; opt = { align:'right' }; }
             else if (col.align === 'center') { tx = x + col.w/2; opt = { align:'center' }; }
             else { tx = x + cellPadX; }
-
             for (let li=0; li<lines.length; li++){
               doc.text(String(lines[li]), tx, yy, opt);
               yy += lineH;
@@ -3620,8 +3627,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       // Tanda tangan + footer
       function fmtDDMMYYYY(iso){
-        const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
+        const m = String(iso||'').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+        return m ? \`\${m[3]}-\${m[2]}-\${m[1]}\` : iso;
       }
       const printedAt = new Date();
       const printedISO = printedAt.toISOString().slice(0,10);
@@ -3642,7 +3649,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const rightX = margin.left + colW + colGap;
 
       doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+      doc.text(\`Tengaran, \${ttdDate}\`, margin.left + totalW, y, { align:'right' });
 
       const headY = y + 8;
       doc.text('Mengetahui,', leftX, headY);
@@ -3656,14 +3663,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const totalPages = doc.internal.getNumberOfPages();
       for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooterS(p, totalPages, printedAt.toLocaleString()); }
 
-      const fileName = `Rekap_perSantri_${key}_${startDate}_sd_${endDate}.pdf`;
+      const fileName = \`Rekap_perSantri_\${key}_\${startDate}_sd_\${endDate}.pdf\`;
       doc.save(fileName);
 
     } catch (err) {
       console.error(err);
       alert('Gagal mengunduh PDF per santri: ' + (err.message || err));
     } finally {
-      setBtnLoading(pdfSantriBtn, false);
+      setBtnLoading(btn, false);
     }
   }
 
@@ -3682,7 +3689,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
-
         const setoranText = PDF_joinSAsegments(r.saSegments);
         const pagesText   = PDF_joinRangeSegments(r.pageSegments, false);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
@@ -3702,7 +3708,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           Math.round(r.totalPageSum),
           juzText,
           Number(r.totalJuz.toFixed(2)),
-          statusJuz.label,               // KHATAM/TUNTAS/% di XLSX
+          statusJuz.label,
           (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
           pred.huruf
         ];
@@ -3743,7 +3749,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     }
   }
 
-  // ===== Util: sum width & auto-fit kolom (XLSX) =====
+  // ===== Util =====
   function sumWidth(cols){ return cols.reduce((s,c)=>s + (Number(c.w)||0), 0); }
   function autoFitColumns(aoa){
     const colCount = Math.max(...aoa.map(r => r.length));
@@ -3759,61 +3765,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return cols;
   }
 
-  // ======= Fit kolom fleksibel =======
-  function fitColumnsFlex(doc, cols, tableData, fontSize, contentW, padX){
-    const keys = cols.map(c => c.key);
-    const weights = keys.map((k,i) => {
-      const headLen = String(cols[i].title || '').length;
-      let maxLen = headLen;
-      const sampleLimit = Math.min(300, tableData.length);
-      for (let r=0; r<sampleLimit; r++){
-        const s = String(tableData[r][k] ?? '');
-        if (s.length > maxLen) maxLen = s.length;
-      }
-      if (['nama','setoran','pages','juz'].includes(k)) maxLen *= 1.25;
-      return maxLen;
-    });
-
-    const minSum = cols.reduce((a,c)=>a+(c.minW||c.w||8),0);
-    const maxSum = cols.reduce((a,c)=>a+(c.maxW||c.w||8),0);
-    const target = Math.max(minSum, Math.min(maxSum, contentW));
-
-    const sumWgt = weights.reduce((a,b)=>a+b,0) || 1;
-    let widths = cols.map((c,i)=>{
-      const minW = c.minW ?? c.w ?? 8;
-      const maxW = c.maxW ?? (minW+20);
-      const frac = weights[i] / sumWgt;
-      const raw  = minW + (target - minSum) * frac;
-      return Math.max(minW, Math.min(maxW, raw));
-    });
-
-    let used = widths.reduce((a,b)=>a+b,0);
-    let diff = target - used;
-    const step = diff >= 0 ? 0.1 : -0.1;
-    let guard = 0;
-    while (Math.abs(diff) > 0.09 && guard++ < 200){
-      for (let i=0; i<cols.length && Math.abs(diff)>0.09; i++){
-        const minW = cols[i].minW ?? cols[i].w ?? 8;
-        const maxW = cols[i].maxW ?? (minW+20);
-        const canGrow = diff>0 && widths[i] + step <= maxW;
-        const canShrink = diff<0 && widths[i] + step >= minW;
-        if (canGrow || canShrink){ widths[i] += step; diff -= step; }
-      }
-    }
-
-    widths = widths.map(w => Math.round(w*10)/10);
-    const sumRounded = widths.reduce((a,b)=>a+b,0);
-    const fix = Math.round((target - sumRounded)*10)/10;
-    widths[widths.length-1] += fix;
-
-    for (let i=0;i<cols.length;i++) cols[i].w = widths[i];
-  }
-
-  // ======= Helper PDF & Aggregator =======
+  // ===== Aggregator & Helpers =====
   function PDF_normKey(v){ return String(v ?? '').trim(); }
   function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
-  function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
-  function PDF_parseSA(sa){ const m=String(sa||'').trim().match(/^(\d+)\s*:\s*(\d+)$/); return m?{s:+m[1], a:+m[2]}:null; }
+  function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\\d+)\\s*-\\s*(\\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
+  function PDF_parseSA(sa){ const m=String(sa||'').trim().match(/^(\\d+)\\s*:\\s*(\\d+)$/); return m?{s:+m[1], a:+m[2]}:null; }
   function PDF_compareSA(x,y){ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; }
   function PDF_fmtSA(o){ return o?`${o.s}:${o.a}`:'-'; }
   function PDF_normStatus(s){
@@ -3841,7 +3797,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     for (let i=1; i<=arr.length; i++){
       const curr = arr[i];
       if (curr === prev + 1) { prev = curr; continue; }
-      out.push(start===prev ? `Juz ${start}` : `Juz ${start}-${prev}`);
+      out.push(start===prev ? \`Juz \${start}\` : \`Juz \${start}-\${prev}\`);
       start = curr; prev = curr;
     }
     return out.join('; ');
@@ -3849,7 +3805,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   function PDF_juzRangeText(set){
     if (!set || set.size===0) return '-';
     const arr = Array.from(set).sort((a,b)=>a-b);
-    return arr.length===1 ? `Juz ${arr[0]}` : `Juz ${arr[0]}-${arr[arr.length-1]}`;
+    return arr.length===1 ? \`Juz \${arr[0]}\` : \`Juz \${arr[0]}-\${arr[arr.length-1]}\`;
   }
   function PDF_parseJuzTerbacaField(val){
     const out = new Set();
@@ -3864,9 +3820,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
     let str = String(val);
     str = str.replace(/[–—−]/g, '-');
-    str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
-    str = str.replace(/juz\s*:?/gi, 'juz ');
-    const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
+    str = str.replace(/\\s*(s\\.?.d\\.?|sd|sampai|to)\\s*/gi, '-');
+    str = str.replace(/juz\\s*:?/gi, 'juz ');
+    const re = /(?:juz\\s*)?(\\d{1,2})(?:\\s*-\\s*(\\d{1,2}))?/gi;
     let m;
     while ((m = re.exec(str)) !== null) {
       let a = parseInt(m[1], 10);
@@ -3924,7 +3880,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return out.length ? out.join(', ') : '-';
   }
 
-  // >>>>> Capaian target per semester (FIX) <<<<<
+  // >>>>> Target capaian per semester <<<<<
   function PDF_percentCapaian(totalJuzNum, semester){
     const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
     const total = Number(totalJuzNum);
@@ -3942,15 +3898,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     if (p >= 100) return { label:'TUNTAS', percent:p };
     return { label: `${p}%`, percent:p };
   }
-  // >>>>> END FIX <<<<<
 
   // === Agregator ===
   function PDF_buildRekapPerKey(items){
     const map = Object.create(null);
     for (const it of (items||[])) {
-      const id  = PDF_normKey(it?.id);
-      const nis = PDF_normKey(it?.nis);
-      const key = PDF_normKey(nis || id);
+      const id  = (it?.id ?? '').toString().trim();
+      const nis = (it?.nis ?? '').toString().trim();
+      const key = (nis || id).trim();
       if (!key) continue;
 
       if (!map[key]) map[key] = {
@@ -4072,14 +4027,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return map;
   }
 
-  // ======= Header tabel =======
   function drawTableHeader(doc, cols, x, y, rowH, fontSize, theme, padX){
     const totalW = sumWidth(cols);
     doc.setFillColor(...theme.tableHeadFill);
     doc.setDrawColor(...theme.border);
-    doc.rect(x, y, totalW, rowH, 'FD'); // KOTAK (bukan rounded)
+    doc.rect(x, y, totalW, rowH, 'FD');
 
-    // teks header putih & tebal
     doc.setFont('helvetica','bold');
     doc.setFontSize(fontSize);
     doc.setTextColor(255,255,255);
@@ -4095,16 +4048,13 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
                : (cx + padX);
       const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
       for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
-      doc.rect(cx, y, col.w, rowH); // garis kolom header
+      doc.rect(cx, y, col.w, rowH);
       cx += col.w;
     }
-
-    // kembali ke default
     doc.setTextColor(...theme.text);
     doc.setFont('helvetica','normal');
   }
 })();
-
 
 
 
