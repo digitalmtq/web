@@ -1225,12 +1225,10 @@ async function submitTambahKelasBaru() {
     try {
       if (window._pdfSantriDownload) {
         await window._pdfSantriDownload(); // validasi & generate
-        // jika sukses, tutup modal santri
-        santriModalOverlay.style.display = "none";
+        santriModalOverlay.style.display = "none"; // sukses => tutup
       }
     } catch (e) {
-      // jika gagal, biarkan modal tetap terbuka agar user bisa memperbaiki
-      console.error(e);
+      console.error(e); // gagal => biarkan modal tetap terbuka
     }
   });
 
@@ -2956,8 +2954,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   pdfBtn?.classList.add('rekap-btn');
   pdfBtn?.addEventListener('click', pdfRekapDownload);
   xlsBtn?.addEventListener('click', xlsRekapDownload);
-  // ⚠️ JANGAN panggil pdfSantriDownload di sini; tombol ini sekarang hanya membuka modal kedua.
-  // pdfSantriBtn?.addEventListener('click', pdfSantriDownload); // <-- dihapus
+  // ⚠️ Jangan panggil pdfSantriDownload di tombol ini; ia hanya membuka modal kedua.
 
   // Saat tanggal berubah, muat ulang opsi santri (opsional)
   $('#pdf-start-date')?.addEventListener('change', () => { window._populateSantriSelect?.(); });
@@ -3006,7 +3003,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const rosterByNis  = byNisMap(santriData, s => s);
     const rosterByName = byNameMap(santriData, s => s);
 
-    // 3) Normalisasi + injeksi NIS/Nama/ID/Semester
+    // 3) Normalisasi
     const allDataNorm = allData.map(r => {
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
@@ -3061,7 +3058,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
     try {
       if (startDate && endDate) {
-        // Prioritas: hanya santri yang punya data di rentang tanggal
         const { allDataNorm } = await collectRekapData();
         const map = new Map();
         for (const it of allDataNorm) {
@@ -3078,7 +3074,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         sel.innerHTML = `<option value="">— Pilih santri (ada data) —</option>` +
           arr.map(x => `<option value="${x.key}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis ? x.nis : x.id} — ${x.nama}</option>`).join('');
       } else {
-        // Fallback: seluruh roster kelas
         const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
         const data = await resSantri.json().catch(()=>[]) || [];
         const arr = (data||[]).map(s => ({ key: (s.nis||s.id||'').toString(), nama: s.nama||'-', nis: s.nis||'', id: s.id||'' }))
@@ -3490,7 +3485,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         zebraFill: [248,250,252],
         border: [229,231,235],
         text: [31,41,55],
-        statusFill: { tuntas: [220,252,231], khatam: [237,233,254] }
+        statusFill: { tuntas: [220,252,231], khatam: [237,233,254] },
+        rekapFill: [255, 249, 196] // kuning muda (#FFF9C4)
       };
 
       const pageW  = doc.internal.pageSize.getWidth();
@@ -3558,6 +3554,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       doc.setLineWidth(0.2);
 
       for (const row of tableRows) {
+        // wraps
         const wraps = cols.map(col => doc.splitTextToSize(String(row[col.key] ?? ''), Math.max(1, col.w - 2*cellPadX)));
         const nisIdx = cols.findIndex(c => c.key === 'nis');
         if (nisIdx >= 0) {
@@ -3566,15 +3563,17 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           wraps[nisIdx] = lines;
         }
 
-        const lineHSmall = Math.max(6.5, fontBody - 0.8) * 0.3528 * 1.18;
+        const baseLH = fontBody * 0.3528 * 1.18;
+        const lineHSmall = fontBodySmall * 0.3528 * 1.18;
         const rowTextHeights = wraps.map((lines, i) => {
           if (cols[i].key === 'nis' && lines.length === 2) {
-            return (fontBody * 0.3528 * 1.18) + lineHSmall;
+            return baseLH + lineHSmall;
           }
-          return lines.length * (fontBody * 0.3528 * 1.18);
+          return lines.length * baseLH;
         });
-        const rowH = Math.max((fontBody * 0.3528 * 1.18) + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
+        const rowH = Math.max(baseLH + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
 
+        // page break
         if (y + rowH > pageH - margin.bottom) {
           doc.addPage('a4', 'landscape');
           drawHeaderBarS();
@@ -3584,11 +3583,17 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           rowIndex = 0;
         }
 
-        if (rowIndex % 2 === 1 && !row._isRekap) {
+        // >>> REKAP full-row background (kuning muda) <<<
+        if (row._isRekap) {
+          doc.setFillColor(...theme.rekapFill);
+          doc.rect(x0, y, sumWidth(cols), rowH, 'F');
+        } else if (rowIndex % 2 === 1) {
+          // zebra biasa
           doc.setFillColor(...theme.zebraFill);
           doc.rect(x0, y, sumWidth(cols), rowH, 'F');
         }
 
+        // draw cells
         let x = x0;
         doc.setFont('helvetica','normal');
         doc.setFontSize(fontBody);
@@ -3599,7 +3604,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           const col = cols[ci];
           const lines = wraps[ci];
 
-          if (col.key === 'persen') {
+          // highlight 'persen' hanya untuk baris non-REKAP (biar kuningnya full)
+          if (!row._isRekap && col.key === 'persen') {
             const val = String(row[col.key] || '').toUpperCase();
             if (val === 'TUNTAS' || val === 'KHATAM') {
               const fill = (val === 'TUNTAS') ? theme.statusFill.tuntas : theme.statusFill.khatam;
@@ -3609,9 +3615,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           }
 
           let yy;
-          const baseLH = fontBody * 0.3528 * 1.18;
           if (col.key === 'nis' && lines.length === 2 && !row._isRekap) {
-            const totalTextH = baseLH + (Math.max(6.5, fontBody - 0.8) * 0.3528 * 1.18);
+            const totalTextH = baseLH + lineHSmall;
             yy = y + (rowH - totalTextH)/2 + baseLH*0.82;
 
             let tx = (col.align==='right') ? (x + col.w - cellPadX) : (col.align==='center' ? (x + col.w/2) : (x + cellPadX));
@@ -3622,13 +3627,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
             doc.text(String(lines[0]), tx, yy, opt);
 
             yy += baseLH;
-            doc.setFontSize(Math.max(6.5, fontBody - 0.8));
+            doc.setFontSize(fontBodySmall);
             doc.setTextColor(156,163,175);
             doc.text(String(lines[1]), tx, yy, opt);
 
             doc.setFontSize(fontBody);
             doc.setTextColor(...theme.text);
-
           } else {
             const textBlockH = lines.length * baseLH;
             yy = y + (rowH - textBlockH)/2 + baseLH*0.82;
