@@ -1101,12 +1101,13 @@ async function submitTambahKelasBaru() {
             <th>Setoran Dari</th>
             <th>Setoran Sampai</th>
 			<th>Page</th>
-			<th>Total Page</th>
+			<th>Total</th>
 			<th>Juz</th>
-            <th>Total Juz</th>
+            <th>Total</th>
+			<th>Jenjang</th>
             <th>Semester</th>
             <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Total All Juz</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -1278,8 +1279,8 @@ async function submitTambahKelasBaru() {
   </div>
 </div>
 	
-
-  <div id="modalSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
+<!-- Modal Tambah Santri -->
+<div id="modalSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
   <div style="background:#fff; width:320px; margin:100px auto; padding:20px; border-radius:10px;">
     <h2>Tambah Santri</h2>
 
@@ -1299,9 +1300,23 @@ async function submitTambahKelasBaru() {
       <option value="6">6</option>
     </select>
 
-    <div style="margin-top:10px; display:flex; justify-content:space-between;">
-      <button onclick="simpanSantriBaru()">Simpan</button>
-    <button onclick="tutupModal('modalSantri')">❌ Batal</button>
+    <!-- ⬇️ BARU: Jenjang -->
+    <label>Jenjang:</label><br>
+    <select id="inputJenjang" style="width:90%; margin-bottom:10px;">
+      <option value="">- pilih -</option>
+      <option value="A1">A1</option>
+      <option value="A2">A2</option>
+      <option value="A3">A3</option>
+      <option value="A4">A4</option>
+      <option value="A5">A5</option>
+      <option value="A6">A6</option>
+      <option value="A7">A7</option>
+      <option value="A8">A8</option>
+    </select>
+
+    <div style="margin-top:10px; display:flex; justify-content:space-between; gap:8px;">
+      <button id="btnSimpanSantri" onclick="simpanSantriBaru()">Simpan</button>
+      <button onclick="tutupModal('modalSantri')">❌ Batal</button>
     </div>
 
     <div id="loadingTambahSantri" style="display:none; margin-top:10px; color:blue;">
@@ -4543,56 +4558,75 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 
 <script>
+ // Tambah Santri
   function bukaModalSantri() {
     document.getElementById("modalSantri").style.display = "block";
   }
 
-  function tutupModal() {
-    document.getElementById("modalSantri").style.display = "none";
+  // Disesuaikan dengan pemanggilanmu: tutupModal('modalSantri')
+  function tutupModal(id) {
+    const modal = document.getElementById(id || "modalSantri");
+    if (modal) modal.style.display = "none";
+    // reset form
     document.getElementById("inputNama").value = "";
     document.getElementById("inputNis").value = "";
     document.getElementById("inputSemester").value = "1";
+    const jenSel = document.getElementById("inputJenjang");
+    if (jenSel) jenSel.value = ""; // reset ke "- pilih -"
     document.getElementById("loadingTambahSantri").style.display = "none";
+    const btn = document.getElementById("btnSimpanSantri");
+    if (btn) { btn.disabled = false; btn.textContent = "Simpan"; btn.style.opacity = ""; btn.style.cursor = ""; }
   }
 
   async function simpanSantriBaru() {
-    const nama = document.getElementById("inputNama").value.trim();
-    const nis = document.getElementById("inputNis").value.trim();
+    const nama     = document.getElementById("inputNama").value.trim();
+    const nis      = document.getElementById("inputNis").value.trim();
     const semester = document.getElementById("inputSemester").value;
-    const kelas = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
+    const jenjang  = document.getElementById("inputJenjang").value; // ⬅️ BARU
+    const kelas    = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
 
-    if (!nama) {
-      alert("Nama tidak boleh kosong.");
+    // Validasi dasar
+    if (!nama) { alert("Nama tidak boleh kosong."); return; }
+    if (!nis)  { alert("NIS tidak boleh kosong.");  return; }
+    if (!/^[1-6]$/.test(String(semester))) {
+      alert("Semester harus 1-6.");
       return;
     }
-    if (!nis) {
-      alert("NIS tidak boleh kosong.");
+    // Jenjang boleh kosong atau A1..A8 (ubah jika ingin wajib)
+    if (jenjang && !/^A[1-8]$/.test(jenjang)) {
+      alert("Jenjang harus A1 - A8 (atau kosong).");
       return;
     }
 
     const loadingEl = document.getElementById("loadingTambahSantri");
+    const btn = document.getElementById("btnSimpanSantri");
     loadingEl.style.display = "block";
+    if (btn) { btn.disabled = true; btn.textContent = "Menyimpan…"; btn.style.opacity = "0.6"; btn.style.cursor = "not-allowed"; }
 
     try {
       const res = await fetch("/.netlify/functions/tambahSantri", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nama, nis, semester, kelas })
+        // ⬇️ sertakan jenjang ke payload
+        body: JSON.stringify({ nama, nis, semester, jenjang, kelas })
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       loadingEl.style.display = "none";
 
-      if (res.ok) {
+      if (res.ok && (data?.success ?? true)) {
         alert("Santri berhasil ditambahkan!");
-        tutupModal();
+        tutupModal("modalSantri");
+        // Refresh agar data & map master (semesterMap/jenjangMap) ikut terbaru
         location.reload();
       } else {
-        alert("Gagal menambahkan: " + data.error);
+        alert("Gagal menambahkan: " + (data?.error || res.statusText));
+        if (btn) { btn.disabled = false; btn.textContent = "Simpan"; btn.style.opacity = ""; btn.style.cursor = ""; }
       }
     } catch (err) {
       loadingEl.style.display = "none";
       alert("Terjadi kesalahan: " + err.message);
+      if (btn) { btn.disabled = false; btn.textContent = "Simpan"; btn.style.opacity = ""; btn.style.cursor = ""; }
     }
   }
 </script>
