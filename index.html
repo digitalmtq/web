@@ -3114,7 +3114,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       const pageW  = doc.internal.pageSize.getWidth();
       const pageH  = doc.internal.pageSize.getHeight();
-      const margin = { left: 12, right: 12, top: 12, bottom: 12 };
+      const margin = { left: 10, right: 12, top: 12, bottom: 12 };
 
       const headerGap = 30;
       const fontBody = 8.5;
@@ -3229,10 +3229,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       // Render tabel + footer
       drawHeaderBar();
-      const tableW = sumWidth(cols);
-	  let x0 = margin.left + ((pageW - margin.left - margin.right - tableW) / 2); // center horizontally
-	  let y  = margin.top + headerGap;
-
+      let x0 = margin.left;
+      let y  = margin.top + headerGap;
 
       drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
       y += headerRowH;
@@ -3321,11 +3319,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const rightX = margin.left + colW + colGap;
 
       doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Tengaran, ${ttdDate}`, x0 + totalW, y, { align:'right' });
+      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
 
       const headY = y + 8;
-      const leftX  = x0;
-	  const rightX = x0 + colW + colGap;
+      doc.text('Mengetahui,', leftX, headY);
+      doc.text('Pengampu Kelas,', rightX, headY);
 
       const lineY = headY + 24;
       doc.setDrawColor(...theme.border);
@@ -3549,10 +3547,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       fitColumnsFlex(doc, cols, tableRows, fontBody, contentW, cellPadX);
 
       drawHeaderBarS();
-      const tableW = sumWidth(cols);
-	  let x0 = margin.left + ((pageW - margin.left - margin.right - tableW) / 2); // center horizontally
-	  let y  = margin.top + headerGap;
-
+      let x0 = margin.left;
+      let y  = margin.top + headerGap;
 
       drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
       y += headerRowH;
@@ -3685,11 +3681,11 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const rightX = margin.left + colW + colGap;
 
       doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Tengaran, ${ttdDate}`, x0 + totalW, y, { align:'right' });
+      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
 
       const headY = y + 8;
-      const leftX  = x0;
-	  const rightX = x0 + colW + colGap;
+      doc.text('Mengetahui,', leftX, headY);
+      doc.text('Pengampu Kelas,', rightX, headY);
 
       const lineY = headY + 24;
       doc.setDrawColor(...theme.border);
