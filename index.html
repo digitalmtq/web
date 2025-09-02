@@ -2317,6 +2317,7 @@ async function loadSantriData() {
     const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
     setButtonsDisabled(isModeNIS);
 	setNISDropdownDisabled(isModeNIS);
+	  
 
 
     // RENDER TABEL
@@ -5517,12 +5518,13 @@ document.addEventListener("DOMContentLoaded", () => {
 		
 <script>
 // ==========================
-// Helper A (tanpa opacity): kunci 3 dropdown
+// Helper A (soft-lock, tanpa abu-abu)
 // ==========================
 (function () {
   let nisObserver = null;
   const norm = s => String(s||"").trim().toLowerCase();
 
+  // sinonim agar deteksi fleksibel
   const MAP = {
     semester:   ["semester","smtr"],
     jenjang:    ["jenjang","level","tingkat","kelas","halaqoh","halaqah"],
@@ -5544,12 +5546,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const found = new Set();
 
-    // (1) data-col yang eksplisit
+    // (1) Eksplisit via data-col pada <td>
     table.querySelectorAll(
       "td[data-col='jenjang'] select, td[data-col='semester'] select, td[data-col='keterangan'] select"
     ).forEach(s => found.add(s));
 
-    // (2) atribut yang mengandung kata kunci
+    // (2) Atribut select mengandung kata kunci
     table.querySelectorAll("select").forEach(sel => {
       const hay = [
         sel.getAttribute("name"),
@@ -5562,7 +5564,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (ALL_KEYS.some(k => hay.includes(k))) found.add(sel);
     });
 
-    // (3) fallback: header → kolom → select
+    // (3) Fallback header → kolom → select
     const headRow = table.tHead?.rows?.[0] || table.querySelector("thead tr");
     if (headRow) {
       const headers = Array.from(headRow.cells).map(c => norm(c.textContent));
@@ -5584,39 +5586,60 @@ document.addEventListener("DOMContentLoaded", () => {
     return Array.from(found);
   }
 
-  function applyDropdownLock(disabled) {
-    const selects = getJenSemKetSelects();
-    selects.forEach(sel => {
-      if (disabled) {
-        if (sel.dataset._dis_bak === undefined) sel.dataset._dis_bak = sel.disabled ? "1" : "";
-        sel.disabled = true;
-        sel.setAttribute("aria-disabled","true");
-      } else {
-        if (sel.dataset._dis_bak !== undefined) {
-          sel.disabled = sel.dataset._dis_bak === "1";
-          delete sel.dataset._dis_bak;
-        } else {
-          sel.disabled = false;
-        }
-        sel.removeAttribute("aria-disabled");
-      }
-    });
+  // --- SOFT-LOCK: cegah semua interaksi tanpa mengubah warna ---
+  function attachBlockers(sel){
+    if (sel._nisBlockerAttached) return;
+
+    // simpan tabindex lama, lalu keluarkan dari tab order
+    if (sel.dataset._tab_bak === undefined)
+      sel.dataset._tab_bak = sel.getAttribute("tabindex") || "";
+    sel.setAttribute("tabindex","-1");
+    sel.setAttribute("aria-disabled","true"); // aksesibilitas; tidak memengaruhi warna
+
+    const block = (e) => { e.preventDefault(); e.stopImmediatePropagation(); return false; };
+    const events = ["mousedown","click","input","change","keydown","wheel","touchstart","pointerdown","contextmenu"];
+    events.forEach(ev => sel.addEventListener(ev, block, true));
+
+    sel._nisBlocker = { block, events };
+    sel._nisBlockerAttached = true;
   }
 
-  // fungsi publik dipanggil dari setButtonsDisabled
+  function detachBlockers(sel){
+    if (!sel._nisBlockerAttached) return;
+    const { block, events } = sel._nisBlocker || {};
+    if (block) events.forEach(ev => sel.removeEventListener(ev, block, true));
+    sel._nisBlocker = null;
+    sel._nisBlockerAttached = false;
+
+    // pulihkan tabindex
+    if (sel.dataset._tab_bak !== undefined) {
+      const v = sel.dataset._tab_bak;
+      delete sel.dataset._tab_bak;
+      if (v) sel.setAttribute("tabindex", v); else sel.removeAttribute("tabindex");
+    }
+    sel.removeAttribute("aria-disabled");
+  }
+
+  function applySoftLock(disabled) {
+    const selects = getJenSemKetSelects();
+    selects.forEach(sel => disabled ? attachBlockers(sel) : detachBlockers(sel));
+  }
+
+  // fungsi publik dipanggil dari setButtonsDisabled / logic kamu
   window.setNISDropdownDisabled = function(disabled){
     if (nisObserver) { nisObserver.disconnect(); nisObserver = null; }
-    applyDropdownLock(!!disabled);
+    applySoftLock(!!disabled);
     if (disabled) {
       const table = getTable();
       if (!table) return;
       const target = table.tBodies[0] || table;
-      nisObserver = new MutationObserver(() => applyDropdownLock(true));
+      nisObserver = new MutationObserver(() => applySoftLock(true));
       nisObserver.observe(target, { childList: true, subtree: true });
     }
   };
 })();
 </script>
+
 
 	
 </body>
