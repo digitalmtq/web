@@ -1303,7 +1303,7 @@ async function submitTambahKelasBaru() {
     </select>
 
     <!-- ⬇️ BARU: Jenjang -->
-    <label>Jenjang:</label><br>
+    <label>Kelas:</label><br>
     <select id="inputJenjang" style="width:90%; margin-bottom:10px;">
       <option value="A1">A1</option>
       <option value="A2">A2</option>
@@ -2193,37 +2193,102 @@ async function loadSantriData() {
   const getRowId  = row => (row?.dataset?.id  || "").trim();
   const getRowNis = row => (row?.dataset?.nis || "").trim();
 
-  // enable/disable tombol saat mode NIS
-  function setButtonsDisabled(disabled) {
-    const targets = [
-      document.getElementById("save-btn-modal"),
-      document.getElementById("save-btn"),
-      document.getElementById("btnHitungTotalJuz"),
-      document.querySelector("button[onclick='bukaModalSantri()']"),
-      document.getElementById("btnHapusSantri"),
-      document.getElementById("btnPindahKelas"),
-      document.getElementById("recordButton"),
-      document.getElementById("btn-beri-nilai"),
-      document.querySelector("button[onclick='simpanSantriBaru()']"),
-      document.getElementById("btnHapusTerpilih"),
-      document.getElementById("doPindah"),
-    ];
-    targets.forEach(btn => {
-      if (!btn) return;
-      btn.disabled = !!disabled;
-      btn.style.opacity = disabled ? "0.5" : "";
-      btn.style.cursor  = disabled ? "not-allowed" : "";
+// enable/disable tombol + 3 dropdown (jenjang/semester/keterangan) saat mode NIS
+function setButtonsDisabled(disabled) {
+  // === BAGIAN ASLI: tombol/aksi ===
+  const targets = [
+    document.getElementById("save-btn-modal"),
+    document.getElementById("save-btn"),
+    document.getElementById("btnHitungTotalJuz"),
+    document.querySelector("button[onclick='bukaModalSantri()']"),
+    document.getElementById("btnHapusSantri"),
+    document.getElementById("btnPindahKelas"),
+    document.getElementById("recordButton"),
+    document.getElementById("btn-beri-nilai"),
+    document.querySelector("button[onclick='simpanSantriBaru()']"),
+    document.getElementById("btnHapusTerpilih"),
+    document.getElementById("doPindah"),
+  ];
+
+  targets.forEach(btn => {
+    if (!btn) return;
+    btn.disabled = !!disabled;
+    btn.style.opacity = disabled ? "0.5" : "";
+    btn.style.cursor  = disabled ? "not-allowed" : "";
+    if (disabled) {
+      btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
+      if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
+    } else {
+      if (btn.dataset._onclick_bak) {
+        btn.setAttribute("onclick", btn.dataset._onclick_bak);
+        delete btn.dataset._onclick_bak;
+      }
+    }
+  });
+
+  // === TAMBAHAN: kunci/buka dropdown di kolom Jenjang, Semester, Keterangan ===
+  const norm = s => String(s||"").trim().toLowerCase();
+
+  const table =
+    document.getElementById("tabelSantri") ||
+    document.querySelector("table#data-santri, table.santri, table[data-role='santri']") ||
+    document.querySelector("table");
+
+  if (!table) return; // kalau tabel belum ada, selesai
+
+  // 1) Coba cari <td> target via atribut data-col
+  let tds = Array.from(table.querySelectorAll(
+    "td[data-col='jenjang'], td[data-col='semester'], td[data-col='keterangan']"
+  ));
+
+  // 2) Fallback: deteksi index kolom dari header
+  if (!tds.length) {
+    const headRow = table.tHead?.rows?.[0] || table.querySelector("thead tr");
+    if (headRow) {
+      const headers = Array.from(headRow.cells).map(c => norm(c.textContent));
+      const wanted = ["jenjang","semester","keterangan"];
+      const idxs = wanted.map(w => headers.findIndex(h => h.includes(w))).filter(i => i >= 0);
+
+      const bodyRows = table.tBodies.length
+        ? Array.from(table.tBodies[0].rows)
+        : Array.from(table.querySelectorAll("tbody tr"));
+
+      bodyRows.forEach(tr => {
+        idxs.forEach(i => { if (tr.cells[i]) tds.push(tr.cells[i]); });
+      });
+    }
+  }
+
+  // 3) Disable/enable semua <select> di dalam <td> target
+  tds.forEach(td => {
+    td.classList.toggle("nis-locked", !!disabled);
+    td.querySelectorAll("select").forEach(sel => {
       if (disabled) {
-        btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
-        if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
+        if (sel.dataset._dis_bak === undefined) sel.dataset._dis_bak = sel.disabled ? "1" : "";
+        sel.disabled = true;
+
+        // kosmetik (opsional, tapi rapi)
+        if (sel.dataset._op_bak === undefined) sel.dataset._op_bak = sel.style.opacity || "";
+        if (sel.dataset._cur_bak === undefined) sel.dataset._cur_bak = sel.style.cursor || "";
+        sel.style.opacity = "0.5";
+        sel.style.cursor  = "not-allowed";
       } else {
-        if (btn.dataset._onclick_bak) {
-          btn.setAttribute("onclick", btn.dataset._onclick_bak);
-          delete btn.dataset._onclick_bak;
+        if (sel.dataset._dis_bak !== undefined) {
+          sel.disabled = sel.dataset._dis_bak === "1";
+          delete sel.dataset._dis_bak;
+        } else {
+          sel.disabled = false;
         }
+
+        // pulihkan style
+        if (sel.dataset._op_bak !== undefined) { sel.style.opacity = sel.dataset._op_bak; delete sel.dataset._op_bak; }
+        else sel.style.opacity = "";
+        if (sel.dataset._cur_bak !== undefined) { sel.style.cursor = sel.dataset._cur_bak; delete sel.dataset._cur_bak; }
+        else sel.style.cursor = "";
       }
     });
-  }
+  });
+}
 
   try {
     // Roster santri (MASTER)
