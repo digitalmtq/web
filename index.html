@@ -2154,8 +2154,10 @@ async function loadSantriData() {
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
-  // === cache semester dari master
-  window.semesterMap ??= {}; // key = NIS (prioritas) atau ID → "1".."6"
+  // === cache master
+  window.semesterMap   ??= {}; // key = NIS (prioritas) atau ID → "1".."6"
+  window.jenjangMap    ??= {}; // key -> "A1".."A8" atau ""
+  window.keteranganMap ??= {}; // key -> "" | "SP1".."SP4"
 
   // Helpers kecil
   const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
@@ -2228,28 +2230,19 @@ async function loadSantriData() {
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     let santriData = await resSantri.json();
 
-    // Bangun peta semester dari master
-    window.semesterMap = {};
+    // Bangun peta master
+    window.semesterMap   = {};
+    window.jenjangMap    = {};
+    window.keteranganMap = {};
+
     (santriData || []).forEach(s => {
       const k = (s?.nis != null && s.nis !== "") ? String(s.nis).trim()
               : (s?.id != null ? String(s.id).trim() : "");
-      if (k) window.semesterMap[k] = String(s?.semester ?? "1");
+      if (!k) return;
+      window.semesterMap[k]   = String(s?.semester   ?? "1");
+      window.jenjangMap[k]    = String(s?.jenjang    ?? "");  // boleh kosong
+      window.keteranganMap[k] = String(s?.keterangan ?? "");  // boleh kosong
     });
-
-	// NEW: Bangun peta jenjang dari master
-	window.jenjangMap = {};
-	(santriData || []).forEach(s => {
-  	const k = (s?.nis != null && s.nis !== "") ? String(s.nis).trim()
-          	: (s?.id != null ? String(s.id).trim() : "");
-  	if (k) window.jenjangMap[k] = String(s?.jenjang ?? ""); // contoh default kosong
-	});
-
-	window.keteranganMap = {};
-	(santriData || []).forEach(s => {
-  	const k = (s?.nis != null && s.nis !== "") ? String(s.nis).trim()
-          	: (s?.id != null ? String(s.id).trim() : "");
-  	if (k) window.keteranganMap[k] = String(s?.keterangan ?? ""); // boleh kosong
-	});
 
     // Index roster
     const rosterById   = byIdMap(santriData, s => s);
@@ -2274,7 +2267,7 @@ async function loadSantriData() {
       absensiRaw = Array.isArray(d) ? d : (d?.list || []);
     }
 
-    // Normalisasi absensi + sematkan semester tampilan dari master
+    // Normalisasi absensi + sematkan field master untuk tampilan
     let absensiData = absensiRaw.map((r) => {
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
@@ -2295,12 +2288,12 @@ async function loadSantriData() {
       // isi id bila kosong lewat nis
       if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-      const keySem      = nis || id || "";
-	  const semesterFix = window.semesterMap?.[keySem] ?? r.semester;
-  	  const jenjangFix  = window.jenjangMap?.[keySem]  ?? r.jenjang;
-	  const ketFix      = window.keteranganMap?.[keySem] ?? r.keterangan;
+      const keyMaster   = nis || id || "";
+      const semesterFix = window.semesterMap?.[keyMaster]   ?? r.semester;
+      const jenjangFix  = window.jenjangMap?.[keyMaster]    ?? r.jenjang;
+      const ketFix      = window.keteranganMap?.[keyMaster] ?? r.keterangan;
 
-	  return { ...r, id, nis, nama, semester: semesterFix, jenjang: jenjangFix, keterangan: ketFix };
+      return { ...r, id, nis, nama, semester: semesterFix, jenjang: jenjangFix, keterangan: ketFix };
     });
 
     // Ambil user login & filter akses santri (tetap)
@@ -2320,13 +2313,12 @@ async function loadSantriData() {
       santriData = [];
     }
 
-    // Mode NIS → disable tombol tertentu (logika lama dipertahankan)
+    // Mode NIS → disable tombol tertentu
     const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
     setButtonsDisabled(isModeNIS);
 
     // RENDER TABEL
     santriTableBody.innerHTML = "";
-
     const isRange = !!(endFilter && endFilter !== tanggal);
 
     // Index absensi untuk JOIN cepat
@@ -2402,29 +2394,28 @@ async function loadSantriData() {
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
           : "";
 
-        // === Semester dari master
-        const kKey  = (snis || sid || "");
-		const semNow = (window.semesterMap?.[kKey])   ?? santri.semester ?? "1";
-		const jenNow = (window.jenjangMap?.[kKey])    ?? santri.jenjang  ?? "A1";
-		const ketNow = (window.keteranganMap?.[kKey]) ?? santri.keterangan ?? ""; // NEW
-
+        // === Nilai master saat ini
+        const keyMaster = (snis || sid || "");
+        const semNow = (window.semesterMap?.[keyMaster])   ?? santri.semester   ?? "1";
+        const jenNow = (window.jenjangMap?.[keyMaster])    ?? santri.jenjang    ?? "A1";
+        const ketNow = (window.keteranganMap?.[keyMaster]) ?? santri.keterangan ?? "";
 
         // TAMPILAN: NIS → fallback ID
         row.innerHTML = `
           <td class="col-nis">${santri.nis ?? santri.id ?? ""}</td>
           <td class="col-nama">${santri.nama ?? ""}${subTanggal}</td>
-		  <td>
-  			<select class="jenjang">
-    		<option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>A1</option>
-    		<option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>A2</option>
-    		<option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>A3</option>
-    		<option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>A4</option>
-    		<option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>A5</option>
-    		<option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>A6</option>
-    		<option value="A7" ${jenNow === 'A7' ? 'selected' : ''}>A7</option>
-    		<option value="A8" ${jenNow === 'A8' ? 'selected' : ''}>A8</option>
-  		</select>
-		</td>
+          <td>
+            <select class="jenjang">
+              <option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>A1</option>
+              <option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>A2</option>
+              <option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>A3</option>
+              <option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>A4</option>
+              <option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>A5</option>
+              <option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>A6</option>
+              <option value="A7" ${jenNow === 'A7' ? 'selected' : ''}>A7</option>
+              <option value="A8" ${jenNow === 'A8' ? 'selected' : ''}>A8</option>
+            </select>
+          </td>
           <td>
             <select class="semester">
               <option value="1" ${semNow == 1 || semNow == "1" ? 'selected' : ''}>1</option>
@@ -2443,14 +2434,15 @@ async function loadSantriData() {
               <option value="Izin" ${dataAbsensi?.absensi === "Izin" ? "selected" : ""}>Izin</option>
             </select>
           </td>
-		  <td>
-  			<select class="keterangan">
-    			<option value=""   ${!ketNow ? 'selected' : ''}></option>
-    			<option value="SP1" ${ketNow === 'SP1' ? 'selected' : ''}>SP1</option>
-    			<option value="SP2" ${ketNow === 'SP2' ? 'selected' : ''}>SP2</option>
-    			<option value="SP3" ${ketNow === 'SP3' ? 'selected' : ''}>SP3</option>
-  			</select>
-			</td>
+          <td>
+            <select class="keterangan">
+              <option value=""   ${!ketNow ? 'selected' : ''}>-</option>
+              <option value="SP1" ${ketNow === 'SP1' ? 'selected' : ''}>SP1</option>
+              <option value="SP2" ${ketNow === 'SP2' ? 'selected' : ''}>SP2</option>
+              <option value="SP3" ${ketNow === 'SP3' ? 'selected' : ''}>SP3</option>
+              <option value="SP4" ${ketNow === 'SP4' ? 'selected' : ''}>SP4</option>
+            </select>
+          </td>
           <td>
             <select class="surah-dari">${surahOptions}</select>
             <select class="ayat-dari"></select>
@@ -2479,15 +2471,15 @@ async function loadSantriData() {
         // DATASET stabil (dipakai proses lain)
         const dsId  = keyId(sid);
         const dsNis = keyNis(snis);
-        row.dataset.id      = dsId;
-        row.dataset.nis     = dsNis;
-        row.dataset.key     = (dsNis || dsId || "");
-        row.dataset.tanggal = rowDate;
+        row.dataset.id        = dsId;
+        row.dataset.nis       = dsNis;
+        row.dataset.key       = (dsNis || dsId || "");
+        row.dataset.tanggal   = rowDate;
+        row.dataset.jenjang   = jenNow || ""; // untuk rollback
+        row.dataset.keterangan= ketNow || ""; // untuk rollback
 
         // marks jika ada
-        if (dataAbsensi && dataAbsensi.marks) {
-          row.markData = dataAbsensi.marks;
-        }
+        if (dataAbsensi && dataAbsensi.marks) row.markData = dataAbsensi.marks;
 
         santriTableBody.appendChild(row);
 
@@ -2526,126 +2518,132 @@ async function loadSantriData() {
           el.addEventListener("change", () => updateTotalJuz(row));
         });
 
-		  // === Handler ubah jenjang → tulis balik ke kelas_{}.json
-const jenSel = row.querySelector(".jenjang");
-if (jenSel) {
-  jenSel.addEventListener("change", async () => {
-    const key   = String(row.dataset?.nis || row.dataset?.id || "").trim(); // prioritas NIS
-    const oldJ  = String(window.jenjangMap?.[kSem] ?? jenNow ?? "");
-    const newJ  = String(jenSel.value || "");
+        // === Handler ubah JENJANG → tulis balik ke kelas_{}.json
+        const jenSel = row.querySelector(".jenjang");
+        if (jenSel) {
+          jenSel.addEventListener("change", async () => {
+            const key  = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
+            const oldJ = String(row.dataset?.jenjang ?? (window.jenjangMap?.[key] ?? jenNow ?? ""));
+            const newJ = String(jenSel.value || "");
 
-    // validasi sederhana: kosong atau A1..A8
-    if (newJ && !/^A[1-8]$/.test(newJ)) {
-      alert("Jenjang harus A1 - A8 (atau kosong).");
-      jenSel.value = oldJ;
-      return;
-    }
-
-    // Optimistic UI
-    jenSel.disabled = true;
-    jenSel.style.opacity = "0.6";
-    try {
-      const res = await fetch(`/.netlify/functions/updateJenjangKelas?kelas=${encodeURIComponent(kelas)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, jenjang: newJ })
-      });
-      const out = await res.json().catch(() => ({}));
-      if (!res.ok || !out?.success) {
-        throw new Error(out?.error || "Gagal update jenjang.");
-      }
-      // sync cache master
-      window.jenjangMap[key] = newJ;
-    } catch (e) {
-      alert("Gagal menyimpan jenjang ke kelas: " + e.message);
-      jenSel.value = oldJ; // rollback
-    } finally {
-      jenSel.disabled = false;
-      jenSel.style.opacity = "";
-    }
-  });
-}
-
-
-// === Handler ubah keterangan → tulis balik ke kelas_{}.json
-const ketSel = row.querySelector(".keterangan");
-if (ketSel) {
-  ketSel.addEventListener("change", async () => {
-    const key   = String(row.dataset?.nis || row.dataset?.id || "").trim(); // prioritas NIS
-    const oldK  = String(window.keteranganMap?.[kKey] ?? ketNow ?? "");
-    const newK  = String(ketSel.value || "");
-
-    // Validasi: kosong atau SP1..SP4
-    if (newK && !/^SP[1-4]$/.test(newK)) {
-      alert("Keterangan harus SP1 - SP4 (atau kosong).");
-      ketSel.value = oldK;
-      return;
-    }
-
-    ketSel.disabled = true;
-    ketSel.style.opacity = "0.6";
-    try {
-      const res = await fetch(`/.netlify/functions/updateKeteranganKelas?kelas=${encodeURIComponent(kelas)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, keterangan: newK })
-      });
-
-      const text = await res.text();
-      let out = {};
-      try { out = JSON.parse(text); } catch {}
-      if (!res.ok || out?.success !== true) {
-        throw new Error(out?.error || text || "Gagal update keterangan.");
-      }
-      window.keteranganMap[key] = newK; // sinkron cache
-    } catch (e) {
-      alert("Gagal menyimpan keterangan ke kelas: " + e.message);
-      ketSel.value = oldK; // rollback UI
-    } finally {
-      ketSel.disabled = false;
-      ketSel.style.opacity = "";
-    }
-  });
-}
-
-		  
-
-        // === Handler ubah semester → tulis balik ke kelas_{}.json
-        const semSel = row.querySelector(".semester");
-        semSel.addEventListener("change", async () => {
-          const key   = String(row.dataset?.nis || row.dataset?.id || "").trim(); // prioritas NIS
-          const oldSem = String(window.semesterMap?.[key] ?? semNow ?? "1");
-          const newSem = String(semSel.value || oldSem);
-
-          if (!/^[1-6]$/.test(newSem)) {
-            alert("Semester harus 1-6.");
-            semSel.value = oldSem;
-            return;
-          }
-
-          // Optimistic UI
-          semSel.disabled = true;
-          semSel.style.opacity = "0.6";
-          try {
-            const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ key, semester: newSem })
-            });
-            const out = await res.json().catch(() => ({}));
-            if (!res.ok || !out?.success) {
-              throw new Error(out?.error || "Gagal update semester.");
+            if (newJ && !/^A[1-8]$/.test(newJ)) {
+              alert("Jenjang harus A1 - A8 (atau kosong).");
+              jenSel.value = oldJ;
+              return;
             }
-            // sinkronkan cache master
-            window.semesterMap[key] = newSem;
-          } catch (e) {
-            alert("Gagal menyimpan semester ke kelas: " + e.message);
-            semSel.value = oldSem; // rollback UI
-          } finally {
-            semSel.disabled = false;
-            semSel.style.opacity = "";
-          }
-        });
+
+            jenSel.disabled = true;
+            jenSel.style.opacity = "0.6";
+            try {
+              const res = await fetch(`/.netlify/functions/updateJenjangKelas?kelas=${encodeURIComponent(kelas)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key, jenjang: newJ })
+              });
+
+              const text = await res.text();
+              let out = {};
+              try { out = JSON.parse(text); } catch {}
+
+              if (!res.ok || out?.success !== true) {
+                throw new Error(out?.error || text || "Gagal update jenjang.");
+              }
+
+              window.jenjangMap[key] = newJ;   // sync cache
+              row.dataset.jenjang    = newJ;   // sync dataset
+            } catch (e) {
+              alert("Gagal menyimpan jenjang ke kelas: " + e.message);
+              jenSel.value = oldJ; // rollback
+            } finally {
+              jenSel.disabled = false;
+              jenSel.style.opacity = "";
+            }
+          });
+        }
+
+        // === Handler ubah KETERANGAN → tulis balik ke kelas_{}.json
+        const ketSel = row.querySelector(".keterangan");
+        if (ketSel) {
+          ketSel.addEventListener("change", async () => {
+            const key  = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
+            const oldK = String(row.dataset?.keterangan ?? (window.keteranganMap?.[key] ?? ketNow ?? ""));
+            const newK = String(ketSel.value || "");
+
+            if (newK && !/^SP[1-4]$/.test(newK)) {
+              alert("Keterangan harus SP1 - SP4 (atau kosong).");
+              ketSel.value = oldK;
+              return;
+            }
+
+            ketSel.disabled = true;
+            ketSel.style.opacity = "0.6";
+            try {
+              const res = await fetch(`/.netlify/functions/updateKeteranganKelas?kelas=${encodeURIComponent(kelas)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key, keterangan: newK })
+              });
+
+              const text = await res.text();
+              let out = {};
+              try { out = JSON.parse(text); } catch {}
+
+              if (!res.ok || out?.success !== true) {
+                throw new Error(out?.error || text || "Gagal update keterangan.");
+              }
+
+              window.keteranganMap[key] = newK; // sync cache
+              row.dataset.keterangan    = newK; // sync dataset
+            } catch (e) {
+              alert("Gagal menyimpan keterangan ke kelas: " + e.message);
+              ketSel.value = oldK; // rollback
+            } finally {
+              ketSel.disabled = false;
+              ketSel.style.opacity = "";
+            }
+          });
+        }
+
+        // === Handler ubah SEMESTER → tulis balik ke kelas_{}.json
+        const semSel = row.querySelector(".semester");
+        if (semSel) {
+          semSel.addEventListener("change", async () => {
+            const key    = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
+            const oldSem = String(window.semesterMap?.[key] ?? semNow ?? "1");
+            const newSem = String(semSel.value || oldSem);
+
+            if (!/^[1-6]$/.test(newSem)) {
+              alert("Semester harus 1-6.");
+              semSel.value = oldSem;
+              return;
+            }
+
+            semSel.disabled = true;
+            semSel.style.opacity = "0.6";
+            try {
+              const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key, semester: newSem })
+              });
+              const text = await res.text();
+              let out = {};
+              try { out = JSON.parse(text); } catch {}
+
+              if (!res.ok || out?.success !== true) {
+                throw new Error(out?.error || text || "Gagal update semester.");
+              }
+
+              window.semesterMap[key] = newSem; // sync cache
+            } catch (e) {
+              alert("Gagal menyimpan semester ke kelas: " + e.message);
+              semSel.value = oldSem; // rollback
+            } finally {
+              semSel.disabled = false;
+              semSel.style.opacity = "";
+            }
+          });
+        }
       });
     });
   } catch (err) {
