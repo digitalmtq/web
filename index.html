@@ -2062,6 +2062,13 @@ function aturDropdownKelas(user) {
       console.error("Gagal load surah/pagesMap:", err);
     }
 
+// NIS ON
+setButtonsDisabled(true);   // ini otomatis juga memanggil setNISDropdownDisabled(true) kalau sudah kamu hubungkan
+
+// NIS OFF
+setButtonsDisabled(false);
+
+	  
     const isLoggedIn = localStorage.getItem("isLoggedIn");
     if (isLoggedIn) {
       const storedKelas = JSON.parse(localStorage.getItem("kelasDiizinkan") || "[]");
