@@ -3184,7 +3184,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       const { jsPDF } = window.jspdf || {};
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
-      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a3' });
 
       // === Tema
       const theme = {
@@ -3333,7 +3333,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         const rowH = Math.max(lineH + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
 
         if (y + rowH > pageH - margin.bottom) {
-          doc.addPage('a4', 'landscape');
+          doc.addPage('a3', 'landscape');
           drawHeaderBar();
           y = margin.top + headerGap;
           drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
@@ -3393,7 +3393,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       const spaceTop = 10, neededH = 36;
       if (y + spaceTop + neededH > pageH - margin.bottom){
-        doc.addPage('a4', 'landscape');
+        doc.addPage('a3', 'landscape');
         drawHeaderBar();
         y = margin.top + headerGap;
       }
@@ -3571,7 +3571,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       // === PDF ===
       const { jsPDF } = window.jspdf || {};
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
-      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a3' });
 
       const theme = {
         cardBorder: [229,231,235],
