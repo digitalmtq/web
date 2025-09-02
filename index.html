@@ -4443,7 +4443,7 @@ async function hitungTotalAllJuzFromTable() {
           else { label = `${prosentase}%`; warna = "red"; }
         }
 
-        cell.innerHTML = `${totalJuzStr} juz <span style="color:${warna}; font-size:12px;">${label}</span>`;
+        cell.innerHTML = `${totalJuzStr} <span style="color:${warna}; font-size:12px;">${label}</span>`;
 
         dataToSave.push({
           key,
