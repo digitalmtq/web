@@ -1097,15 +1097,15 @@ async function submitTambahKelasBaru() {
           <tr>
             <th>Nis</th>
             <th>Nama</th>
-            <th>Absensi</th>
+			<th>Jenjang</th>
+            <th>Semester</th>
+            <th>Presensi</th>
             <th>Setoran Dari</th>
             <th>Setoran Sampai</th>
 			<th>Page</th>
 			<th>Total</th>
 			<th>Juz</th>
             <th>Total</th>
-			<th>Jenjang</th>
-            <th>Semester</th>
             <th>Nilai</th>
             <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Target</th>
           </tr>
@@ -2402,6 +2402,28 @@ async function loadSantriData() {
         row.innerHTML = `
           <td class="col-nis">${santri.nis ?? santri.id ?? ""}</td>
           <td class="col-nama">${santri.nama ?? ""}${subTanggal}</td>
+		  <td>
+  			<select class="jenjang">
+    		<option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>A1</option>
+    		<option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>A2</option>
+    		<option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>A3</option>
+    		<option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>A4</option>
+    		<option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>A5</option>
+    		<option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>A6</option>
+    		<option value="A7" ${jenNow === 'A7' ? 'selected' : ''}>A7</option>
+    		<option value="A8" ${jenNow === 'A8' ? 'selected' : ''}>A8</option>
+  		</select>
+		</td>
+          <td>
+            <select class="semester">
+              <option value="1" ${semNow == 1 || semNow == "1" ? 'selected' : ''}>Semester 1</option>
+              <option value="2" ${semNow == 2 || semNow == "2" ? 'selected' : ''}>Semester 2</option>
+              <option value="3" ${semNow == 3 || semNow == "3" ? 'selected' : ''}>Semester 3</option>
+              <option value="4" ${semNow == 4 || semNow == "4" ? 'selected' : ''}>Semester 4</option>
+              <option value="5" ${semNow == 5 || semNow == "5" ? 'selected' : ''}>Semester 5</option>
+              <option value="6" ${semNow == 6 || semNow == "6" ? 'selected' : ''}>Semester 6</option>
+            </select>
+          </td>
           <td>
             <select class="absensi">
               <option value="Hadir" ${dataAbsensi?.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
@@ -2422,29 +2444,6 @@ async function loadSantriData() {
           <td class="total-halaman">${dataAbsensi?.totalHalaman ?? '-'}</td>
           <td class="juz-terbaca">${dataAbsensi?.juzTerbaca ?? '-'}</td>
           <td class="total-juz">${dataAbsensi?.totalJuz ?? 0}</td>
-		  <td>
-  			<select class="jenjang">
-    		<option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>A1</option>
-    		<option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>A2</option>
-    		<option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>A3</option>
-    		<option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>A4</option>
-    		<option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>A5</option>
-    		<option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>A6</option>
-    		<option value="A7" ${jenNow === 'A7' ? 'selected' : ''}>A7</option>
-    		<option value="A8" ${jenNow === 'A8' ? 'selected' : ''}>A8</option>
-  		</select>
-		</td>
-
-          <td>
-            <select class="semester">
-              <option value="1" ${semNow == 1 || semNow == "1" ? 'selected' : ''}>Semester 1</option>
-              <option value="2" ${semNow == 2 || semNow == "2" ? 'selected' : ''}>Semester 2</option>
-              <option value="3" ${semNow == 3 || semNow == "3" ? 'selected' : ''}>Semester 3</option>
-              <option value="4" ${semNow == 4 || semNow == "4" ? 'selected' : ''}>Semester 4</option>
-              <option value="5" ${semNow == 5 || semNow == "5" ? 'selected' : ''}>Semester 5</option>
-              <option value="6" ${semNow == 6 || semNow == "6" ? 'selected' : ''}>Semester 6</option>
-            </select>
-          </td>
           <td>
             <div class="nilai-ringkas">
               ${dataAbsensi?.buttonCell
