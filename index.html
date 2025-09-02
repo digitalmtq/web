@@ -5516,31 +5516,82 @@ document.addEventListener("DOMContentLoaded", () => {
 		
 		
 <script>
+// ==========================
+// Helper A (tanpa opacity): kunci 3 dropdown
+// ==========================
 (function () {
   let nisObserver = null;
+  const norm = s => String(s||"").trim().toLowerCase();
 
-  function findTableBody() {
-    const t = document.querySelector("#tabelSantri tbody") ||
-              document.querySelector("table#data-santri tbody") ||
-              document.querySelector("tbody");
-    return t || null;
+  const MAP = {
+    semester:   ["semester","smtr"],
+    jenjang:    ["jenjang","level","tingkat","kelas","halaqoh","halaqah"],
+    keterangan: ["keterangan","ket","catatan","notes","remark","remarks"]
+  };
+  const ALL_KEYS = [...new Set([...MAP.semester, ...MAP.jenjang, ...MAP.keterangan])];
+
+  function getTable() {
+    return (
+      document.getElementById("tabelSantri") ||
+      document.querySelector("table#data-santri, table.santri, table[data-role='santri']") ||
+      document.querySelector("table")
+    );
   }
 
-  function lockDropdowns(disabled) {
-    const tbody = findTableBody();
-    if (!tbody) return;
-    tbody.querySelectorAll("select.jenjang, select.semester, select.keterangan").forEach(sel => {
+  function getJenSemKetSelects() {
+    const table = getTable();
+    if (!table) return [];
+
+    const found = new Set();
+
+    // (1) data-col yang eksplisit
+    table.querySelectorAll(
+      "td[data-col='jenjang'] select, td[data-col='semester'] select, td[data-col='keterangan'] select"
+    ).forEach(s => found.add(s));
+
+    // (2) atribut yang mengandung kata kunci
+    table.querySelectorAll("select").forEach(sel => {
+      const hay = [
+        sel.getAttribute("name"),
+        sel.id,
+        sel.getAttribute("data-field"),
+        sel.getAttribute("aria-label"),
+        sel.getAttribute("placeholder"),
+        sel.getAttribute("data-col")
+      ].map(norm).join(" ");
+      if (ALL_KEYS.some(k => hay.includes(k))) found.add(sel);
+    });
+
+    // (3) fallback: header → kolom → select
+    const headRow = table.tHead?.rows?.[0] || table.querySelector("thead tr");
+    if (headRow) {
+      const headers = Array.from(headRow.cells).map(c => norm(c.textContent));
+      const wantedIdx = [
+        headers.findIndex(h => MAP.jenjang.some(k => h.includes(k))),
+        headers.findIndex(h => MAP.semester.some(k => h.includes(k))),
+        headers.findIndex(h => MAP.keterangan.some(k => h.includes(k))),
+      ].filter(i => i >= 0);
+
+      const bodyRows = table.tBodies.length
+        ? Array.from(table.tBodies[0].rows)
+        : Array.from(table.querySelectorAll("tbody tr"));
+
+      bodyRows.forEach(tr => {
+        wantedIdx.forEach(i => tr.cells[i]?.querySelectorAll("select").forEach(s => found.add(s)));
+      });
+    }
+
+    return Array.from(found);
+  }
+
+  function applyDropdownLock(disabled) {
+    const selects = getJenSemKetSelects();
+    selects.forEach(sel => {
       if (disabled) {
-        // simpan state lama (sekali)
         if (sel.dataset._dis_bak === undefined) sel.dataset._dis_bak = sel.disabled ? "1" : "";
-        if (sel.dataset._op_bak  === undefined) sel.dataset._op_bak  = sel.style.opacity || "";
-        if (sel.dataset._cur_bak === undefined) sel.dataset._cur_bak = sel.style.cursor  || "";
         sel.disabled = true;
         sel.setAttribute("aria-disabled","true");
-        sel.style.opacity = "0.5";
-        sel.style.cursor  = "not-allowed";
       } else {
-        // restore
         if (sel.dataset._dis_bak !== undefined) {
           sel.disabled = sel.dataset._dis_bak === "1";
           delete sel.dataset._dis_bak;
@@ -5548,37 +5599,25 @@ document.addEventListener("DOMContentLoaded", () => {
           sel.disabled = false;
         }
         sel.removeAttribute("aria-disabled");
-        sel.style.opacity = sel.dataset._op_bak  ?? "";
-        sel.style.cursor  = sel.dataset._cur_bak ?? "";
-        delete sel.dataset._op_bak;
-        delete sel.dataset._cur_bak;
       }
     });
   }
 
-  // fungsi publik
+  // fungsi publik dipanggil dari setButtonsDisabled
   window.setNISDropdownDisabled = function(disabled){
     if (nisObserver) { nisObserver.disconnect(); nisObserver = null; }
-    lockDropdowns(!!disabled);
+    applyDropdownLock(!!disabled);
     if (disabled) {
-      const tbody = findTableBody();
-      if (!tbody) return;
-      // kalau tabel berubah (paging/filter/rerender), kunci lagi
-      nisObserver = new MutationObserver(() => lockDropdowns(true));
-      nisObserver.observe(tbody, { childList: true, subtree: true });
+      const table = getTable();
+      if (!table) return;
+      const target = table.tBodies[0] || table;
+      nisObserver = new MutationObserver(() => applyDropdownLock(true));
+      nisObserver.observe(target, { childList: true, subtree: true });
     }
   };
 })();
 </script>
 
-<style>
-/* kosmetik opsional */
-td .jenjang[disabled], td .semester[disabled], td .keterangan[disabled] {
-  background: #f2f2f2;
-  cursor: not-allowed;
-  opacity: .75;
-}
-</style>
 	
 </body>
 </html>
