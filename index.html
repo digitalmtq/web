@@ -3736,9 +3736,12 @@ async function pdfAllKelasDownload(){
     const cellPadX = 1.6, cellPadY = 1.2;
     const headerRowH = Math.max(9, fontHead * 0.3528 * lineFactor + 2*cellPadY);
 
-    // ===== Spasi yang kamu minta
-    const HEADER_TO_TABLE_GAP = 1.6;   // jarak kecil antara header kelas & tabel
-    const BETWEEN_CLASSES_GAP = 6;     // jarak setelah tabel selesai, sebelum header kelas berikutnya
+    // ===== Spasi & tinggi untuk header 'nempel' + keep-with-next
+    const CLASS_HEADER_FONT = 10;                                   // pt
+    const CLASS_HEADER_LINE_H = CLASS_HEADER_FONT * 0.3528 * 1.10;  // ≈ 3.9 mm
+    const HEADER_TO_TABLE_GAP = 0.8;                                 // mm (nempel tapi tidak mepet)
+    const BETWEEN_CLASSES_GAP = 5.0;                                 // mm (jarak antar tabel kelas)
+    const ROW_MIN_H = (fontBody * 0.3528 * 1.18) + 2*cellPadY;       // tinggi minimal 1 baris data
 
     // Judul utama (sekali) + Periode (sekali)
     function drawMainTitle(){
@@ -3763,9 +3766,21 @@ async function pdfAllKelasDownload(){
     // Header kecil per kelas — 1 baris ringkas TANPA "Periode"
     function drawClassHeaderCompact(kelasLine, kbmDays, totalSantri, yStart){
       const headerText = `${kelasLine}, KBM: ${kbmDays} hari, Total Santri: ${totalSantri}`;
-      doc.setFont('helvetica','bold'); doc.setFontSize(10);
-      doc.text(headerText, margin.left, yStart);
-      return 6; // tinggi header ~6mm (1 baris)
+      doc.setFont('helvetica','bold'); doc.setFontSize(CLASS_HEADER_FONT);
+      // Baseline disetel agar jarak ke tabel rapat & konsisten
+      const baseline = yStart + CLASS_HEADER_LINE_H * 0.72;
+      doc.text(headerText, margin.left, baseline);
+      return CLASS_HEADER_LINE_H; // tinggi yang "dipakai"
+    }
+
+    // Cek ruang supaya header kelas tidak "gantung" (keep-with-next)
+    function ensureSpaceForClassBlock(yCurrent){
+      const need = CLASS_HEADER_LINE_H + HEADER_TO_TABLE_GAP + headerRowH + ROW_MIN_H;
+      if (yCurrent + need > pageH - margin.bottom){
+        doc.addPage('a3','landscape');
+        return margin.top + 6; // halaman baru, tanpa judul utama
+      }
+      return yCurrent;
     }
 
     // Kolom konsisten (SM/KLS/SP sempit & THMS)
@@ -3775,12 +3790,12 @@ async function pdfAllKelasDownload(){
       { key:'nama',     title:'Nama', w:46, minW:36, maxW:80, align:'left'   },
       { key:'sem',      title:'SM',   w:12, minW:12, maxW:12, align:'center' },
       { key:'jenjang',  title:'KLS',  w:14, minW:14, maxW:14, align:'center' },
-      { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
       { key:'h',        title:'H',    w:8,  minW:6,  maxW:10, align:'center' },
       { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
       { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
       { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
       { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
+	  { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
       { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
       { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
       { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
@@ -3840,12 +3855,8 @@ async function pdfAllKelasDownload(){
       const cols = JSON.parse(JSON.stringify(baseCols));
       fitColumnsFlex(doc, cols, tableData, fontBody, contentW, cellPadX);
 
-      // Pastikan header + header table muat, kalau tidak pindah halaman
-      const classHeaderH = 6; // 1 baris ringkas
-      if (y + classHeaderH + HEADER_TO_TABLE_GAP + headerRowH > pageH - margin.bottom) {
-        doc.addPage('a3', 'landscape');
-        y = margin.top + 6; // tanpa judul utama lagi
-      }
+      // ===== PRE-FLIGHT: jangan biarkan header kelas 'gantung'
+      y = ensureSpaceForClassBlock(y);
 
       // Header kelas (rapat ke tabel)
       y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
@@ -3872,8 +3883,8 @@ async function pdfAllKelasDownload(){
           y = margin.top + 6;
 
           // Ulangi header kelas agar konteks tetap menempel ke tabel
-          const hH = drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
-          y += hH + HEADER_TO_TABLE_GAP;
+          y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
+          y += HEADER_TO_TABLE_GAP;
 
           drawTableHeader(doc, cols, margin.left, y, headerRowH, fontHead, theme, cellPadX);
           y += headerRowH;
@@ -3981,7 +3992,6 @@ async function pdfAllKelasDownload(){
     setBtnLoading(btn, false);
   }
 }
-
 	
   // ============== PDF per Santri ==============
   async function pdfSantriDownload(){
