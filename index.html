@@ -854,7 +854,7 @@ async function cekPasswordAdminNIS() {
     return; 
   }
 
-  const res = await fetch('/.netlify/functions/cek-admin', {
+  const res = await fetch('/.netlify/functions/cekAdminWali', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ password })
