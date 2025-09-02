@@ -2242,6 +2242,14 @@ async function loadSantriData() {
   	if (k) window.jenjangMap[k] = String(s?.jenjang ?? ""); // contoh default kosong
 	});
 
+	 // NEW: Bangun peta jenjang dari master
+	window.keteranganMap = {};
+	(santriData || []).forEach(s => {
+  	const k = (s?.nis != null && s.nis !== "") ? String(s.nis).trim()
+          	: (s?.id != null ? String(s.id).trim() : "");
+  	if (k) window.keteranganMap[k] = String(s?.keterangan ?? ""); // contoh default kosong
+	}); 
+
     // Index roster
     const rosterById   = byIdMap(santriData, s => s);
     const rosterByNis  = byNisMap(santriData, s => s);
@@ -2289,8 +2297,9 @@ async function loadSantriData() {
       const keySem = nis || id || "";
       const semesterFix = window.semesterMap?.[keySem] ?? r.semester;
 	  const jenjangFix  = window.jenjangMap?.[keySem]  ?? r.jenjang;
+	  const jenjangFix  = window.keteranganMap?.[keySem]  ?? r.keterangan;
 
-      return { ...r, id, nis, nama, semester: semesterFix, jenjang: jenjangFix };
+      return { ...r, id, nis, nama, semester: semesterFix, jenjang: jenjangFix, keterangan: keteranganFix };
     });
 
     // Ambil user login & filter akses santri (tetap)
@@ -2397,6 +2406,8 @@ async function loadSantriData() {
         const semNow = (window.semesterMap?.[kSem]) ?? santri.semester ?? "1";
 		  // NEW: Jenjang dari master
 		const jenNow = (window.jenjangMap?.[kSem]) ?? santri.jenjang ?? "A1";  // "" atau "A1" dst
+		  // NEW: Keterangan dari master
+		const jenNow = (window.keteranganMap?.[kSem]) ?? santri.keterangan ?? "";  // "" atau "SP1" dst
 
         // TAMPILAN: NIS → fallback ID
         row.innerHTML = `
@@ -2455,6 +2466,14 @@ async function loadSantriData() {
           <td class="total-all-juz">
             <img src="https://raw.githubusercontent.com/digitalmtq/web/main/meeting.gif" style="width:70px;height:18px;">
           </td>
+		  <td>
+  		<select class="keterangan">
+    		<option value=""   ${!ketNow ? 'selected' : ''}>- pilih -</option>
+    		<option value="SP1" ${ketNow === 'SP1' ? 'selected' : ''}>SP1</option>
+    		<option value="SP2" ${ketNow === 'SP2' ? 'selected' : ''}>SP2</option>
+    		<option value="SP3" ${ketNow === 'SP3' ? 'selected' : ''}>SP3</option>
+  		</select>
+		</td>
         `;
 
         // DATASET stabil (dipakai proses lain)
@@ -2546,6 +2565,50 @@ if (jenSel) {
     }
   });
 }
+
+
+		// === Handler ubah keterangan → tulis balik ke kelas_{}.json
+const ketSel = row.querySelector(".keterangan");
+if (ketSel) {
+  ketSel.addEventListener("change", async () => {
+    const key   = String(row.dataset?.nis || row.dataset?.id || "").trim(); // prioritas NIS
+    const oldJ  = String(window.keteranganMap?.[kSem] ?? ketNow ?? "");
+    const newJ  = String(ketSel.value || "");
+
+    // validasi sederhana: kosong atau SP1..SP3
+    if (newJ && !/^SP[1-3]$/.test(newJ)) {
+      alert("Keterangan harus SP1 - SP3 (atau kosong).");
+      ketSel.value = oldJ;
+      return;
+    }
+
+    // Optimistic UI
+    ketSel.disabled = true;
+    ketSel.style.opacity = "0.6";
+    try {
+      const res = await fetch(`/.netlify/functions/updateKeteranganKelas?kelas=${encodeURIComponent(kelas)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, keterangan: newJ })
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || !out?.success) {
+        throw new Error(out?.error || "Gagal update keterangan.");
+      }
+      // sync cache master
+      window.keteranganMap[key] = newJ;
+    } catch (e) {
+      alert("Gagal menyimpan keterangan ke kelas: " + e.message);
+      ketSel.value = oldJ; // rollback
+    } finally {
+      ketSel.disabled = false;
+      jketSel.style.opacity = "";
+    }
+  });
+}
+
+
+		  
 
         // === Handler ubah semester → tulis balik ke kelas_{}.json
         const semSel = row.querySelector(".semester");
@@ -2839,6 +2902,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
         const keySem = String((row.dataset?.nis || row.dataset?.id || "")).trim();
         const semester = (window.semesterMap?.[keySem]) ?? existing.semester ?? "";
 		const jenjang  = (window.jenjangMap?.[keySem])  ?? existing.jenjang  ?? "";
+		const keterangang  = (window.keteranganMap?.[keySem])  ?? existing.keterangan  ?? "";
 
         const absensi = row.querySelector(".absensi")?.value ?? existing.absensi ?? "";
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
@@ -2882,6 +2946,7 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
           halaman,
           totalHalaman,
           juzTerbaca,
+		  keterangan,
           marks
         };
         const newData = buttonCell ? { ...base, buttonCell } : base;
@@ -4291,6 +4356,7 @@ async function ensureSemesterMap(kelas) {
     console.warn("ensureSemesterMap gagal:", e);
     window.semesterMap ??= {};
 	window.jenjangMap  ??= {};
+	window.keteranganMap  ??= {};
   }
 }
 
