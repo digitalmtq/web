@@ -1108,7 +1108,7 @@ async function submitTambahKelasBaru() {
 			<th>Juz</th>
             <th>Total Juz</th>
             <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Capaian Target Semester</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">THMS</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -3272,6 +3272,27 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     return list.map(PDF_fmtSASegmentNama).join(', ');
   }
 
+  // === Pewarnaan sel SP ===
+  function PDF_spPaintCell(doc, x, y, w, h, spValue){
+    const v = String(spValue||'').toUpperCase().replace(/\s+/g,''); // SP1 / SP 1 -> SP1
+    if (v === 'SP1'){            // kuning terang
+      doc.setFillColor(255,241,118); // #FFF176
+      doc.rect(x, y, w, h, 'F');
+      return null;               // text warna normal
+    }
+    if (v === 'SP2'){            // merah terang
+      doc.setFillColor(255,205,210); // #FFCDD2
+      doc.rect(x, y, w, h, 'F');
+      return null;
+    }
+    if (v === 'SP3'){            // hitam, text putih
+      doc.setFillColor(0,0,0);
+      doc.rect(x, y, w, h, 'F');
+      return [255,255,255];      // override text -> putih
+    }
+    return null;
+  }
+
   // ================= PDF Rekap Kelas =================
   async function pdfRekapDownload(){
     setBtnLoading(pdfBtn, true, 'Membuat PDF…');
@@ -3344,7 +3365,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
-        { key:'persen',   title:'Juz @%',   w:17, minW:17, maxW:18, align:'center' },
+        { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' }, // ganti label
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
       ];
@@ -3366,7 +3387,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           nama: r.nama || '-',
           sem: r.semester ?? '-',
           jenjang: r.jenjang ?? '-',
-          ket: r.keterangan ?? '-',                 // << isi SP
+          ket: r.keterangan ?? '-',                 // SP
           h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
           hadirPct: `${hadirPct}%`,
           setoran: setoranText,
@@ -3447,6 +3468,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         for (let ci=0; ci<cols.length; ci++){
           const col = cols[ci];
           const lines = wraps[ci];
+
+          // highlight status THMS (TUNTAS/KHATAM)
           if (col.key === 'persen') {
             const val = String(row[col.key] || '').toUpperCase();
             if (val === 'TUNTAS' || val === 'KHATAM') {
@@ -3455,6 +3478,14 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
               doc.rect(x, y, col.w, rowH, 'F');
             }
           }
+
+          // >>> pewarnaan khusus kolom SP
+          let spTextColor = null;
+          if (col.key === 'ket') {
+            spTextColor = PDF_spPaintCell(doc, x, y, col.w, rowH, row.ket);
+            if (spTextColor) doc.setTextColor(...spTextColor);
+          }
+
           const textBlockH = lines.length * lineH;
           let yy = y + (rowH - textBlockH)/2 + lineH*0.82;
           let tx, opt = {};
@@ -3465,7 +3496,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
             doc.text(String(lines[li]), tx, yy, opt);
             yy += lineH;
           }
+
           doc.rect(x, y, col.w, rowH);
+          if (spTextColor) doc.setTextColor(...theme.text); // reset bila sempat di-override
           x += col.w;
         }
         y += rowH;
@@ -3625,7 +3658,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           nama: namaSantri,
           sem: semesterSantri ?? (agg?.semester ?? '-'),
           jenjang: jenjangSantri,
-          ket: keteranganSantri,                         // << SP
+          ket: keteranganSantri,                         // SP
           h: d.cnt.hadir, a: d.cnt.alpha, s: d.cnt.sakit, i: d.cnt.izin,
           hadirPct: `${hadirPct}%`,
           setoran: PDF_joinSAsegmentsNama(d.sa),
@@ -3648,7 +3681,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         nama: 'REKAP',
         sem: semesterSantri ?? (agg?.semester ?? '-'),
         jenjang: jenjangSantri,
-        ket: keteranganSantri,                           // << SP di baris rekap
+        ket: keteranganSantri,                           // SP di baris rekap
         h: totH, a: totA, s: totS, i: totI,
         hadirPct: `${hadirPctTotal}%`,
         setoran: setoranTotal,
@@ -3722,7 +3755,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
-        { key:'persen',   title:'Juz @%',   w:17, minW:17, maxW:18, align:'center' },
+        { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' }, // ganti label
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
       ];
@@ -3785,6 +3818,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           const col = cols[ci];
           const lines = wraps[ci];
 
+          // highlight THMS tuntas/khatam (non REKAP)
           if (!row._isRekap && col.key === 'persen') {
             const val = String(row[col.key] || '').toUpperCase();
             if (val === 'TUNTAS' || val === 'KHATAM') {
@@ -3794,8 +3828,16 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
             }
           }
 
+          // >>> pewarnaan khusus kolom SP
+          let spTextColor = null;
+          if (col.key === 'ket') {
+            spTextColor = PDF_spPaintCell(doc, x, y, col.w, rowH, row.ket);
+            if (spTextColor) doc.setTextColor(...spTextColor);
+          }
+
+          let yy;
           const textBlockH = lines.length * baseLH;
-          let yy = y + (rowH - textBlockH)/2 + baseLH*0.82;
+          yy = y + (rowH - textBlockH)/2 + baseLH*0.82;
           let tx, opt = {};
           if (col.align === 'right') { tx = x + col.w - cellPadX; opt = { align:'right' }; }
           else if (col.align === 'center') { tx = x + col.w/2; opt = { align:'center' }; }
@@ -3806,6 +3848,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           }
 
           doc.rect(x, y, col.w, rowH);
+          if (spTextColor) doc.setTextColor(...theme.text); // reset bila override
           x += col.w;
         }
 
@@ -3877,7 +3920,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       const header = [
         "No","NIS","Nama","SM","KLS","SP","H","A","S","I","Hadir %",
-        "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","Juz @%","Nilai Rata2","Predikat"
+        "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","THMS","Nilai Rata2","Predikat" // THMS
       ];
       const body = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
@@ -3896,7 +3939,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           r.nama || '',
           (r.semester ?? ''),
           (r.jenjang ?? ''),
-          (r.keterangan ?? ''),   // << SP
+          (r.keterangan ?? ''),   // SP
           r.hadir, r.alpha, r.sakit, r.izin,
           hadirPct,
           setoranText,
@@ -4142,7 +4185,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         juzSet:new Set(),
         semester: (it?.semester!=null ? Number(it.semester) : null),
         jenjang: (it?.jenjang ?? null),
-        keterangan: (it?.keterangan ?? null),      // << simpan SP
+        keterangan: (it?.keterangan ?? null),      // SP
         saSegments: [], pageSegments: [], juzSegments: [],
         _datesAll: new Set(), _datesHadir: new Set()
       };
@@ -4202,7 +4245,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
       if (r.semester==null   && it?.semester   !=null) r.semester   = Number(it.semester);
       if (r.jenjang == null  && it?.jenjang    !=null) r.jenjang    = it.jenjang;
-      if (r.keterangan == null && it?.keterangan !=null) r.keterangan = it.keterangan; // << update SP
+      if (r.keterangan == null && it?.keterangan !=null) r.keterangan = it.keterangan; // SP
     }
 
     for (const k in map){
@@ -4276,7 +4319,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     doc.setFont('helvetica','normal');
   }
 })();
-
 
 
 
