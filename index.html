@@ -2315,8 +2315,13 @@ async function loadSantriData() {
 
     // Mode NIS → disable tombol tertentu
     const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
-    setButtonsDisabled(isModeNIS);
-	setNISDropdownDisabled(isModeNIS);
+    // User NIS
+	setNISDropdownDisabled(true);   // dropdown jenjang/semester/keterangan terkunci (soft-lock)
+	setNISRecordDisabled(true);     // tombol "Recording" terkunci (soft-lock)
+	// User non-NIS
+	setNISDropdownDisabled(false);
+	setNISRecordDisabled(false);
+
 	  
 
 
@@ -5595,6 +5600,74 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 
+<script>
+// ========================================
+// Soft-lock tombol Recording (warna normal)
+// ========================================
+(function () {
+  function getTargets() {
+    const list = new Set();
+    const byId1 = document.getElementById("record-start");  // id yang kamu sebut
+    const byId2 = document.getElementById("recordButton");  // id lama di kode kamu
+    if (byId1) list.add(byId1);
+    if (byId2) list.add(byId2);
+    document.querySelectorAll("button.rec-btn").forEach(b => list.add(b)); // jaga-jaga
+    return Array.from(list);
+  }
+
+  function attachBlockers(btn){
+    if (!btn || btn._nisBlockerAttached) return;
+
+    // backup dan keluarkan dari tab order
+    if (btn.dataset._tab_bak === undefined)
+      btn.dataset._tab_bak = btn.getAttribute("tabindex") || "";
+    btn.setAttribute("tabindex","-1");
+    btn.setAttribute("aria-disabled","true"); // tidak ubah warna
+
+    // kalau ada onclick inline, backup dan lepas
+    if (btn.dataset._onclick_bak === undefined)
+      btn.dataset._onclick_bak = btn.getAttribute("onclick") || "";
+    if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
+
+    const block = (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); return false; };
+    const events = ["click","mousedown","keydown","keyup","keypress","touchstart","pointerdown","contextmenu"];
+    events.forEach(ev => btn.addEventListener(ev, block, true));
+
+    btn._nisBlocker = { block, events };
+    btn._nisBlockerAttached = true;
+  }
+
+  function detachBlockers(btn){
+    if (!btn || !btn._nisBlockerAttached) return;
+    const { block, events } = btn._nisBlocker || {};
+    if (block) events.forEach(ev => btn.removeEventListener(ev, block, true));
+    btn._nisBlocker = null;
+    btn._nisBlockerAttached = false;
+
+    // pulihkan tabindex & aria
+    if (btn.dataset._tab_bak !== undefined){
+      const v = btn.dataset._tab_bak;
+      delete btn.dataset._tab_bak;
+      if (v) btn.setAttribute("tabindex", v); else btn.removeAttribute("tabindex");
+    }
+    btn.removeAttribute("aria-disabled");
+
+    // pulihkan onclick inline jika ada
+    if (btn.dataset._onclick_bak !== undefined){
+      if (btn.dataset._onclick_bak) btn.setAttribute("onclick", btn.dataset._onclick_bak);
+      else btn.removeAttribute("onclick");
+      delete btn.dataset._onclick_bak;
+    }
+  }
+
+  function applyRecordSoftLock(disabled){
+    getTargets().forEach(btn => disabled ? attachBlockers(btn) : detachBlockers(btn));
+  }
+
+  // expose
+  window.setNISRecordDisabled = applyRecordSoftLock;
+})();
+</script>
 
 	
 </body>
