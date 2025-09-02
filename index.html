@@ -4337,8 +4337,8 @@ async function ensureSemesterMap(kelas) {
   } catch (e) {
     console.warn("ensureSemesterMap gagal:", e);
     window.semesterMap ??= {};
-	window.jenjangMap  ??= {};
-	window.keteranganMap ??= {};
+    window.jenjangMap  ??= {};
+    window.keteranganMap ??= {};
   }
 }
 
@@ -4443,7 +4443,8 @@ async function hitungTotalAllJuzFromTable() {
           else { label = `${prosentase}%`; warna = "red"; }
         }
 
-        cell.innerHTML = `${totalJuzStr} <span style="color:${warna}; font-size:12px;">${label}</span>`;
+        // ← tambah "juz"
+        cell.innerHTML = `${totalJuzStr}&nbsp;juz <span style="color:${warna}; font-size:12px;">${label}</span>`;
 
         dataToSave.push({
           key,
@@ -4454,7 +4455,8 @@ async function hitungTotalAllJuzFromTable() {
           isKhatam: totalJuzNum >= 30
         });
       } else {
-        cell.innerHTML = `0.00 <span style="color:red; font-size:10px">0%</span>`;
+        // ← tambah "juz"
+        cell.innerHTML = `0.00&nbsp;juz <span style="color:red; font-size:10px">0%</span>`;
       }
     });
 
@@ -4600,9 +4602,11 @@ async function hitungTotalAllJuzOtomatis() {
           else { label = `${prosentase}%`; warna = "red"; }
         }
 
-        cell.innerHTML = `${totalJuzStr} <span style="color:${warna}; font-size:14px">${label}</span>`;
+        // ← tambah "juz"
+        cell.innerHTML = `${totalJuzStr}&nbsp;juz <span style="color:${warna}; font-size:14px">${label}</span>`;
       } else {
-        cell.innerHTML = `0.00 <span style="color:red; font-size:16px">0%</span>`;
+        // ← tambah "juz"
+        cell.innerHTML = `0.00&nbsp;juz <span style="color:red; font-size:16px">0%</span>`;
       }
     });
   } catch (err) {
@@ -4628,7 +4632,7 @@ window.loadSantriData = async function (...args) {
 // Kalau ganti tanggal atau kelas, otomatis muat ulang tabel & hitung
 tanggalInput?.addEventListener("change", () => loadSantriData());
 kelasSelect?.addEventListener("change", () => loadSantriData());
-
+	 
 </script>
 
 
