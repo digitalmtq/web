@@ -5517,86 +5517,36 @@ document.addEventListener("DOMContentLoaded", () => {
 		
 		
 <script>
-// ==========================
-// Helper A (soft-lock, tanpa abu-abu)
-// ==========================
+// ================================
+// Soft-lock dropdown JENJANG/SEMESTER/KETERANGAN (warna normal)
+// ================================
 (function () {
   let nisObserver = null;
-  const norm = s => String(s||"").trim().toLowerCase();
 
-  // sinonim agar deteksi fleksibel
-  const MAP = {
-    semester:   ["semester","smtr"],
-    jenjang:    ["jenjang","level","tingkat","kelas","halaqoh","halaqah"],
-    keterangan: ["keterangan","ket","catatan","notes","remark","remarks"]
-  };
-  const ALL_KEYS = [...new Set([...MAP.semester, ...MAP.jenjang, ...MAP.keterangan])];
-
-  function getTable() {
-    return (
-      document.getElementById("tabelSantri") ||
-      document.querySelector("table#data-santri, table.santri, table[data-role='santri']") ||
-      document.querySelector("table")
-    );
+  function getTbody() {
+    return document.querySelector("#tabelSantri tbody")
+        || document.querySelector("table#data-santri tbody")
+        || document.querySelector("tbody");
   }
 
-  function getJenSemKetSelects() {
-    const table = getTable();
-    if (!table) return [];
-
-    const found = new Set();
-
-    // (1) Eksplisit via data-col pada <td>
-    table.querySelectorAll(
-      "td[data-col='jenjang'] select, td[data-col='semester'] select, td[data-col='keterangan'] select"
-    ).forEach(s => found.add(s));
-
-    // (2) Atribut select mengandung kata kunci
-    table.querySelectorAll("select").forEach(sel => {
-      const hay = [
-        sel.getAttribute("name"),
-        sel.id,
-        sel.getAttribute("data-field"),
-        sel.getAttribute("aria-label"),
-        sel.getAttribute("placeholder"),
-        sel.getAttribute("data-col")
-      ].map(norm).join(" ");
-      if (ALL_KEYS.some(k => hay.includes(k))) found.add(sel);
-    });
-
-    // (3) Fallback header → kolom → select
-    const headRow = table.tHead?.rows?.[0] || table.querySelector("thead tr");
-    if (headRow) {
-      const headers = Array.from(headRow.cells).map(c => norm(c.textContent));
-      const wantedIdx = [
-        headers.findIndex(h => MAP.jenjang.some(k => h.includes(k))),
-        headers.findIndex(h => MAP.semester.some(k => h.includes(k))),
-        headers.findIndex(h => MAP.keterangan.some(k => h.includes(k))),
-      ].filter(i => i >= 0);
-
-      const bodyRows = table.tBodies.length
-        ? Array.from(table.tBodies[0].rows)
-        : Array.from(table.querySelectorAll("tbody tr"));
-
-      bodyRows.forEach(tr => {
-        wantedIdx.forEach(i => tr.cells[i]?.querySelectorAll("select").forEach(s => found.add(s)));
-      });
-    }
-
-    return Array.from(found);
+  function getTargets(scope=document) {
+    // HANYA 3 ini; tidak termasuk .absensi
+    return Array.from(scope.querySelectorAll(
+      "select.jenjang, select.semester, select.keterangan"
+    ));
   }
 
-  // --- SOFT-LOCK: cegah semua interaksi tanpa mengubah warna ---
+  // ---- soft-lock: blok interaksi tanpa set disabled (warna tetap normal)
   function attachBlockers(sel){
     if (sel._nisBlockerAttached) return;
 
-    // simpan tabindex lama, lalu keluarkan dari tab order
+    // keluarkan dari tab order, tapi simpan nilai lama
     if (sel.dataset._tab_bak === undefined)
       sel.dataset._tab_bak = sel.getAttribute("tabindex") || "";
     sel.setAttribute("tabindex","-1");
-    sel.setAttribute("aria-disabled","true"); // aksesibilitas; tidak memengaruhi warna
+    sel.setAttribute("aria-disabled","true"); // aksesibel; tidak mengubah warna
 
-    const block = (e) => { e.preventDefault(); e.stopImmediatePropagation(); return false; };
+    const block = (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); return false; };
     const events = ["mousedown","click","input","change","keydown","wheel","touchstart","pointerdown","contextmenu"];
     events.forEach(ev => sel.addEventListener(ev, block, true));
 
@@ -5611,8 +5561,8 @@ document.addEventListener("DOMContentLoaded", () => {
     sel._nisBlocker = null;
     sel._nisBlockerAttached = false;
 
-    // pulihkan tabindex
-    if (sel.dataset._tab_bak !== undefined) {
+    // pulihkan tab order
+    if (sel.dataset._tab_bak !== undefined){
       const v = sel.dataset._tab_bak;
       delete sel.dataset._tab_bak;
       if (v) sel.setAttribute("tabindex", v); else sel.removeAttribute("tabindex");
@@ -5620,25 +5570,30 @@ document.addEventListener("DOMContentLoaded", () => {
     sel.removeAttribute("aria-disabled");
   }
 
-  function applySoftLock(disabled) {
-    const selects = getJenSemKetSelects();
-    selects.forEach(sel => disabled ? attachBlockers(sel) : detachBlockers(sel));
+  function applySoftLock(disabled){
+    const tbody = getTbody();
+    const list = tbody ? getTargets(tbody) : getTargets(document);
+    list.forEach(sel => disabled ? attachBlockers(sel) : detachBlockers(sel));
   }
 
-  // fungsi publik dipanggil dari setButtonsDisabled / logic kamu
+  // Fungsi publik: panggil true/false
   window.setNISDropdownDisabled = function(disabled){
+    // hentikan observer lama
     if (nisObserver) { nisObserver.disconnect(); nisObserver = null; }
+
     applySoftLock(!!disabled);
+
+    // kunci ulang bila tabel dirender ulang
     if (disabled) {
-      const table = getTable();
-      if (!table) return;
-      const target = table.tBodies[0] || table;
+      const tbody = getTbody();
+      if (!tbody) return;
       nisObserver = new MutationObserver(() => applySoftLock(true));
-      nisObserver.observe(target, { childList: true, subtree: true });
+      nisObserver.observe(tbody, { childList: true, subtree: true });
     }
   };
 })();
 </script>
+
 
 
 	
