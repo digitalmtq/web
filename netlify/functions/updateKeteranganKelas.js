@@ -15,7 +15,6 @@ function ghHeaders() {
 function b64enc(str) { return Buffer.from(str, "utf8").toString("base64"); }
 function b64dec(str) { return Buffer.from(str, "base64").toString("utf8"); }
 
-// Cari index santri: nis → id (string) → id (number)
 function matchIndex(list, key) {
   if (!Array.isArray(list)) return -1;
   const keyStr = String(key ?? "").trim();
@@ -53,7 +52,6 @@ exports.handler = async (event) => {
     try {
       body = JSON.parse(event.body || "{}");
     } catch {
-      // ← DI SINI TADI ADA ‘)’ LEBIH → bikin crash
       return { statusCode: 400, body: JSON.stringify({ error: "Body harus JSON." }) };
     }
 
@@ -63,12 +61,11 @@ exports.handler = async (event) => {
     if (!key) {
       return { statusCode: 400, body: JSON.stringify({ error: "Field 'key' wajib." }) };
     }
-    // keterangan A1..A8 (kalau mau boleh kosong, ubah jadi: if (kes && !/^SP[1-3]$/.test(ket)) {...})
-    if (!/^SP[1-3]$/.test(ket)) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Keterangan harus A1-A8." }) };
+    // VALIDASI: boleh kosong atau SP1..SP4
+    if (ket && !/^SP[1-4]$/.test(ket)) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Keterangan harus SP1-SP4 (atau kosong)." }) };
     }
 
-    // --- Ambil file master
     const filePath = `${encodeURIComponent(`${kelas}.json`)}`;
     const url = `${API_BASE}/${filePath}`;
     const getRes = await fetch(url, { headers: ghHeaders() });
@@ -85,29 +82,26 @@ exports.handler = async (event) => {
     const sha  = file?.sha;
     const decoded = b64dec(file?.content || "");
     let data = [];
-    try {
-      data = JSON.parse(decoded);
-    } catch {
-      return { statusCode: 500, body: JSON.stringify({ error: "Gagal parse JSON kelas_{}.json." }) };
-    }
+    try { data = JSON.parse(decoded); }
+    catch { return { statusCode: 500, body: JSON.stringify({ error: "Gagal parse JSON kelas_{}.json." }) }; }
+
     if (!Array.isArray(data)) {
       return { statusCode: 500, body: JSON.stringify({ error: "Struktur kelas_{}.json tidak valid (bukan array)." }) };
     }
 
-    // --- Cari santri & patch keterangan
     const idx = matchIndex(data, key);
     if (idx === -1) {
       return { statusCode: 404, body: JSON.stringify({ error: `Santri dengan key '${key}' tidak ditemukan.` }) };
     }
 
-    data[idx].keterangan = ket;
+    data[idx].keterangan = ket || ""; // izinkan kosong
 
     const newContent = JSON.stringify(data, null, 2);
     const putRes = await fetch(url, {
       method: "PUT",
       headers: { ...ghHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: `chore: update keterangan (${kelas}) key=${key} -> ${ket}`,
+        message: `chore: update keterangan (${kelas}) key=${key} -> ${ket || '-'}`,
         content: b64enc(newContent),
         sha
       })
@@ -120,7 +114,6 @@ exports.handler = async (event) => {
 
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
   } catch (e) {
-    // Perkuat visibilitas error
     return { statusCode: 500, body: JSON.stringify({ error: e.message || "Internal error" }) };
   }
 };
