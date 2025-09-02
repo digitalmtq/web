@@ -1,38 +1,126 @@
-jenSel.addEventListener("change", async () => {
-  const key   = String(row.dataset?.nis || row.dataset?.id || "").trim();
-  const oldJ  = String(window.jenjangMap?.[kSem] ?? jenNow ?? "");
-  const newJ  = String(jenSel.value || "");
+// netlify/functions/updateJenjangKelas.js
+// Update field "jenjang" untuk satu santri di kelas_{}.json via GitHub Contents API
 
-  if (newJ && !/^A[1-8]$/.test(newJ)) {
-    alert("Jenjang harus A1 - A8 (atau kosong).");
-    jenSel.value = oldJ;
-    return;
+const API_BASE = "https://api.github.com/repos/digitalmtq/server/contents";
+const token = process.env.MTQ_TOKEN;
+
+function ghHeaders() {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "User-Agent": "netlify-fn-update-jenjang",
+  };
+}
+
+function b64enc(str) { return Buffer.from(str, "utf8").toString("base64"); }
+function b64dec(str) { return Buffer.from(str, "base64").toString("utf8"); }
+
+// Cari index santri: nis → id (string) → id (number)
+function matchIndex(list, key) {
+  if (!Array.isArray(list)) return -1;
+  const keyStr = String(key ?? "").trim();
+  if (!keyStr) return -1;
+
+  let idx = list.findIndex(x => String(x?.nis ?? "").trim() === keyStr);
+  if (idx !== -1) return idx;
+
+  idx = list.findIndex(x => String(x?.id ?? "").trim() === keyStr);
+  if (idx !== -1) return idx;
+
+  if (!Number.isNaN(Number(keyStr))) {
+    const keyNum = Number(keyStr);
+    idx = list.findIndex(x => Number(x?.id) === keyNum);
+    if (idx !== -1) return idx;
   }
+  return -1;
+}
 
-  jenSel.disabled = true;
-  jenSel.style.opacity = "0.6";
+exports.handler = async (event) => {
   try {
-    const res = await fetch(`/.netlify/functions/updateJenjangKelas?kelas=${encodeURIComponent(kelas)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, jenjang: newJ })
-    });
-
-    // ← Tampilkan body text kalau gagal (supaya tidak cuma “Gagal update jenjang” generik)
-    const text = await res.text();
-    let out = {};
-    try { out = JSON.parse(text); } catch {}
-
-    if (!res.ok || out?.success !== true) {
-      throw new Error(out?.error || text || "Gagal update jenjang.");
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
+    }
+    if (!token) {
+      return { statusCode: 500, body: JSON.stringify({ error: "MTQ_TOKEN tidak terpasang di environment." }) };
     }
 
-    window.jenjangMap[key] = newJ;
+    const kelas = (event.queryStringParameters?.kelas || "").trim(); // ex: kelas_1
+    if (!kelas) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Parameter 'kelas' wajib." }) };
+    }
+
+    let body;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      // ← DI SINI TADI ADA ‘)’ LEBIH → bikin crash
+      return { statusCode: 400, body: JSON.stringify({ error: "Body harus JSON." }) };
+    }
+
+    const key = String(body?.key ?? "").trim();
+    const jen = String(body?.jenjang ?? "").trim();
+
+    if (!key) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Field 'key' wajib." }) };
+    }
+    // Jenjang A1..A8 (kalau mau boleh kosong, ubah jadi: if (jen && !/^A[1-8]$/.test(jen)) {...})
+    if (!/^A[1-8]$/.test(jen)) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Jenjang harus A1-A8." }) };
+    }
+
+    // --- Ambil file master
+    const filePath = `${encodeURIComponent(`${kelas}.json`)}`;
+    const url = `${API_BASE}/${filePath}`;
+    const getRes = await fetch(url, { headers: ghHeaders() });
+
+    if (getRes.status === 404) {
+      return { statusCode: 404, body: JSON.stringify({ error: `File ${kelas}.json tidak ditemukan.` }) };
+    }
+    if (!getRes.ok) {
+      const t = await getRes.text();
+      return { statusCode: getRes.status, body: t };
+    }
+
+    const file = await getRes.json();
+    const sha  = file?.sha;
+    const decoded = b64dec(file?.content || "");
+    let data = [];
+    try {
+      data = JSON.parse(decoded);
+    } catch {
+      return { statusCode: 500, body: JSON.stringify({ error: "Gagal parse JSON kelas_{}.json." }) };
+    }
+    if (!Array.isArray(data)) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Struktur kelas_{}.json tidak valid (bukan array)." }) };
+    }
+
+    // --- Cari santri & patch jenjang
+    const idx = matchIndex(data, key);
+    if (idx === -1) {
+      return { statusCode: 404, body: JSON.stringify({ error: `Santri dengan key '${key}' tidak ditemukan.` }) };
+    }
+
+    data[idx].jenjang = jen;
+
+    const newContent = JSON.stringify(data, null, 2);
+    const putRes = await fetch(url, {
+      method: "PUT",
+      headers: { ...ghHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `chore: update jenjang (${kelas}) key=${key} -> ${jen}`,
+        content: b64enc(newContent),
+        sha
+      })
+    });
+
+    if (!putRes.ok) {
+      const t = await putRes.text();
+      return { statusCode: putRes.status, body: t };
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ success: true }) };
   } catch (e) {
-    alert("Gagal menyimpan jenjang ke kelas: " + e.message);
-    jenSel.value = oldJ;
-  } finally {
-    jenSel.disabled = false;
-    jenSel.style.opacity = "";
+    // Perkuat visibilitas error
+    return { statusCode: 500, body: JSON.stringify({ error: e.message || "Internal error" }) };
   }
-});
+};
