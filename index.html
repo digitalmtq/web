@@ -3356,12 +3356,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         { key:'nama',     title:'Nama', w:46, minW:36, maxW:80, align:'left'   },
         { key:'sem',      title:'SM',   w:12, minW:12, maxW:12, align:'center' }, // dipersempit
         { key:'jenjang',  title:'KLS',  w:14, minW:14, maxW:14, align:'center' }, // dipersempit
-        { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' }, // kolom baru
         { key:'h',        title:'H',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
+		{ key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' }, // kolom baru
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
@@ -3746,12 +3746,12 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         { key:'nama',     title:'Nama', w:46, minW:36, maxW:80, align:'left'   },
         { key:'sem',      title:'SM',   w:12, minW:12, maxW:12, align:'center' },
         { key:'jenjang',  title:'KLS',  w:14, minW:14, maxW:14, align:'center' },
-        { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' }, // baru
         { key:'h',        title:'H',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
+		{ key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' }, // baru
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
@@ -3919,7 +3919,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
       const header = [
-        "No","NIS","Nama","SM","KLS","SP","H","A","S","I","Hadir %",
+        "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
         "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","THMS","Nilai Rata2","Predikat" // THMS
       ];
       const body = rows.map((r, idx) => {
