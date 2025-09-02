@@ -2062,13 +2062,6 @@ function aturDropdownKelas(user) {
       console.error("Gagal load surah/pagesMap:", err);
     }
 
-// NIS ON
-setButtonsDisabled(true);   // ini otomatis juga memanggil setNISDropdownDisabled(true) kalau sudah kamu hubungkan
-
-// NIS OFF
-setButtonsDisabled(false);
-
-	  
     const isLoggedIn = localStorage.getItem("isLoggedIn");
     if (isLoggedIn) {
       const storedKelas = JSON.parse(localStorage.getItem("kelasDiizinkan") || "[]");
@@ -2200,44 +2193,37 @@ async function loadSantriData() {
   const getRowId  = row => (row?.dataset?.id  || "").trim();
   const getRowNis = row => (row?.dataset?.nis || "").trim();
 
-  // =======================================================
-// FUNGSI UTAMA MU: tombol + dropdown + guard update *.js
-// =======================================================
-function setButtonsDisabled(disabled) {
-  const targets = [
-    document.getElementById("save-btn-modal"),
-    document.getElementById("save-btn"),
-    document.getElementById("btnHitungTotalJuz"),
-    document.querySelector("button[onclick='bukaModalSantri()']"),
-    document.getElementById("btnHapusSantri"),
-    document.getElementById("btnPindahKelas"),
-    document.getElementById("recordButton"),
-	document.getElementById("record-start"),
-    document.getElementById("btn-beri-nilai"),
-    document.querySelector("button[onclick='simpanSantriBaru()']"),
-    document.getElementById("btnHapusTerpilih"),
-    document.getElementById("doPindah"),
-  ];
-  targets.forEach(btn => {
-    if (!btn) return;
-    btn.disabled = !!disabled;
-    btn.style.opacity = disabled ? "0.5" : "";
-    btn.style.cursor  = disabled ? "not-allowed" : "";
-    if (disabled) {
-      btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
-      if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
-    } else {
-      if (btn.dataset._onclick_bak) {
-        btn.setAttribute("onclick", btn.dataset._onclick_bak);
-        delete btn.dataset._onclick_bak;
+  // enable/disable tombol saat mode NIS
+  function setButtonsDisabled(disabled) {
+    const targets = [
+      document.getElementById("save-btn-modal"),
+      document.getElementById("save-btn"),
+      document.getElementById("btnHitungTotalJuz"),
+      document.querySelector("button[onclick='bukaModalSantri()']"),
+      document.getElementById("btnHapusSantri"),
+      document.getElementById("btnPindahKelas"),
+      document.getElementById("recordButton"),
+      document.getElementById("btn-beri-nilai"),
+      document.querySelector("button[onclick='simpanSantriBaru()']"),
+      document.getElementById("btnHapusTerpilih"),
+      document.getElementById("doPindah"),
+    ];
+    targets.forEach(btn => {
+      if (!btn) return;
+      btn.disabled = !!disabled;
+      btn.style.opacity = disabled ? "0.5" : "";
+      btn.style.cursor  = disabled ? "not-allowed" : "";
+      if (disabled) {
+        btn.dataset._onclick_bak ??= btn.getAttribute("onclick") || "";
+        if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
+      } else {
+        if (btn.dataset._onclick_bak) {
+          btn.setAttribute("onclick", btn.dataset._onclick_bak);
+          delete btn.dataset._onclick_bak;
+        }
       }
-    }
-  });
-
-  // >>> tambahan: kunci dropdown & matikan fungsi update
-  setNISDropdownDisabled(!!disabled);
-  applyNISUpdateGuards(!!disabled);
-}
+    });
+  }
 
   try {
     // Roster santri (MASTER)
@@ -2330,6 +2316,8 @@ function setButtonsDisabled(disabled) {
     // Mode NIS → disable tombol tertentu
     const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
     setButtonsDisabled(isModeNIS);
+	setNISDropdownDisabled(isModeNIS);
+
 
     // RENDER TABEL
     santriTableBody.innerHTML = "";
@@ -5525,177 +5513,25 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 
+		
+		
 <script>
-// ==========================
-// Helper A: kunci 3 dropdown
-// ==========================
 (function () {
   let nisObserver = null;
-  const norm = s => String(s||"").trim().toLowerCase();
 
-  function getTable() {
-    return (
-      document.getElementById("tabelSantri") ||
-      document.querySelector("table#data-santri, table.santri, table[data-role='santri']") ||
-      document.querySelector("table")
-    );
+  function findTableBody() {
+    const t = document.querySelector("#tabelSantri tbody") ||
+              document.querySelector("table#data-santri tbody") ||
+              document.querySelector("tbody");
+    return t || null;
   }
 
-  function getTargetTds() {
-    const table = getTable();
-    if (!table) return [];
-    // a) <td data-col="...">
-    let tds = Array.from(
-      table.querySelectorAll(
-        "td[data-col='jenjang'], td[data-col='semester'], td[data-col='keterangan']"
-      )
-    );
-    if (tds.length) return tds;
-
-    // b) fallback via header
-    const headRow = table.tHead?.rows?.[0] || table.querySelector("thead tr");
-    if (!headRow) return [];
-    const headers = Array.from(headRow.cells).map(c => norm(c.textContent));
-    const wanted = ["jenjang","semester","keterangan"];
-    const idxs = wanted.map(w => headers.findIndex(h => h.includes(w))).filter(i => i >= 0);
-
-    const bodyRows = table.tBodies.length
-      ? Array.from(table.tBodies[0].rows)
-      : Array.from(table.querySelectorAll("tbody tr"));
-
-    bodyRows.forEach(tr => idxs.forEach(i => tr.cells[i] && tds.push(tr.cells[i])));
-    return tds;
-  }
-
-  function applyDropdownLock(disabled) {
-    const tds = getTargetTds();
-    tds.forEach(td => {
-      td.classList.toggle("nis-locked", !!disabled);
-      td.querySelectorAll("select").forEach(sel => {
-        if (disabled) {
-          if (sel.dataset._dis_bak === undefined) sel.dataset._dis_bak = sel.disabled ? "1" : "";
-          sel.disabled = true;
-          sel.setAttribute("aria-disabled","true");
-          // kosmetik ringan
-          if (sel.dataset._op_bak === undefined) sel.dataset._op_bak = sel.style.opacity || "";
-          if (sel.dataset._cur_bak === undefined) sel.dataset._cur_bak = sel.style.cursor || "";
-          sel.style.opacity = "0.5";
-          sel.style.cursor  = "not-allowed";
-        } else {
-          if (sel.dataset._dis_bak !== undefined) {
-            sel.disabled = sel.dataset._dis_bak === "1";
-            delete sel.dataset._dis_bak;
-          } else {
-            sel.disabled = false;
-          }
-          sel.removeAttribute("aria-disabled");
-          if (sel.dataset._op_bak !== undefined) { sel.style.opacity = sel.dataset._op_bak; delete sel.dataset._op_bak; } else sel.style.opacity = "";
-          if (sel.dataset._cur_bak !== undefined) { sel.style.cursor  = sel.dataset._cur_bak; delete sel.dataset._cur_bak; } else sel.style.cursor  = "";
-        }
-      });
-    });
-  }
-
-  // fungsi publik dipanggil dari setButtonsDisabled
-  window.setNISDropdownDisabled = function(disabled){
-    if (nisObserver) { nisObserver.disconnect(); nisObserver = null; }
-    applyDropdownLock(!!disabled);
-    if (disabled) {
-      const table = getTable();
-      if (!table) return;
-      const target = table.tBodies[0] || table;
-      nisObserver = new MutationObserver(() => applyDropdownLock(true));
-      nisObserver.observe(target, { childList: true, subtree: true });
-    }
-  };
-
-  // styling opsional
-  const style = document.createElement("style");
-  style.textContent = `td.nis-locked select { background:#f2f2f2; cursor:not-allowed; opacity:.75; }`;
-  document.head.appendChild(style);
-})();
-</script>
-
-<script>
-// ==========================
-// Helper A (revisi): kunci 3 dropdown
-// ==========================
-(function () {
-  let nisObserver = null;
-  const norm = s => String(s||"").trim().toLowerCase();
-
-  // sinonim agar deteksi fleksibel
-  const MAP = {
-    semester:   ["semester","smtr"],
-    jenjang:    ["jenjang","level","tingkat","kelas","halaqoh","halaqah"],
-    keterangan: ["keterangan","ket","catatan","notes","remark","remarks"]
-  };
-  const ALL_KEYS = [...new Set([...MAP.semester, ...MAP.jenjang, ...MAP.keterangan])];
-
-  function getTable() {
-    return (
-      document.getElementById("tabelSantri") ||
-      document.querySelector("table#data-santri, table.santri, table[data-role='santri']") ||
-      document.querySelector("table")
-    );
-  }
-
-  // Kumpulkan SELECT target dengan beberapa strategi sekaligus
-  function getJenSemKetSelects() {
-    const table = getTable();
-    if (!table) return [];
-
-    const found = new Set();
-
-    // (1) SELECT di dalam <td data-col="jenjang|semester|keterangan">
-    table.querySelectorAll(
-      "td[data-col='jenjang'] select, td[data-col='semester'] select, td[data-col='keterangan'] select"
-    ).forEach(s => found.add(s));
-
-    // (2) SELECT dengan atribut yang “mengandung” kata kunci (name/id/data-field/aria-label/placeholder/data-col)
-    table.querySelectorAll("select").forEach(sel => {
-      const hay = [
-        sel.getAttribute("name"),
-        sel.id,
-        sel.getAttribute("data-field"),
-        sel.getAttribute("aria-label"),
-        sel.getAttribute("placeholder"),
-        sel.getAttribute("data-col")
-      ].map(norm).join(" ");
-      if (ALL_KEYS.some(k => hay.includes(k))) found.add(sel);
-    });
-
-    // (3) Fallback: deteksi kolom lewat header, lalu ambil SELECT di <td> kolom tersebut
-    const headRow = table.tHead?.rows?.[0] || table.querySelector("thead tr");
-    if (headRow) {
-      const headers = Array.from(headRow.cells).map(c => norm(c.textContent));
-      const wanted = {
-        semester:   headers.findIndex(h => MAP.semester.some(k => h.includes(k))),
-        jenjang:    headers.findIndex(h => MAP.jenjang.some(k => h.includes(k))),
-        keterangan: headers.findIndex(h => MAP.keterangan.some(k => h.includes(k)))
-      };
-      const idxs = Object.values(wanted).filter(i => i >= 0);
-
-      const bodyRows = table.tBodies.length
-        ? Array.from(table.tBodies[0].rows)
-        : Array.from(table.querySelectorAll("tbody tr"));
-
-      bodyRows.forEach(tr => {
-        idxs.forEach(i => {
-          const td = tr.cells[i];
-          if (!td) return;
-          td.querySelectorAll("select").forEach(s => found.add(s));
-        });
-      });
-    }
-
-    return Array.from(found);
-  }
-
-  function applyDropdownLock(disabled) {
-    const selects = getJenSemKetSelects();
-    selects.forEach(sel => {
+  function lockDropdowns(disabled) {
+    const tbody = findTableBody();
+    if (!tbody) return;
+    tbody.querySelectorAll("select.jenjang, select.semester, select.keterangan").forEach(sel => {
       if (disabled) {
+        // simpan state lama (sekali)
         if (sel.dataset._dis_bak === undefined) sel.dataset._dis_bak = sel.disabled ? "1" : "";
         if (sel.dataset._op_bak  === undefined) sel.dataset._op_bak  = sel.style.opacity || "";
         if (sel.dataset._cur_bak === undefined) sel.dataset._cur_bak = sel.style.cursor  || "";
@@ -5704,36 +5540,45 @@ document.addEventListener("DOMContentLoaded", () => {
         sel.style.opacity = "0.5";
         sel.style.cursor  = "not-allowed";
       } else {
+        // restore
         if (sel.dataset._dis_bak !== undefined) {
           sel.disabled = sel.dataset._dis_bak === "1";
           delete sel.dataset._dis_bak;
-        } else { sel.disabled = false; }
+        } else {
+          sel.disabled = false;
+        }
         sel.removeAttribute("aria-disabled");
-        if (sel.dataset._op_bak  !== undefined) { sel.style.opacity = sel.dataset._op_bak;  delete sel.dataset._op_bak; } else sel.style.opacity = "";
-        if (sel.dataset._cur_bak !== undefined) { sel.style.cursor  = sel.dataset._cur_bak; delete sel.dataset._cur_bak; } else sel.style.cursor  = "";
+        sel.style.opacity = sel.dataset._op_bak  ?? "";
+        sel.style.cursor  = sel.dataset._cur_bak ?? "";
+        delete sel.dataset._op_bak;
+        delete sel.dataset._cur_bak;
       }
     });
   }
 
-  // fungsi publik dipanggil dari setButtonsDisabled
+  // fungsi publik
   window.setNISDropdownDisabled = function(disabled){
     if (nisObserver) { nisObserver.disconnect(); nisObserver = null; }
-    applyDropdownLock(!!disabled);
+    lockDropdowns(!!disabled);
     if (disabled) {
-      const table = getTable();
-      if (!table) return;
-      const target = table.tBodies[0] || table;
-      nisObserver = new MutationObserver(() => applyDropdownLock(true));
-      nisObserver.observe(target, { childList: true, subtree: true });
+      const tbody = findTableBody();
+      if (!tbody) return;
+      // kalau tabel berubah (paging/filter/rerender), kunci lagi
+      nisObserver = new MutationObserver(() => lockDropdowns(true));
+      nisObserver.observe(tbody, { childList: true, subtree: true });
     }
   };
-
-  // styling opsional (berlaku untuk semua select yang dikunci)
-  const style = document.createElement("style");
-  style.textContent = `select[aria-disabled="true"]{ background:#f2f2f2; cursor:not-allowed; opacity:.75; }`;
-  document.head.appendChild(style);
 })();
 </script>
+
+<style>
+/* kosmetik opsional */
+td .jenjang[disabled], td .semester[disabled], td .keterangan[disabled] {
+  background: #f2f2f2;
+  cursor: not-allowed;
+  opacity: .75;
+}
+</style>
 	
 </body>
 </html>
