@@ -2315,13 +2315,10 @@ async function loadSantriData() {
 
     // Mode NIS → disable tombol tertentu
     const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
-    // User NIS
-	setNISDropdownDisabled(true);   // dropdown jenjang/semester/keterangan terkunci (soft-lock)
-	setNISRecordDisabled(true);     // tombol "Recording" terkunci (soft-lock)
-	// User non-NIS
-	setNISDropdownDisabled(false);
-	setNISRecordDisabled(false);
-
+  	setButtonsDisabled(isModeNIS);
+	setNISDropdownDisabled(isModeNIS);
+	setNISRecordDisabled(isModeNIS);
+	setNISRecordDisabled(isModeNIS);
 	  
 
 
