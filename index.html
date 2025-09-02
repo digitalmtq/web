@@ -1104,11 +1104,11 @@ async function submitTambahKelasBaru() {
             <th>Setor Dari</th>
             <th>Setor Sampai</th>
 			<th>Page</th>
-			<th>Total</th>
+			<th>Total Page</th>
 			<th>Juz</th>
-            <th>Total</th>
+            <th>Total Juz</th>
             <th>Nilai</th>
-            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Target Semester</th>
+            <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Capaian Target Semester</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -4443,7 +4443,7 @@ async function hitungTotalAllJuzFromTable() {
           else { label = `${prosentase}%`; warna = "red"; }
         }
 
-        cell.innerHTML = `${totalJuzStr} <span style="color:${warna}; font-size:12px;">${label}</span>`;
+        cell.innerHTML = `${totalJuzStr} juz <span style="color:${warna}; font-size:12px;">${label}</span>`;
 
         dataToSave.push({
           key,
