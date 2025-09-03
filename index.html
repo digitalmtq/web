@@ -1294,291 +1294,36 @@ async function buatUserNIS() {
     if (e.target === pdfModalOverlay) pdfModalOverlay.style.display = "none";
   });
 
-	
-
-// ===== Modal Pilih Santri (kedua) — STRICT: hanya NIS yang tampil di dashboard ∩ punya data di rentang =====
-(() => {
-  // --- DOM refs (JANGAN didobel deklarasinya)
+  // -------- Modal Pilih Santri (kedua) --------
   const santriModalOverlay = document.getElementById("santriModalOverlay");
-  const okSantriSelect     = document.getElementById("okSantriSelect");
+  const okSantriSelect = document.getElementById("okSantriSelect");
   const cancelSantriSelect = document.getElementById("cancelSantriSelect");
-  const santriSelect       = document.getElementById("pdf-santri-select");
-  const openBtn            = document.getElementById("download-pdf-santri");
 
-  const startInput = document.getElementById('pdf-start-date');
-  const endInput   = document.getElementById('pdf-end-date');
+  // Buka modal kedua saat klik "PDF per Santri"
+  document.getElementById("download-pdf-santri")?.addEventListener("click", async () => {
+    santriModalOverlay.style.display = "flex";
+    try { if (window._populateSantriSelect) await window._populateSantriSelect(); } catch(e){}
+  });
 
-  const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect)
-                    ? kelasSelect
-                    : document.getElementById('kelasSelect');
-
-  // ===== Util tanggal
-  function getRange() {
-    const s = startInput?.value || '';
-    const e = endInput?.value   || '';
-    return { s, e };
-  }
-  function rangeValid(s, e) { return !!(s && e && s <= e); }
-
-  // ===== Util: ambil NIS (dan nama) dari dashboard recent
-  function getRecentNisFromDashboard() {
-    const nisSet = new Set();
-
-    // atribut data-*
-    document.querySelectorAll('[data-nis],[data-santri-nis],[data-user-nis],[data-nis-santri]').forEach(el => {
-      const v = String(
-        el.getAttribute('data-nis') ||
-        el.getAttribute('data-santri-nis') ||
-        el.getAttribute('data-user-nis') ||
-        el.getAttribute('data-nis-santri') || ''
-      ).trim();
-      if (v) nisSet.add(v);
-    });
-
-    // fallback: cari kolom header NIS di tabel yang terlihat
-    if (nisSet.size === 0) {
-      const tables = Array.from(document.querySelectorAll('#recentTable, .recent-table, table'));
-      for (const tb of tables) {
-        const ths = tb.querySelectorAll('thead th');
-        if (!ths.length) continue;
-        let nisCol = -1;
-        ths.forEach((th, i) => {
-          const t = (th.textContent || '').trim();
-          if (/(^|\s)nis(\s|$)/i.test(t) && nisCol === -1) nisCol = i;
-        });
-        if (nisCol >= 0) {
-          const rows = tb.querySelectorAll('tbody tr');
-          rows.forEach(tr => {
-            const tds = tr.querySelectorAll('td');
-            if (!tds.length || !tds[nisCol]) return;
-            const raw = (tds[nisCol].getAttribute('data-nis') || tds[nisCol].textContent || '').trim();
-            if (raw) nisSet.add(raw);
-          });
-        }
-      }
-    }
-
-    return Array.from(nisSet);
-  }
-
-  function buildNameMapFromDashboard() {
-    const map = new Map();
-    const tables = Array.from(document.querySelectorAll('#recentTable, .recent-table, table'));
-    for (const tb of tables) {
-      const ths = tb.querySelectorAll('thead th');
-      if (!ths.length) continue;
-      let nisCol = -1, nameCol = -1;
-      ths.forEach((th, i) => {
-        const t = (th.textContent || '').trim();
-        if (/nis/i.test(t)  && nisCol  === -1) nisCol  = i;
-        if (/nama/i.test(t) && nameCol === -1) nameCol = i;
-      });
-      if (nisCol >= 0 && nameCol >= 0) {
-        const rows = tb.querySelectorAll('tbody tr');
-        rows.forEach(tr => {
-          const tds = tr.querySelectorAll('td');
-          if (tds.length <= Math.max(nisCol, nameCol)) return;
-          const nis  = (tds[nisCol].getAttribute('data-nis') || tds[nisCol].textContent || '').trim();
-          const nama = (tds[nameCol].textContent || '').trim();
-          if (nis) map.set(nis, nama || '-');
-        });
-      }
-    }
-    return map; // Map<nis, nama>
-  }
-
-  // ===== Daftar kelas aman
-  function getAllKelasKeysSafe() {
-    if (typeof _getAllKelasKeys === 'function') return _getAllKelasKeys();
-    if (Array.isArray(window.ALL_KELAS_KEYS) && window.ALL_KELAS_KEYS.length) return window.ALL_KELAS_KEYS;
-    return [];
-  }
-
-  // ===== Ambil NIS yang benar-benar punya data pada rentang
-  async function allowedNisForRangeSingleClass(kelasKey, s, e, nisFilterSet /* lowercased Set */) {
-    const out = new Set();
-    if (!kelasKey || !s || !e) return out;
-    try {
-      const url = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(s)}&end=${encodeURIComponent(e)}&t=${Date.now()}`;
-      const res = await fetch(url);
-      if (!res.ok) return out;
-      const arr = await res.json().catch(() => []);
-      for (const r of (arr || [])) {
-        const nisLC = String(r?.nis || '').trim().toLowerCase();
-        if (!nisLC) continue;
-        if (!nisFilterSet || nisFilterSet.has(nisLC)) out.add(nisLC);
-      }
-      return out;
-    } catch { return out; }
-  }
-
-  async function allowedNisForRangeAllClasses(s, e, nisFilterSet /* lowercased Set */) {
-    const keys = getAllKelasKeysSafe();
-    const out = new Set();
-    for (const k of keys) {
-      const part = await allowedNisForRangeSingleClass(k, s, e, nisFilterSet);
-      part.forEach(n => out.add(n));
-    }
-    return out;
-  }
-
-  // ===== Roster (untuk nama lebih akurat saat kelas dipilih)
-  async function fetchRosterSafe(kelas) {
-    if (!kelas) return [];
-    try {
-      const res = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
-      if (!res.ok) return [];
-      const js = await res.json().catch(() => []);
-      return Array.isArray(js) ? js : [];
-    } catch { return []; }
-  }
-
-  // ===== Populate ketat: RECENT ∩ RANGE (tanpa fallback ke semua)
-  async function populateSantriSelectSTRICT() {
-    if (!santriSelect) return;
-
-    const { s, e } = getRange();
-    if (!rangeValid(s, e)) {
-      santriSelect.innerHTML = `<option value="">— Pilih rentang tanggal yang valid —</option>`;
-      syncOkDisabled();
-      return;
-    }
-
-    // Ambil NIS dari dashboard recent (basis)
-    const recent = getRecentNisFromDashboard();
-    if (!recent.length) {
-      santriSelect.innerHTML = `<option value="">— Tidak ada NIS pada dashboard —</option>`;
-      syncOkDisabled();
-      return;
-    }
-
-    // Filter range (kelas → 1 kelas; tanpa kelas → semua kelas)
-    const nisFilterSet = new Set(recent.map(x => String(x).trim().toLowerCase()));
-
-    santriSelect.innerHTML = `<option value="">Memuat…</option>`;
-
-    const kelas = kelasEl?.value || '';
-    let allowedLC;
-    if (kelas) {
-      allowedLC = await allowedNisForRangeSingleClass(kelas, s, e, nisFilterSet);
-    } else {
-      const kelasKeys = getAllKelasKeysSafe();
-      if (!kelasKeys.length) {
-        santriSelect.innerHTML = `<option value="">— Pilih kelas dulu (daftar kelas tidak ditemukan) —</option>`;
-        syncOkDisabled();
-        return;
-      }
-      allowedLC = await allowedNisForRangeAllClasses(s, e, nisFilterSet);
-    }
-
-    // Intersection final: recent ∩ allowedRange
-    const finalNis = recent
-      .map(n => String(n).trim())
-      .filter(n => allowedLC.has(n.toLowerCase()));
-
-    if (!finalNis.length) {
-      santriSelect.innerHTML = `<option value="">— Tidak ada data pada rentang terpilih —</option>`;
-      syncOkDisabled();
-      return;
-    }
-
-    // Nama: prioritas roster (kalau kelas dipilih), fallback nama dashboard
-    const nameMapDash = buildNameMapFromDashboard();
-    const roster = await fetchRosterSafe(kelas);
-    const rosterByNisLC = new Map();
-    for (const srow of (roster || [])) {
-      const nlc = String(srow?.nis || '').trim().toLowerCase();
-      if (nlc) rosterByNisLC.set(nlc, srow.nama || '');
-    }
-
-    const opts = finalNis
-      .map(nis => {
-        const lc = nis.toLowerCase();
-        const nama = (rosterByNisLC.get(lc) || nameMapDash.get(nis) || '-').trim();
-        return { nis, nama };
-      })
-      .sort((a, b) => (a.nama || '').localeCompare(b.nama || '', 'id'));
-
-    santriSelect.innerHTML =
-      `<option value="">— Pilih santri —</option>` +
-      opts.map(x => `<option value="${x.nis}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis} — ${x.nama}</option>`).join('');
-
-    syncOkDisabled();
-  }
-  window._populateSantriSelectSMART = populateSantriSelectSTRICT; // tetap expose nama lama
-
-  // ===== Tombol OK: validasi keras
+  // OK => generate PDF per santri
   okSantriSelect?.addEventListener("click", async () => {
-    const { s, e } = getRange();
-    if (!rangeValid(s, e)) {
-      alert('Silakan pilih tanggal mulai & akhir yang valid.');
-      startInput?.focus();
-      return;
-    }
-    if (!santriSelect?.value) {
-      alert('Silakan pilih santri terlebih dahulu.');
-      return;
-    }
     try {
       if (window._pdfSantriDownload) {
-        await window._pdfSantriDownload();   // fungsi yang sudah ada
-        santriModalOverlay.style.display = "none";
+        await window._pdfSantriDownload(); // validasi & generate
+        santriModalOverlay.style.display = "none"; // sukses => tutup
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      syncOkDisabled();
+    } catch (e) {
+      console.error(e); // gagal => biarkan modal tetap terbuka
     }
   });
 
-  // ===== Buka/tutup modal
-  openBtn?.addEventListener("click", async () => {
-    santriModalOverlay.style.display = "flex";
-    try { await populateSantriSelectSTRICT(); } catch (e) { console.error(e); }
+  // Batal / klik luar untuk tutup
+  cancelSantriSelect?.addEventListener("click", () => {
+    santriModalOverlay.style.display = "none";
   });
-  cancelSantriSelect?.addEventListener("click", () => { santriModalOverlay.style.display = "none"; });
   santriModalOverlay?.addEventListener("click", (e) => {
     if (e.target === santriModalOverlay) santriModalOverlay.style.display = "none";
   });
-
-  // ===== Sinkron state tombol OK
-  function syncOkDisabled() {
-    const { s, e } = getRange();
-    const valid = rangeValid(s, e);
-    const hasChoice = !!santriSelect?.value;
-    okSantriSelect.disabled = !(valid && hasChoice);
-  }
-  santriSelect?.addEventListener('change', syncOkDisabled);
-
-  // ===== Reaktif: saat tanggal / kelas berubah → repopulate KERAS
-  function onDateChanged() {
-    const { s, e } = getRange();
-    if (!s || !e) {
-      santriSelect.innerHTML = `<option value="">— Pilih rentang tanggal dulu —</option>`;
-      syncOkDisabled();
-      return;
-    }
-    if (!rangeValid(s, e)) {
-      santriSelect.innerHTML = `<option value="">— Tanggal tidak valid —</option>`;
-      syncOkDisabled();
-      return;
-    }
-    // Lengkap & valid → populate ketat
-    populateSantriSelectSTRICT();
-  }
-  startInput?.addEventListener('change', onDateChanged);
-  endInput?.addEventListener('change', onDateChanged);
-  kelasEl?.addEventListener('change', () => { // kalau ganti kelas, repopulate
-    const { s, e } = getRange();
-    if (rangeValid(s, e)) populateSantriSelectSTRICT();
-    else onDateChanged();
-  });
-
-  // Init
-  syncOkDisabled();
-})();
-</script>
-
 </script>
 
 
@@ -6012,7 +5757,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let rekapObserver = null;
 
   // 🟢 ID yang DIIZINKAN klik walau mode NIS
-  const ALLOW = new Set(["download-pdf-santri", "okSantriSelect", "cancelSantriSelect"]);
+  const ALLOW = new Set(["download-pdf-santri", "cancelSantriSelect"]);
 
   function getRekapButtons() {
     const ids = [
@@ -6120,6 +5865,126 @@ document.addEventListener("DOMContentLoaded", () => {
 }
 </style>
 
-	
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+
+  const modal     = $('#santriModalOverlay');
+  const openBtn   = $('#download-pdf-santri');
+  const selectEl  = $('#pdf-santri-select');
+
+  // --- 1) Ambil NIS dari dashboard (paling sederhana & sinkron dengan login) ---
+  function getNisFromDashboard(){
+    const set = new Set();
+
+    // 1a) Elemen yang menyimpan NIS via data-attribute
+    document.querySelectorAll('[data-nis],[data-santri-nis],[data-user-nis],[data-nis-santri]').forEach(el=>{
+      const v = (el.getAttribute('data-nis')
+        || el.getAttribute('data-santri-nis')
+        || el.getAttribute('data-user-nis')
+        || el.getAttribute('data-nis-santri') || '').trim();
+      if (v) set.add(v);
+    });
+
+    // 1b) Fallback: baca kolom bertitel "NIS" di tabel recent jika ada
+    if (!set.size) {
+      document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
+        const ths = tb.querySelectorAll('thead th');
+        if (!ths.length) return;
+        let nisIdx = -1;
+        ths.forEach((th,i)=>{
+          const t = (th.textContent||'').trim();
+          if (/(^|\s)nis(\s|$)/i.test(t) && nisIdx === -1) nisIdx = i;
+        });
+        if (nisIdx >= 0) {
+          tb.querySelectorAll('tbody tr').forEach(tr=>{
+            const tds = tr.querySelectorAll('td');
+            const raw = (tds[nisIdx]?.getAttribute('data-nis') || tds[nisIdx]?.textContent || '').trim();
+            if (raw) set.add(raw);
+          });
+        }
+      });
+    }
+    return [...set];
+  }
+
+  // --- 2) (Opsional) kalau dashboard belum tersedia, ambil dari login memory ---
+  function getNisFromLoginMemory(){
+    // Setelah login, kamu bisa set salah satu:
+    // window.USER_NIS = ["c23","331"]  // array
+    // localStorage.setItem('USER_NIS', '["c23","331"]')
+    // sessionStorage.setItem('USER_NIS', '["c23","331"]')
+    const fromWin = Array.isArray(window.USER_NIS) ? window.USER_NIS : [];
+    const fromLS  = (()=>{ try{ return JSON.parse(localStorage.getItem('USER_NIS')||'[]'); }catch{return []} })();
+    const fromSS  = (()=>{ try{ return JSON.parse(sessionStorage.getItem('USER_NIS')||'[]'); }catch{return []} })();
+    return [...new Set([...(fromWin||[]), ...(fromLS||[]), ...(fromSS||[])].map(s=>String(s).trim()).filter(Boolean))];
+  }
+
+  // --- 3) Ambil peta Nama dari dashboard (opsional, biar labelnya "NIS — Nama") ---
+  function buildNameMapFromDashboard(){
+    const map = new Map();
+    document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
+      const ths = tb.querySelectorAll('thead th');
+      if (!ths.length) return;
+      let nisIdx=-1, nameIdx=-1;
+      ths.forEach((th,i)=>{
+        const t=(th.textContent||'').trim();
+        if (/nis/i.test(t)  && nisIdx  === -1) nisIdx  = i;
+        if (/nama/i.test(t) && nameIdx === -1) nameIdx = i;
+      });
+      if (nisIdx >= 0 && nameIdx >= 0) {
+        tb.querySelectorAll('tbody tr').forEach(tr=>{
+          const tds = tr.querySelectorAll('td');
+          const nis  = (tds[nisIdx]?.getAttribute('data-nis') || tds[nisIdx]?.textContent || '').trim();
+          const nama = (tds[nameIdx]?.textContent || '').trim();
+          if (nis) map.set(nis, nama || '-');
+        });
+      }
+    });
+    return map; // Map<nis, nama>
+  }
+
+  // --- 4) Inti: populate dropdown SESEDERHANA mungkin ---
+  function populateSantriFromLoginScope(){
+    if (!selectEl) return;
+
+    // Ambil dari dashboard; kalau belum ada → fallback ke memori login
+    let nisList = getNisFromDashboard();
+    if (!nisList.length) nisList = getNisFromLoginMemory();
+
+    if (!nisList.length) {
+      selectEl.innerHTML = `<option value="">— Tidak ada NIS (cek login/dashboard) —</option>`;
+      return;
+    }
+
+    const nameMap = buildNameMapFromDashboard(); // boleh kosong; kita tetap tampilkan NIS saja
+    const options = nisList
+      .map(nis => ({ nis, nama: nameMap.get(nis) || '-' }))
+      .sort((a,b) => (a.nama||'').localeCompare(b.nama||'', 'id'));
+
+    selectEl.innerHTML = [
+      `<option value="">— Pilih santri —</option>`,
+      ...options.map(o => `<option value="${o.nis}" data-nama="${o.nama.replace(/"/g,'&quot;')}">${o.nis} — ${o.nama}</option>`)
+    ].join('');
+  }
+
+  // --- 5) EXPOSE & OVERRIDE: paksa semua pemanggilan lama ikut versi sederhana ini ---
+  window._populateSantriSelectSMART = populateSantriFromLoginScope;
+  window._populateSantriSelect      = populateSantriFromLoginScope; // kalau ada kode lama, otomatis ikut SMART
+
+  // --- 6) Hook tombol buka modal (kalau handler lamamu juga ada, ini tidak masalah) ---
+  openBtn?.addEventListener('click', ()=>{
+    if (modal) modal.style.display = 'flex';
+    populateSantriFromLoginScope();
+  });
+
+  // (opsional) kalau mau refresh dropdown saat tanggal diubah, cukup panggil fungsi yang sama.
+  // Tidak akan "melebar" karena sumbernya selalu dashboard/login, bukan roster penuh:
+  // document.getElementById('pdf-start-date')?.addEventListener('change', populateSantriFromLoginScope);
+  // document.getElementById('pdf-end-date')?.addEventListener('change',   populateSantriFromLoginScope);
+})();
+</script>
+
+
 </body>
 </html>
