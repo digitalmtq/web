@@ -5669,15 +5669,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 // ===========================================
-// Soft-lock + SAMARKAN tombol rekap (PDF/XLS)
+// Soft-lock + SAMARKAN tombol rekap (kecuali "download-pdf-santri")
 // ===========================================
 (function () {
   let rekapObserver = null;
+
+  // 👉 Tombol yang TETAP AKTIF meski NIS
+  const ALLOW = new Set(["download-pdf-santri"]);
 
   function getRekapButtons() {
     const ids = [
       "download-pdf-rekap",
       "download-xls-rekap",
+      "download-pdf-santri",   // ini dikecualikan
       "download-pdf-allkelas",
     ];
     const set = new Set();
@@ -5685,7 +5689,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const el = document.getElementById(id);
       if (el) set.add(el);
     });
-    // jaga-jaga: tombol lain bertag .rekap-btn
     document.querySelectorAll("button.rekap-btn").forEach(b => set.add(b));
     return Array.from(set);
   }
@@ -5693,23 +5696,19 @@ document.addEventListener("DOMContentLoaded", () => {
   function attachBlockers(btn){
     if (!btn || btn._nisBlockerAttached) return;
 
-    // keluarkan dari tab order + tandai aria
     if (btn.dataset._tab_bak === undefined)
       btn.dataset._tab_bak = btn.getAttribute("tabindex") || "";
     btn.setAttribute("tabindex","-1");
     btn.setAttribute("aria-disabled","true");
 
-    // backup & lepas onclick inline (kalau ada)
     if (btn.dataset._onclick_bak === undefined)
       btn.dataset._onclick_bak = btn.getAttribute("onclick") || "";
     if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
 
-    // blok semua interaksi (fase capture)
     const block = (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); return false; };
     const events = ["click","mousedown","keydown","keyup","keypress","touchstart","pointerdown","contextmenu"];
     events.forEach(ev => btn.addEventListener(ev, block, true));
 
-    // SAMARKAN (tanpa ubah inline style: pakai class)
     btn.classList.add("nis-masked");
 
     btn._nisBlocker = { block, events };
@@ -5717,13 +5716,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function detachBlockers(btn){
-    if (!btn || !btn._nisBlockerAttached) return;
-    const { block, events } = btn._nisBlocker || {};
-    if (block) events.forEach(ev => btn.removeEventListener(ev, block, true));
-    btn._nisBlocker = null;
-    btn._nisBlockerAttached = false;
+    if (!btn) return;
 
-    // pulihkan tab order & aria
+    if (btn._nisBlockerAttached) {
+      const { block, events } = btn._nisBlocker || {};
+      if (block) events.forEach(ev => btn.removeEventListener(ev, block, true));
+      btn._nisBlocker = null;
+      btn._nisBlockerAttached = false;
+    }
+
     if (btn.dataset._tab_bak !== undefined){
       const v = btn.dataset._tab_bak;
       delete btn.dataset._tab_bak;
@@ -5731,29 +5732,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     btn.removeAttribute("aria-disabled");
 
-    // pulihkan onclick inline
     if (btn.dataset._onclick_bak !== undefined){
       if (btn.dataset._onclick_bak) btn.setAttribute("onclick", btn.dataset._onclick_bak);
       else btn.removeAttribute("onclick");
       delete btn.dataset._onclick_bak;
     }
 
-    // hilangkan penyamaran
     btn.classList.remove("nis-masked");
   }
 
   function applyRekapSoftLock(disabled){
-    getRekapButtons().forEach(btn => disabled ? attachBlockers(btn) : detachBlockers(btn));
+    getRekapButtons().forEach(btn => {
+      if (ALLOW.has(btn.id)) {
+        // Pastikan tombol pengecualian (download-pdf-santri) selalu aktif
+        detachBlockers(btn);
+        return;
+      }
+      disabled ? attachBlockers(btn) : detachBlockers(btn);
+    });
   }
 
-  // fungsi publik (drop-in replacement)
+  // Drop-in replacement
   window.setNISRekapDisabled = function(disabled){
     if (rekapObserver) { rekapObserver.disconnect(); rekapObserver = null; }
 
     applyRekapSoftLock(!!disabled);
 
     if (disabled){
-      // kunci ulang jika DOM berubah (tombol dibuat ulang)
       rekapObserver = new MutationObserver(() => applyRekapSoftLock(true));
       rekapObserver.observe(document.body, { childList:true, subtree:true });
     }
@@ -5762,7 +5767,7 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 <style>
-/* gaya "disamarkan" (aman dihapus saat enable) */
+/* gaya "disamarkan" */
 .nis-masked {
   opacity: .5;
   filter: grayscale(70%);
