@@ -2007,57 +2007,22 @@ async function handleRecordedBlobMP3(blob){
 <div id="juzOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
 background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center;">
   <div style="background:white; padding:20px; border-radius:8px; min-width:300px;">
-    <h3>THMS</h3>
+    <h3>Hitung Total All Juz</h3>
 
-    <!-- List Teks Cakep: Ringkasan per Semester -->
-    <ul style="list-style:none; padding:0; margin:0 0 12px 0; display:grid; gap:8px;">
-      <li style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;">
-        <span style="display:flex; align-items:center; gap:8px;">
-          <span style="display:inline-flex; width:28px; height:28px; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-weight:600; font-size:12px; align-items:center; justify-content:center;">S1</span>
-          Semester 1
-        </span>
-        <strong style="font-variant-numeric:tabular-nums;">8 Juz</strong>
-      </li>
-      <li style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;">
-        <span style="display:flex; align-items:center; gap:8px;">
-          <span style="display:inline-flex; width:28px; height:28px; border-radius:999px; background:#ecfeff; border:1px solid #a5f3fc; font-weight:600; font-size:12px; align-items:center; justify-content:center;">S2</span>
-          Semester 2
-        </span>
-        <strong style="font-variant-numeric:tabular-nums;">5 Juz</strong>
-      </li>
-      <li style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;">
-        <span style="display:flex; align-items:center; gap:8px;">
-          <span style="display:inline-flex; width:28px; height:28px; border-radius:999px; background:#f0fdf4; border:1px solid #bbf7d0; font-weight:600; font-size:12px; align-items:center; justify-content:center;">S3</span>
-          Semester 3
-        </span>
-        <strong style="font-variant-numeric:tabular-nums;">5 Juz</strong>
-      </li>
-      <li style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;">
-        <span style="display:flex; align-items:center; gap:8px;">
-          <span style="display:inline-flex; width:28px; height:28px; border-radius:999px; background:#fffbeb; border:1px solid #fde68a; font-weight:600; font-size:12px; align-items:center; justify-content:center;">S4</span>
-          Semester 4
-        </span>
-        <strong style="font-variant-numeric:tabular-nums;">5 Juz</strong>
-      </li>
-      <li style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;">
-        <span style="display:flex; align-items:center; gap:8px;">
-          <span style="display:inline-flex; width:28px; height:28px; border-radius:999px; background:#fdf2f8; border:1px solid #fbcfe8; font-weight:600; font-size:12px; align-items:center; justify-content:center;">S5</span>
-          Semester 5
-        </span>
-        <strong style="font-variant-numeric:tabular-nums;">5 Juz</strong>
-      </li>
-      <li style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;">
-        <span style="display:flex; align-items:center; gap:8px;">
-          <span style="display:inline-flex; width:28px; height:28px; border-radius:999px; background:#fff1f2; border:1px solid #fecdd3; font-weight:600; font-size:12px; align-items:center; justify-content:center;">S6</span>
-          Semester 6
-        </span>
-        <strong style="font-variant-numeric:tabular-nums;">2 Juz</strong>
-      </li>
-    </ul>
+    <!-- Ringkas, rapi, tanpa kotak -->
+    <p style="margin:6px 0 12px; line-height:1.6; font-size:14px; font-variant-numeric:tabular-nums;">
+      Semester 1: <strong>8</strong> Juz ·
+      Semester 2: <strong>5</strong> Juz ·
+      Semester 3: <strong>5</strong> Juz ·
+      Semester 4: <strong>5</strong> Juz ·
+      Semester 5: <strong>5</strong> Juz ·
+      Semester 6: <strong>2</strong> Juz
+    </p>
+    <hr style="border:none; border-top:1px solid #eee; margin:8px 0 12px;">
 
     <label>Dari: <input type="date" id="rangeDari"></label><br><br>
     <label>Sampai: <input type="date" id="rangeSampai" disabled></label><br><br>
-    <button id="btnHitungTotalJuz">Setting Tanggal THMS</button>
+    <button id="btnHitungTotalJuz">Hitung Total All Juz</button>
     <button onclick="document.getElementById('juzOverlay').style.display='none'">Close</button>
   </div>
 </div>
