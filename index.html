@@ -912,197 +912,133 @@ async function submitTambahKelasBaru() {
 </script>
 
 
-	<button type="button" onclick="munculkanValidasiAdminNIS()">Daftar User NIS</button>
-
+<button type="button" onclick="munculkanValidasiAdminNIS()">Daftar User NIS</button>
+<!-- Tombol Daftar User NIS -->
 <!-- Modal Validasi Admin -->
-<div id="modalAdminNIS" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:999; justify-content:center; align-items:center;">
-  <div class="modal-content" style="background:#fff; padding:16px; border-radius:10px; width:min(560px,95vw); max-height:80vh; overflow:auto;">
-    <h3 style="margin:0 0 8px">Validasi Admin</h3>
-    <label>Password Admin:
-      <input type="password" id="adminPasswordInputNIS" style="margin-left:8px;">
-    </label>
-    <p id="adminErrorNIS" style="color:#ef4444; min-height:1.2em; margin:.5rem 0 0;"></p>
-    <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
-      <button onclick="cekPasswordAdminNIS()">Submit</button>
-      <button onclick="tutupModal('modalAdminNIS')">Close</button>
-    </div>
+<div id="modalAdminNIS" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Validasi Admin</h3>
+    <label>Password Admin: <input type="password" id="adminPasswordInputNIS"></label>
+    <p id="adminErrorNIS" style="color:red;"></p>
+    <button onclick="cekPasswordAdminNIS()">Submit</button>
+    <button onclick="tutupModal('modalAdminNIS')">Close</button>
   </div>
 </div>
 
 <!-- Modal Daftar User NIS -->
-<div id="modalDaftarNIS" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:999; justify-content:center; align-items:center;">
-  <div class="modal-content" style="background:#fff; padding:16px; border-radius:10px; width:min(760px,95vw); max-height:85vh; overflow:auto;">
-    <h3 style="margin:0 0 8px">Daftar User NIS</h3>
+<div id="modalDaftarNIS" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Daftar User NIS</h3>
+    <label>Username: <input type="text" id="newUsernameNIS"></label><br>
+    <label>Password: <input type="password" id="newPasswordNIS"></label><br>
+    <label><input type="checkbox" onclick="toggleLihatPasswordNIS()"> Lihat Password</label><br><br>
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <label>Username:
-        <input type="text" id="newUsernameNIS" placeholder="username">
-      </label>
-      <label>Password:
-        <input type="password" id="newPasswordNIS" placeholder="password">
-      </label>
-    </div>
-    <label style="display:inline-flex; align-items:center; gap:6px; margin-top:6px;">
-      <input type="checkbox" onclick="toggleLihatPasswordNIS()"> Lihat Password
-    </label>
+    <div id="kelasCheckboxContainerNIS">🔄 Memuat daftar kelas...</div><br>
+    <div id="nisCheckboxContainer">🔄 Pilih kelas dahulu...</div><br>
 
-    <hr style="margin:12px 0;">
-
-    <div style="display:grid; gap:10px; grid-template-columns: 1fr 1fr;">
-      <div>
-        <b>Pilih Kelas</b>
-        <div id="kelasCheckboxContainerNIS" style="margin-top:6px; border:1px solid #e5e7eb; border-radius:8px; padding:8px;">
-          🔄 Memuat daftar kelas...
-        </div>
-      </div>
-
-      <div>
-        <b>Pilih NIS (yang belum terdaftar)</b>
-        <div id="nisCheckboxContainer" style="margin-top:6px; border:1px solid #e5e7eb; border-radius:8px; padding:8px; min-height:120px;">
-          🔄 Pilih kelas dahulu...
-        </div>
-      </div>
-    </div>
-
-    <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
-      <button id="btnCreateUserNIS" onclick="buatUserNIS()">Create User NIS</button>
-      <button onclick="tutupModal('modalDaftarNIS')">Close</button>
-    </div>
-
-    <p id="daftarNISError" style="color:#ef4444; min-height:1.2em; margin:.5rem 0 0;"></p>
-    <p id="daftarNISSuccess" style="color:#16a34a; min-height:1.2em; margin:.25rem 0 0;"></p>
+    <button onclick="buatUserNIS()">Create User NIS</button>
+    <button onclick="tutupModal('modalDaftarNIS')">Close</button>
+    <p id="daftarNISError" style="color:red;"></p>
+    <p id="daftarNISSuccess" style="color:green;"></p>
   </div>
 </div>
 
 <script>
 /* =========================
-   Util kecil
+   Helper kecil
 ========================= */
-const _norm = (v) => String(v ?? '').trim().toLowerCase();
-const _escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const _escapeAttr = (s) => _escapeHtml(s).replace(/"/g,'&quot;');
+const _norm = v => String(v ?? '').trim().toLowerCase();
 const _fetchJson = async (url, opt) => {
   const r = await fetch(url, opt);
-  let body;
-  try { body = await r.json(); } catch { body = null; }
-  if (!r.ok) {
-    const msg = (body && (body.message || body.error)) || `${r.status} ${r.statusText}`;
-    throw new Error(msg);
-  }
-  return body;
+  let data = null;
+  try { data = await r.json(); } catch {}
+  if (!r.ok) throw new Error((data && (data.error || data.message)) || `${r.status} ${r.statusText}`);
+  return data;
 };
 
-/* =========================
-   State
-========================= */
 let adminPasswordGlobalNIS = "";
-let usedNisSet = new Set();   // diisi dari getUsersNis
-let selectedClassCache = new Set(); // kelas yang sedang dipilih
-let lastSelectedNis = new Set(); // untuk jaga pilihan saat daftar refresh
+let usedNisSet = new Set(); // diisi dari /.netlify/functions/getUsersNis
 
-/* =========================
-   Modal open/close
-========================= */
+// Tampilkan modal validasi admin
 function munculkanValidasiAdminNIS() {
   document.getElementById("modalAdminNIS").style.display = "flex";
   document.getElementById("adminPasswordInputNIS").value = "";
   document.getElementById("adminErrorNIS").textContent = "";
 }
 
-function tutupModal(id) {
-  document.getElementById(id).style.display = "none";
-}
-
-/* =========================
-   Validasi admin
-========================= */
+// Cek password admin
 async function cekPasswordAdminNIS() {
   const password = document.getElementById("adminPasswordInputNIS").value;
-  const errEl = document.getElementById("adminErrorNIS");
-  if (!password) {
-    errEl.textContent = "Password wajib diisi.";
-    return;
+  if (!password) { 
+    document.getElementById("adminErrorNIS").textContent = "Password wajib diisi."; 
+    return; 
   }
-  errEl.textContent = "🔄 Memvalidasi...";
 
   try {
-    const result = await _fetchJson('/.netlify/functions/cekAdminWali', {
+    const res = await fetch('/.netlify/functions/cekAdminWali', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ password })
     });
-    // sukses
-    adminPasswordGlobalNIS = password;
-    tutupModal("modalAdminNIS");
-    bukaFormDaftarNIS();
+    const result = await res.json();
+
+    if (res.status === 200) {
+      adminPasswordGlobalNIS = password;
+      tutupModal("modalAdminNIS");
+      bukaFormDaftarNIS();
+    } else {
+      document.getElementById("adminErrorNIS").textContent = result.message || "Gagal validasi.";
+    }
   } catch (e) {
-    errEl.textContent = e.message || "Gagal validasi.";
+    document.getElementById("adminErrorNIS").textContent = e.message || "Gagal validasi.";
   }
 }
 
-/* =========================
-   Buka form Daftar NIS
-========================= */
+// Buka modal daftar NIS
 async function bukaFormDaftarNIS() {
-  // reset state form
   document.getElementById("modalDaftarNIS").style.display = "flex";
   document.getElementById("daftarNISError").textContent = "";
   document.getElementById("daftarNISSuccess").textContent = "";
-  document.getElementById("newUsernameNIS").value = "";
-  document.getElementById("newPasswordNIS").value = "";
-
-  // kosongkan kontainer
   document.getElementById("kelasCheckboxContainerNIS").innerHTML = "🔄 Memuat daftar kelas...";
   document.getElementById("nisCheckboxContainer").innerHTML = "🔄 Pilih kelas dahulu...";
-  selectedClassCache = new Set();
-  lastSelectedNis = new Set();
 
-  // 1) Ambil NIS yang sudah terdaftar (sekali saja di awal buka)
+  // 1) Ambil daftar NIS yang SUDAH terdaftar agar bisa disembunyikan
   try {
-    const dataUsed = await _fetchJson('/.netlify/functions/getUsersNis');
-    usedNisSet = new Set((dataUsed?.usedNis || []).map(x => _norm(x)));
+    const { usedNis = [] } = await _fetchJson('/.netlify/functions/getUsersNis');
+    usedNisSet = new Set(usedNis.map(_norm));
   } catch (e) {
+    // Kalau gagal, biarkan set kosong, UI tetap jalan
     usedNisSet = new Set();
-    // Tidak memblokir alur; hanya info
-    document.getElementById("daftarNISError").textContent = "⚠️ Gagal cek NIS terdaftar. Daftar mungkin menampilkan NIS dobel.";
-    console.error("getUsersNis error:", e);
+    console.warn('Gagal ambil used NIS:', e);
   }
 
   // 2) Ambil daftar kelas
-  await ambilDaftarKelasNIS();
+  ambilDaftarKelasNIS();
 }
 
-/* =========================
-   Toggle password
-========================= */
+// Tutup modal
+function tutupModal(id) { document.getElementById(id).style.display = "none"; }
+
+// Toggle password
 function toggleLihatPasswordNIS() {
   const pwField = document.getElementById("newPasswordNIS");
   pwField.type = pwField.type === "password" ? "text" : "password";
 }
 
-/* =========================
-   Ambil daftar kelas
-========================= */
+// Ambil daftar kelas
 async function ambilDaftarKelasNIS() {
   const container = document.getElementById("kelasCheckboxContainerNIS");
   container.innerHTML = "🔄 Memuat daftar kelas...";
   try {
-    const kelasList = await _fetchJson("/.netlify/functions/ambil-kelas");
-    // Unik + sort ringan (opsional)
-    const uniq = [...new Set((kelasList || []).map(String))];
-
+    const res = await fetch("/.netlify/functions/ambil-kelas");
+    const kelasList = await res.json();
     container.innerHTML = "";
-    uniq.forEach(kelas => {
-      const id = `kelas_cb_${_escapeAttr(kelas)}`;
-      const wrapper = document.createElement("label");
-      wrapper.style.display = "block";
-      wrapper.style.margin = "2px 0";
-      wrapper.innerHTML = `
-        <input type="checkbox" id="${id}" value="${_escapeAttr(kelas)}"> ${_escapeHtml(kelas)}
-      `;
-      const cb = wrapper.querySelector("input");
-      cb.addEventListener("change", updateNISListFromSelectedClasses);
-      container.appendChild(wrapper);
+
+    (kelasList || []).forEach(kelas => {
+      const label = document.createElement("label");
+      // PERTAHANKAN UI: onchange tetap memanggil ambilDaftarNIS(kelas)
+      label.innerHTML = `<input type="checkbox" value="${kelas}" onchange="ambilDaftarNIS('${kelas}')"> ${kelas}<br>`;
+      container.appendChild(label);
     });
   } catch(err) {
     container.innerHTML = "❌ Gagal memuat kelas.";
@@ -1110,146 +1046,108 @@ async function ambilDaftarKelasNIS() {
   }
 }
 
-/* =========================
-   Ambil NIS dari kelas terpilih (union),
-   sembunyikan yang sudah terdaftar
-========================= */
-async function updateNISListFromSelectedClasses() {
+// Ambil daftar NIS dari kelas TERPILIH (union), sembunyikan yang sudah terdaftar
+async function ambilDaftarNIS(/*kelasDiklik*/) {
   const container = document.getElementById("nisCheckboxContainer");
   container.innerHTML = "🔄 Memuat NIS...";
 
-  // baca kelas terpilih
-  const selected = [...document.querySelectorAll("#kelasCheckboxContainerNIS input[type=checkbox]:checked")].map(cb => cb.value);
-  selectedClassCache = new Set(selected);
+  // Kumpulkan seluruh kelas yang sedang dicentang (UI dipertahankan: tetap pakai checkbox per kelas)
+  const kelasDipilih = [...document.querySelectorAll("#kelasCheckboxContainerNIS input[type=checkbox]:checked")].map(cb => cb.value);
 
-  if (!selected.length) {
-    container.textContent = "Pilih kelas dahulu...";
-    lastSelectedNis = new Set();
+  if (!kelasDipilih.length) {
+    container.innerHTML = "🔄 Pilih kelas dahulu...";
     return;
   }
 
   try {
-    // simpan pilihan lama (agar tetap tercentang bila masih ada)
-    const prevPicked = new Set([...document.querySelectorAll("#nisCheckboxContainer input[type=checkbox]:checked")].map(cb => _norm(cb.value)));
+    // Ambil NIS tiap kelas secara paralel
+    const settled = await Promise.allSettled(
+      kelasDipilih.map(k => fetch(`/.netlify/functions/ambil-kelas-nis?kelas=${encodeURIComponent(k)}`).then(r => r.json()))
+    );
 
-    // Ambil paralel semua kelas
-    const allPromises = selected.map(k => _fetchJson(`/.netlify/functions/ambil-kelas-nis?kelas=${encodeURIComponent(k)}`));
-    const allArrays = await Promise.allSettled(allPromises);
-
-    // Gabungkan ke kandidat unik berdasar NIS (normalize)
-    const mapByNis = new Map(); // key=norm(nis) -> {nis,nama,kelasAsal:Set}
-    for (const res of allArrays) {
-      if (res.status !== 'fulfilled' || !Array.isArray(res.value)) continue;
-      for (const s of res.value) {
+    // Gabung unik per NIS dan FILTER yang sudah terdaftar
+    const mapByNis = new Map(); // key = norm(nis) -> {nis, nama}
+    for (const it of settled) {
+      if (it.status !== 'fulfilled' || !Array.isArray(it.value)) continue;
+      for (const s of it.value) {
         const nisRaw = s?.nis ?? s?.NIS ?? s?.id ?? '';
         const key = _norm(nisRaw);
         if (!key) continue;
-        if (usedNisSet.has(key)) continue; // FILTER: sudah terdaftar → tidak dimunculkan
-        const nama = String(s?.nama ?? s?.name ?? "").trim();
+        if (usedNisSet.has(key)) continue; // INI inti filter: jangan tampilkan NIS yang sudah terdaftar
         if (!mapByNis.has(key)) {
-          mapByNis.set(key, { nis: String(nisRaw).trim(), nama, kelasAsal: new Set() });
+          mapByNis.set(key, { nis: String(nisRaw).trim(), nama: String(s?.nama ?? s?.name ?? '').trim() });
         }
-        // (opsional) simpan asal kelas
-        // mapByNis.get(key).kelasAsal.add( asalKelas ?? '' );
       }
     }
 
-    const items = [...mapByNis.values()].sort((a,b)=> String(a.nis).localeCompare(String(b.nis),'id'));
+    // Urutkan sederhana berdasar NIS
+    const items = [...mapByNis.values()].sort((a,b) => String(a.nis).localeCompare(String(b.nis), 'id'));
 
-    // Render
-    const hiddenCount = usedNisSet.size; // info global (aproksimasi)
-    const info = items.length
-      ? `Menampilkan ${items.length} NIS yang belum terdaftar.`
-      : `Tidak ada NIS baru yang bisa didaftarkan (semua sudah terdaftar).`;
-
-    const htmlList = items.map(it => {
-      const checked = prevPicked.has(_norm(it.nis)) || lastSelectedNis.has(_norm(it.nis));
-      return `
-        <label style="display:flex; gap:.5rem; align-items:center; padding:6px 8px; border:1px solid #e5e7eb; border-radius:10px; margin:.25rem 0;">
-          <input type="checkbox" class="cb-nis" value="${_escapeAttr(it.nis)}" ${checked ? 'checked' : ''}>
-          <span><b>${_escapeHtml(it.nis)}</b>${it.nama ? ` — ${_escapeHtml(it.nama)}` : ''}</span>
-        </label>
-      `;
-    }).join('');
-
-    container.innerHTML = `
-      <div style="font-size:.9rem; color:#475569; margin-bottom:6px;">${_escapeHtml(info)}</div>
-      ${htmlList || ''}
-    `;
-
-    // update cache pilihan terakhir
-    lastSelectedNis = new Set([...document.querySelectorAll("#nisCheckboxContainer .cb-nis:checked")].map(cb => _norm(cb.value)));
-
-  } catch (err) {
-    container.textContent = "❌ Gagal memuat NIS.";
+    // PERTAHANKAN UI: render baris label + <br> seperti sebelumnya
+    container.innerHTML = "";
+    if (!items.length) {
+      container.innerHTML = "Tidak ada NIS baru pada kelas terpilih.<br>";
+      return;
+    }
+    items.forEach(santri => {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" value="${santri.nis}"> ${santri.nis} - ${santri.nama}<br>`;
+      container.appendChild(label);
+    });
+  } catch(err) {
+    container.innerHTML = "❌ Gagal memuat NIS.";
     console.error(err);
   }
 }
 
-/* Backward-compat: kalau ada kode lama memanggil ambilDaftarNIS(kelas),
-   tetap arahkan ke logika multi-kelas. */
-async function ambilDaftarNIS(/*kelas*/) {
-  return updateNISListFromSelectedClasses();
-}
-
-/* =========================
-   Create user NIS
-========================= */
+// Buat user NIS
 async function buatUserNIS() {
-  const errEl = document.getElementById("daftarNISError");
-  const okEl  = document.getElementById("daftarNISSuccess");
-  const btn   = document.getElementById("btnCreateUserNIS");
-  errEl.textContent = "";
-  okEl.textContent  = "";
+  const username = document.getElementById("newUsernameNIS").value;
+  const password = document.getElementById("newPasswordNIS").value;
 
-  const username = String(document.getElementById("newUsernameNIS").value || "").trim();
-  const password = String(document.getElementById("newPasswordNIS").value || "").trim();
+  const kelasCheckboxes = document.querySelectorAll("#kelasCheckboxContainerNIS input[type=checkbox]:checked");
+  const nisCheckboxes = document.querySelectorAll("#nisCheckboxContainer input[type=checkbox]:checked");
 
-  const kelas = [...document.querySelectorAll("#kelasCheckboxContainerNIS input[type=checkbox]:checked")].map(c => c.value);
-  const pickedNis = [...document.querySelectorAll("#nisCheckboxContainer input[type=checkbox]:checked")].map(n => String(n.value).trim());
-
-  if (!username || !password) {
-    errEl.textContent = "Username & Password wajib diisi.";
-    return;
+  if (!username || !password) { 
+    document.getElementById("daftarNISError").textContent = "Username & Password wajib diisi."; 
+    return; 
   }
-  if (!pickedNis.length) {
-    errEl.textContent = "Pilih minimal 1 NIS.";
-    return;
-  }
-  if (!kelas.length) {
-    errEl.textContent = "Pilih minimal 1 kelas.";
-    return;
+  if (nisCheckboxes.length === 0) { 
+    document.getElementById("daftarNISError").textContent = "Pilih minimal 1 NIS."; 
+    return; 
   }
 
-  // Safety check (front-end) untuk mencegah race ringan:
-  const dupLocal = pickedNis.map(_norm).some(k => usedNisSet.has(k));
-  if (dupLocal) {
-    errEl.textContent = "Ada NIS yang sudah terdaftar. Muat ulang daftar dan coba lagi.";
+  const kelas = Array.from(kelasCheckboxes).map(c => c.value);
+  const nis = Array.from(nisCheckboxes).map(n => n.value);
+
+  // Safety kecil (front-end): pastikan tidak ada yang sudah used (harusnya sudah terseleksi)
+  const adaDup = nis.some(n => usedNisSet.has(_norm(n)));
+  if (adaDup) {
+    document.getElementById("daftarNISError").textContent = "Ada NIS yang sudah terdaftar. Muat ulang daftar lalu pilih lagi.";
     return;
   }
-
-  // Kirim ke function pendaftaran (server wajib re-check duplikasi!)
-  const payload = { username, password, kelas, nis: pickedNis, adminPassword: adminPasswordGlobalNIS };
 
   try {
-    btn.disabled = true; btn.textContent = "Membuat...";
-    const result = await _fetchJson('/.netlify/functions/daftarNisWali', {
+    const res = await fetch('/.netlify/functions/daftarNisWali', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ username, password, kelas, nis, adminPassword: adminPasswordGlobalNIS })
     });
+    const result = await res.json();
 
-    okEl.textContent = result.message || "Berhasil membuat user NIS.";
-    errEl.textContent = "";
+    if (res.status === 200) {
+      document.getElementById("daftarNISSuccess").textContent = result.message || "Berhasil membuat user NIS.";
+      document.getElementById("daftarNISError").textContent = "";
 
-    // update usedNisSet agar NIS barusan langsung tersembunyi
-    pickedNis.forEach(n => usedNisSet.add(_norm(n)));
-    await updateNISListFromSelectedClasses();
-
-  } catch (e) {
-    errEl.textContent = e.message || "Gagal membuat user NIS.";
-  } finally {
-    btn.disabled = false; btn.textContent = "Create User NIS";
+      // update usedNisSet agar NIS barusan langsung tidak tampil
+      nis.forEach(n => usedNisSet.add(_norm(n)));
+      // refresh daftar NIS sesuai kelas yang masih terpilih (UI tetap)
+      ambilDaftarNIS();
+    } else {
+      document.getElementById("daftarNISError").textContent = result.message || "Gagal membuat user NIS.";
+    }
+  } catch (err) {
+    document.getElementById("daftarNISError").textContent = err.message || "Gagal membuat user NIS.";
   }
 }
 </script>
