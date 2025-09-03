@@ -1294,115 +1294,36 @@ async function buatUserNIS() {
     if (e.target === pdfModalOverlay) pdfModalOverlay.style.display = "none";
   });
 
-  // -------- Modal Pilih Santri (kedua) — FIX: filter NIS user --------
-(() => {
+  // -------- Modal Pilih Santri (kedua) --------
   const santriModalOverlay = document.getElementById("santriModalOverlay");
-  const okSantriSelect     = document.getElementById("okSantriSelect");
+  const okSantriSelect = document.getElementById("okSantriSelect");
   const cancelSantriSelect = document.getElementById("cancelSantriSelect");
-  const downloadBtn        = document.getElementById("download-pdf-santri");
-  const sel                = document.getElementById("pdf-santri-select");
 
-  // Ambil NIS user dari beberapa kemungkinan sumber
-  function getUserNIS(){
-    const v =
-      (window.USER_NIS ??
-       window.user?.nis ??
-       localStorage.getItem("user_nis") ??
-       localStorage.getItem("nis") ??
-       sessionStorage.getItem("user_nis") ??
-       ""
-      ).toString().trim();
-    return v || null;              // dukung alfanumerik: 331 / x11 / c23
-  }
-  // Mode NIS: set window.IS_LOGIN_NIS=true saat login user NIS,
-  // kalau tidak ada fallback: ada NIS tersimpan => anggap mode NIS.
-  function isModeNIS(){ return Boolean(window.IS_LOGIN_NIS || getUserNIS()); }
-
-  let mo = null;            // MutationObserver untuk deteksi isi <option> yang datang belakangan
-  let restoreHTML = null;   // backup opsi asli supaya tidak merusak tempat lain
-
-  function applySantriFilter() {
-    if (!isModeNIS() || !sel) return;
-    const nis = getUserNIS();
-    if (!nis) return;
-
-    // Simpan opsi asli sekali
-    if (restoreHTML == null) restoreHTML = sel.innerHTML;
-
-    // Sisakan hanya placeholder + opsi milik NIS user
-    const opts = Array.from(sel.options);
-    let found = false;
-    opts.forEach(opt => {
-      if (opt.value === "" || opt.value === nis) {
-        opt.hidden = false; opt.disabled = false;
-        if (opt.value === nis) found = true;
-      } else {
-        opt.hidden = true; opt.disabled = true;
-      }
-    });
-
-    // Jika ketemu, pilihkan dan trigger change
-    if (found) {
-      sel.value = nis;
-      sel.dispatchEvent(new Event("change"));
-    }
-  }
-
-  function startObserve() {
-    if (!sel) return;
-    stopObserve();
-    // Amati perubahan anak (option) — populateSantriSelect biasanya ganti innerHTML async
-    mo = new MutationObserver(() => applySantriFilter());
-    mo.observe(sel, { childList: true });
-  }
-  function stopObserve() { if (mo) { mo.disconnect(); mo = null; } }
-  function restoreOptions() {
-    if (restoreHTML != null && sel) sel.innerHTML = restoreHTML;
-    restoreHTML = null;
-  }
-
-  // Buka modal kedua saat klik "PDF Individual"
-  downloadBtn?.addEventListener("click", async () => {
+  // Buka modal kedua saat klik "PDF per Santri"
+  document.getElementById("download-pdf-santri")?.addEventListener("click", async () => {
     santriModalOverlay.style.display = "flex";
-    startObserve();                            // pasang observer dulu (antisipasi async)
-    try { await window._populateSantriSelect?.(); } catch(e){}
-    applySantriFilter();                       // dan paksa filter sekali
+    try { if (window._populateSantriSelect) await window._populateSantriSelect(); } catch(e){}
   });
 
   // OK => generate PDF per santri
   okSantriSelect?.addEventListener("click", async () => {
     try {
       if (window._pdfSantriDownload) {
-        await window._pdfSantriDownload();     // validasi & generate
-        stopObserve(); restoreOptions();       // bersih-bersih
-        santriModalOverlay.style.display = "none";
+        await window._pdfSantriDownload(); // validasi & generate
+        santriModalOverlay.style.display = "none"; // sukses => tutup
       }
     } catch (e) {
       console.error(e); // gagal => biarkan modal tetap terbuka
     }
   });
 
-  // Batal / klik luar => tutup & pulihkan opsi (supaya tidak mengganggu tempat lain)
-  function closeSantriModal(){
-    stopObserve();
-    restoreOptions();
+  // Batal / klik luar untuk tutup
+  cancelSantriSelect?.addEventListener("click", () => {
     santriModalOverlay.style.display = "none";
-  }
-  cancelSantriSelect?.addEventListener("click", closeSantriModal);
+  });
   santriModalOverlay?.addEventListener("click", (e) => {
-    if (e.target === santriModalOverlay) closeSantriModal();
+    if (e.target === santriModalOverlay) santriModalOverlay.style.display = "none";
   });
-
-  // Jika tanggal diubah saat modal terbuka, isi ulang & re-filter
-  ["pdf-start-date","pdf-end-date"].forEach(id => {
-    document.getElementById(id)?.addEventListener("change", async () => {
-      if (santriModalOverlay.style.display === "flex") {
-        try { await window._populateSantriSelect?.(); } catch(e){}
-        applySantriFilter();
-      }
-    });
-  });
-})();
 </script>
 
 
@@ -5943,26 +5864,6 @@ document.addEventListener("DOMContentLoaded", () => {
   cursor: not-allowed !important;
 }
 </style>
-
-
-
-<script>
-async function doLogin(){
-  const res = await apiLogin(email.value, pass.value);
-  // misal API mengembalikan { role, nis, ... }
-  const { role, nis } = res;
-
-  if (role === 'nis' || nis) {
-    window.IS_LOGIN_NIS = true;              // tandai mode user NIS
-    window.USER_NIS = String(nis);           // contoh: "331" / "x11" / "c23"
-    localStorage.setItem('user_nis', window.USER_NIS); // optional backup
-  } else {
-    window.IS_LOGIN_NIS = false;
-    window.USER_NIS = null;
-    localStorage.removeItem('user_nis');
-  }
-}
-</script>
 
 	
 </body>
