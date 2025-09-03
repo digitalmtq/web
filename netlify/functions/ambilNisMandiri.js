@@ -1,4 +1,4 @@
-// netlify/functions/ambilNismandiri.js
+// netlify/functions/ambilNisMandiri.js
 import { Buffer } from "node:buffer";
 
 const CORS_HEADERS = {
