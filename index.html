@@ -1305,6 +1305,10 @@ async function buatUserNIS() {
     try { if (window._populateSantriSelect) await window._populateSantriSelect(); } catch(e){}
   });
 
+	// ⬇️ Tambahkan baris ini
+  if (window._isModeNIS?.()) window.filterSantriSelectForNIS(true);
+});
+
   // OK => generate PDF per santri
   okSantriSelect?.addEventListener("click", async () => {
     try {
@@ -5864,6 +5868,75 @@ document.addEventListener("DOMContentLoaded", () => {
   cursor: not-allowed !important;
 }
 </style>
+
+
+<script>
+// ===============================
+// Filter dropdown santri khusus user NIS
+// ===============================
+(function () {
+  // Ambil kumpulan NIS user (sesuaikan sumber datamu kalau perlu)
+  function getUserNISSet(){
+    const u = window.CURRENT_USER || window.user || {};
+    let arr = [];
+    if (Array.isArray(u.nis)) arr = u.nis;
+    else if (u.nis)          arr = [u.nis];
+    else if (u.NIS)          arr = [u.NIS];
+    else {
+      const one  = localStorage.getItem('nis') || localStorage.getItem('NIS');
+      const many = localStorage.getItem('nis_list');
+      if (many) { try { arr = JSON.parse(many); } catch {} }
+      else if (one) arr = [one];
+    }
+    return new Set((arr||[]).map(v => String(v).trim()).filter(Boolean));
+  }
+
+  function isModeNIS(){
+    const u = window.CURRENT_USER || window.user || {};
+    if (String(u?.role||'').toUpperCase() === 'NIS') return true;
+    if (getUserNISSet().size) return true;
+    return localStorage.getItem('modeNIS') === '1';
+  }
+
+  // Saring opsi di <select id="pdf-santri-select">
+  // onlyMine=true => tampilkan hanya NIS user
+  // onlyMine=false => pulihkan semua opsi (jika sebelumnya pernah disaring)
+  function filterSantriSelectForNIS(onlyMine = true){
+    const sel = document.getElementById('pdf-santri-select');
+    if (!sel) return;
+
+    if (!onlyMine) {
+      if (sel.dataset._orig_html){
+        sel.innerHTML = sel.dataset._orig_html;
+        delete sel.dataset._orig_html;
+      }
+      return;
+    }
+
+    const nisSet = getUserNISSet();
+    if (!nisSet.size) return; // tidak tahu NIS user → biarkan apa adanya
+
+    // Simpan opsi asli sekali saja untuk bisa restore bila perlu
+    if (!sel.dataset._orig_html) sel.dataset._orig_html = sel.innerHTML;
+
+    // Buang opsi yang bukan milik user
+    const opts = Array.from(sel.options);
+    for (const opt of opts){
+      const val = String(opt.value || '').trim();
+      const labelKey = String(opt.textContent || '').split('—')[0].trim(); // dukung format "NIS — Nama"
+      const keep = (val && nisSet.has(val)) || (labelKey && nisSet.has(labelKey));
+      if (!val || !keep) opt.remove();
+    }
+
+    // Pastikan ada yang terpilih
+    if (sel.options.length) sel.selectedIndex = 0;
+  }
+
+  // Expose bila mau dipakai manual
+  window.filterSantriSelectForNIS = filterSantriSelectForNIS;
+  window._isModeNIS = isModeNIS;
+})();
+</script>
 	
 </body>
 </html>
