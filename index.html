@@ -5868,12 +5868,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 (function(){
-  const SELECT_ID = 'pdf-santri-select';
-  const BTN_ID    = 'download-pdf-santri';
-  const MODAL_ID  = 'santriModalOverlay';
-  const CANCEL_ID = 'cancelSantriSelect';
+  const SELECT_ID  = 'pdf-santri-select';
+  const BTN_ID     = 'download-pdf-santri';
+  const MODAL_ID   = 'santriModalOverlay';
+  const CANCEL_ID  = 'cancelSantriSelect';
 
-  // --- identitas user NIS (fleksibel sumbernya) ---
+  // --- Ambil NIS user dari berbagai sumber (pilih yang tersedia) ---
   function getUserNISSet(){
     const u = window.CURRENT_USER || window.user || {};
     let arr = [];
@@ -5888,29 +5888,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return new Set((arr||[]).map(v => String(v).trim()).filter(Boolean));
   }
-  function isNISUser(){
-    if (typeof window.isModeNIS === 'boolean') return !!window.isModeNIS;         // boolean global (kalau ada)
-    if (typeof window.isModeNIS === 'function') { try { return !!window.isModeNIS(); } catch{} }
-    const u = window.CURRENT_USER || window.user || {};
-    if (String(u?.role||'').toUpperCase() === 'NIS') return true;
-    if (getUserNISSet().size) return true;
-    return localStorage.getItem('modeNIS') === '1';
-  }
 
-  // --- saring opsi dropdown: hanya NIS milik user ---
+  // --- Filter dropdown menjadi hanya NIS milik user ---
   function filterSelectToUserNIS(sel){
-    if (!sel) return () => {};
+    if (!sel) return;
     const nisSet = getUserNISSet();
-    if (!nisSet.size) return () => {};
+    if (!nisSet.size) return; // tidak ada NIS user => jangan apa-apa
 
-    // simpan HTML asli utk restore
+    // backup untuk restore
     if (!sel.dataset._orig_html) sel.dataset._orig_html = sel.innerHTML;
 
     const kept = [];
     for (const opt of Array.from(sel.options)){
       const v = String(opt.value || '').trim();
-      const labelKey = String(opt.textContent || '').split('—')[0].trim(); // dukung "NIS — Nama"
-      const keep = (v === '' /* placeholder */) || nisSet.has(v) || nisSet.has(labelKey);
+      // dukung label "NIS — Nama" atau "NIS - Nama"
+      const labelKey = String(opt.textContent || '').split(/—|-/)[0].trim();
+      const keep = (v === '') || nisSet.has(v) || nisSet.has(labelKey);
       if (keep) kept.push(opt.cloneNode(true));
     }
     const frag = document.createDocumentFragment();
@@ -5918,60 +5911,77 @@ document.addEventListener("DOMContentLoaded", () => {
     sel.innerHTML = '';
     sel.appendChild(frag);
     sel.selectedIndex = 0;
+  }
 
-    // jika ada kode lain yang menulis ulang opsi → re-apply sekali
-    const mo = new MutationObserver(() => {
-      mo.disconnect();
-      // re-apply filter
-      try { filterSelectToUserNIS(sel); } catch{}
+  function restoreSelect(sel){
+    if (sel?.dataset?._orig_html){
+      sel.innerHTML = sel.dataset._orig_html;
+      delete sel.dataset._orig_html;
+    }
+  }
+
+  // --- Pastikan filter dieksekusi SETELAH dropdown selesai diisi ---
+  async function runFilterAfterPopulate(){
+    const sel = document.getElementById(SELECT_ID);
+    if (!sel) return;
+
+    // kalau saat ini sudah ada opsi lengkap, filter langsung
+    const hasDataNow = sel.options.length > 1 || (sel.options[0] && sel.options[0].value !== '');
+    if (hasDataNow) {
+      filterSelectToUserNIS(sel);
+      return;
+    }
+
+    // kalau masih loading: tunggu perubahan pertama pada childList
+    await new Promise(resolve => {
+      const mo = new MutationObserver(() => { mo.disconnect(); resolve(); });
+      mo.observe(sel, { childList:true, subtree:false });
+      // fallback (jaga-jaga kalau populate sync cepat)
+      setTimeout(() => { try{ mo.disconnect(); }catch{} resolve(); }, 1500);
     });
-    mo.observe(sel, { childList:true });
-    setTimeout(() => { try{ mo.disconnect(); }catch{} }, 3000);
+    filterSelectToUserNIS(sel);
+  }
 
-    // fungsi restore
-    return function restore(){
-      if (sel.dataset._orig_html){
-        sel.innerHTML = sel.dataset._orig_html;
-        delete sel.dataset._orig_html;
-      }
+  // --- Wrap kedua nama fungsi populate (apapun yang dipakai) ---
+  const origPopulateA = window._populateSantriSelect;
+  const origPopulateB = window.populateSantriSelect;
+
+  function makeWrappedPopulate(origFn){
+    if (typeof origFn !== 'function') return null;
+    return async function(...args){
+      const r = await origFn.apply(this, args);
+      try { await runFilterAfterPopulate(); } catch(e){}
+      return r;
     };
   }
 
-  // --- pasang hook ke _populateSantriSelect ---
-  const _origPopulate = window._populateSantriSelect;
-  window._populateSantriSelect = async function(...args){
-    const res = await (typeof _origPopulate === 'function' ? _origPopulate.apply(this, args) : undefined);
-    if (isNISUser()){
-      const sel = document.getElementById(SELECT_ID);
-      window._restoreSantriSelect?.();            // bersihkan sesi sebelumnya
-      window._restoreSantriSelect = filterSelectToUserNIS(sel);
-    }
-    return res;
-  };
+  const wrapA = makeWrappedPopulate(origPopulateA);
+  const wrapB = makeWrappedPopulate(origPopulateB);
 
-  // --- jaga-jaga: saat tombol diklik & opsi sudah ada, filter segera ---
+  if (wrapA) window._populateSantriSelect = wrapA;
+  if (wrapB) window.populateSantriSelect  = wrapB;
+
+  // --- Tambahan guard: saat tombol "PDF Individual" diklik, filter lagi ---
   document.getElementById(BTN_ID)?.addEventListener('click', () => {
-    if (!isNISUser()) return;
-    const sel = document.getElementById(SELECT_ID);
-    if (!sel) return;
-    const hasData = sel.options.length > 1 || (sel.options[0] && sel.options[0].value !== "");
-    if (hasData){
-      window._restoreSantriSelect?.();
-      window._restoreSantriSelect = filterSelectToUserNIS(sel);
-    }
+    // jalankan di tick berikutnya agar menunggu isi dropdown (kalau ada proses sync)
+    setTimeout(() => { runFilterAfterPopulate(); }, 0);
   });
 
-  // --- pulihkan opsi saat modal ditutup ---
-  document.getElementById(CANCEL_ID)?.addEventListener('click', () => {
-    window._restoreSantriSelect?.(); window._restoreSantriSelect = null;
+  // --- Restore opsi saat modal ditutup ---
+  const cancelBtn = document.getElementById(CANCEL_ID);
+  const modal     = document.getElementById(MODAL_ID);
+
+  cancelBtn?.addEventListener('click', () => {
+    restoreSelect(document.getElementById(SELECT_ID));
   });
-  document.getElementById(MODAL_ID)?.addEventListener('click', (e) => {
-    if (e.target === e.currentTarget){
-      window._restoreSantriSelect?.(); window._restoreSantriSelect = null;
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      restoreSelect(document.getElementById(SELECT_ID));
     }
   });
 })();
 </script>
+
 
 	
 </body>
