@@ -1079,7 +1079,7 @@ async function submitTambahKelasBaru() {
 
       <div class="dashboard-header">
   <div class="dashboard-header-row">
-    <label for="kelas">Kelas:</label>
+    <label for="kelas">Halaqoh:</label>
     <select id="kelas"></select>
 
      <label for="tanggal">Tanggal:</label>
@@ -3067,7 +3067,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (fromOpt) kelompok = fromOpt;
     }
     kelompok = (kelompok || '').replace(/^Kelompok\s+/i, '').trim() || '-';
-    return { kelasNum, kelompok, line: `Kelas: ${kelasNum}, Kelompok: ${kelompok}` };
+    return { kelasNum, kelompok, line: `Halaqoh: ${kelasNum}, Kelompok: ${kelompok}` };
   }
 
   function setBtnLoading(btn, loading, loadingText='Mengerjakan…') {
@@ -3623,7 +3623,7 @@ function _kelasKelompokLineFor(kelasKey){
     }
   }
   kelompok = (kelompok || '').replace(/^Kelompok\s+/i, '').trim() || '-';
-  return { kelasNum, kelompok, line: `Kelas: ${kelasNum}, Kelompok: ${kelompok}` };
+  return { kelasNum, kelompok, line: `Halaqoh: ${kelasNum}, Kelompok: ${kelompok}` };
 }
 
 // ====== Ambil & Agregasi Data utk 1 kelas spesifik ======
