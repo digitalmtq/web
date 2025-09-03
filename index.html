@@ -5669,7 +5669,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 // ===========================================
-// Soft-lock tombol rekap (PDF/XLS) - no styling
+// Soft-lock + SAMARKAN tombol rekap (PDF/XLS)
 // ===========================================
 (function () {
   let rekapObserver = null;
@@ -5678,7 +5678,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const ids = [
       "download-pdf-rekap",
       "download-xls-rekap",
-      "download-pdf-santri",
       "download-pdf-allkelas",
     ];
     const set = new Set();
@@ -5686,7 +5685,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const el = document.getElementById(id);
       if (el) set.add(el);
     });
-    // jaga-jaga: semua button dengan class .rekap-btn
+    // jaga-jaga: tombol lain bertag .rekap-btn
     document.querySelectorAll("button.rekap-btn").forEach(b => set.add(b));
     return Array.from(set);
   }
@@ -5694,11 +5693,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function attachBlockers(btn){
     if (!btn || btn._nisBlockerAttached) return;
 
-    // keluarkan dari tab order (simpannya dulu)
+    // keluarkan dari tab order + tandai aria
     if (btn.dataset._tab_bak === undefined)
       btn.dataset._tab_bak = btn.getAttribute("tabindex") || "";
     btn.setAttribute("tabindex","-1");
-    btn.setAttribute("aria-disabled","true"); // tidak mengubah warna
+    btn.setAttribute("aria-disabled","true");
 
     // backup & lepas onclick inline (kalau ada)
     if (btn.dataset._onclick_bak === undefined)
@@ -5709,6 +5708,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const block = (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); return false; };
     const events = ["click","mousedown","keydown","keyup","keypress","touchstart","pointerdown","contextmenu"];
     events.forEach(ev => btn.addEventListener(ev, block, true));
+
+    // SAMARKAN (tanpa ubah inline style: pakai class)
+    btn.classList.add("nis-masked");
 
     btn._nisBlocker = { block, events };
     btn._nisBlockerAttached = true;
@@ -5721,7 +5723,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btn._nisBlocker = null;
     btn._nisBlockerAttached = false;
 
-    // pulihkan tabindex & aria
+    // pulihkan tab order & aria
     if (btn.dataset._tab_bak !== undefined){
       const v = btn.dataset._tab_bak;
       delete btn.dataset._tab_bak;
@@ -5735,27 +5737,38 @@ document.addEventListener("DOMContentLoaded", () => {
       else btn.removeAttribute("onclick");
       delete btn.dataset._onclick_bak;
     }
+
+    // hilangkan penyamaran
+    btn.classList.remove("nis-masked");
   }
 
   function applyRekapSoftLock(disabled){
     getRekapButtons().forEach(btn => disabled ? attachBlockers(btn) : detachBlockers(btn));
   }
 
-  // fungsi publik
+  // fungsi publik (drop-in replacement)
   window.setNISRekapDisabled = function(disabled){
-    // stop observer lama
     if (rekapObserver) { rekapObserver.disconnect(); rekapObserver = null; }
 
     applyRekapSoftLock(!!disabled);
 
-    // jika halaman re-render tombol, kunci ulang otomatis
     if (disabled){
+      // kunci ulang jika DOM berubah (tombol dibuat ulang)
       rekapObserver = new MutationObserver(() => applyRekapSoftLock(true));
       rekapObserver.observe(document.body, { childList:true, subtree:true });
     }
   };
 })();
 </script>
+
+<style>
+/* gaya "disamarkan" (aman dihapus saat enable) */
+.nis-masked {
+  opacity: .5;
+  filter: grayscale(70%);
+  cursor: not-allowed !important;
+}
+</style>
 		
 		
 </body>
