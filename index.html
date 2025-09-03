@@ -5669,26 +5669,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 // ===========================================
-// Soft-lock + SAMARKAN tombol rekap (kecuali "download-pdf-santri")
+// Soft-lock + SAMARKAN tombol rekap
+//   -> kecuali: download-pdf-santri & okSantriSelect (tetap aktif)
 // ===========================================
 (function () {
   let rekapObserver = null;
 
-  // 👉 Tombol yang TETAP AKTIF meski NIS
-  const ALLOW = new Set(["download-pdf-santri"]);
+  // 🟢 ID yang DIIZINKAN klik walau mode NIS
+  const ALLOW = new Set(["download-pdf-santri", "okSantriSelect"]);
 
   function getRekapButtons() {
     const ids = [
       "download-pdf-rekap",
       "download-xls-rekap",
-      "download-pdf-santri",   // ini dikecualikan
+      "download-pdf-santri",   // dikecualikan
       "download-pdf-allkelas",
+      "okSantriSelect",        // dikecualikan (tombol OK modal)
     ];
     const set = new Set();
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (el) set.add(el);
     });
+    // jaring tambahan via class umum
     document.querySelectorAll("button.rekap-btn").forEach(b => set.add(b));
     return Array.from(set);
   }
@@ -5744,7 +5747,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyRekapSoftLock(disabled){
     getRekapButtons().forEach(btn => {
       if (ALLOW.has(btn.id)) {
-        // Pastikan tombol pengecualian (download-pdf-santri) selalu aktif
+        // pengecualian: pastikan selalu aktif
         detachBlockers(btn);
         return;
       }
@@ -5755,26 +5758,31 @@ document.addEventListener("DOMContentLoaded", () => {
   // Drop-in replacement
   window.setNISRekapDisabled = function(disabled){
     if (rekapObserver) { rekapObserver.disconnect(); rekapObserver = null; }
-
     applyRekapSoftLock(!!disabled);
-
     if (disabled){
       rekapObserver = new MutationObserver(() => applyRekapSoftLock(true));
       rekapObserver.observe(document.body, { childList:true, subtree:true });
     }
   };
+
+  // ✅ Bersihkan jika "OK" sudah terlanjur tersamarkan saat skrip ini dimuat
+  (function unmaskAllowedNow(){
+    ALLOW.forEach(id => {
+      const b = document.getElementById(id);
+      if (b) detachBlockers(b);
+    });
+  })();
 })();
 </script>
 
 <style>
-/* gaya "disamarkan" */
+/* gaya samaran untuk tombol yang dikunci */
 .nis-masked {
   opacity: .5;
   filter: grayscale(70%);
   cursor: not-allowed !important;
 }
 </style>
-		
-		
+	
 </body>
 </html>
