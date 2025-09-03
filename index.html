@@ -5757,7 +5757,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let rekapObserver = null;
 
   // 🟢 ID yang DIIZINKAN klik walau mode NIS
-  const ALLOW = new Set(["download-pdf-santri", "okSantriSelect", "cancelSantriSelect"]);
+  const ALLOW = new Set(["download-pdf-santri", "cancelSantriSelect"]);
 
   function getRekapButtons() {
     const ids = [
@@ -5865,133 +5865,6 @@ document.addEventListener("DOMContentLoaded", () => {
 }
 </style>
 
-<script>
-/* ==== Helper: deteksi NIS user yang login ==== */
-function getLoggedInNIS() {
-  // Prioritas: window.USER_NIS → atribut data-user-nis → localStorage
-  const w = (window.USER_NIS ?? "").toString().trim();
-  if (w) return w;
-
-  const holder = document.querySelector("[data-user-nis]");
-  const d = (holder?.getAttribute("data-user-nis") ?? "").toString().trim();
-  if (d) return d;
-
-  const ls = (localStorage.getItem("user_nis") ?? "").toString().trim();
-  if (ls) return ls;
-
-  return ""; // kosong = mode admin / tidak dibatasi NIS
-}
-
-/* ==== Helper kecil untuk normalisasi data santri ==== */
-function _toSantriRow(s) {
-  const id   = s?.id ?? s?.ID ?? s?.nis ?? s?.NIS ?? "";
-  const nis  = (s?.nis ?? s?.NIS ?? "").toString().trim();
-  const nama = (s?.nama ?? s?.Nama ?? s?.name ?? "").toString().trim();
-  return { id: String(id || ""), nis, nama };
-}
-
-/* 
-  Implementasi pengisi dropdown pada Modal Pilih Santri (kedua).
-  Dipanggil saat modal dibuka (lihat listener kamu yang memanggil window._populateSantriSelect()).
-*/
-window._populateSantriSelect = async function () {
-  const overlayEl = document.getElementById("santriModalOverlay");
-  // Cari elemen <select> di dalam modal kedua. 
-  // Jika punya ID spesifik (mis. "santriSelect"), pakai itu — kalau tidak, ambil <select> pertama di overlay.
-  const elSelect = document.getElementById("santriSelect") 
-                || overlayEl?.querySelector("select");
-
-  if (!elSelect) {
-    console.warn("Elemen <select> santri tidak ditemukan di modal kedua.");
-    return;
-  }
-
-  // Tombol OK di modal kedua (untuk enable/disable jika kosong)
-  const btnOK = document.getElementById("okSantriSelect");
-
-  // Ambil kelas aktif (kalau ada)
-  const kelas = (window.kelasSelect?.value) 
-             || (document.getElementById("kelasSelect")?.value) 
-             || "";
-
-  // Ambil data santri dari server
-  let rows = [];
-  try {
-    const url = `/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`;
-    const res = await fetch(url);
-    const json = await res.json();
-    rows = Array.isArray(json) ? json.map(_toSantriRow) : [];
-  } catch (e) {
-    console.error("Gagal ambil data santri:", e);
-    rows = [];
-  }
-
-  // Filter sesuai NIS login
-  const userNIS = getLoggedInNIS();
-  let filtered = rows;
-
-  if (userNIS) {
-    // Cocokkan by nis; fallback cocokkan by id jika nis kosong
-    filtered = rows.filter(r => r.nis && r.nis === userNIS);
-    if (filtered.length === 0) {
-      filtered = rows.filter(r => r.id && r.id === userNIS);
-    }
-  }
-
-  // Isi ulang opsi dropdown
-  elSelect.innerHTML = "";
-  const mkOpt = (val, label) => {
-    const o = document.createElement("option");
-    o.value = val;
-    o.textContent = label;
-    return o;
-  };
-
-  if (!filtered.length) {
-    if (userNIS) {
-      // User NIS tapi tidak ditemukan pada kelas terpilih
-      elSelect.append(mkOpt("", `NIS ${userNIS} tidak ditemukan di kelas ini`));
-      btnOK?.setAttribute("disabled", "disabled");
-    } else {
-      // Mode admin: tidak ada data sama sekali
-      elSelect.append(mkOpt("", "Tidak ada data santri"));
-      btnOK?.setAttribute("disabled", "disabled");
-    }
-    return;
-  }
-
-  // Ada data → enable OK
-  btnOK?.removeAttribute("disabled");
-
-  // Admin (tanpa NIS) dapat option placeholder "Pilih santri…"
-  if (!userNIS) elSelect.append(mkOpt("", "Pilih santri…"));
-
-  // Urutkan alfabetis nama
-  filtered.sort((a, b) => a.nama.localeCompare(b.nama, "id"));
-
-  // Value option pakai NIS jika ada; jika tidak ada, pakai ID
-  for (const s of filtered) {
-    const val = s.nis || s.id || "";
-    elSelect.append(mkOpt(val, `${s.nama}${s.nis ? " (" + s.nis + ")" : ""}`));
-  }
-
-  // Jika hanya 1 santri (userNIS), auto-select
-  if (filtered.length === 1) {
-    const onlyVal = filtered[0].nis || filtered[0].id || "";
-    elSelect.value = onlyVal;
-  }
-};
-
-/* (Opsional) Helper untuk dipakai generator PDF kamu */
-window._getSelectedSantri = function () {
-  const overlayEl = document.getElementById("santriModalOverlay");
-  const elSelect = document.getElementById("santriSelect") 
-                || overlayEl?.querySelector("select");
-  if (!elSelect) return null;
-  const val = elSelect.value;
-  return val || null; // biasanya NIS atau ID (sesuai yang di-set di atas)
-};
-</script>
 	
 </body>
 </html>
