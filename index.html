@@ -2009,15 +2009,36 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   <div style="background:white; padding:20px; border-radius:8px; min-width:300px;">
     <h3>Hitung Total All Juz</h3>
 
-    <!-- Ringkas, rapi, tanpa kotak -->
-    <p style="margin:6px 0 12px; line-height:1.6; font-size:14px; font-variant-numeric:tabular-nums;">
-      Semester 1: <strong>8</strong> Juz ·
-      Semester 2: <strong>5</strong> Juz ·
-      Semester 3: <strong>5</strong> Juz ·
-      Semester 4: <strong>5</strong> Juz ·
-      Semester 5: <strong>5</strong> Juz ·
-      Semester 6: <strong>2</strong> Juz
-    </p>
+    <!-- Styling bullet yang rapi & minimal -->
+    <style>
+      #juzOverlay .juz-list{
+        margin:8px 0 12px;
+        padding-left:1.25rem;        /* jarak marker */
+        list-style:disc;
+      }
+      #juzOverlay .juz-list li{
+        margin:4px 0;                /* spasi antar baris */
+        line-height:1.55;
+      }
+      #juzOverlay .juz-list li::marker{
+        color:#3b82f6;               /* warna bullet (biru lembut) */
+        font-size:1.1em;             /* sedikit lebih besar */
+      }
+      #juzOverlay .juz-list strong{
+        font-variant-numeric:tabular-nums; /* angka rata */
+      }
+    </style>
+
+    <!-- Bullet list cakep -->
+    <ul class="juz-list">
+      <li>Semester 1: <strong>8</strong> Juz</li>
+      <li>Semester 2: <strong>5</strong> Juz</li>
+      <li>Semester 3: <strong>5</strong> Juz</li>
+      <li>Semester 4: <strong>5</strong> Juz</li>
+      <li>Semester 5: <strong>5</strong> Juz</li>
+      <li>Semester 6: <strong>2</strong> Juz</li>
+    </ul>
+
     <hr style="border:none; border-top:1px solid #eee; margin:8px 0 12px;">
 
     <label>Dari: <input type="date" id="rangeDari"></label><br><br>
