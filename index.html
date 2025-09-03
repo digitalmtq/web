@@ -946,7 +946,7 @@ async function buatUserNIS() {
   const kelas = Array.from(kelasCheckboxes).map(c => c.value);
   const nis = Array.from(nisCheckboxes).map(n => n.value);
 
-  const res = await fetch('/.netlify/functions/daftar-nis', {
+  const res = await fetch('/.netlify/functions/daftarNisWali', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ username, password, kelas, nis, adminPassword: adminPasswordGlobalNIS })
