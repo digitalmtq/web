@@ -5946,7 +5946,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+<script>
+async function doLogin(){
+  const res = await apiLogin(email.value, pass.value);
+  // misal API mengembalikan { role, nis, ... }
+  const { role, nis } = res;
 
+  if (role === 'nis' || nis) {
+    window.IS_LOGIN_NIS = true;              // tandai mode user NIS
+    window.USER_NIS = String(nis);           // contoh: "331" / "x11" / "c23"
+    localStorage.setItem('user_nis', window.USER_NIS); // optional backup
+  } else {
+    window.IS_LOGIN_NIS = false;
+    window.USER_NIS = null;
+    localStorage.removeItem('user_nis');
+  }
+}
+</script>
 
 	
 </body>
