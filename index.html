@@ -1151,10 +1151,10 @@ async function submitTambahKelasBaru() {
       </label>
 
       <!-- Tombol unduh -->
-      <button id="download-pdf-rekap" class="rekap-btn">Download PDF</button>
-      <button id="download-xls-rekap" class="rekap-btn">Download Excel</button>
-      <button id="download-pdf-santri" class="rekap-btn">PDF per Santri</button>
-	  <button id="download-pdf-allkelas" class="rekap-btn">Download All</button>
+      <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
+      <button id="download-xls-rekap" class="rekap-btn">Excel Halaqoh</button>
+      <button id="download-pdf-santri" class="rekap-btn">PDF Individual</button>
+	  <button id="download-pdf-allkelas" class="rekap-btn">PDF All Halaqoh</button>
     </div>
 
     <!-- Tombol tutup -->
@@ -2318,7 +2318,7 @@ async function loadSantriData() {
   	setButtonsDisabled(isModeNIS);
 	setNISDropdownDisabled(isModeNIS);
 	setNISRecordDisabled(isModeNIS);
-	setNISRecordDisabled(isModeNIS);
+	setNISRekapDisabled(isModeNIS);
 	  
 
 
@@ -5666,6 +5666,97 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
-	
+
+<script>
+// ===========================================
+// Soft-lock tombol rekap (PDF/XLS) - no styling
+// ===========================================
+(function () {
+  let rekapObserver = null;
+
+  function getRekapButtons() {
+    const ids = [
+      "download-pdf-rekap",
+      "download-xls-rekap",
+      "download-pdf-santri",
+      "download-pdf-allkelas",
+    ];
+    const set = new Set();
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) set.add(el);
+    });
+    // jaga-jaga: semua button dengan class .rekap-btn
+    document.querySelectorAll("button.rekap-btn").forEach(b => set.add(b));
+    return Array.from(set);
+  }
+
+  function attachBlockers(btn){
+    if (!btn || btn._nisBlockerAttached) return;
+
+    // keluarkan dari tab order (simpannya dulu)
+    if (btn.dataset._tab_bak === undefined)
+      btn.dataset._tab_bak = btn.getAttribute("tabindex") || "";
+    btn.setAttribute("tabindex","-1");
+    btn.setAttribute("aria-disabled","true"); // tidak mengubah warna
+
+    // backup & lepas onclick inline (kalau ada)
+    if (btn.dataset._onclick_bak === undefined)
+      btn.dataset._onclick_bak = btn.getAttribute("onclick") || "";
+    if (btn.dataset._onclick_bak) btn.removeAttribute("onclick");
+
+    // blok semua interaksi (fase capture)
+    const block = (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); return false; };
+    const events = ["click","mousedown","keydown","keyup","keypress","touchstart","pointerdown","contextmenu"];
+    events.forEach(ev => btn.addEventListener(ev, block, true));
+
+    btn._nisBlocker = { block, events };
+    btn._nisBlockerAttached = true;
+  }
+
+  function detachBlockers(btn){
+    if (!btn || !btn._nisBlockerAttached) return;
+    const { block, events } = btn._nisBlocker || {};
+    if (block) events.forEach(ev => btn.removeEventListener(ev, block, true));
+    btn._nisBlocker = null;
+    btn._nisBlockerAttached = false;
+
+    // pulihkan tabindex & aria
+    if (btn.dataset._tab_bak !== undefined){
+      const v = btn.dataset._tab_bak;
+      delete btn.dataset._tab_bak;
+      if (v) btn.setAttribute("tabindex", v); else btn.removeAttribute("tabindex");
+    }
+    btn.removeAttribute("aria-disabled");
+
+    // pulihkan onclick inline
+    if (btn.dataset._onclick_bak !== undefined){
+      if (btn.dataset._onclick_bak) btn.setAttribute("onclick", btn.dataset._onclick_bak);
+      else btn.removeAttribute("onclick");
+      delete btn.dataset._onclick_bak;
+    }
+  }
+
+  function applyRekapSoftLock(disabled){
+    getRekapButtons().forEach(btn => disabled ? attachBlockers(btn) : detachBlockers(btn));
+  }
+
+  // fungsi publik
+  window.setNISRekapDisabled = function(disabled){
+    // stop observer lama
+    if (rekapObserver) { rekapObserver.disconnect(); rekapObserver = null; }
+
+    applyRekapSoftLock(!!disabled);
+
+    // jika halaman re-render tombol, kunci ulang otomatis
+    if (disabled){
+      rekapObserver = new MutationObserver(() => applyRekapSoftLock(true));
+      rekapObserver.observe(document.body, { childList:true, subtree:true });
+    }
+  };
+})();
+</script>
+		
+		
 </body>
 </html>
