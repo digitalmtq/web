@@ -1294,7 +1294,8 @@ async function buatUserNIS() {
     if (e.target === pdfModalOverlay) pdfModalOverlay.style.display = "none";
   });
 
-  // ====== Modal Pilih Santri (kedua) — SMART + tahan error ======
+	
+// ====== Modal Pilih Santri (kedua) — SMART + filter rentang + tahan error ======
 (() => {
   const santriModalOverlay = document.getElementById("santriModalOverlay");
   const okSantriSelect     = document.getElementById("okSantriSelect");
@@ -1305,7 +1306,7 @@ async function buatUserNIS() {
   const $ = (sel) => document.querySelector(sel);
   const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
 
-  // --------- Util dashboard: ambil NIS/Nama dari tabel "recent" ---------
+  // --------- Util: ambil NIS/Nama dari tabel "recent" ---------
   function getRecentNisFromDashboard(options = {}) {
     const { tableSelector = '#recentTable, .recent-table, table', nisHeaderText = /(^|\s)nis(\s|$)/i } = options;
     const nisSet = new Set();
@@ -1315,7 +1316,11 @@ async function buatUserNIS() {
       if (v) nisSet.add(v);
     });
     document.querySelectorAll('[data-santri-nis],[data-user-nis],[data-nis-santri]').forEach(el => {
-      const v = String(el.getAttribute('data-santri-nis') || el.getAttribute('data-user-nis') || el.getAttribute('data-nis-santri') || '').trim();
+      const v = String(
+        el.getAttribute('data-santri-nis') ||
+        el.getAttribute('data-user-nis') ||
+        el.getAttribute('data-nis-santri') || ''
+      ).trim();
       if (v) nisSet.add(v);
     });
 
@@ -1371,7 +1376,10 @@ async function buatUserNIS() {
 
   // --------- Fallback: ambil NIS user via Netlify Function ambilNismandiri ---------
   async function getUserNisList() {
-    const username = window.CURRENT_USERNAME || localStorage.getItem('LOGIN_USERNAME') || sessionStorage.getItem('LOGIN_USERNAME') || '';
+    const username =
+      window.CURRENT_USERNAME ||
+      localStorage.getItem('LOGIN_USERNAME') ||
+      sessionStorage.getItem('LOGIN_USERNAME') || '';
     if (!username) return [];
     try {
       const res = await fetch(`/.netlify/functions/ambilNismandiri?username=${encodeURIComponent(username)}&t=${Date.now()}`);
@@ -1384,21 +1392,48 @@ async function buatUserNIS() {
     }
   }
 
-  // --------- Helper aman: ambil roster kelas (jangan fetch saat kelas kosong) ---------
+  // --------- Helper aman: roster kelas (hindari 400 saat kelas kosong) ---------
   async function fetchRosterSafe(kelas) {
-    if (!kelas) return []; // <<== KUNCI: hindari 400 GET ?kelas=
+    if (!kelas) return [];
     try {
       const res = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
-      if (!res.ok) {
-        console.warn('getSantri non-200:', res.status);
-        return [];
-      }
+      if (!res.ok) return [];
       const json = await res.json().catch(() => []);
       return Array.isArray(json) ? json : [];
-    } catch (e) {
-      console.warn('getSantri fetch error:', e);
+    } catch {
       return [];
     }
+  }
+
+  // ===== NEW: helper filter NIS yang benar-benar punya data di rentang =====
+  async function _allowedNisForRangeSingleClass(kelasKey, startDate, endDate, nisFilterSet /* lowercased Set or null */) {
+    if (!kelasKey || !startDate || !endDate) return new Set();
+    try {
+      const url = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) return new Set();
+      const arr = await res.json().catch(() => []);
+      const out = new Set();
+      for (const r of (arr || [])) {
+        const nis = String(r?.nis || '').trim().toLowerCase();
+        if (!nis) continue;
+        if (!nisFilterSet || nisFilterSet.has(nis)) out.add(nis);
+      }
+      return out;
+    } catch {
+      return new Set();
+    }
+  }
+  async function _allowedNisForRangeAllClasses(startDate, endDate, nisFilterSet /* lowercased Set */) {
+    const kelasKeys = (typeof _getAllKelasKeys === 'function')
+      ? _getAllKelasKeys()
+      : (Array.isArray(window.ALL_KELAS_KEYS) ? window.ALL_KELAS_KEYS : []);
+    const allowed = new Set();
+    for (const k of (kelasKeys || [])) {
+      const part = await _allowedNisForRangeSingleClass(k, startDate, endDate, nisFilterSet);
+      part.forEach(n => allowed.add(n));
+    }
+    return allowed;
   }
 
   // --------- Pengisi dropdown: Dashboard → NIS user → semua ---------
@@ -1410,39 +1445,38 @@ async function buatUserNIS() {
     const startDate = $('#pdf-start-date')?.value;
     const endDate   = $('#pdf-end-date')?.value;
 
-    const recentNis  = getRecentNisFromDashboard();
+    const recentNis   = getRecentNisFromDashboard();
     const nameMapDash = buildNameMapFromDashboard();
 
-    // util: isi dropdown dari list NIS (nama dari roster kalau ada, fallback dashboard)
+    // util: isi dropdown dari list NIS (nama dari roster kalau ada, fallback dari dashboard)
     async function fillFromNisList(nisList) {
-      let roster = await fetchRosterSafe(kelas);      // aman bila kelas kosong → []
-      const byNis = new Map();
-      for (const s of (roster || [])) {               // roster selalu array
+      const roster = await fetchRosterSafe(kelas);   // [] bila kelas kosong
+      const byNisLC = new Map();
+      for (const s of (roster || [])) {
         const n = String(s?.nis || '').trim().toLowerCase();
-        if (n) byNis.set(n, s);
+        if (n) byNisLC.set(n, s);
       }
 
-      // Jika ada tanggal tapi kelas KOSONG → jangan filter via collectRekapData (akan 400).
-      let allowed = new Set(nisList.map(x => String(x).trim().toLowerCase()));
-      if (startDate && endDate && kelas) {
-        try {
-          const { allDataNorm } = await collectRekapData(); // fungsi kamu sendiri
-          const seen = new Set();
-          for (const it of allDataNorm) {
-            const nis = String(it?.nis || '').trim().toLowerCase();
-            if (nis && allowed.has(nis)) seen.add(nis);
-          }
-          allowed = seen; // hanya yang benar-benar punya data di rentang
-        } catch (e) {
-          console.warn('collectRekapData gagal (lewati filter rentang):', e);
+      // Dasar: semua NIS di nisList
+      const nisFilterSet = new Set(nisList.map(x => String(x).trim().toLowerCase()));
+      let allowedLC = nisFilterSet;
+
+      // Jika tanggal dipilih → kurangi hanya ke yang punya data pada rentang
+      if (startDate && endDate) {
+        if (kelas) {
+          allowedLC = await _allowedNisForRangeSingleClass(kelas, startDate, endDate, nisFilterSet);
+        } else {
+          allowedLC = await _allowedNisForRangeAllClasses(startDate, endDate, nisFilterSet);
         }
       }
 
       const opts = nisList
         .map(nisRaw => {
           const nis = String(nisRaw).trim();
-          if (!nis || !allowed.has(nis.toLowerCase())) return null;
-          const r = byNis.get(nis.toLowerCase());
+          const nisLC = nis.toLowerCase();
+          if (!nis) return null;
+          if (startDate && endDate && !allowedLC.has(nisLC)) return null; // drop yang tak punya data di rentang
+          const r = byNisLC.get(nisLC);
           const namaRoster = r?.nama || '';
           const namaDash   = nameMapDash.get(nis) || '';
           const nama = (namaRoster || namaDash || '-').trim();
@@ -1451,7 +1485,10 @@ async function buatUserNIS() {
         .filter(Boolean)
         .sort((a,b) => (a.nama||'').localeCompare(b.nama||'', 'id'));
 
-      if (!opts.length) return false;
+      if (!opts.length) {
+        santriSelect.innerHTML = `<option value="">— Tidak ada data pada rentang yang dipilih —</option>`;
+        return false;
+      }
 
       santriSelect.innerHTML =
         `<option value="">— Pilih santri —</option>` +
@@ -1464,21 +1501,21 @@ async function buatUserNIS() {
       const ok = await fillFromNisList(recentNis);
       if (ok) {
         if (!kelas) {
-          // beri info ramah jika kelas belum dipilih
+          // Info ramah bila kelas belum dipilih
           santriSelect.options[0].textContent = '— Pilih santri (kelas belum dipilih) —';
         }
         return;
       }
     }
 
-    // 2) dari NIS user (ambilNismandiri)
+    // 2) NIS milik user (ambilNismandiri)
     const userNis = await getUserNisList();
     if (userNis.length) {
       const ok = await fillFromNisList(userNis);
       if (ok) return;
     }
 
-    // 3) fallback lama — semua santri (jika ada)
+    // 3) fallback — semua santri (fungsi lama bila ada)
     if (window._populateSantriSelect) {
       await window._populateSantriSelect();
       return;
@@ -1519,9 +1556,10 @@ async function buatUserNIS() {
   cancelSantriSelect?.addEventListener("click", () => { santriModalOverlay.style.display = "none"; });
   santriModalOverlay?.addEventListener("click", (e) => { if (e.target === santriModalOverlay) santriModalOverlay.style.display = "none"; });
 
-  // --------- Re-populate saat tanggal berubah ---------
+  // --------- Re-populate saat tanggal/kelas berubah ---------
   $('#pdf-start-date')?.addEventListener('change', () => { window._populateSantriSelectSMART?.(); });
   $('#pdf-end-date')?.addEventListener('change',   () => { window._populateSantriSelectSMART?.(); });
+  kelasEl?.addEventListener('change',              () => { window._populateSantriSelectSMART?.(); }); // NEW: saat kelas diganti
 
 })();
 </script>
