@@ -1669,14 +1669,15 @@ function hitungNilai() {
     for (let idx in markData[ayat]) {
       const mark = markData[ayat][idx]; if (!mark) continue;
       adaMark = true;
-      if (mark === "green")  { totalMinus += 0.5; hijau++; }
-      else if (mark === "yellow") { totalMinus += 1;   kuning++; }
-      else if (mark === "red")    { totalMinus += 2;   merah++; }
+      if (mark === "green") { totalMinus += 0.5; hijau++; }
+      else if (mark === "yellow") { totalMinus += 1; kuning++; }
+      else if (mark === "red") { totalMinus += 2; merah++; }
     }
   }
+
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
 
-  // === Mapping sesuai permintaan (D, C, B, A, A+) ===
+  // Mapping sesuai permintaan
   const predikatMap = [
     { max: 59,  text: "ROSIB",          huruf: "D"  },
     { max: 69,  text: "MAQBUL",         huruf: "C"  },
@@ -1685,26 +1686,25 @@ function hitungNilai() {
     { max: 100, text: "MUMTAZ",         huruf: "A+" }
   ];
 
-  // Warna dibedakan A+ vs A
+  // WARNA: bedakan A dan A+ (NOTE: "A+" wajib dikutip)
   const WARNA = {
     "A+": "#0f766e", // teal-700
     "A" : "#10b981", // emerald-500
-    "B" : "#2563eb", // blue-600
-    "C" : "#f59e0b", // amber-500
-    "D" : "#f97316"  // orange-500
+    "B" : "#2563eb",
+    "C" : "#f59e0b",
+    "D" : "#f97316"
   };
 
   let predikat = "-";
   if (adaMark) {
     const p = predikatMap.find(p => nilai <= p.max);
-    const gradeKey = p.huruf;               // "D","C","B","A","A+"
-    const base = gradeKey.replace('+','');  // "A+" → "A" (untuk teks huruf)
-    const bg = WARNA[gradeKey] || WARNA[base] || "gray";
+    const base = p.huruf.replace('+', '');                 // "A+" → "A" untuk teks
+    const bg   = WARNA[p.huruf] || WARNA[base] || "gray";  // warna pakai key penuh
 
-    // Badge: tampilkan + sebagai superscript bila gradeKey berakhiran '+'
+    // Badge: jika huruf berakhiran +, tampilkan <sup>+</sup>
     const badge =
       `<span style="background-color:${bg};color:white;padding:0 6px;border-radius:4px;display:inline-block;line-height:1.5">
-         ${base}${gradeKey.endsWith('+') ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
+         ${base}${p.huruf.endsWith('+') ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
        </span>`;
 
     predikat = `${p.text} ${badge}`;
@@ -1712,13 +1712,15 @@ function hitungNilai() {
 
   const nilaiEl = document.getElementById("nilai-akhir");
   const predikatEl = document.getElementById("predikat-akhir");
-  if (nilaiEl) nilaiEl.innerText = Number(nilai).toFixed(1);
+  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
   if (predikatEl) predikatEl.innerHTML = predikat;
+
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
 
   return { nilai, predikat, hijau, kuning, merah };
 }
+
 
 /* ========= UPDATE TABEL ========= */
 function updateNilaiDiTabel({ nilai, predikat }) {
@@ -1905,13 +1907,13 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   const v = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
 
-  // === Band sesuai permintaan (A+ adalah band teratas) ===
-  let gradeKey, labelText;
-  if (v <= 59)      { gradeKey = "D";  labelText = "ROSIB";         }
-  else if (v <= 69) { gradeKey = "C";  labelText = "MAQBUL";        }
-  else if (v <= 79) { gradeKey = "B";  labelText = "JAYYID";        }
-  else if (v <= 89) { gradeKey = "A";  labelText = "JAYYID JIDDAN"; }
-  else              { gradeKey = "A+"; labelText = "MUMTAZ";        }
+  // Band sesuai permintaan
+  let huruf, text;
+  if (v <= 59)      { huruf = "D";  text = "ROSIB";         }
+  else if (v <= 69) { huruf = "C";  text = "MAQBUL";        }
+  else if (v <= 79) { huruf = "B";  text = "JAYYID";        }
+  else if (v <= 89) { huruf = "A";  text = "JAYYID JIDDAN"; }
+  else              { huruf = "A+"; text = "MUMTAZ";        }
 
   const WARNA = {
     "A+": "#0f766e",
@@ -1920,27 +1922,22 @@ document.getElementById("btn-beri-nilai").onclick = function() {
     "C" : "#f59e0b",
     "D" : "#f97316"
   };
-  const base = gradeKey.replace('+','');
-  const bg = WARNA[gradeKey] || WARNA[base] || "gray";
+  const base = huruf.replace('+', '');
+  const bg   = WARNA[huruf] || WARNA[base] || "gray";
 
   const badge =
     `<span style="background-color:${bg};color:white;padding:0 6px;border-radius:4px;display:inline-block;line-height:1.5">
-       ${base}${gradeKey.endsWith('+') ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
+       ${base}${huruf.endsWith('+') ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
      </span>`;
-  const pred = `${labelText} ${badge}`;
+  const pred = `${text} ${badge}`;
 
-  // reset mark seperti perilaku lama + simpan kosong
-  markData = {};
-  simpanKeStorage();
+  markData = {}; // tetap kosongkan mark seperti perilaku lama
 
-  // update UI
-  document.getElementById("nilai-akhir").innerText = Number(v).toFixed(1);
-  document.getElementById("predikat-akhir").innerHTML = pred;
+  document.getElementById("nilai-akhir").innerText  = v.toFixed(1);
+  document.getElementById("predikat-akhir").innerHTML = pred;   // gunakan HTML agar + terlihat
   document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
 
-  // update tabel & simpan nilai manual ke localStorage (persisten)
   updateNilaiDiTabel({ nilai: v, predikat: pred });
-  simpanGradeLocal({ nilai: v, predikat: pred });
 };
 
 /* ========= TOGGLE & TUTUP ========= */
