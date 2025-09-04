@@ -1655,43 +1655,43 @@ function hitungNilai() {
   }
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
 
-  // mapping band (seperti semula)
+  // === Mapping sesuai permintaan (D, C, B, A, A+) ===
   const predikatMap = [
-    { max: 59,  text: "ROSIB",          huruf: "D" },
-    { max: 69,  text: "MAQBUL",         huruf: "C" },
-    { max: 79,  text: "JAYYID",         huruf: "B" },
-    { max: 89,  text: "JAYYID JIDDAN",  huruf: "A" },
+    { max: 59,  text: "ROSIB",          huruf: "D"  },
+    { max: 69,  text: "MAQBUL",         huruf: "C"  },
+    { max: 79,  text: "JAYYID",         huruf: "B"  },
+    { max: 89,  text: "JAYYID JIDDAN",  huruf: "A"  },
     { max: 100, text: "MUMTAZ",         huruf: "A+" }
   ];
 
+  // Warna dibedakan A+ vs A (hex agar konsisten)
+  const WARNA = {
+    "A+": "#0f766e", // teal-700
+    "A" : "#10b981", // emerald-500
+    "B" : "#2563eb", // blue-600
+    "C" : "#f59e0b", // amber-500
+    "D" : "#f97316"  // orange-500
+  };
+
   let predikat = "-";
   if (adaMark) {
-    const idx = predikatMap.findIndex(p => nilai <= p.max);
-    const p = predikatMap[idx];
-    // hitung min band dari entri sebelumnya (agar tidak ubah struktur)
-    const minBand = (idx === 0) ? 0 : (predikatMap[idx - 1].max + 1);
-    const maxBand = p.max;
+    const p = predikatMap.find(p => nilai <= p.max);
+    const gradeKey = p.huruf;                      // "D","C","B","A","A+"
+    const base = gradeKey.replace('+','');         // "A+" → "A" untuk teks
+    const bg = WARNA[gradeKey] || WARNA[base] || "gray";
 
-    // plus untuk 20% skor teratas di band (kecuali E)
-    let isPlus = false;
-    if (p.huruf !== "E") {
-      const span = Math.max(1, maxBand - minBand);
-      const cutoff = maxBand - Math.ceil(span * 0.2); // top 20%
-      isPlus = nilai >= cutoff;
-    }
-
-    const warna = { A+: "green", A: "blue", B: "gold", C: "orange", D: "red" };
-    // badge dengan <sup> untuk tanda +
+    // Badge: tampilkan + sebagai superscript bila gradeKey berakhiran '+'
     const badge =
-      `<span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">
-         ${p.huruf}${isPlus ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
+      `<span style="background-color:${bg};color:white;padding:0 6px;border-radius:4px;display:inline-block;line-height:1.5">
+         ${base}${gradeKey.endsWith('+') ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
        </span>`;
+
     predikat = `${p.text} ${badge}`;
   }
 
   const nilaiEl = document.getElementById("nilai-akhir");
   const predikatEl = document.getElementById("predikat-akhir");
-  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
+  if (nilaiEl) nilaiEl.innerText = Number(nilai).toFixed(1);
   if (predikatEl) predikatEl.innerHTML = predikat;
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
@@ -1857,42 +1857,39 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   const v = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
 
-  // tentukan band (tanpa ubah struktur lama)
-  let baseHuruf, labelText, bandMin, bandMax;
-  if (v <= 59)      { baseHuruf = "D"; labelText = "ROSIB";          bandMin = 0;  bandMax = 59; }
-  else if (v <= 69) { baseHuruf = "C"; labelText = "MAQBUL";         bandMin = 60; bandMax = 69; }
-  else if (v <= 79) { baseHuruf = "B"; labelText = "JAYYID";         bandMin = 70; bandMax = 79; }
-  else if (v <= 89) { baseHuruf = "A"; labelText = "JAYYID JIDDAN";  bandMin = 80; bandMax = 89; }
-  else              { baseHuruf = "A+"; labelText = "MUMTAZ";         bandMin = 90; bandMax = 100; }
+  // === Band sesuai permintaan (tanpa logika plus tambahan) ===
+  let gradeKey, labelText;
+  if (v <= 59)      { gradeKey = "D";  labelText = "ROSIB";         }
+  else if (v <= 69) { gradeKey = "C";  labelText = "MAQBUL";        }
+  else if (v <= 79) { gradeKey = "B";  labelText = "JAYYID";        }
+  else if (v <= 89) { gradeKey = "A";  labelText = "JAYYID JIDDAN"; }
+  else              { gradeKey = "A+"; labelText = "MUMTAZ";        }
 
-  // Plus untuk 20% teratas di band (kecuali E)
-  let isPlus = false;
-  if (baseHuruf !== "E") {
-    const span = Math.max(1, bandMax - bandMin);
-    const cutoff = bandMax - Math.ceil(span * 0.2);
-    isPlus = v >= cutoff;
-  }
+  const WARNA = {
+    "A+": "#0f766e",
+    "A" : "#10b981",
+    "B" : "#2563eb",
+    "C" : "#f59e0b",
+    "D" : "#f97316"
+  };
+  const base = gradeKey.replace('+','');
+  const bg = WARNA[gradeKey] || WARNA[base] || "gray";
 
-  // warna sesuai huruf dasar
-  const warna = { A+: "green", A: "blue", B: "gold", C: "orange", D: "red" };
-  // badge HTML (tampilkan + sebagai superscript)
   const badge =
-    `<span style="background-color:${warna[baseHuruf]};color:white;padding:0 4px;border-radius:3px;">
-       ${baseHuruf}${isPlus ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
+    `<span style="background-color:${bg};color:white;padding:0 6px;border-radius:4px;display:inline-block;line-height:1.5">
+       ${base}${gradeKey.endsWith('+') ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
      </span>`;
-
-  // predikat final (HTML)
   const pred = `${labelText} ${badge}`;
 
-  // kosongkan mark (sesuai perilaku lama)
+  // reset mark seperti perilaku lama
   markData = {};
 
   // update UI
-  document.getElementById("nilai-akhir").innerText = v.toFixed(1);
-  document.getElementById("predikat-akhir").innerHTML = pred; // pakai HTML agar + terlihat
+  document.getElementById("nilai-akhir").innerText = Number(v).toFixed(1);
+  document.getElementById("predikat-akhir").innerHTML = pred;   // pakai HTML
   document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
 
-  // kirim ke tabel (tetap kontrak lama)
+  // tetap kirim format lama ke tabel
   updateNilaiDiTabel({ nilai: v, predikat: pred });
 };
 
@@ -2062,6 +2059,7 @@ async function handleRecordedBlobMP3(blob){
   recordSpinEl.style.display = 'none';
 }
 </script>
+
 
 
 <!-- Overlay Hitung Total All Juz -->
