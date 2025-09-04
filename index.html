@@ -1793,12 +1793,19 @@ document.addEventListener('click', async function (e) {
     pageDiv.style.lineHeight = '2.2';
     pageDiv.style.direction = 'rtl';
     pageDiv.style.marginBottom = '20px';
+	pageDiv.style.textAlign = 'justify';
+	pageDiv.style.setProperty('text-justify','inter-word');
+	pageDiv.style.setProperty('text-align-last','right');
+	pageDiv.style.whiteSpace = 'normal';
+
 
     halamanMap[page].forEach(item => {
-      const spans = buatKataKlik(item.surah, item.ayat, item.teks);
-      spans.forEach(span => pageDiv.appendChild(span));
-      pageDiv.appendChild(document.createElement('br'));
-    });
+  	const spans = buatKataKlik(item.surah, item.ayat, item.teks);
+  	spans.forEach(span => pageDiv.appendChild(span));
+  	// pageDiv.appendChild(document.createElement('br'));   // ❌ hapus baris ini
+  	pageDiv.appendChild(document.createTextNode(' '));       // ✅ spasi antar-ayat
+	});
+
 
     quranText.appendChild(pageDiv);
   }
