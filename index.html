@@ -1640,73 +1640,78 @@ function ambilDariStorage() {
   markData = saved ? JSON.parse(saved) : {};
 }
 
-/* ========= HITUNG NILAI (fix A+) ========= */
+/* ========= HITUNG NILAI ========= */
 function hitungNilai() {
   let totalMinus = 0, hijau = 0, kuning = 0, merah = 0, adaMark = false;
-
-  // --- hitung pengurang nilai dari mark warna ---
   for (let ayat in markData) {
     if (ayat === 'audio') continue; // abaikan daftar audio
     for (let idx in markData[ayat]) {
       const mark = markData[ayat][idx]; if (!mark) continue;
       adaMark = true;
-      if (mark === "green")  { totalMinus += 0.5; hijau++; }
-      else if (mark === "yellow") { totalMinus += 1;   kuning++; }
-      else if (mark === "red")    { totalMinus += 2;   merah++; }
+      if (mark === "green") { totalMinus += 0.5; hijau++; }
+      else if (mark === "yellow") { totalMinus += 1; kuning++; }
+      else if (mark === "red") { totalMinus += 2; merah++; }
     }
   }
+  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
 
-  // --- nilai akhir (0..100) ---
-  let nilai = adaMark ? Math.max(0, Math.min(100, 100 - totalMinus)) : 0;
-
-  // --- band predikat & warna dasar ---
-  const BANDS = [
-    { min: 0,  max: 59,  text: "ROSIB",          huruf: "E" },
-    { min: 60, max: 69,  text: "MAQBUL",         huruf: "D" },
-    { min: 70, max: 79,  text: "JAYYID",         huruf: "C" },
-    { min: 80, max: 89,  text: "JAYYID JIDDAN",  huruf: "B" },
-    { min: 90, max: 100, text: "MUMTAZ",         huruf: "A+" }
+  // mapping band (seperti semula)
+  const predikatMap = [
+    { max: 59,  text: "ROSIB",          huruf: "E" },
+    { max: 69,  text: "MAQBUL",         huruf: "D" },
+    { max: 79,  text: "JAYYID",         huruf: "C" },
+    { max: 89,  text: "JAYYID JIDDAN",  huruf: "B" },
+    { max: 100, text: "MUMTAZ",         huruf: "A" }
   ];
-  const WARNA = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
 
-  // --- tentukan band + apakah plus (+) ---
-  const band = BANDS.find(b => nilai >= b.min && nilai <= b.max) || BANDS[0];
-  let isPlus = false;
-  if (band.huruf !== "E") {
-    const span = Math.max(1, band.max - band.min);     // lebar range band
-    const cutoff = band.max - Math.ceil(span * 0.2);   // top 20% = plus
-    isPlus = nilai >= cutoff;
+  let predikat = "-";
+  if (adaMark) {
+    const idx = predikatMap.findIndex(p => nilai <= p.max);
+    const p = predikatMap[idx];
+    // hitung min band dari entri sebelumnya (agar tidak ubah struktur)
+    const minBand = (idx === 0) ? 0 : (predikatMap[idx - 1].max + 1);
+    const maxBand = p.max;
+
+    // plus untuk 20% skor teratas di band (kecuali E)
+    let isPlus = false;
+    if (p.huruf !== "E") {
+      const span = Math.max(1, maxBand - minBand);
+      const cutoff = maxBand - Math.ceil(span * 0.2); // top 20%
+      isPlus = nilai >= cutoff;
+    }
+
+    const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+    // badge dengan <sup> untuk tanda +
+    const badge =
+      `<span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">
+         ${p.huruf}${isPlus ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
+       </span>`;
+    predikat = `${p.text} ${badge}`;
   }
-  const hurufDisplay = band.huruf + (isPlus ? "+" : "");
 
-  // --- badge HTML dengan + yang tampil (pakai <sup>) ---
-  const badgeHTML =
-    `<span class="predikat-badge"
-            data-grade="${hurufDisplay}"
-            style="background-color:${WARNA[band.huruf]};color:#fff;padding:0 6px;border-radius:4px;display:inline-block;line-height:1.5">
-       ${band.huruf}${isPlus ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
-     </span>`;
-
-  // --- predikat final yang siap di-render (HTML) ---
-  const predikatHTML = adaMark ? `${band.text} ${badgeHTML}` : "-";
-
-  // --- update UI ---
   const nilaiEl = document.getElementById("nilai-akhir");
   const predikatEl = document.getElementById("predikat-akhir");
   if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
-  if (predikatEl) predikatEl.innerHTML = predikatHTML;
-
+  if (predikatEl) predikatEl.innerHTML = predikat;
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
+  return { nilai, predikat, hijau, kuning, merah };
+}
 
-  // --- return untuk pemakaian lanjutan (kompatibel dgn blok kedua) ---
-  return {
-    nilai,
-    predikat: predikatHTML,           // HTML → langsung dipakai di tabel
-    huruf: hurufDisplay,              // "A" atau "A+"
-    label: band.text,                 // "MUMTAZ", dst.
-    hijau, kuning, merah
-  };
+/* ========= UPDATE TABEL ========= */
+function updateNilaiDiTabel({ nilai, predikat }) {
+  if (!currentIdSiswa) return;
+  let row = currentRowEl || [...document.querySelectorAll("table tbody tr")]
+    .find(r => String(r.cells[0].innerText.trim()) === String(currentIdSiswa));
+  if (row) {
+    const cell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
+    if (cell) {
+      cell.innerHTML = `
+        <div class="nilai-ringkas"><strong>${Number(nilai).toFixed(1)}</strong> ${predikat}</div>
+        <button class="lihat-quran-btn">Lembar Penilaian</button>`;
+      row.markData = JSON.parse(JSON.stringify(markData));
+    }
+  }
 }
 
 /* ========= BUAT KATA KLIK ========= */
@@ -1810,18 +1815,17 @@ document.addEventListener('click', async function (e) {
     pageDiv.style.lineHeight = '2.2';
     pageDiv.style.direction = 'rtl';
     pageDiv.style.marginBottom = '20px';
-	pageDiv.style.textAlign = 'justify';
-	pageDiv.style.setProperty('text-justify','inter-word');
-	pageDiv.style.setProperty('text-align-last','right');
-	pageDiv.style.whiteSpace = 'normal';
-
+    pageDiv.style.textAlign = 'justify';
+    pageDiv.style.setProperty('text-justify','inter-word');
+    pageDiv.style.setProperty('text-align-last','right');
+    pageDiv.style.whiteSpace = 'normal';
 
     halamanMap[page].forEach(item => {
-  const spans = buatKataKlik(item.surah, item.ayat, item.teks);
-  spans.forEach(span => pageDiv.appendChild(span));
-  // pageDiv.appendChild(document.createElement('br'));   // ❌ hapus baris ini
-  pageDiv.appendChild(document.createTextNode(' '));       // ✅ spasi antar-ayat
-});
+      const spans = buatKataKlik(item.surah, item.ayat, item.teks);
+      spans.forEach(span => pageDiv.appendChild(span));
+      // pageDiv.appendChild(document.createElement('br'));   // ❌ hapus baris ini
+      pageDiv.appendChild(document.createTextNode(' '));       // ✅ spasi antar-ayat
+    });
 
     quranText.appendChild(pageDiv);
   }
@@ -1847,67 +1851,77 @@ document.addEventListener('click', async function (e) {
   }
 });
 
-/* ========= TOMBOL NILAI MANUAL (fix A+) ========= */
-document.getElementById("btn-beri-nilai").onclick = function () {
-  if (!window.currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
-
+/* ========= TOMBOL NILAI MANUAL ========= */
+document.getElementById("btn-beri-nilai").onclick = function() {
+  if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
   const v = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
 
-  // Pakai util global dari blok 1 bila ada; jika tidak, fallback lokal:
-  const gi = (typeof window.gradeInfo === "function") ? window.gradeInfo(v) : (function () {
-    const BANDS = [
-      { min: 0,  max: 59,  text: "ROSIB",          huruf: "E" },
-      { min: 60, max: 69,  text: "MAQBUL",         huruf: "D" },
-      { min: 70, max: 79,  text: "JAYYID",         huruf: "C" },
-      { min: 80, max: 89,  text: "JAYYID JIDDAN",  huruf: "B" },
-      { min: 90, max: 100, text: "MUMTAZ",         huruf: "A+" }
-    ];
-    const WARNA = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  // tentukan band (tanpa ubah struktur lama)
+  let baseHuruf, labelText, bandMin, bandMax;
+  if (v <= 59)      { baseHuruf = "E"; labelText = "ROSIB";          bandMin = 0;  bandMax = 59; }
+  else if (v <= 69) { baseHuruf = "D"; labelText = "MAQBUL";         bandMin = 60; bandMax = 69; }
+  else if (v <= 79) { baseHuruf = "C"; labelText = "JAYYID";         bandMin = 70; bandMax = 79; }
+  else if (v <= 89) { baseHuruf = "B"; labelText = "JAYYID JIDDAN";  bandMin = 80; bandMax = 89; }
+  else              { baseHuruf = "A"; labelText = "MUMTAZ";         bandMin = 90; bandMax = 100; }
 
-    const score = Math.max(0, Math.min(100, Number(v) || 0));
-    const band = BANDS.find(b => score >= b.min && score <= b.max) || BANDS[0];
-
-    // Plus untuk 20% paling atas di band (kecuali E)
-    let isPlus = false;
-    if (band.huruf !== "E") {
-      const span = Math.max(1, band.max - band.min);
-      const cutoff = band.max - Math.ceil(span * 0.2);
-      isPlus = score >= cutoff;
-    }
-
-    const display = band.huruf + (isPlus ? "+" : "");
-    const color = WARNA[band.huruf] || "gray";
-    const badge = `<span class="predikat-badge" data-grade="${display}"
-                     style="background:${color};color:#fff;padding:0 6px;border-radius:4px;display:inline-block;line-height:1.5">
-                     ${band.huruf}${isPlus ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
-                   </span>`;
-    return { text: band.text, display, badge };
-  })();
-
-  // Kosongkan mark
-  window.markData = {};
-
-  // Tampilkan ke UI
-  const elNilaiAkhir = document.getElementById("nilai-akhir");
-  if (elNilaiAkhir) elNilaiAkhir.innerText = Number(v).toFixed(1);
-
-  const elPredikatAkhir = document.getElementById("predikat-akhir");
-  if (elPredikatAkhir) {
-    // Jika ada util global renderPredikat, pakai itu; kalau tidak, fallback
-    elPredikatAkhir.innerHTML =
-      (typeof window.renderPredikat === "function") ? window.renderPredikat(v) : `${gi.text} ${gi.badge}`;
+  // Plus untuk 20% teratas di band (kecuali E)
+  let isPlus = false;
+  if (baseHuruf !== "E") {
+    const span = Math.max(1, bandMax - bandMin);
+    const cutoff = bandMax - Math.ceil(span * 0.2);
+    isPlus = v >= cutoff;
   }
 
-  const elWarna = document.getElementById("modal-mark-warna");
-  if (elWarna) elWarna.innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
+  // warna sesuai huruf dasar
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+  // badge HTML (tampilkan + sebagai superscript)
+  const badge =
+    `<span style="background-color:${warna[baseHuruf]};color:white;padding:0 4px;border-radius:3px;">
+       ${baseHuruf}${isPlus ? '<sup style="font-size:.75em;line-height:0;vertical-align:super">+</sup>' : ''}
+     </span>`;
 
-  // Update ringkas di tabel (predikat = HTML agar A+ tampil)
-  if (typeof window.updateNilaiDiTabel === "function") {
-    const predHTML = (typeof window.renderPredikat === "function") ? window.renderPredikat(v) : `${gi.text} ${gi.badge}`;
-    window.updateNilaiDiTabel({ nilai: v, predikat: predHTML });
-  }
+  // predikat final (HTML)
+  const pred = `${labelText} ${badge}`;
+
+  // kosongkan mark (sesuai perilaku lama)
+  markData = {};
+
+  // update UI
+  document.getElementById("nilai-akhir").innerText = v.toFixed(1);
+  document.getElementById("predikat-akhir").innerHTML = pred; // pakai HTML agar + terlihat
+  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
+
+  // kirim ke tabel (tetap kontrak lama)
+  updateNilaiDiTabel({ nilai: v, predikat: pred });
 };
+
+/* ========= TOGGLE & TUTUP ========= */
+document.getElementById("toggle-keterangan").addEventListener("click", () => {
+  const box = document.getElementById("keterangan-box");
+  box.style.display = (box.style.display === "block") ? "none" : "block";
+});
+document.getElementById('close-overlay').addEventListener('click', () => {
+  document.getElementById('overlay-quran').style.display = 'none';
+});
+
+/* ========= MODAL REKAMAN (BUKA/TUTUP) ========= */
+document.getElementById('btn-open-record').addEventListener('click', () => {
+  if (!currentIdSiswa) return alert("Buka dulu 'Lembar Penilaian' pada baris santri.");
+  const overlay = document.getElementById('overlay-record');
+  const namaEl = document.getElementById('record-nama-santri');
+  const nama = document.getElementById('modal-nama-santri')?.textContent || '-';
+  namaEl.textContent = nama;
+
+  // render rekaman lama di modal rekaman
+  tampilkanAudioDiModalRekam(markData);
+
+  overlay.style.display = 'flex';
+});
+document.getElementById('record-close').addEventListener('click', () => {
+  stopRecordingIfNeeded(true);
+  document.getElementById('overlay-record').style.display = 'none';
+});
 
 /* ========= REKAMAN .MP3 DENGAN WebAudioRecorder ========= */
 let audioCtx = null;
@@ -2048,7 +2062,6 @@ async function handleRecordedBlobMP3(blob){
   recordSpinEl.style.display = 'none';
 }
 </script>
-
 
 
 <!-- Overlay Hitung Total All Juz -->
