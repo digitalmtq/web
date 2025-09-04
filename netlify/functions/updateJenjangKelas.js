@@ -63,9 +63,9 @@ exports.handler = async (event) => {
     if (!key) {
       return { statusCode: 400, body: JSON.stringify({ error: "Field 'key' wajib." }) };
     }
-    // Jenjang A1..A8 (kalau mau boleh kosong, ubah jadi: if (jen && !/^A[1-8]$/.test(jen)) {...})
-    if (!/^A[1-8]$/.test(jen)) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Jenjang harus A1-A8." }) };
+    // Jenjang A1..A8 (kalau mau boleh kosong, ubah jadi: if (jen && !/^A[1-34]$/.test(jen)) {...})
+    if (!/^A[1-34]$/.test(jen)) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Jenjang harus A1-A34." }) };
     }
 
     // --- Ambil file master
