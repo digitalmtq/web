@@ -1434,34 +1434,18 @@ async function buatUserNIS() {
         Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
     </div>
 
-      <!-- Contoh area mushaf: penuh + last line kanan -->
+    <!-- Area teks Al-Qur'an -->
 <div id="quran-text" style="
-  /* tata letak utama */
-  direction: rtl; 
-  font-size: 30px; 
-  line-height: 2.2;
-  padding: 18px;
-  border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;
+  direction:rtl; font-size:30px; line-height:2.2;
 
-  /* kunci perataan */
-  text-align: justify;          /* penuhi lebar baris */
-  text-align-last: right;       /* baris terakhir kanan */
-  text-justify: inter-word;     /* sebar spasi antar-kata */
+  /* kunci justify */
+  text-align:justify;
+  text-align-last:right;
+  text-justify:inter-word;
+  white-space:normal;  /* ← ganti dari pre-wrap */
 
-  /* penting: jangan pakai pre-wrap agar justify bekerja */
-  white-space: normal; 
-
-  /* kontainer scroll */
-  flex: 1 1 auto; 
-  overflow: auto; 
-  overscroll-behavior: contain; 
-  -webkit-overflow-scrolling: touch; 
-  scrollbar-gutter: stable;
-
-  /* font arab yang bagus (pakai yang tersedia di sistem, atau tambahkan webfont) */
-  font-family: 'Amiri', 'Traditional Arabic', 'Scheherazade New', serif;
-">
-</div>
+  flex:1 1 auto; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
+"></div>
 
 
     <hr>
@@ -1809,12 +1793,18 @@ document.addEventListener('click', async function (e) {
     pageDiv.style.lineHeight = '2.2';
     pageDiv.style.direction = 'rtl';
     pageDiv.style.marginBottom = '20px';
+	pageDiv.style.textAlign = 'justify';
+	pageDiv.style.setProperty('text-justify','inter-word');
+	pageDiv.style.setProperty('text-align-last','right');
+	pageDiv.style.whiteSpace = 'normal';
+
 
     halamanMap[page].forEach(item => {
-      const spans = buatKataKlik(item.surah, item.ayat, item.teks);
-      spans.forEach(span => pageDiv.appendChild(span));
-      pageDiv.appendChild(document.createElement('br'));
-    });
+  const spans = buatKataKlik(item.surah, item.ayat, item.teks);
+  spans.forEach(span => pageDiv.appendChild(span));
+  // pageDiv.appendChild(document.createElement('br'));   // ❌ hapus baris ini
+  pageDiv.appendChild(document.createTextNode(' '));       // ✅ spasi antar-ayat
+});
 
     quranText.appendChild(pageDiv);
   }
