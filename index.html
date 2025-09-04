@@ -1435,10 +1435,18 @@ async function buatUserNIS() {
     </div>
 
     <!-- Area teks Al-Qur'an -->
-    <div id="quran-text" style="
-      white-space:pre-wrap; line-height:2.2; direction:rtl; font-size:30px;
-      flex:1 1 auto; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
-    "></div>
+<div id="quran-text" style="
+  direction:rtl; font-size:30px; line-height:2.2;
+
+  /* penuh + last line kanan */
+  text-align:justify;
+  text-align-last:right;
+  text-justify:inter-word;
+
+  white-space:normal; /* ganti dari pre-wrap agar justify berfungsi */
+  flex:1 1 auto; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
+"></div>
+
 
     <hr>
 
