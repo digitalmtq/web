@@ -3913,7 +3913,7 @@ function _kelasKelompokLineFor(kelasKey){
     }
   }
   kelompok = (kelompok || '').replace(/^Kelompok\s+/i, '').trim() || '-';
-  return { kelasNum, kelompok, line: `Halaqoh: ${kelasNum}, Kelompok: ${kelompok}` };
+  return { kelasNum, kelompok, line: `Halaqoh: ${kelasNum}, ${kelompok}` };
 }
 
 // ====== Ambil & Agregasi Data utk 1 kelas spesifik ======
