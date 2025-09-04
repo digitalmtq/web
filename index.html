@@ -3357,7 +3357,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (fromOpt) kelompok = fromOpt;
     }
     kelompok = (kelompok || '').replace(/^Kelompok\s+/i, '').trim() || '-';
-    return { kelasNum, kelompok, line: `Halaqoh: ${kelasNum}, Kelompok: ${kelompok}` };
+    return { kelasNum, kelompok, line: `Halaqoh: ${kelasNum}, ${kelompok}` };
   }
 
   function setBtnLoading(btn, loading, loadingText='Mengerjakan…') {
