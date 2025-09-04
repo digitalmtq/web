@@ -2749,8 +2749,8 @@ async function loadSantriData() {
             const oldJ = String(row.dataset?.jenjang ?? (window.jenjangMap?.[key] ?? jenNow ?? ""));
             const newJ = String(jenSel.value || "");
 
-            if (newJ && !/^A[1-8]$/.test(newJ)) {
-              alert("Jenjang harus A1 - A8 (atau kosong).");
+            if (newJ && !/^A[1-34]$/.test(newJ)) {
+              alert("Jenjang harus A1 - A34 (atau kosong).");
               jenSel.value = oldJ;
               return;
             }
