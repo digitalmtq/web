@@ -1386,15 +1386,48 @@ async function buatUserNIS() {
     <!-- ⬇️ BARU: Jenjang -->
     <label>Jenjang:</label><br>
     <select id="inputJenjang" style="width:90%; margin-bottom:10px;">
-      <option value="A1">A1</option>
-      <option value="A2">A2</option>
-      <option value="A3">A3</option>
-      <option value="A4">A4</option>
-      <option value="A5">A5</option>
-      <option value="A6">A6</option>
-      <option value="A7">A7</option>
-      <option value="A8">A8</option>
-    </select>
+  <!-- A1–A4 = ILA–ILD -->
+  <option value="A1">ILA</option>
+  <option value="A2">ILB</option>
+  <option value="A3">ILC</option>
+  <option value="A4">ILD</option>
+
+  <!-- A5–A14 = 1A–1J -->
+  <option value="A5">1A</option>
+  <option value="A6">1B</option>
+  <option value="A7">1C</option>
+  <option value="A8">1D</option>
+  <option value="A9">1E</option>
+  <option value="A10">1F</option>
+  <option value="A11">1G</option>
+  <option value="A12">1H</option>
+  <option value="A13">1I</option>
+  <option value="A14">1J</option>
+
+  <!-- A15–A24 = 2A–2J -->
+  <option value="A15">2A</option>
+  <option value="A16">2B</option>
+  <option value="A17">2C</option>
+  <option value="A18">2D</option>
+  <option value="A19">2E</option>
+  <option value="A20">2F</option>
+  <option value="A21">2G</option>
+  <option value="A22">2H</option>
+  <option value="A23">2I</option>
+  <option value="A24">2J</option>
+
+  <!-- A25–A34 = 3A–3J -->
+  <option value="A25">3A</option>
+  <option value="A26">3B</option>
+  <option value="A27">3C</option>
+  <option value="A28">3D</option>
+  <option value="A29">3E</option>
+  <option value="A30">3F</option>
+  <option value="A31">3G</option>
+  <option value="A32">3H</option>
+  <option value="A33">3I</option>
+  <option value="A34">3J</option>
+</select>
 
     <div style="margin-top:10px; display:flex; justify-content:space-between; gap:8px;">
       <button id="btnSimpanSantri" onclick="simpanSantriBaru()">Simpan</button>
@@ -2554,7 +2587,7 @@ async function loadSantriData() {
         // === Nilai master saat ini
         const keyMaster = (snis || sid || "");
         const semNow = (window.semesterMap?.[keyMaster])   ?? santri.semester   ?? "1";
-        const jenNow = (window.jenjangMap?.[keyMaster])    ?? santri.jenjang    ?? "A1";
+        const jenNow = (window.jenjangMap?.[keyMaster])    ?? santri.jenjang    ?? "";
         const ketNow = (window.keteranganMap?.[keyMaster]) ?? santri.keterangan ?? "";
 
         // TAMPILAN: NIS → fallback ID
@@ -2562,17 +2595,50 @@ async function loadSantriData() {
           <td class="col-nis">${santri.nis ?? santri.id ?? ""}</td>
           <td class="col-nama">${santri.nama ?? ""}${subTanggal}</td>
           <td>
-            <select class="jenjang">
-              <option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>A1</option>
-              <option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>A2</option>
-              <option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>A3</option>
-              <option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>A4</option>
-              <option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>A5</option>
-              <option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>A6</option>
-              <option value="A7" ${jenNow === 'A7' ? 'selected' : ''}>A7</option>
-              <option value="A8" ${jenNow === 'A8' ? 'selected' : ''}>A8</option>
-            </select>
-          </td>
+  <select class="jenjang">
+    <!-- A1–A4 = ILA–ILD -->
+    <option value="A1"  ${jenNow === 'A1'  ? 'selected' : ''}>ILA</option>
+    <option value="A2"  ${jenNow === 'A2'  ? 'selected' : ''}>ILB</option>
+    <option value="A3"  ${jenNow === 'A3'  ? 'selected' : ''}>ILC</option>
+    <option value="A4"  ${jenNow === 'A4'  ? 'selected' : ''}>ILD</option>
+
+    <!-- A5–A14 = 1A–1J -->
+    <option value="A5"  ${jenNow === 'A5'  ? 'selected' : ''}>1A</option>
+    <option value="A6"  ${jenNow === 'A6'  ? 'selected' : ''}>1B</option>
+    <option value="A7"  ${jenNow === 'A7'  ? 'selected' : ''}>1C</option>
+    <option value="A8"  ${jenNow === 'A8'  ? 'selected' : ''}>1D</option>
+    <option value="A9"  ${jenNow === 'A9'  ? 'selected' : ''}>1E</option>
+    <option value="A10" ${jenNow === 'A10' ? 'selected' : ''}>1F</option>
+    <option value="A11" ${jenNow === 'A11' ? 'selected' : ''}>1G</option>
+    <option value="A12" ${jenNow === 'A12' ? 'selected' : ''}>1H</option>
+    <option value="A13" ${jenNow === 'A13' ? 'selected' : ''}>1I</option>
+    <option value="A14" ${jenNow === 'A14' ? 'selected' : ''}>1J</option>
+
+    <!-- A15–A24 = 2A–2J -->
+    <option value="A15" ${jenNow === 'A15' ? 'selected' : ''}>2A</option>
+    <option value="A16" ${jenNow === 'A16' ? 'selected' : ''}>2B</option>
+    <option value="A17" ${jenNow === 'A17' ? 'selected' : ''}>2C</option>
+    <option value="A18" ${jenNow === 'A18' ? 'selected' : ''}>2D</option>
+    <option value="A19" ${jenNow === 'A19' ? 'selected' : ''}>2E</option>
+    <option value="A20" ${jenNow === 'A20' ? 'selected' : ''}>2F</option>
+    <option value="A21" ${jenNow === 'A21' ? 'selected' : ''}>2G</option>
+    <option value="A22" ${jenNow === 'A22' ? 'selected' : ''}>2H</option>
+    <option value="A23" ${jenNow === 'A23' ? 'selected' : ''}>2I</option>
+    <option value="A24" ${jenNow === 'A24' ? 'selected' : ''}>2J</option>
+
+    <!-- A25–A34 = 3A–3J -->
+    <option value="A25" ${jenNow === 'A25' ? 'selected' : ''}>3A</option>
+    <option value="A26" ${jenNow === 'A26' ? 'selected' : ''}>3B</option>
+    <option value="A27" ${jenNow === 'A27' ? 'selected' : ''}>3C</option>
+    <option value="A28" ${jenNow === 'A28' ? 'selected' : ''}>3D</option>
+    <option value="A29" ${jenNow === 'A29' ? 'selected' : ''}>3E</option>
+    <option value="A30" ${jenNow === 'A30' ? 'selected' : ''}>3F</option>
+    <option value="A31" ${jenNow === 'A31' ? 'selected' : ''}>3G</option>
+    <option value="A32" ${jenNow === 'A32' ? 'selected' : ''}>3H</option>
+    <option value="A33" ${jenNow === 'A33' ? 'selected' : ''}>3I</option>
+    <option value="A34" ${jenNow === 'A34' ? 'selected' : ''}>3J</option>
+  </select>
+</td>
           <td>
             <select class="semester">
               <option value="1" ${semNow == 1 || semNow == "1" ? 'selected' : ''}>1</option>
@@ -5325,8 +5391,8 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       return;
     }
     // Jenjang boleh kosong atau A1..A8 (ubah jika ingin wajib)
-    if (jenjang && !/^A[1-8]$/.test(jenjang)) {
-      alert("Jenjang harus A1 - A8 (atau kosong).");
+    if (jenjang && !/^A[1-34]$/.test(jenjang)) {
+      alert("Jenjang harus A1 - A34 (atau kosong).");
       return;
     }
 
