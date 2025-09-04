@@ -1667,16 +1667,16 @@ function hitungNilai() {
   }
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
   const predikatMap = [
-    { max: 59, text: "ROSIB", huruf: "E" },
-    { max: 69, text: "MAQBUL", huruf: "D" },
-    { max: 79, text: "JAYYID", huruf: "C" },
-    { max: 89, text: "JAYYID JIDDAN", huruf: "B" },
-    { max: 100, text: "MUMTAZ", huruf: "A+" }
+    { max: 59, text: "ROSIB", huruf: "D" },
+    { max: 69, text: "MAQBUL", huruf: "C" },
+    { max: 79, text: "JAYYID", huruf: "B" },
+    { max: 89, text: "JAYYID JIDDAN", huruf: "A" },
+    { max: 100, text: "MUMTAZ", huruf: "AA" }
   ];
   let predikat = "-";
   if (adaMark) {
     const p = predikatMap.find(p => nilai <= p.max);
-    const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+    const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
     predikat = `${p.text} <span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
   }
   const nilaiEl = document.getElementById("nilai-akhir");
