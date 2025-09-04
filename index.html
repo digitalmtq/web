@@ -15,10 +15,6 @@
   font-size: 12px; /* ini akan kecilkan semua font */
 }
 
-.mushaf-area{padding:18px; line-height:2.1; font-size:30px; direction:rtl; text-align:justify; font-family: "Traditional Arabic", "Amiri", serif}
-    .ayah{padding:2px 6px; border-radius:6px; display:inline}
-    .muted{color:var(--muted)}
-
     button.lihat-quran-btn {
   all: unset; /* reset semua style bawaan */
   display: inline-block;
@@ -1438,10 +1434,11 @@ async function buatUserNIS() {
         Contoh: kesalahan fatal mengganti huruf, <i>waqof</i> dan <i>ibtida'</i> salah, menambah atau mengurangi mad yang mengubah makna Al-Quran, atau salah hafalan kemudian dibetulkan oleh guru, dan lain-lain.</p>
     </div>
 
-     <!-- Area teks Al-Qur'an -->
-    <div class="mushaf-area" id="quran-text">
-        <!-- konten ayat dirender via JS -->
-      </div>
+      <!-- Area teks Al-Qur'an -->
+    <div id="quran-text" style="
+      white-space:pre-wrap; line-height:2.2; direction:rtl; text-align:justify; font-size:30px;
+      flex:1 1 auto; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
+    "></div>
 
     <hr>
 
