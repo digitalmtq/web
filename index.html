@@ -1435,10 +1435,18 @@ async function buatUserNIS() {
     </div>
 
     <!-- Area teks Al-Qur'an -->
-    <div id="quran-text" style="
-      white-space:pre-wrap; line-height:2.2; direction:rtl; font-size:30px;
-      flex:1 1 auto; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
-    "></div>
+<div id="quran-text" style="
+  direction:rtl; font-size:30px; line-height:2.2;
+
+  /* kunci justify */
+  text-align:justify;
+  text-align-last:right;
+  text-justify:inter-word;
+  white-space:normal;  /* ← ganti dari pre-wrap */
+
+  flex:1 1 auto; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
+"></div>
+
 
     <hr>
 
@@ -1785,12 +1793,19 @@ document.addEventListener('click', async function (e) {
     pageDiv.style.lineHeight = '2.2';
     pageDiv.style.direction = 'rtl';
     pageDiv.style.marginBottom = '20px';
+	pageDiv.style.textAlign = 'justify';
+	pageDiv.style.setProperty('text-justify','inter-word');
+	pageDiv.style.setProperty('text-align-last','right');
+	pageDiv.style.whiteSpace = 'normal';
+
 
     halamanMap[page].forEach(item => {
-      const spans = buatKataKlik(item.surah, item.ayat, item.teks);
-      spans.forEach(span => pageDiv.appendChild(span));
-      pageDiv.appendChild(document.createElement('br'));
-    });
+  	const spans = buatKataKlik(item.surah, item.ayat, item.teks);
+  	spans.forEach(span => pageDiv.appendChild(span));
+  	// pageDiv.appendChild(document.createElement('br'));   // ❌ hapus baris ini
+  	pageDiv.appendChild(document.createTextNode(' '));       // ✅ spasi antar-ayat
+	});
+
 
     quranText.appendChild(pageDiv);
   }
@@ -4620,11 +4635,11 @@ async function pdfAllKelasDownload(){
   }
   function PDF_predikatFromScore(nilai){
     const map = [
-      { max: 59,  text: 'ROSIB',         huruf: 'E' },
-      { max: 69,  text: 'MAQBUL',        huruf: 'D' },
-      { max: 79,  text: 'JAYYID',        huruf: 'C' },
-      { max: 89,  text: 'JAYYID JIDDAN', huruf: 'B' },
-      { max: 100, text: 'MUMTAZ',        huruf: 'A' }
+      { max: 59,  text: 'ROSIB',         huruf: 'D' },
+      { max: 69,  text: 'MAQBUL',        huruf: 'C' },
+      { max: 79,  text: 'JAYYID',        huruf: 'B' },
+      { max: 89,  text: 'JAYYID JIDDAN', huruf: 'A' },
+      { max: 100, text: 'MUMTAZ',        huruf: 'A+' }
     ];
     return map.find(p => nilai <= p.max) || map[map.length-1];
   }
