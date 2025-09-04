@@ -2339,6 +2339,56 @@ async function loadSantriData() {
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
+  // ===== NEW: Konfigurasi & util jenjang (future-proof) =====
+  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 34); // ubah ke 100 / 300 / 1000 sesuai kebutuhan
+
+  const parseJenjang = (v) => {
+    const m = /^A(\d+)$/.exec(String(v || "").trim());
+    return m ? Number(m[1]) : null;
+  };
+
+  const isValidJenjang = (v, max = JENJANG_MAX) => {
+    if (!v) return true;                       // kosong = boleh
+    const n = parseJenjang(v);
+    if (!Number.isFinite(n) || n < 1) return false; // minimal A1
+    if (!max || max === 0) return true;        // 0 => tanpa batas atas
+    return n <= max;
+  };
+
+  // Menjaga label custom yang sudah kamu tulis (ILA, 1A, 2B, dst),
+  // lalu menambahkan A{existing+1}..A{JENJANG_MAX} jika perlu.
+  const ensureJenjangOptions = (selectEl, max = JENJANG_MAX, currentValue = "") => {
+    if (!selectEl) return;
+    const existingVals = new Set([...selectEl.options].map(o => String(o.value || "")));
+    const frag = document.createDocumentFragment();
+
+    // Tambah opsi kosong jika belum ada
+    if (![...selectEl.options].some(o => o.value === "")) {
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "";
+      frag.appendChild(empty);
+    }
+
+    // Tambah opsi hingga MAX, tanpa mengganggu label custom yang sudah ada
+    for (let i = 1; i <= max; i++) {
+      const v = `A${i}`;
+      if (!existingVals.has(v)) {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v; // label default = value
+        frag.appendChild(opt);
+      }
+    }
+
+    // Sisipkan tambahan di akhir, lalu set nilai saat ini
+    if (frag.childNodes.length) selectEl.appendChild(frag);
+    if (currentValue !== undefined && currentValue !== null) {
+      selectEl.value = String(currentValue);
+    }
+  };
+  // ===== END NEW =====
+
   // === cache master
   window.semesterMap   ??= {}; // key = NIS (prioritas) atau ID → "1".."6"
   window.jenjangMap    ??= {}; // key -> "A1".."A8" atau ""
@@ -2500,12 +2550,10 @@ async function loadSantriData() {
 
     // Mode NIS → disable tombol tertentu
     const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
-  	setButtonsDisabled(isModeNIS);
-	setNISDropdownDisabled(isModeNIS);
-	setNISRecordDisabled(isModeNIS);
-	setNISRekapDisabled(isModeNIS);
-	  
-
+    setButtonsDisabled(isModeNIS);
+    setNISDropdownDisabled(isModeNIS);
+    setNISRecordDisabled(isModeNIS);
+    setNISRekapDisabled(isModeNIS);
 
     // RENDER TABEL
     santriTableBody.innerHTML = "";
@@ -2741,16 +2789,19 @@ async function loadSantriData() {
           el.addEventListener("change", () => updateTotalJuz(row));
         });
 
-        // === Handler ubah JENJANG → tulis balik ke kelas_{}.json
+        // === NEW: pastikan opsi jenjang otomatis extend s/d JENJANG_MAX
         const jenSel = row.querySelector(".jenjang");
+        ensureJenjangOptions(jenSel, JENJANG_MAX, jenNow);
+
+        // === Handler ubah JENJANG → tulis balik ke kelas_{}.json (validasi dinamis)
         if (jenSel) {
           jenSel.addEventListener("change", async () => {
             const key  = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
             const oldJ = String(row.dataset?.jenjang ?? (window.jenjangMap?.[key] ?? jenNow ?? ""));
             const newJ = String(jenSel.value || "");
 
-            if (newJ && !/^A[1-34]$/.test(newJ)) {
-              alert("Jenjang harus A1 - A34 (atau kosong).");
+            if (!isValidJenjang(newJ)) {
+              alert(`Jenjang harus A1 - A${JENJANG_MAX || '∞'} (atau kosong).`);
               jenSel.value = oldJ;
               return;
             }
@@ -2781,7 +2832,7 @@ async function loadSantriData() {
               jenSel.disabled = false;
               jenSel.style.opacity = "";
             }
-          });
+          }, { once: false });
         }
 
         // === Handler ubah KETERANGAN → tulis balik ke kelas_{}.json
@@ -2876,7 +2927,6 @@ async function loadSantriData() {
 
   overlay.style.display = "none";
 }
-
 
 
 
@@ -5391,8 +5441,8 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       return;
     }
     // Jenjang boleh kosong atau A1..A8 (ubah jika ingin wajib)
-    if (jenjang && !/^A[1-34]$/.test(jenjang)) {
-      alert("Jenjang harus A1 - A34 (atau kosong).");
+    if (jenjang && !/^A[1-8]$/.test(jenjang)) {
+      alert("Jenjang harus A1 - A8 (atau kosong).");
       return;
     }
 
