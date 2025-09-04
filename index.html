@@ -2095,15 +2095,38 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 
   // === Fungsi atur dropdown kelas ===
 function aturDropdownKelas(user) {
-  const semuaKelas = ["kelas_1", "kelas_2", "kelas_3", "kelas_4", "kelas_5", "kelas_6"];
+  const semuaKelas = [
+    "kelas_012425","kelas_022425","kelas_032425","kelas_042425","kelas_052425","kelas_062425",
+    "kelas_072425","kelas_082425","kelas_092425","kelas_102425","kelas_112425","kelas_122425",
+    "kelas_132425","kelas_142425","kelas_152425","kelas_162425","kelas_172425","kelas_182425",
+    "kelas_192425","kelas_202425","kelas_212425","kelas_222425","kelas_232425","kelas_242425"
+  ];
 
   const namaKelasCustom = {
-    kelas_1: "Kelompok Lebah",
-    kelas_2: "Kelompok Semut",
-    kelas_3: "Kelompok Burung",
-    kelas_4: "Kelompok Ikan",
-    kelas_5: "Kelompok Harimau",
-    kelas_6: "Kelompok Gajah"
+    kelas_012425: "Kelompok Ust. Tukimin",
+    kelas_022425: "Kelompok Ust. Dicky Miswardi",
+    kelas_032425: "Kelompok Ust. Jundullah BA",
+    kelas_042425: "Kelompok Ust. Abdullah.",
+    kelas_052425: "Kelompok Ust. Ro'uuf Noor Huda Su'udin",
+    kelas_062425: "Kelompok Ust. Salahuddin Santoaji Priatmojo",
+    kelas_072425: "Kelompok Ust. Hammam Ahmed Saleh Al Naqeb",
+    kelas_082425: "Kelompok Ust. Alif Rafiqul",
+    kelas_092425: "Kelompok Ust. Ali Wardana",
+    kelas_102425: "Kelompok Ust. Mullah Muhammad Umar",
+    kelas_112425: "Kelompok Ust. Akhsani Taqwim",
+    kelas_122425: "Kelompok Ust. Ikhsan Nur Khamid",
+    kelas_132425: "Kelompok Ust. Abdul Haq",
+    kelas_142425: "Kelompok Ust. Abdullah Al Guspari",
+    kelas_152425: "Kelompok Ust. Abdullah Rafi",
+    kelas_162425: "Kelompok Ust. Fajrul Ihsan",
+    kelas_172425: "Kelompok Ust. Idris",
+    kelas_182425: "Kelompok Ust. Muhammad athayya mumtaz",
+    kelas_192425: "Kelompok Ust. M. Hanan Azizi",
+    kelas_202425: "Kelompok Ust. Muhammad Rama Miayasin",
+    kelas_212425: "Kelompok Ust. Nur Afiq",
+    kelas_222425: "Kelompok Ust. Raditya Baswara Raharjo",
+    kelas_232425: "Kelompok Ust. Rafie Zahran Kurniawan",
+    kelas_242425: "Kelompok Ust. Shidiq Hasan Khan"
   };
 
   kelasSelect.innerHTML = "";
@@ -3182,13 +3205,31 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   function buildKelasKelompokLine(kelas, kelasEl) {
     const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
     const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {
-      kelas_1: "Kelompok Lebah",
-      kelas_2: "Kelompok Semut",
-      kelas_3: "Kelompok Burung",
-      kelas_4: "Kelompok Ikan",
-      kelas_5: "Kelompok Harimau",
-      kelas_6: "Kelompok Gajah"
-    };
+  kelas_012425: "Kelompok Ust. Tukimin",
+  kelas_022425: "Kelompok Ust. Dicky Miswardi",
+  kelas_032425: "Kelompok Ust. Jundullah BA",
+  kelas_042425: "Kelompok Ust. Abdullah.",
+  kelas_052425: "Kelompok Ust. Ro'uuf Noor Huda Su'udin",
+  kelas_062425: "Kelompok Ust. Salahuddin Santoaji Priatmojo",
+  kelas_072425: "Kelompok Ust. Hammam Ahmed Saleh Al Naqeb",
+  kelas_082425: "Kelompok Ust. Alif Rafiqul",
+  kelas_092425: "Kelompok Ust. Ali Wardana",
+  kelas_102425: "Kelompok Ust. Mullah Muhammad Umar",
+  kelas_112425: "Kelompok Ust. Akhsani Taqwim",
+  kelas_122425: "Kelompok Ust. Ikhsan Nur Khamid",
+  kelas_132425: "Kelompok Ust. Abdul Haq",
+  kelas_142425: "Kelompok Ust. Abdullah Al Guspari",
+  kelas_152425: "Kelompok Ust. Abdullah Rafi",
+  kelas_162425: "Kelompok Ust. Fajrul Ihsan",
+  kelas_172425: "Kelompok Ust. Idris",
+  kelas_182425: "Kelompok Ust. Muhammad athayya mumtaz",
+  kelas_192425: "Kelompok Ust. M. Hanan Azizi",
+  kelas_202425: "Kelompok Ust. Muhammad Rama Miayasin",
+  kelas_212425: "Kelompok Ust. Nur Afiq",
+  kelas_222425: "Kelompok Ust. Raditya Baswara Raharjo",
+  kelas_232425: "Kelompok Ust. Rafie Zahran Kurniawan",
+  kelas_242425: "Kelompok Ust. Shidiq Hasan Khan"
+};
     let kelompok = custom[kelas] || "";
     if (!kelompok) {
       const optText = kelasEl?.options?.[kelasEl.selectedIndex]?.text?.trim() || "";
