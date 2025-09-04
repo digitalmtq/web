@@ -1580,6 +1580,18 @@ let currentRowEl = null;       // <tr> aktif
 const recordListEl   = document.getElementById('record-list'); // hanya di modal rekaman
 const WORKER_DIR = window.WEB_AUDIO_WORKER_DIR || '/js/';       // penting untuk worker + .mem
 
+/* ========= JUSTIFY HELPER (BARU) ========= */
+function applyQuranTextJustify(){
+  const el = document.getElementById('quran-text');
+  if (!el) return;
+  // paksa override inline-style lama (mis. white-space:pre-wrap)
+  el.style.direction = 'rtl';
+  el.style.whiteSpace = 'normal';             // kunci: jangan pre-wrap
+  el.style.textAlign = 'justify';             // penuhi lebar baris
+  el.style.setProperty('text-justify','inter-word');
+  el.style.setProperty('text-align-last','right'); // baris terakhir kanan
+}
+
 /* ========= UTIL KELAS/TANGGAL ========= */
 function getKelasTanggalAktif() {
   const kelas = document.getElementById('kelas')?.value || 'default';
@@ -1696,7 +1708,7 @@ function updateNilaiDiTabel({ nilai, predikat }) {
 function buatKataKlik(surah, ayat, teks) {
   return teks.split(" ").map((kata, idx) => {
     const span = document.createElement("span");
-    span.innerText = kata + " ";
+    span.innerText = kata + " ";   // biarkan spasi di sini agar justify punya titik putus
     span.style.cursor = "pointer";
     span.dataset.key = `${surah}:${ayat}`;
     span.dataset.idx = idx;
@@ -1775,17 +1787,22 @@ document.addEventListener('click', async function (e) {
 
   // 5) render ke overlay
   const quranText = document.getElementById('quran-text');
+  applyQuranTextJustify();     // ← BARU: paksa layout container
+
   quranText.innerHTML = '';
   const halamanUrut = Object.keys(halamanMap).map(Number).sort((x,y)=>x-y);
   for (const page of halamanUrut) {
+    // font per halaman
     if (!fontLoadedPages.has(page)) {
-      const pageStr = String(page).padStart(3,'0');
-      const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/refs/heads/main/fonts/QCF_P${pageStr}.TTF`;
+      const pageStr0 = String(page).padStart(3,'0');
+      const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/refs/heads/main/fonts/QCF_P${pageStr0}.TTF`;
       try {
-        const font = new FontFace(`QCF_P${pageStr}`, `url(${fontUrl})`);
+        const font = new FontFace(`QCF_P${pageStr0}`, `url(${fontUrl})`);
         await font.load(); document.fonts.add(font); fontLoadedPages.add(page);
       } catch (err) { console.warn('Gagal load font page', page, err); }
     }
+
+    // kontainer 1 halaman
     const pageDiv = document.createElement('div');
     const pageStr = String(page).padStart(3,'0');
     pageDiv.style.fontFamily = `QCF_P${pageStr}, serif`;
@@ -1793,19 +1810,18 @@ document.addEventListener('click', async function (e) {
     pageDiv.style.lineHeight = '2.2';
     pageDiv.style.direction = 'rtl';
     pageDiv.style.marginBottom = '20px';
-	pageDiv.style.textAlign = 'justify';
-	pageDiv.style.setProperty('text-justify','inter-word');
-	pageDiv.style.setProperty('text-align-last','right');
-	pageDiv.style.whiteSpace = 'normal';
+    // kunci justify + last line kanan
+    pageDiv.style.textAlign = 'justify';
+    pageDiv.style.setProperty('text-justify','inter-word');
+    pageDiv.style.setProperty('text-align-last','right');
+    pageDiv.style.whiteSpace = 'normal';
 
-
+    // render ayat pada halaman ini (tanpa <br>, pakai spasi)
     halamanMap[page].forEach(item => {
-  	const spans = buatKataKlik(item.surah, item.ayat, item.teks);
-  	spans.forEach(span => pageDiv.appendChild(span));
-  	// pageDiv.appendChild(document.createElement('br'));   // ❌ hapus baris ini
-  	pageDiv.appendChild(document.createTextNode(' '));       // ✅ spasi antar-ayat
-	});
-
+      const spans = buatKataKlik(item.surah, item.ayat, item.teks);
+      spans.forEach(span => pageDiv.appendChild(span));
+      pageDiv.appendChild(document.createTextNode(' ')); // spasi antar-ayat
+    });
 
     quranText.appendChild(pageDiv);
   }
@@ -2015,6 +2031,7 @@ async function handleRecordedBlobMP3(blob){
   recordSpinEl.style.display = 'none';
 }
 </script>
+
 
 
 
