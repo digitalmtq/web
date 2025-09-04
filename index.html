@@ -1657,11 +1657,11 @@ function hitungNilai() {
 
   // mapping band (seperti semula)
   const predikatMap = [
-    { max: 59,  text: "ROSIB",          huruf: "E" },
-    { max: 69,  text: "MAQBUL",         huruf: "D" },
-    { max: 79,  text: "JAYYID",         huruf: "C" },
-    { max: 89,  text: "JAYYID JIDDAN",  huruf: "B" },
-    { max: 100, text: "MUMTAZ",         huruf: "A" }
+    { max: 59,  text: "ROSIB",          huruf: "D" },
+    { max: 69,  text: "MAQBUL",         huruf: "C" },
+    { max: 79,  text: "JAYYID",         huruf: "B" },
+    { max: 89,  text: "JAYYID JIDDAN",  huruf: "A" },
+    { max: 100, text: "MUMTAZ",         huruf: "A+" }
   ];
 
   let predikat = "-";
@@ -1680,7 +1680,7 @@ function hitungNilai() {
       isPlus = nilai >= cutoff;
     }
 
-    const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
+    const warna = { A+: "green", A: "blue", B: "gold", C: "orange", D: "red" };
     // badge dengan <sup> untuk tanda +
     const badge =
       `<span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">
@@ -1859,11 +1859,11 @@ document.getElementById("btn-beri-nilai").onclick = function() {
 
   // tentukan band (tanpa ubah struktur lama)
   let baseHuruf, labelText, bandMin, bandMax;
-  if (v <= 59)      { baseHuruf = "E"; labelText = "ROSIB";          bandMin = 0;  bandMax = 59; }
-  else if (v <= 69) { baseHuruf = "D"; labelText = "MAQBUL";         bandMin = 60; bandMax = 69; }
-  else if (v <= 79) { baseHuruf = "C"; labelText = "JAYYID";         bandMin = 70; bandMax = 79; }
-  else if (v <= 89) { baseHuruf = "B"; labelText = "JAYYID JIDDAN";  bandMin = 80; bandMax = 89; }
-  else              { baseHuruf = "A"; labelText = "MUMTAZ";         bandMin = 90; bandMax = 100; }
+  if (v <= 59)      { baseHuruf = "D"; labelText = "ROSIB";          bandMin = 0;  bandMax = 59; }
+  else if (v <= 69) { baseHuruf = "C"; labelText = "MAQBUL";         bandMin = 60; bandMax = 69; }
+  else if (v <= 79) { baseHuruf = "B"; labelText = "JAYYID";         bandMin = 70; bandMax = 79; }
+  else if (v <= 89) { baseHuruf = "A"; labelText = "JAYYID JIDDAN";  bandMin = 80; bandMax = 89; }
+  else              { baseHuruf = "A+"; labelText = "MUMTAZ";         bandMin = 90; bandMax = 100; }
 
   // Plus untuk 20% teratas di band (kecuali E)
   let isPlus = false;
@@ -4681,10 +4681,10 @@ async function pdfAllKelasDownload(){
   }
   function PDF_predikatFromScore(nilai){
     const map = [
-      { max: 59,  text: 'ROSIB',         huruf: 'E' },
-      { max: 69,  text: 'MAQBUL',        huruf: 'D' },
-      { max: 79,  text: 'JAYYID',        huruf: 'C' },
-      { max: 89,  text: 'JAYYID JIDDAN', huruf: 'B' },
+      { max: 59,  text: 'ROSIB',         huruf: 'D' },
+      { max: 69,  text: 'MAQBUL',        huruf: 'C' },
+      { max: 79,  text: 'JAYYID',        huruf: 'B' },
+      { max: 89,  text: 'JAYYID JIDDAN', huruf: 'A' },
       { max: 100, text: 'MUMTAZ',        huruf: 'A+' }
     ];
     return map.find(p => nilai <= p.max) || map[map.length-1];
