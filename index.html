@@ -1385,8 +1385,52 @@ async function buatUserNIS() {
 
     <!-- ⬇️ BARU: Jenjang -->
     <label>Jenjang:</label><br>
-    <select id="inputJenjang" style="width:90%; margin-bottom:10px;"></select>
+    <select id="inputJenjang" style="width:90%; margin-bottom:10px;">
+  <!-- placeholder kosong agar bisa reset ke "" -->
+  <option value=""></option>
 
+  <!-- A1–A4 = ILA–ILD (label custom dipertahankan) -->
+  <option value="A1">ILA</option>
+  <option value="A2">ILB</option>
+  <option value="A3">ILC</option>
+  <option value="A4">ILD</option>
+
+  <!-- A5–A14 = 1A–1J -->
+  <option value="A5">1A</option>
+  <option value="A6">1B</option>
+  <option value="A7">1C</option>
+  <option value="A8">1D</option>
+  <option value="A9">1E</option>
+  <option value="A10">1F</option>
+  <option value="A11">1G</option>
+  <option value="A12">1H</option>
+  <option value="A13">1I</option>
+  <option value="A14">1J</option>
+
+  <!-- A15–A24 = 2A–2J -->
+  <option value="A15">2A</option>
+  <option value="A16">2B</option>
+  <option value="A17">2C</option>
+  <option value="A18">2D</option>
+  <option value="A19">2E</option>
+  <option value="A20">2F</option>
+  <option value="A21">2G</option>
+  <option value="A22">2H</option>
+  <option value="A23">2I</option>
+  <option value="A24">2J</option>
+
+  <!-- A25–A34 = 3A–3J -->
+  <option value="A25">3A</option>
+  <option value="A26">3B</option>
+  <option value="A27">3C</option>
+  <option value="A28">3D</option>
+  <option value="A29">3E</option>
+  <option value="A30">3F</option>
+  <option value="A31">3G</option>
+  <option value="A32">3H</option>
+  <option value="A33">3I</option>
+  <option value="A34">3J</option>
+</select>
     <div style="margin-top:10px; display:flex; justify-content:space-between; gap:8px;">
       <button id="btnSimpanSantri" onclick="simpanSantriBaru()">Simpan</button>
       <button onclick="tutupModal('modalSantri')">❌ Batal</button>
@@ -5364,55 +5408,50 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 
 <script>
-  // ===== Jenjang dynamic (A1..A{max}) =====
-  // Ambil dari global bila ada; default 34
-  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 34);
+  // ====== KONFIG (opsional dari window.*) ======
+  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 34);             // 34 default; 0 = tanpa batas atas
+  const JENJANG_SAFETY_CAP = Number(window.JENJANG_SAFETY_CAP ?? 1000); // darurat bila tanpa batas
 
+  // ====== Helper jenjang dinamis ======
+  function parseJenjang(v) {
+    const m = /^A(\d+)$/.exec(String(v || "").trim());
+    return m ? Number(m[1]) : null;
+  }
+
+  // kosong = valid; selain itu harus "A<number>" minimal A1, dan <= JENJANG_MAX (kecuali 0)
   function isValidJenjang(v, max = JENJANG_MAX) {
-    if (!v) return true;                   // kosong => boleh
-    const m = /^A(\d+)$/.exec(String(v).trim());
-    if (!m) return false;
-    const n = parseInt(m[1], 10);
-    if (!Number.isFinite(n) || n < 1) return false; // minimal A1
-    if (!max || max === 0) return true;   // 0 => tanpa batas atas
+    if (!v) return true;
+    const n = parseJenjang(v);
+    if (!Number.isFinite(n) || n < 1) return false;
+    if (!max || max === 0) return true; // tanpa batas atas
     return n <= max;
   }
 
-  function fillJenjangOptions(selectEl, max = JENJANG_MAX, currentValue = "") {
+  // Tambahkan A1..A{limit} yang belum ada (tidak merusak label existing)
+  function extendJenjangOptions(selectEl, max = JENJANG_MAX) {
     if (!selectEl) return;
+    const existing = new Set([...selectEl.options].map(o => String(o.value || "").trim()));
     const frag = document.createDocumentFragment();
 
-    // Opsi kosong (biar bisa clear)
-    const empty = document.createElement("option");
-    empty.value = "";
-    empty.textContent = "";
-    frag.appendChild(empty);
-
-    // A1..Amax (label default = nilai)
-    for (let i = 1; !max || max === 0 ? true : i <= max; i++) {
-      const opt = document.createElement("option");
-      opt.value = `A${i}`;
-      opt.textContent = `A${i}`;
-      frag.appendChild(opt);
-      if (max && i === max) break; // jika ada batas
-      if (!max || max === 0) {     // safety agar tak infinite loop kalau 0
-        if (i >= 1000) break;      // batasi darurat (ubah jika mau)
+    const limit = (!max || max === 0) ? JENJANG_SAFETY_CAP : max;
+    for (let i = 1; i <= limit; i++) {
+      const val = `A${i}`;
+      if (!existing.has(val)) {
+        const opt = document.createElement("option");
+        opt.value = val;
+        opt.textContent = val; // label default untuk opsi baru
+        frag.appendChild(opt);
       }
     }
-
-    selectEl.innerHTML = "";
-    selectEl.appendChild(frag);
-    if (currentValue !== undefined && currentValue !== null) {
-      selectEl.value = String(currentValue);
-    }
+    if (frag.childNodes.length) selectEl.appendChild(frag);
   }
 
-  // ===== Modal Tambah Santri (fungsi existing-mu dipertahankan) =====
+  // ===== Tambah Santri =====
   function bukaModalSantri() {
     document.getElementById("modalSantri").style.display = "block";
-    // Pastikan opsi jenjang terisi saat modal dibuka
+    // Pastikan opsi jenjang ter-extend setiap buka modal (aman dipanggil berulang)
     const jenSel = document.getElementById("inputJenjang");
-    if (jenSel && !jenSel.options.length) fillJenjangOptions(jenSel, JENJANG_MAX);
+    if (jenSel) extendJenjangOptions(jenSel, JENJANG_MAX);
   }
 
   // Disesuaikan dengan pemanggilanmu: tutupModal('modalSantri')
@@ -5424,24 +5463,24 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     document.getElementById("inputNis").value = "";
     document.getElementById("inputSemester").value = "1";
     const jenSel = document.getElementById("inputJenjang");
-    if (jenSel) jenSel.value = ""; // reset ke kosong
+    if (jenSel) jenSel.value = ""; // reset ke opsi kosong
     document.getElementById("loadingTambahSantri").style.display = "none";
     const btn = document.getElementById("btnSimpanSantri");
     if (btn) { btn.disabled = false; btn.textContent = "Simpan"; btn.style.opacity = ""; btn.style.cursor = ""; }
   }
 
-  // Isi opsi jenjang saat halaman siap (kalau modal dibuka pertama kali)
+  // Extend opsi saat halaman siap (kalau modal dibuka pertama kali)
   document.addEventListener("DOMContentLoaded", () => {
     const jenSel = document.getElementById("inputJenjang");
-    if (jenSel) fillJenjangOptions(jenSel, JENJANG_MAX);
+    if (jenSel) extendJenjangOptions(jenSel, JENJANG_MAX);
   });
 
   async function simpanSantriBaru() {
     const nama     = document.getElementById("inputNama").value.trim();
     const nis      = document.getElementById("inputNis").value.trim();
     const semester = document.getElementById("inputSemester").value;
-    const jenjang  = (document.getElementById("inputJenjang")?.value || "").trim(); // ⬅️ ikut payload
-    const kelas    = document.getElementById("kelas").value; // dropdown kelas yang sudah ada di halaman utama
+    const jenjang  = (document.getElementById("inputJenjang")?.value || "").trim();
+    const kelas    = document.getElementById("kelas").value; // dropdown kelas utama
 
     // Validasi dasar
     if (!nama) { alert("Nama tidak boleh kosong."); return; }
@@ -5450,7 +5489,6 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       alert("Semester harus 1-6.");
       return;
     }
-    // Jenjang boleh kosong atau A1..A{JENJANG_MAX} (0 = tanpa batas atas)
     if (!isValidJenjang(jenjang)) {
       alert(`Jenjang harus A1 - A${JENJANG_MAX || "∞"} (atau kosong).`);
       return;
@@ -5465,7 +5503,6 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       const res = await fetch("/.netlify/functions/tambahSantri", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // ⬇️ sertakan jenjang ke payload
         body: JSON.stringify({ nama, nis, semester, jenjang, kelas })
       });
 
@@ -5475,8 +5512,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       if (res.ok && (data?.success ?? true)) {
         alert("Santri berhasil ditambahkan!");
         tutupModal("modalSantri");
-        // Refresh agar data & map master ikut terbaru
-        location.reload();
+        location.reload(); // refresh map master (semester/jenjang)
       } else {
         alert("Gagal menambahkan: " + (data?.error || res.statusText));
         if (btn) { btn.disabled = false; btn.textContent = "Simpan"; btn.style.opacity = ""; btn.style.cursor = ""; }
