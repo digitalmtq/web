@@ -3,6 +3,8 @@
 
 const API_BASE = "https://api.github.com/repos/digitalmtq/server/contents";
 const token = process.env.MTQ_TOKEN;
+// Satu knob untuk batas atas (0 = tanpa batas)
+const JENJANG_MAX = Number(process.env.JENJANG_MAX ?? 34);
 
 function ghHeaders() {
   return {
@@ -35,6 +37,22 @@ function matchIndex(list, key) {
   return -1;
 }
 
+// Validasi server: "" (kosong) boleh, atau "A<number>" dengan batas sesuai ENV
+function isValidJenjangServer(v, max = JENJANG_MAX) {
+  const s = String(v ?? "").trim();
+  if (!s) return true; // kosong = boleh (clear)
+  const m = /^A(\d+)$/.exec(s);
+  if (!m) return false;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n < 1) return false; // minimal A1
+  if (!max || max === 0) return true;             // 0 => tanpa batas atas
+  return n <= max;
+}
+
+function jenjangRangeLabel() {
+  return (!JENJANG_MAX || JENJANG_MAX === 0) ? "A1-A∞" : `A1-A${JENJANG_MAX}`;
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -53,7 +71,6 @@ exports.handler = async (event) => {
     try {
       body = JSON.parse(event.body || "{}");
     } catch {
-      // ← DI SINI TADI ADA ‘)’ LEBIH → bikin crash
       return { statusCode: 400, body: JSON.stringify({ error: "Body harus JSON." }) };
     }
 
@@ -63,9 +80,12 @@ exports.handler = async (event) => {
     if (!key) {
       return { statusCode: 400, body: JSON.stringify({ error: "Field 'key' wajib." }) };
     }
-    // Jenjang A1..A8 (kalau mau boleh kosong, ubah jadi: if (jen && !/^A[1-34]$/.test(jen)) {...})
-    if (!/^A[1-34]$/.test(jen)) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Jenjang harus A1-A34." }) };
+
+    if (!isValidJenjangServer(jen)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: `Jenjang harus ${jenjangRangeLabel()} (atau kosong).` })
+      };
     }
 
     // --- Ambil file master
@@ -100,14 +120,14 @@ exports.handler = async (event) => {
       return { statusCode: 404, body: JSON.stringify({ error: `Santri dengan key '${key}' tidak ditemukan.` }) };
     }
 
-    data[idx].jenjang = jen;
+    data[idx].jenjang = jen || ""; // kosongkan jika ingin clear
 
     const newContent = JSON.stringify(data, null, 2);
     const putRes = await fetch(url, {
       method: "PUT",
       headers: { ...ghHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: `chore: update jenjang (${kelas}) key=${key} -> ${jen}`,
+        message: `chore: update jenjang (${kelas}) key=${key} -> ${jen || "(empty)"}`,
         content: b64enc(newContent),
         sha
       })
@@ -120,7 +140,6 @@ exports.handler = async (event) => {
 
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
   } catch (e) {
-    // Perkuat visibilitas error
     return { statusCode: 500, body: JSON.stringify({ error: e.message || "Internal error" }) };
   }
 };
