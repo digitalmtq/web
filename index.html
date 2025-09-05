@@ -1165,13 +1165,13 @@ async function buatUserNIS() {
 
     <!-- Dua tanggal dibundel agar berdampingan -->
     <span class="date-pair">
-      <!-- Pair 1 -->
+      <!-- Pair 1: label nempel ke input -->
       <span class="date-item">
         <label for="tanggal">Dari</label>
         <input type="date" id="tanggal" />
       </span>
 
-      <!-- Pair 2 -->
+      <!-- Pair 2: label nempel ke input -->
       <span class="date-item">
         <label for="tanggal-filter-akhir">sampai</label>
         <input type="date" id="tanggal-filter-akhir" />
@@ -1185,35 +1185,43 @@ async function buatUserNIS() {
   .dashboard-header-row{
     display:flex; flex-direction:row; flex-wrap:wrap;
     align-items:center; justify-content:flex-start;
-    gap:.6rem;                /* jarak antar blok (select vs date-pair) */
+    gap:.6rem;                     /* jarak antar blok (select vs date-pair) */
   }
 
-  /* Dua pair tanggal harus sejajar dan TIDAK renggang berlebihan */
+  /* Dua pair tanggal harus berdempetan, jangan melar */
   .date-pair{
     display:flex; align-items:center; flex-wrap:nowrap;
+    gap:.5rem;                     /* jarak antar pair (Dari vs sampai) */
+    flex:0 0 auto;                 /* cegah melar */
   }
 
-  /* Tiap pair: label nempel ke input, center vertikal, tak terputus */
+  /* Tiap pair: label nempel ke input, TIDAK melar & selalu ke kiri */
   .date-item{
     display:inline-flex; align-items:center; white-space:nowrap;
-    gap:.22rem;           /* label ↔ input rapat */
+    gap:.18rem;                    /* label ↔ input rapat */
+    flex:0 0 auto;                 /* cegah pair melebar */
+    justify-content:flex-start;    /* pastikan tidak space-between */
+    width:auto;                    /* hindari lebar penuh */
   }
-  .date-item label{ margin:0; line-height:1; display:inline-flex; align-items:center; }
-
-  /* >>> KUNCI: beri jarak PASTI antar-pair (mencegah 'sampai' nempel input sebelumnya) */
-  .date-item + .date-item{ margin-left:.6rem; }
+  .date-item label{
+    margin:0; line-height:1;
+    display:inline-flex; align-items:center; /* center vertikal */
+  }
 
   /* Input tanggal dibuat kompak */
-  #tanggal, #tanggal-filter-akhir{ width:12ch; min-width:10ch; }
-
-  /* Mobile: select 1 baris sendiri, dua tanggal tetap berdampingan & RAPAT */
-  @media (max-width:600px){
-    #kelas{ flex:1 1 100%; max-width:100%; }      /* select satu baris penuh */
-    .dashboard-header-row{ justify-content:flex-start; }
-    .date-item + .date-item{ margin-left:.5rem; } /* jarak antar-pair di HP */
+  #tanggal, #tanggal-filter-akhir{
+    width:12ch; min-width:10ch;   /* cukup untuk YYYY-MM-DD */
   }
 
-  /* Desktop: tiga kolom sejajar */
+  /* Mobile: select 1 baris sendiri, dua tanggal tetap rapat berdampingan */
+  @media (max-width:600px){
+    #kelas{ flex:1 1 100%; max-width:100%; } /* select penuh 1 baris */
+    .dashboard-header-row{ gap:.5rem; }
+    .date-pair{ gap:.4rem; }
+    .date-item{ gap:.16rem; }     /* makin rapat di HP */
+  }
+
+  /* Desktop: tiga kolom sejajar (kelas, Dari, sampai) */
   @media (min-width:601px){
     .dashboard-header-row{ flex-wrap:nowrap; }
   }
