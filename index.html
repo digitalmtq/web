@@ -388,7 +388,7 @@ button.lihat-quran-btn:hover::after {
     <input type="password" id="password" placeholder="Password" required />
     <span id="toggle-password" class="toggle-password">👁</span>
   </div>
-  <button type="submit">Log in</button>
+  <button type="submit">Masuk</button>
 </div>
 
 
@@ -1159,7 +1159,20 @@ async function buatUserNIS() {
       <h2>Ahlan, <span id="namaUser"></span>!</h2>
 
      
+<div class="dashboard-header">
+  <div class="dashboard-header-row">
+    <select id="kelas"></select>
+    <span class="date-pair">
+	  <label for="tanggal">From: </label>
+      <input type="date" id="tanggal" />
+	  <label for="tanggal-filter-akhir">to:</label>
+      <input type="date" id="tanggal-filter-akhir" />
+    </span>
+  </div>
+</div>
+		
 
+<!-- CSS Dashboard Header -->
 <style>
   .dashboard-header-row{
     display:flex; align-items:center; gap:.6rem;
@@ -1184,16 +1197,7 @@ async function buatUserNIS() {
     .date-pair{ display:inline-flex; gap:.6rem; } /* tetap berdampingan normal */
   }
 </style>
-
-<div class="dashboard-header">
-  <div class="dashboard-header-row">
-    <select id="kelas"></select>
-    <span class="date-pair">
-      <input type="date" id="tanggal" />
-      <input type="date" id="tanggal-filter-akhir" />
-    </span>
-  </div>
-</div>
+		
 
       <table id="santri-table">
         <thead>
@@ -1294,7 +1298,7 @@ async function buatUserNIS() {
     </div>
   </div>
 </div>
-<button class="logout-btn" id="logout-btn">Log out</button>
+<button class="logout-btn" id="logout-btn">Keluar</button>
 </div>
 
 
