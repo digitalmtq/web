@@ -3,6 +3,8 @@
 
 const API_BASE = "https://api.github.com/repos/digitalmtq/server/contents";
 const token = process.env.MTQ_TOKEN;
+// Bisa diubah di Netlify env var. Default 12.
+const MAX_SEMESTER = Number(process.env.MAX_SEMESTER || "12");
 
 function ghHeaders() {
   return {
@@ -15,7 +17,7 @@ function ghHeaders() {
 function b64enc(str) { return Buffer.from(str, "utf8").toString("base64"); }
 function b64dec(str) { return Buffer.from(str, "base64").toString("utf8"); }
 
-// Normalisasi kunci: cari nis → id
+// Normalisasi kunci: cari nis → id (string) → id (number)
 function matchIndex(list, key) {
   if (!Array.isArray(list)) return -1;
   const keyStr = String(key ?? "").trim();
@@ -56,17 +58,25 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Body harus JSON." }) };
     }
 
-    const key = String(body?.key ?? "").trim();
-    const sem = String(body?.semester ?? "").trim();
+    const key = String(body?.key ?? "").trim();           // NIS (prioritas) atau ID
+    const semRaw = String(body?.semester ?? "").trim();   // bisa "7", 8, dst
+
     if (!key) {
       return { statusCode: 400, body: JSON.stringify({ error: "Field 'key' wajib." }) };
     }
-    if (!/^[1-6]$/.test(sem)) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Semester harus 1-6." }) };
-    }
 
-    // --- Ambil file master
-    const filePath = `${encodeURIComponent(`${kelas}.json`)}`;
+    // Validasi: bilangan bulat 1..MAX_SEMESTER (default 12)
+    const semNum = Number(semRaw);
+    if (!Number.isInteger(semNum) || semNum < 1 || semNum > MAX_SEMESTER) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: `Semester harus 1-${MAX_SEMESTER}.` })
+      };
+    }
+    const sem = String(semNum); // normalisasi jadi string angka
+
+    // --- Ambil file master ---
+    const filePath = encodeURIComponent(`${kelas}.json`);
     const getUrl = `${API_BASE}/${filePath}`;
     const getRes = await fetch(getUrl, { headers: ghHeaders() });
 
@@ -92,7 +102,7 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: "Struktur kelas_{}.json tidak valid (bukan array)." }) };
     }
 
-    // --- Cari santri dan update semester
+    // --- Cari santri dan update semester ---
     const idx = matchIndex(data, key);
     if (idx === -1) {
       return { statusCode: 404, body: JSON.stringify({ error: `Santri dengan key '${key}' tidak ditemukan.` }) };
@@ -107,7 +117,7 @@ exports.handler = async (event) => {
       sha
     };
 
-    // --- Simpan ke GitHub
+    // --- Simpan ke GitHub ---
     const putRes = await fetch(getUrl, {
       method: "PUT",
       headers: { ...ghHeaders(), "Content-Type": "application/json" },
