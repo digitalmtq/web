@@ -1158,21 +1158,19 @@ async function buatUserNIS() {
       <h1>Mutaba'ah Hafalan Santri</h1>
       <h2>Ahlan, <span id="namaUser"></span>!</h2>
 
-      <div class="dashboard-header"> 
+      <div class="dashboard-header" style="text-align:left;">
   <div class="dashboard-header-row"
-       style="display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; column-gap:.75rem; row-gap:.5rem;">
+       style="display:flex; flex-direction:row; flex-wrap:wrap; justify-content:flex-start; align-items:center; column-gap:.75rem; row-gap:.5rem;">
 
-    <!-- Grup Halaqoh (label + select selalu sejajar sebagai satu unit) -->
+    <!-- Grup Halaqoh -->
     <span style="display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap;">
       <label for="kelas">Halaqoh:</label>
-      <!-- Select menyesuaikan layar, tapi dibatasi agar tidak terlalu panjang -->
       <select id="kelas" style="width:min(44vw,260px);"></select>
     </span>
 
     <!-- Grup Tanggal awal -->
     <span style="display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap;">
       <label for="tanggal">Tanggal:</label>
-      <!-- Tanggal dibuat ramping (cukup untuk YYYY-MM-DD) -->
       <input type="date" id="tanggal" style="width:12ch;">
     </span>
 
