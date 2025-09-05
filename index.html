@@ -1158,13 +1158,41 @@ async function buatUserNIS() {
       <h1>Mutaba'ah Hafalan Santri</h1>
       <h2>Ahlan, <span id="namaUser"></span>!</h2>
 
-      <div class="dashboard-header">
+     
+
+<div class="dashboard-header">
   <div class="dashboard-header-row">
     <select id="kelas"></select>
-<input type="date" id="tanggal" />
-<input type="date" id="tanggal-filter-akhir" />
+    <input type="date" id="tanggal" />
+    <input type="date" id="tanggal-filter-akhir" />
   </div>
 </div>
+
+<!-- Tambahkan CSS dashboard-header ini (boleh di <head> atau sebelum </body>) -->
+<style>
+  .dashboard-header-row{
+    display:flex; align-items:center; gap:.6rem;
+    flex-direction:row !important;  /* pastikan row */
+    flex-wrap:wrap;                  /* boleh turun baris */
+    justify-content:flex-start;      /* mulai dari kiri */
+  }
+  /* date jadi pendek */
+  #tanggal, #tanggal-filter-akhir{
+    width:12ch; min-width:10ch;
+  }
+
+  /* HP: select naik baris sendiri, dua date berdampingan */
+  @media (max-width: 600px){
+    #kelas{ flex:1 1 100%; max-width:100%; } /* select satu baris penuh */
+    #tanggal, #tanggal-filter-akhir{ flex:0 0 auto; }
+    .dashboard-header-row{ justify-content:space-between; } /* dua date kiri–kanan */
+  }
+
+  /* Desktop: tetap tiga kolom sejajar */
+  @media (min-width: 601px){
+    .dashboard-header-row{ flex-wrap:nowrap; }
+  }
+</style>
 
       <table id="santri-table">
         <thead>
