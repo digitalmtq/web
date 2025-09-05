@@ -1158,28 +1158,11 @@ async function buatUserNIS() {
       <h1>Mutaba'ah Hafalan Santri</h1>
       <h2>Ahlan, <span id="namaUser"></span>!</h2>
 
-      <div class="dashboard-header" style="text-align:left;">
-  <div class="dashboard-header-row"
-       style="display:flex; flex-direction:row; flex-wrap:wrap; justify-content:flex-start; align-items:center; column-gap:.75rem; row-gap:.5rem;">
-
-    <!-- Grup Halaqoh -->
-    <span style="display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap;">
-      <label for="kelas">Halaqoh:</label>
-      <select id="kelas" style="width:min(44vw,260px);"></select>
-    </span>
-
-    <!-- Grup Tanggal awal -->
-    <span style="display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap;">
-      <label for="tanggal">Tanggal:</label>
-      <input type="date" id="tanggal" style="width:7ch;">
-    </span>
-
-    <!-- Grup Tanggal akhir -->
-    <span style="display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap;">
-      <label for="tanggal-filter-akhir" style="margin-left:8px;">s/d</label>
-      <input type="date" id="tanggal-filter-akhir" style="width:7ch;">
-    </span>
-
+      <div class="dashboard-header">
+  <div class="dashboard-header-row">
+    <select id="kelas"></select>
+<input type="date" id="tanggal" />
+<input type="date" id="tanggal-filter-akhir" />
   </div>
 </div>
 
