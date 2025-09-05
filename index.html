@@ -2914,79 +2914,45 @@ async function loadSantriData() {
         }
 
         // === Handler ubah SEMESTER → tulis balik ke kelas_{}.json
-const semSel = row.querySelector(".semester");
-if (semSel) {
-  // Jika elemen semester kamu masih <select> dan kamu pakai extender opsi 1..N:
-  if (typeof extendSemesterOptions === "function" && semSel.tagName === "SELECT") {
-    extendSemesterOptions(semSel, SEMESTER_MAX); // pastikan 1..SEMESTER_MAX tersedia
-  }
+        const semSel = row.querySelector(".semester");
+        if (semSel) {
+          semSel.addEventListener("change", async () => {
+            const key    = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
+            const oldSem = String(window.semesterMap?.[key] ?? semNow ?? "1");
+            const newSem = String(semSel.value || oldSem);
 
-  semSel.addEventListener("change", async () => {
-    const key = (row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
-    if (!key) return;
+            if (!isValidSemester(newSem)) {
+  		alert(`Semester harus 1-${SEMESTER_MAX}.`);
+  		semSel.value = oldSem;
+  		return;
+		}
 
-    // Nilai saat ini di UI
-    const currentRaw = String(semSel.value || "").trim();
+            semSel.disabled = true;
+            semSel.style.opacity = "0.6";
+            try {
+              const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key, semester: newSem })
+              });
+              const text = await res.text();
+              let out = {};
+              try { out = JSON.parse(text); } catch {}
 
-    // Old value untuk rollback (ambil dari cache → dataset → UI)
-    const oldSem = String(
-      window.semesterMap?.[key] ??
-      row.dataset?.semester ??
-      currentRaw ||
-      "1"
-    );
+              if (!res.ok || out?.success !== true) {
+                throw new Error(out?.error || text || "Gagal update semester.");
+              }
 
-    // Normalisasi ke angka lalu balik ke string
-    const n = Number(currentRaw);
-    const newSem = Number.isFinite(n) ? String(n) : oldSem;
-
-    // Validasi fleksibel: 1..SEMESTER_MAX
-    if (!isValidSemester(newSem, SEMESTER_MAX)) {
-      alert(`Semester harus 1-${SEMESTER_MAX}.`);
-      semSel.value = oldSem;
-      return;
-    }
-
-    // Tidak ada perubahan → tidak perlu call API
-    if (newSem === oldSem) return;
-
-    // Debounce sederhana biar tidak double submit
-    if (semSel.dataset.busy === "1") return;
-    semSel.dataset.busy = "1";
-
-    // Optimistic lock
-    semSel.disabled = true;
-    semSel.style.opacity = "0.6";
-
-    try {
-      const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, semester: newSem })
-      });
-
-      const text = await res.text();
-      let out = {};
-      try { out = JSON.parse(text); } catch {}
-
-      if (!res.ok || out?.success !== true) {
-        throw new Error(out?.error || text || "Gagal update semester.");
-      }
-
-      // Sinkron cache + dataset + UI
-      window.semesterMap[key] = newSem;
-      row.dataset.semester = newSem;
-      semSel.value = newSem;
-    } catch (e) {
-      alert("Gagal menyimpan semester ke kelas: " + e.message);
-      semSel.value = oldSem; // rollback UI
-    } finally {
-      delete semSel.dataset.busy;
-      semSel.disabled = false;
-      semSel.style.opacity = "";
-    }
-  });
-}
+              window.semesterMap[key] = newSem; // sync cache
+            } catch (e) {
+              alert("Gagal menyimpan semester ke kelas: " + e.message);
+              semSel.value = oldSem; // rollback
+            } finally {
+              semSel.disabled = false;
+              semSel.style.opacity = "";
+            }
+          });
+        }
       });
     });
   } catch (err) {
