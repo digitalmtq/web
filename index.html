@@ -3350,6 +3350,21 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     document.head.appendChild(s);
   })();
 
+	/** Konversi kode A1..A34 => label ILA..ILD, 1A..1J, 2A..2J, 3A..3J, dst */
+function jenjangLabel(code) {
+  const m = String(code || '').trim().match(/^A(\d+)$/i);
+  if (!m) return String(code || '');     // kalau kosong/di luar pola, tampilkan apa adanya
+  const n = Number(m[1]);
+  if (n >= 1 && n <= 4) {
+    return ['ILA','ILB','ILC','ILD'][n - 1];
+  }
+  // A5..A14 => 1A..1J, A15..A24 => 2A..2J, A25..A34 => 3A..3J, dst
+  const group = Math.floor((n - 5) / 10) + 1;        // 1, 2, 3, ...
+  const idx   = (n - 5) % 10;                        // 0..9
+  const letter = String.fromCharCode(65 + idx);      // 'A'..'J'
+  return `${group}${letter}`;
+}
+
   // === Helper Kelas/Kelompok ===
   function buildKelasKelompokLine(kelas, kelasEl) {
     const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
@@ -3724,7 +3739,7 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
           nis: r.nis || r.id || '-',
           nama: r.nama || '-',
           sem: r.semester ?? '-',
-          jenjang: r.jenjang ?? '-',
+          jenjang: jenjangLabel(r.jenjang ?? ''),
           ket: r.keterangan ?? '-',                 // SP
           h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
           hadirPct: `${hadirPct}%`,
@@ -4160,7 +4175,7 @@ async function pdfAllKelasDownload(){
           nis: r.nis || r.id || '-',
           nama: r.nama || '-',
           sem: r.semester ?? '-',
-          jenjang: r.jenjang ?? '-',
+          jenjang: jenjangLabel(r.jenjang ?? ''),
           ket: r.keterangan ?? '-',
           h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
           hadirPct: `${hadirPct}%`,
@@ -4339,6 +4354,8 @@ async function pdfAllKelasDownload(){
       const jenjangSantri  = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.jenjang)
                           ?? (mine.find(it => it.jenjang!=null)?.jenjang)
                           ?? '-';
+	  const jenjangSantriLabel = jenjangLabel(jenjangSantri);
+
       const keteranganSantri = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.keterangan)
                           ?? (mine.find(it => it.keterangan!=null)?.keterangan)
                           ?? '-';
@@ -4416,7 +4433,7 @@ async function pdfAllKelasDownload(){
           nis: key,
           nama: namaSantri,
           sem: semesterSantri ?? (agg?.semester ?? '-'),
-          jenjang: jenjangSantri,
+          jenjang: jenjangSantriLabel,
           ket: keteranganSantri,                         // SP
           h: d.cnt.hadir, a: d.cnt.alpha, s: d.cnt.sakit, i: d.cnt.izin,
           hadirPct: `${hadirPct}%`,
@@ -4439,7 +4456,7 @@ async function pdfAllKelasDownload(){
         nis: key,
         nama: 'REKAP',
         sem: semesterSantri ?? (agg?.semester ?? '-'),
-        jenjang: jenjangSantri,
+        jenjang: jenjangSantriLabel,
         ket: keteranganSantri,                           // SP di baris rekap
         h: totH, a: totA, s: totS, i: totI,
         hadirPct: `${hadirPctTotal}%`,
