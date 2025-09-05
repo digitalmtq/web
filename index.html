@@ -1198,82 +1198,120 @@ async function buatUserNIS() {
       <button id="btnHapusSantri">Hapus Santri</button>
 	  <button id="btnPindahKelas">Pindah Kelas</button>
       
-		<div class="actions" 
-     style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+<!-- === CSS tambahan agar baris tombol tetap horizontal di HP === -->
+<style>
+  /* Baris tombol: tetap sejajar, bisa digeser mendatar saat sempit */
+  .actions{ padding-bottom:.25rem; }
+  .actions > button{
+    flex:0 0 auto;           /* jangan melar */
+    white-space:nowrap;       /* label tetap satu baris */
+  }
+  /* (Optional) sentuhan kecil untuk tampilan sempit */
+  @media (max-width:480px){
+    .actions > button{ font-size:14px; padding:.55rem .8rem; }
+  }
+
+  /* Util modal (tanpa mengubah struktur & ID Anda) */
+  .overlay-base{
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.5); z-index:999;
+    justify-content:center; align-items:center;
+  }
+  .overlay-card{
+    background:#fff; padding:20px; border-radius:8px;
+    min-width:320px; max-width:90%;
+  }
+  .pdf-rekap-controls{
+    display:flex; flex-wrap:wrap; align-items:center; gap:.5rem;
+    margin-top:.5rem;
+  }
+  .rekap-btn{ padding:.5rem .75rem; border:0; border-radius:.5rem; background:#2563eb; color:#fff; cursor:pointer; }
+</style>
+
+<div class="actions" 
+     style="display:flex; align-items:center; gap:.5rem; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;">
 
   <button id="save-btn">Simpan Data Mutaba'ah</button>
 
   <button id="openPdfModal">Download Laporan</button>
 
-<!-- Modal Utama: Rentang Tanggal + Aksi -->
-<div id="pdfModalOverlay" style="
-  display:none; 
-  position:fixed; 
-  top:0; left:0; 
-  width:100%; height:100%; 
-  background:rgba(0,0,0,0.5); 
-  z-index:999; 
-  justify-content:center; 
-  align-items:center;">
-  
-  <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
-    <h3>Download Rekap Nilai</h3>
-    
-    <!-- Kontrol Rekap -->
-    <div class="pdf-rekap-controls">
-      <label for="pdf-start-date">
-        <span>Mulai</span>
-        <input type="date" id="pdf-start-date" />
-      </label>
+  <!-- Modal Utama: Rentang Tanggal + Aksi -->
+  <div id="pdfModalOverlay" class="overlay-base" style="z-index:999;">
+    <div class="overlay-card">
+      <h3>Download Rekap Nilai</h3>
+      
+      <!-- Kontrol Rekap -->
+      <div class="pdf-rekap-controls">
+        <label for="pdf-start-date">
+          <span>Mulai</span>
+          <input type="date" id="pdf-start-date" />
+        </label>
 
-      <label for="pdf-end-date">
-        <span>s/d</span>
-        <input type="date" id="pdf-end-date" />
-      </label>
+        <label for="pdf-end-date">
+          <span>s/d</span>
+          <input type="date" id="pdf-end-date" />
+        </label>
 
-      <!-- Tombol unduh -->
-      <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
-      <button id="download-xls-rekap" class="rekap-btn">Excel Halaqoh</button>
-      <button id="download-pdf-santri" class="rekap-btn">PDF Individual</button>
-	  <button id="download-pdf-allkelas" class="rekap-btn">PDF All Halaqoh</button>
-    </div>
+        <!-- Tombol unduh -->
+        <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
+        <button id="download-xls-rekap" class="rekap-btn">Excel Halaqoh</button>
+        <button id="download-pdf-santri" class="rekap-btn">PDF Individual</button>
+        <button id="download-pdf-allkelas" class="rekap-btn">PDF All Halaqoh</button>
+      </div>
 
-    <!-- Tombol tutup -->
-    <div style="text-align:right; margin-top:15px;">
-      <button id="closePdfModal">Tutup</button>
+      <!-- Tombol tutup -->
+      <div style="text-align:right; margin-top:15px;">
+        <button id="closePdfModal">Tutup</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Modal Kedua: Pilih Santri (muncul saat klik "PDF per Santri") -->
-<div id="santriModalOverlay" style="
-  display:none; 
-  position:fixed; 
-  top:0; left:0; 
-  width:100%; height:100%; 
-  background:rgba(0,0,0,0.5); 
-  z-index:1000; 
-  justify-content:center; 
-  align-items:center;">
-  
-  <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
-    <h3>Pilih Santri</h3>
+  <!-- Modal Kedua: Pilih Santri (muncul saat klik "PDF Individual") -->
+  <div id="santriModalOverlay" class="overlay-base" style="z-index:1000;">
+    <div class="overlay-card">
+      <h3>Pilih Santri</h3>
 
-    <div class="pdf-rekap-controls" style="margin-top:.75rem;">
-      <label for="pdf-santri-select" style="min-width:260px;">
-        <span>Santri</span>
-        <select id="pdf-santri-select">
-          <option value="">Memuat…</option>
-        </select>
-      </label>
+      <div class="pdf-rekap-controls" style="margin-top:.75rem;">
+        <label for="pdf-santri-select" style="min-width:260px;">
+          <span>Santri</span>
+          <select id="pdf-santri-select">
+            <option value="">Memuat…</option>
+          </select>
+        </label>
 
-      <button id="okSantriSelect" class="rekap-btn" style="background:#0ea5e9;">OK</button>
-      <button id="cancelSantriSelect" class="rekap-btn" style="background:#6b7280;">Batal</button>
+        <button id="okSantriSelect" class="rekap-btn" style="background:#0ea5e9;">OK</button>
+        <button id="cancelSantriSelect" class="rekap-btn" style="background:#6b7280;">Batal</button>
+      </div>
     </div>
   </div>
+
+  <button class="logout-btn" id="logout-btn">Logout</button>
 </div>
-<button class="logout-btn" id="logout-btn">Logout</button>
-</div>
+
+<!-- === JS ringan untuk buka/tutup modal tanpa mengganggu fungsi lain === -->
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+
+  // Modal Rekap
+  const openBtn  = $('#openPdfModal');
+  const modal    = $('#pdfModalOverlay');
+  const closeBtn = $('#closePdfModal');
+
+  if (openBtn && modal) openBtn.addEventListener('click', ()=> modal.style.display = 'flex');
+  if (closeBtn && modal) closeBtn.addEventListener('click', ()=> modal.style.display = 'none');
+  if (modal) modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.style.display = 'none'; });
+
+  // Modal Santri (dipicu dari tombol "PDF Individual")
+  const perSantriBtn = $('#download-pdf-santri');
+  const santriModal  = $('#santriModalOverlay');
+  const cancelSantri = $('#cancelSantriSelect');
+
+  if (perSantriBtn && santriModal) perSantriBtn.addEventListener('click', ()=> santriModal.style.display = 'flex');
+  if (cancelSantri && santriModal) cancelSantri.addEventListener('click', ()=> santriModal.style.display = 'none');
+  if (santriModal) santriModal.addEventListener('click', (e)=>{ if(e.target === santriModal) santriModal.style.display = 'none'; });
+})();
+</script>
 
 
 <script>
