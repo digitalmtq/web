@@ -2920,36 +2920,40 @@ async function loadSantriData() {
   if (semSel.dataset._bound === "1") return; // cegah double-binding
   semSel.dataset._bound = "1";
 
-  // (opsional) kalau kamu punya helper untuk isi opsi 1..N:
+  // (opsional) isi ulang opsi 1..N kalau kamu punya helpernya
   if (typeof buildSemesterOptions === "function") {
     buildSemesterOptions(semSel, window.SEMESTER_MAX || 12);
   }
 
-  const key = (row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
+  const key = (row.dataset && (row.dataset.key || row.dataset.nis || row.dataset.id) || "").trim();
+
+  // ⬇️ TANPA '??' supaya tidak bentrok dengan '||'
   const oldSem = String(
-    (window.semesterMap?.[key]) ??
-    row.dataset?.semester ??
+    (window.semesterMap && window.semesterMap[key]) ||
+    (row.dataset && row.dataset.semester) ||
     semSel.value ||
     "1"
   );
 
-  // set nilai awal (kalau valid)
-  if (typeof isValidSemester === "function") {
-    if (isValidSemester(oldSem, window.SEMESTER_MAX || 12)) semSel.value = oldSem;
-  }
+  // set nilai awal kalau valid
+  const SEM_MAX = window.SEMESTER_MAX || 12;
+  const isValid = (v) => {
+    const n = Number(String(v).trim());
+    return Number.isInteger(n) && n >= 1 && n <= SEM_MAX;
+  };
+  if (isValid(oldSem)) semSel.value = oldSem;
 
   semSel.addEventListener("change", async () => {
-    const SEM_MAX = window.SEMESTER_MAX || 12;
     const newSem = String(semSel.value || oldSem);
 
-    if (typeof isValidSemester === "function" && !isValidSemester(newSem, SEM_MAX)) {
+    if (!isValid(newSem)) {
       alert(`Semester harus 1-${SEM_MAX}.`);
       semSel.value = oldSem;
       return;
     }
     if (newSem === oldSem) return;
 
-    if (semSel.dataset.busy === "1") return;
+    if (semSel.dataset.busy === "1") return; // debounce
     semSel.dataset.busy = "1";
 
     semSel.disabled = true;
@@ -2961,6 +2965,7 @@ async function loadSantriData() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, semester: newSem })
       });
+
       const txt = await res.text();
       let out = {};
       try { out = JSON.parse(txt); } catch {}
@@ -2969,11 +2974,14 @@ async function loadSantriData() {
         throw new Error(out?.error || txt || "Gagal update semester.");
       }
 
+      // sinkron state lokal
+      if (!window.semesterMap) window.semesterMap = {};
       window.semesterMap[key] = newSem;
       row.dataset.semester   = newSem;
+      semSel.value           = newSem;
     } catch (e) {
       alert("Gagal menyimpan semester ke kelas: " + e.message);
-      semSel.value = oldSem; // rollback
+      semSel.value = oldSem; // rollback UI
     } finally {
       delete semSel.dataset.busy;
       semSel.disabled = false;
@@ -2981,6 +2989,7 @@ async function loadSantriData() {
     }
   });
 })();
+
   } catch (err) {
     alert("Gagal memuat data santri / absensi!");
     console.error(err);
