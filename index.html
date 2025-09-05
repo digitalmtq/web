@@ -1163,7 +1163,7 @@ async function buatUserNIS() {
   <div class="dashboard-header-row">
     <select id="kelas"></select>
     <span class="date-pair">
-	  <label for="tanggal" style="margin-left:8px; align-items:center;">Dari</label>
+	  <label for="tanggal">Dari</label>
       <input type="date" id="tanggal" />
 	  <label for="tanggal-filter-akhir" style="margin-left:8px; align-items:center;">sampai</label>
       <input type="date" id="tanggal-filter-akhir" />
@@ -1179,7 +1179,7 @@ async function buatUserNIS() {
     flex-direction:row; flex-wrap:wrap; justify-content:flex-start; /* mulai kiri, wrap bila sempit */
   }
   /* date dibuat pendek */
-  #tanggal, #tanggal-filter-akhir{ width:12ch; min-width:10ch; }
+  #tanggal, #tanggal-filter-akhir{ width:14ch; min-width:12ch; }
 
   /* HP: select penuh 1 baris, dua date berdampingan & RAPAT (bukan space-between) */
   @media (max-width:600px){
