@@ -2290,9 +2290,6 @@ function aturDropdownKelas(user) {
     }
   });
 
-  const semSel = document.getElementById("inputSemester");
-  if (semSel) extendSemesterOptions(semSel);
-
   // === Event ganti kelas ===
   kelasSelect.addEventListener("change", () => {
   try { localStorage.setItem(KELAS_KEY, kelasSelect.value); } catch {}
