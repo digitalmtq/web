@@ -4714,7 +4714,7 @@ async function pdfAllKelasDownload(){
           r.nis || r.id || '',
           r.nama || '',
           (r.semester ?? ''),
-          (r.jenjang ?? ''),
+          jenjangLabel(r.jenjang ?? ''),
           (r.keterangan ?? ''),   // SP
           r.hadir, r.alpha, r.sakit, r.izin,
           hadirPct,
