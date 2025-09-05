@@ -2914,47 +2914,73 @@ async function loadSantriData() {
         }
 
         // === Handler ubah SEMESTER → tulis balik ke kelas_{}.json
-        const semSel = row.querySelector(".semester");
-        if (semSel) {
-          semSel.addEventListener("change", async () => {
-            const key    = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
-            const oldSem = String(window.semesterMap?.[key] ?? semNow ?? "1");
-            const newSem = String(semSel.value || oldSem);
+(() => {
+  const semSel = row.querySelector(".semester");
+  if (!semSel) return;
+  if (semSel.dataset._bound === "1") return; // cegah double-binding
+  semSel.dataset._bound = "1";
 
-            if (!isValidSemester(newSem)) {
-  		alert(`Semester harus 1-${SEMESTER_MAX}.`);
-  		semSel.value = oldSem;
-  		return;
-		}
+  // (opsional) kalau kamu punya helper untuk isi opsi 1..N:
+  if (typeof buildSemesterOptions === "function") {
+    buildSemesterOptions(semSel, window.SEMESTER_MAX || 12);
+  }
 
-            semSel.disabled = true;
-            semSel.style.opacity = "0.6";
-            try {
-              const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ key, semester: newSem })
-              });
-              const text = await res.text();
-              let out = {};
-              try { out = JSON.parse(text); } catch {}
+  const key = (row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
+  const oldSem = String(
+    (window.semesterMap?.[key]) ??
+    row.dataset?.semester ??
+    semSel.value ||
+    "1"
+  );
 
-              if (!res.ok || out?.success !== true) {
-                throw new Error(out?.error || text || "Gagal update semester.");
-              }
+  // set nilai awal (kalau valid)
+  if (typeof isValidSemester === "function") {
+    if (isValidSemester(oldSem, window.SEMESTER_MAX || 12)) semSel.value = oldSem;
+  }
 
-              window.semesterMap[key] = newSem; // sync cache
-            } catch (e) {
-              alert("Gagal menyimpan semester ke kelas: " + e.message);
-              semSel.value = oldSem; // rollback
-            } finally {
-              semSel.disabled = false;
-              semSel.style.opacity = "";
-            }
-          });
-        }
+  semSel.addEventListener("change", async () => {
+    const SEM_MAX = window.SEMESTER_MAX || 12;
+    const newSem = String(semSel.value || oldSem);
+
+    if (typeof isValidSemester === "function" && !isValidSemester(newSem, SEM_MAX)) {
+      alert(`Semester harus 1-${SEM_MAX}.`);
+      semSel.value = oldSem;
+      return;
+    }
+    if (newSem === oldSem) return;
+
+    if (semSel.dataset.busy === "1") return;
+    semSel.dataset.busy = "1";
+
+    semSel.disabled = true;
+    semSel.style.opacity = "0.6";
+
+    try {
+      const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, semester: newSem })
       });
-    });
+      const txt = await res.text();
+      let out = {};
+      try { out = JSON.parse(txt); } catch {}
+
+      if (!res.ok || out?.success !== true) {
+        throw new Error(out?.error || txt || "Gagal update semester.");
+      }
+
+      window.semesterMap[key] = newSem;
+      row.dataset.semester   = newSem;
+    } catch (e) {
+      alert("Gagal menyimpan semester ke kelas: " + e.message);
+      semSel.value = oldSem; // rollback
+    } finally {
+      delete semSel.dataset.busy;
+      semSel.disabled = false;
+      semSel.style.opacity = "";
+    }
+  });
+})();
   } catch (err) {
     alert("Gagal memuat data santri / absensi!");
     console.error(err);
