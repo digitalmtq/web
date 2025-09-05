@@ -2914,82 +2914,47 @@ async function loadSantriData() {
         }
 
         // === Handler ubah SEMESTER → tulis balik ke kelas_{}.json
-(() => {
-  const semSel = row.querySelector(".semester");
-  if (!semSel) return;
-  if (semSel.dataset._bound === "1") return; // cegah double-binding
-  semSel.dataset._bound = "1";
+        const semSel = row.querySelector(".semester");
+        if (semSel) {
+          semSel.addEventListener("change", async () => {
+            const key    = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
+            const oldSem = String(window.semesterMap?.[key] ?? semNow ?? "1");
+            const newSem = String(semSel.value || oldSem);
 
-  // (opsional) isi ulang opsi 1..N kalau kamu punya helpernya
-  if (typeof buildSemesterOptions === "function") {
-    buildSemesterOptions(semSel, window.SEMESTER_MAX || 12);
-  }
+            if (!isValidSemester(newSem)) {
+  		alert(`Semester harus 1-${SEMESTER_MAX}.`);
+  		semSel.value = oldSem;
+  		return;
+		}
 
-  const key = (row.dataset && (row.dataset.key || row.dataset.nis || row.dataset.id) || "").trim();
+            semSel.disabled = true;
+            semSel.style.opacity = "0.6";
+            try {
+              const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key, semester: newSem })
+              });
+              const text = await res.text();
+              let out = {};
+              try { out = JSON.parse(text); } catch {}
 
-  // ⬇️ TANPA '??' supaya tidak bentrok dengan '||'
-  const oldSem = String(
-    (window.semesterMap && window.semesterMap[key]) ||
-    (row.dataset && row.dataset.semester) ||
-    semSel.value ||
-    "1"
-  );
+              if (!res.ok || out?.success !== true) {
+                throw new Error(out?.error || text || "Gagal update semester.");
+              }
 
-  // set nilai awal kalau valid
-  const SEM_MAX = window.SEMESTER_MAX || 12;
-  const isValid = (v) => {
-    const n = Number(String(v).trim());
-    return Number.isInteger(n) && n >= 1 && n <= SEM_MAX;
-  };
-  if (isValid(oldSem)) semSel.value = oldSem;
-
-  semSel.addEventListener("change", async () => {
-    const newSem = String(semSel.value || oldSem);
-
-    if (!isValid(newSem)) {
-      alert(`Semester harus 1-${SEM_MAX}.`);
-      semSel.value = oldSem;
-      return;
-    }
-    if (newSem === oldSem) return;
-
-    if (semSel.dataset.busy === "1") return; // debounce
-    semSel.dataset.busy = "1";
-
-    semSel.disabled = true;
-    semSel.style.opacity = "0.6";
-
-    try {
-      const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, semester: newSem })
+              window.semesterMap[key] = newSem; // sync cache
+            } catch (e) {
+              alert("Gagal menyimpan semester ke kelas: " + e.message);
+              semSel.value = oldSem; // rollback
+            } finally {
+              semSel.disabled = false;
+              semSel.style.opacity = "";
+            }
+          });
+        }
       });
-
-      const txt = await res.text();
-      let out = {};
-      try { out = JSON.parse(txt); } catch {}
-
-      if (!res.ok || out?.success !== true) {
-        throw new Error(out?.error || txt || "Gagal update semester.");
-      }
-
-      // sinkron state lokal
-      if (!window.semesterMap) window.semesterMap = {};
-      window.semesterMap[key] = newSem;
-      row.dataset.semester   = newSem;
-      semSel.value           = newSem;
-    } catch (e) {
-      alert("Gagal menyimpan semester ke kelas: " + e.message);
-      semSel.value = oldSem; // rollback UI
-    } finally {
-      delete semSel.dataset.busy;
-      semSel.disabled = false;
-      semSel.style.opacity = "";
-    }
-  });
-})();
-
+    });
   } catch (err) {
     alert("Gagal memuat data santri / absensi!");
     console.error(err);
