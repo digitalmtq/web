@@ -1159,16 +1159,31 @@ async function buatUserNIS() {
       <h2>Selamat datang, <span id="namaUser"></span>!</h2>
 
       <div class="dashboard-header">
-  <div class="dashboard-header-row">
-    <label for="kelas">Halaqoh:</label>
-    <select id="kelas"></select>
+  <div class="dashboard-header-row"
+       style="display:flex; align-items:center; gap:.5rem; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; flex-direction:row;">
 
-     <label for="tanggal">Tanggal:</label>
-<input type="date" id="tanggal" />
+    <!-- Grup Halaqoh -->
+    <span style="display:inline-flex; align-items:center; gap:.35rem;">
+      <label for="kelas">Halaqoh:</label>
+      <!-- Lebar select mengikuti teks terpilih, tapi dibatasi agar tidak terlalu panjang -->
+      <select id="kelas" 
+              style="width:max-content; max-width:min(45vw, 260px);"></select>
+    </span>
 
-<!-- 🔹 TAMBAHAN: input tanggal kedua khusus filter tabel -->
-<label for="tanggal-filter-akhir" style="margin-left:8px;">s/d</label>
-<input type="date" id="tanggal-filter-akhir" />
+    <!-- Grup Tanggal awal -->
+    <span style="display:inline-flex; align-items:center; gap:.35rem;">
+      <label for="tanggal">Tanggal:</label>
+      <!-- Tanggal dibuat ramping: sekitar 9–12 karakter (YYYY-MM-DD) -->
+      <input type="date" id="tanggal" 
+             style="width:clamp(9ch, 20vw, 12ch);" />
+    </span>
+
+    <!-- Grup Tanggal akhir -->
+    <span style="display:inline-flex; align-items:center; gap:.35rem;">
+      <label for="tanggal-filter-akhir" style="margin-left:8px;">s/d</label>
+      <input type="date" id="tanggal-filter-akhir" 
+             style="width:clamp(9ch, 20vw, 12ch);" />
+    </span>
 
   </div>
 </div>
