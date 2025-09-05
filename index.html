@@ -1198,95 +1198,102 @@ async function buatUserNIS() {
       <button id="btnHapusSantri">Hapus Santri</button>
 	  <button id="btnPindahKelas">Pindah Kelas</button>
       
-		<div class="actions" 
+		<!-- Tambahan CSS kecil agar tombol baris atas tetap horizontal -->
+<style>
+  .actions {
+    width: 100%;
+  }
+  /* hanya tombol langsung di baris .actions (bukan elemen modal) */
+  .actions > button{
+    flex: 0 0 auto;         /* jangan melebar memenuhi baris */
+    white-space: nowrap;     /* teks tombol 1 baris */
+  }
+  @media (max-width:480px){
+    .actions > button{
+      font-size: 14px;
+      padding: .55rem .8rem;
+    }
+  }
+</style>
+
+<div class="actions" 
      style="display:flex; align-items:center; gap:.5rem; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;">
 
   <button id="save-btn">Simpan Data</button>
 
   <button id="openPdfModal">Unduh Laporan</button>
 
-<!-- Modal Utama: Rentang Tanggal + Aksi -->
-<div id="pdfModalOverlay" style="
-  display:none; 
-  position:fixed; 
-  top:0; left:0; 
-  width:100%; height:100%; 
-  background:rgba(0,0,0,0.5); 
-  z-index:999; 
-  justify-content:center; 
-  align-items:center;">
-  
-  <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
-    <h3>Download Rekap Nilai</h3>
+  <!-- Modal Utama: Rentang Tanggal + Aksi -->
+  <div id="pdfModalOverlay" style="
+    display:none; 
+    position:fixed; 
+    top:0; left:0; 
+    width:100%; height:100%; 
+    background:rgba(0,0,0,0.5); 
+    z-index:999; 
+    justify-content:center; 
+    align-items:center;">
     
-    <!-- Kontrol Rekap -->
-    <div class="pdf-rekap-controls">
-      <label for="pdf-start-date">
-        <span>Mulai</span>
-        <input type="date" id="pdf-start-date" />
-      </label>
+    <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
+      <h3>Download Rekap Nilai</h3>
+      
+      <!-- Kontrol Rekap -->
+      <div class="pdf-rekap-controls">
+        <label for="pdf-start-date">
+          <span>Mulai</span>
+          <input type="date" id="pdf-start-date" />
+        </label>
 
-      <label for="pdf-end-date">
-        <span>s/d</span>
-        <input type="date" id="pdf-end-date" />
-      </label>
+        <label for="pdf-end-date">
+          <span>s/d</span>
+          <input type="date" id="pdf-end-date" />
+        </label>
 
-      <!-- Tombol unduh -->
-      <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
-      <button id="download-xls-rekap" class="rekap-btn">Excel Halaqoh</button>
-      <button id="download-pdf-santri" class="rekap-btn">PDF Individual</button>
-	  <button id="download-pdf-allkelas" class="rekap-btn">PDF All Halaqoh</button>
-    </div>
+        <!-- Tombol unduh -->
+        <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
+        <button id="download-xls-rekap" class="rekap-btn">Excel Halaqoh</button>
+        <button id="download-pdf-santri" class="rekap-btn">PDF Individual</button>
+        <button id="download-pdf-allkelas" class="rekap-btn">PDF All Halaqoh</button>
+      </div>
 
-    <!-- Tombol tutup -->
-    <div style="text-align:right; margin-top:15px;">
-      <button id="closePdfModal">Tutup</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Kedua: Pilih Santri (muncul saat klik "PDF per Santri") -->
-<div id="santriModalOverlay" style="
-  display:none; 
-  position:fixed; 
-  top:0; left:0; 
-  width:100%; height:100%; 
-  background:rgba(0,0,0,0.5); 
-  z-index:1000; 
-  justify-content:center; 
-  align-items:center;">
-  
-  <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
-    <h3>Pilih Santri</h3>
-
-    <div class="pdf-rekap-controls" style="margin-top:.75rem;">
-      <label for="pdf-santri-select" style="min-width:260px;">
-        <span>Santri</span>
-        <select id="pdf-santri-select">
-          <option value="">Memuat…</option>
-        </select>
-      </label>
-
-      <button id="okSantriSelect" class="rekap-btn" style="background:#0ea5e9;">OK</button>
-      <button id="cancelSantriSelect" class="rekap-btn" style="background:#6b7280;">Batal</button>
+      <!-- Tombol tutup -->
+      <div style="text-align:right; margin-top:15px;">
+        <button id="closePdfModal">Tutup</button>
+      </div>
     </div>
   </div>
-</div>
-<button class="logout-btn" id="logout-btn">Logout</button>
+
+  <!-- Modal Kedua: Pilih Santri (muncul saat klik "PDF per Santri") -->
+  <div id="santriModalOverlay" style="
+    display:none; 
+    position:fixed; 
+    top:0; left:0; 
+    width:100%; height:100%; 
+    background:rgba(0,0,0,0.5); 
+    z-index:1000; 
+    justify-content:center; 
+    align-items:center;">
+    
+    <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
+      <h3>Pilih Santri</h3>
+
+      <div class="pdf-rekap-controls" style="margin-top:.75rem;">
+        <label for="pdf-santri-select" style="min-width:260px;">
+          <span>Santri</span>
+          <select id="pdf-santri-select">
+            <option value="">Memuat…</option>
+          </select>
+        </label>
+
+        <button id="okSantriSelect" class="rekap-btn" style="background:#0ea5e9;">OK</button>
+        <button id="cancelSantriSelect" class="rekap-btn" style="background:#6b7280;">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="logout-btn" id="logout-btn">Logout</button>
 </div>
 
-		<style>
-  .actions > button{
-    flex: 0 0 auto;          /* jangan melar */
-    white-space: nowrap;      /* label 1 baris */
-  }
-  @media (max-width:480px){
-    .actions > button{
-      font-size: 14px;
-      padding: .55rem .8rem;  /* sedikit lebih kecil biar muat */
-    }
-  }
-</style>
 
 
 <script>
