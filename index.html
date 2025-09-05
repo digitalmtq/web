@@ -1160,23 +1160,23 @@ async function buatUserNIS() {
 
      
 <div class="dashboard-header">
-  <div class="dashboard-header-row">
+  <div class="dashboard-header-row"
+       style="display:flex; flex-direction:row; flex-wrap:wrap; justify-content:flex-start; align-items:center; column-gap:.6rem; row-gap:.5rem;">
+
     <select id="kelas"></select>
 
-    <!-- Ikat dua tanggal dalam satu grup -->
-    <span class="date-pair">
-      <!-- Pasangan 1: label 'Dari' nempel & center ke input -->
-      <span class="date-item">
-        <label for="tanggal">Dari</label>
-        <input type="date" id="tanggal" />
-      </span>
-
-      <!-- Pasangan 2: label 'sampai' nempel & center ke input -->
-      <span class="date-item">
-        <label for="tanggal-filter-akhir">sampai</label>
-        <input type="date" id="tanggal-filter-akhir" />
-      </span>
+    <!-- Pasangan 1: label 'Dari' nempel ke input -->
+    <span style="display:inline-flex; align-items:center; gap:.3rem;">
+      <label for="tanggal" style="margin:0; line-height:1;">Dari</label>
+      <input type="date" id="tanggal" style="width:12ch; min-width:10ch;">
     </span>
+
+    <!-- Pasangan 2: label 'sampai' nempel ke input -->
+    <span style="display:inline-flex; align-items:center; gap:.3rem;">
+      <label for="tanggal-filter-akhir" style="margin:0; line-height:1;">sampai</label>
+      <input type="date" id="tanggal-filter-akhir" style="width:12ch; min-width:10ch;">
+    </span>
+
   </div>
 </div>
 
