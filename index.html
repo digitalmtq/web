@@ -1361,6 +1361,34 @@ async function buatUserNIS() {
     <button id="btnTutupModal">Tutup</button>
   </div>
 </div>
+
+
+<script>
+// ==== SEMESTER FLEX ====
+const SEMESTER_MAX = 12;
+
+function isValidSemester(v, max = SEMESTER_MAX) {
+  const n = Number(String(v).trim());
+  return Number.isInteger(n) && n >= 1 && n <= max;
+}
+
+function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
+  if (!selectEl) return;
+  const existing = new Set([...selectEl.options].map(o => String(o.value)));
+  const frag = document.createDocumentFragment();
+  for (let i = 1; i <= max; i++) {
+    const val = String(i);
+    if (!existing.has(val)) {
+      const opt = document.createElement("option");
+      opt.value = val;
+      opt.textContent = val;
+      frag.appendChild(opt);
+    }
+  }
+  if (frag.childNodes.length) selectEl.appendChild(frag);
+}
+</script>
+
 	
 <!-- Modal Tambah Santri -->
 <div id="modalSantri" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
@@ -2262,6 +2290,9 @@ function aturDropdownKelas(user) {
     }
   });
 
+  const semSel = document.getElementById("inputSemester");
+  if (semSel) extendSemesterOptions(semSel);
+
   // === Event ganti kelas ===
   kelasSelect.addEventListener("change", () => {
   try { localStorage.setItem(KELAS_KEY, kelasSelect.value); } catch {}
@@ -2698,7 +2729,6 @@ async function loadSantriData() {
               <option value="4" ${semNow == 4 || semNow == "4" ? 'selected' : ''}>4</option>
               <option value="5" ${semNow == 5 || semNow == "5" ? 'selected' : ''}>5</option>
               <option value="6" ${semNow == 6 || semNow == "6" ? 'selected' : ''}>6</option>
-			  <option value="7" ${semNow == 6 || semNow == "6" ? 'selected' : ''}>7</option>
             </select>
           </td>
           <td>
@@ -2714,6 +2744,8 @@ async function loadSantriData() {
               <option value=""   ${!ketNow ? 'selected' : ''}></option>
               <option value="SP1" ${ketNow === 'SP1' ? 'selected' : ''}>SP1</option>
               <option value="SP2" ${ketNow === 'SP2' ? 'selected' : ''}>SP2</option>
+              <option value="SP3" ${ketNow === 'SP3' ? 'selected' : ''}>SP3</option>
+              <option value="SP4" ${ketNow === 'SP4' ? 'selected' : ''}>SP4</option>
             </select>
           </td>
           <td>
@@ -2845,8 +2877,8 @@ async function loadSantriData() {
             const oldK = String(row.dataset?.keterangan ?? (window.keteranganMap?.[key] ?? ketNow ?? ""));
             const newK = String(ketSel.value || "");
 
-            if (newK && !/^SP[1-2]$/.test(newK)) {
-              alert("Keterangan harus SP1 - SP2 (atau kosong).");
+            if (newK && !/^SP[1-4]$/.test(newK)) {
+              alert("Keterangan harus SP1 - SP4 (atau kosong).");
               ketSel.value = oldK;
               return;
             }
@@ -2888,11 +2920,11 @@ async function loadSantriData() {
             const oldSem = String(window.semesterMap?.[key] ?? semNow ?? "1");
             const newSem = String(semSel.value || oldSem);
 
-            if (!/^[1-12]$/.test(newSem)) {
-              alert("Semester harus 1-12.");
-              semSel.value = oldSem;
-              return;
-            }
+            if (!isValidSemester(newSem)) {
+  		alert(`Semester harus 1-${SEMESTER_MAX}.`);
+  		semSel.value = oldSem;
+  		return;
+		}
 
             semSel.disabled = true;
             semSel.style.opacity = "0.6";
@@ -4876,7 +4908,7 @@ async function pdfAllKelasDownload(){
     return out.length ? out.join(', ') : '-';
   }
   function PDF_percentCapaian(totalJuzNum, semester){
-    const batasSemester = { 1: 4, 2: 9, 3: 14, 4: 19, 5: 24, 6: 28, 7: 30 };
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
     const total = Number(totalJuzNum);
     const sem   = Number(semester);
     if (!Number.isFinite(total)) return 0;
@@ -5181,7 +5213,7 @@ async function hitungTotalAllJuzFromTable() {
     });
 
     // Batas ketuntasan per semester
-    const batasSemester = { 1: 4, 2: 9, 3: 14, 4: 19, 5: 24, 6: 28, 7: 30 };
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
     // Update tabel + siapkan data simpan
     const dataToSave = [];
@@ -5346,7 +5378,7 @@ async function hitungTotalAllJuzOtomatis() {
       rekap[key].totalJuz += parseNum(item?.totalJuz);
     });
 
-    const batasSemester = { 1: 4, 2: 9, 3: 14, 4: 19, 5: 24, 6: 28, 7: 30 };
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
 
     rowsArr.forEach(row => {
       const key  = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
@@ -5455,6 +5487,9 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     if (jenSel) extendJenjangOptions(jenSel, JENJANG_MAX);
   }
 
+  const semSel = document.getElementById("inputSemester");
+  if (semSel) extendSemesterOptions(semSel);
+
   // Disesuaikan dengan pemanggilanmu: tutupModal('modalSantri')
   function tutupModal(id) {
     const modal = document.getElementById(id || "modalSantri");
@@ -5486,10 +5521,10 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     // Validasi dasar
     if (!nama) { alert("Nama tidak boleh kosong."); return; }
     if (!nis)  { alert("NIS tidak boleh kosong.");  return; }
-    if (!/^[1-12]$/.test(String(semester))) {
-      alert("Semester harus 1-12.");
-      return;
-    }
+    if (!isValidSemester(semester)) {
+  alert(`Semester harus 1-${SEMESTER_MAX}.`);
+  return;
+}
     if (!isValidJenjang(jenjang)) {
       alert(`Jenjang harus A1 - A${JENJANG_MAX || "∞"} (atau kosong).`);
       return;
