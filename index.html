@@ -1160,39 +1160,40 @@ async function buatUserNIS() {
 
      
 
-<div class="dashboard-header">
-  <div class="dashboard-header-row">
-    <select id="kelas"></select>
-    <input type="date" id="tanggal" />
-    <input type="date" id="tanggal-filter-akhir" />
-  </div>
-</div>
-
-<!-- Tambahkan CSS dashboard-header ini (boleh di <head> atau sebelum </body>) -->
 <style>
   .dashboard-header-row{
     display:flex; align-items:center; gap:.6rem;
-    flex-direction:row !important;  /* pastikan row */
-    flex-wrap:wrap;                  /* boleh turun baris */
-    justify-content:flex-start;      /* mulai dari kiri */
+    flex-direction:row; flex-wrap:wrap; justify-content:flex-start; /* mulai kiri, wrap bila sempit */
   }
-  /* date jadi pendek */
-  #tanggal, #tanggal-filter-akhir{
-    width:12ch; min-width:10ch;
+  /* date dibuat pendek */
+  #tanggal, #tanggal-filter-akhir{ width:12ch; min-width:10ch; }
+
+  /* HP: select penuh 1 baris, dua date berdampingan & RAPAT (bukan space-between) */
+  @media (max-width:600px){
+    #kelas{ flex:1 1 100%; max-width:100%; }   /* select 1 baris penuh */
+    .date-pair{
+      display:inline-flex; align-items:center; gap:.5rem; /* rapatkan dua date */
+      flex:0 0 auto;
+    }
+    .dashboard-header-row{ justify-content:flex-start; }   /* pastikan tidak space-between */
   }
 
-  /* HP: select naik baris sendiri, dua date berdampingan */
-  @media (max-width: 600px){
-    #kelas{ flex:1 1 100%; max-width:100%; } /* select satu baris penuh */
-    #tanggal, #tanggal-filter-akhir{ flex:0 0 auto; }
-    .dashboard-header-row{ justify-content:space-between; } /* dua date kiri–kanan */
-  }
-
-  /* Desktop: tetap tiga kolom sejajar */
-  @media (min-width: 601px){
+  /* Desktop: tiga kolom sejajar */
+  @media (min-width:601px){
     .dashboard-header-row{ flex-wrap:nowrap; }
+    .date-pair{ display:inline-flex; gap:.6rem; } /* tetap berdampingan normal */
   }
 </style>
+
+<div class="dashboard-header">
+  <div class="dashboard-header-row">
+    <select id="kelas"></select>
+    <span class="date-pair">
+      <input type="date" id="tanggal" />
+      <input type="date" id="tanggal-filter-akhir" />
+    </span>
+  </div>
+</div>
 
       <table id="santri-table">
         <thead>
