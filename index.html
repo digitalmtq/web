@@ -2698,6 +2698,7 @@ async function loadSantriData() {
               <option value="4" ${semNow == 4 || semNow == "4" ? 'selected' : ''}>4</option>
               <option value="5" ${semNow == 5 || semNow == "5" ? 'selected' : ''}>5</option>
               <option value="6" ${semNow == 6 || semNow == "6" ? 'selected' : ''}>6</option>
+			  <option value="7" ${semNow == 6 || semNow == "6" ? 'selected' : ''}>7</option>
             </select>
           </td>
           <td>
@@ -2887,8 +2888,8 @@ async function loadSantriData() {
             const oldSem = String(window.semesterMap?.[key] ?? semNow ?? "1");
             const newSem = String(semSel.value || oldSem);
 
-            if (!/^[1-6]$/.test(newSem)) {
-              alert("Semester harus 1-6.");
+            if (!/^[1-12]$/.test(newSem)) {
+              alert("Semester harus 1-12.");
               semSel.value = oldSem;
               return;
             }
@@ -4875,7 +4876,7 @@ async function pdfAllKelasDownload(){
     return out.length ? out.join(', ') : '-';
   }
   function PDF_percentCapaian(totalJuzNum, semester){
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    const batasSemester = { 1: 4, 2: 9, 3: 14, 4: 19, 5: 24, 6: 28, 7: 30 };
     const total = Number(totalJuzNum);
     const sem   = Number(semester);
     if (!Number.isFinite(total)) return 0;
@@ -5180,7 +5181,7 @@ async function hitungTotalAllJuzFromTable() {
     });
 
     // Batas ketuntasan per semester
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    const batasSemester = { 1: 4, 2: 9, 3: 14, 4: 19, 5: 24, 6: 28, 7: 30 };
 
     // Update tabel + siapkan data simpan
     const dataToSave = [];
@@ -5345,7 +5346,7 @@ async function hitungTotalAllJuzOtomatis() {
       rekap[key].totalJuz += parseNum(item?.totalJuz);
     });
 
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    const batasSemester = { 1: 4, 2: 9, 3: 14, 4: 19, 5: 24, 6: 28, 7: 30 };
 
     rowsArr.forEach(row => {
       const key  = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
@@ -5485,8 +5486,8 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     // Validasi dasar
     if (!nama) { alert("Nama tidak boleh kosong."); return; }
     if (!nis)  { alert("NIS tidak boleh kosong.");  return; }
-    if (!/^[1-6]$/.test(String(semester))) {
-      alert("Semester harus 1-6.");
+    if (!/^[1-12]$/.test(String(semester))) {
+      alert("Semester harus 1-12.");
       return;
     }
     if (!isValidJenjang(jenjang)) {
