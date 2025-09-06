@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lembar Penilaian – Login + Dashboard (Clonning Asli)</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --ink:#1f2937; --muted:#6b7280;
+      --brand:#2563eb; --soft:#e5e7eb; --ring:#93c5fd; --success:#16a34a;
+      --warn:#fde68a; --warnBg:#fffbeb; --ok:#bbf7d0; --okBg:#f0fdf4;
+      --hl:#e0f2fe; --hl2:#fee2e2;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--ink);
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji";
+      background:linear-gradient(180deg,#fafbff, #f2f4fb 40%, #eef1f9);
+    }
+
+    /* ====== LOGIN CARD ====== */
+    .auth-wrap{min-height:100vh; display:grid; place-items:center; padding:24px;}
+    .card{width:100%; max-width:420px; background:var(--card); border:1px solid var(--soft);
+      border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.05); padding:22px;}
+    .card h1{margin:0 0 4px; font-size:22px}
+    .card p{margin:0 0 16px; color:var(--muted); font-size:13px}
+    .form-row{display:grid; gap:10px; margin:14px 0}
+    .input{width:100%; padding:11px 12px; border:1px solid var(--soft); border-radius:10px; background:#fff; font:inherit;}
+    .password-group{display:flex; align-items:center; gap:8px}
+    .toggle-password{cursor:pointer; user-select:none}
+    .btn{appearance:none; border:1px solid var(--soft); background:#fff; padding:10px 14px; border-radius:10px; cursor:pointer; font:inherit}
+    .btn.primary{background:var(--brand); border-color:var(--brand); color:#fff; width:100%}
+    #login-error{color:#b91c1c; font-size:12px; margin-top:6px; display:none}
+    .hint{font-size:12px; color:var(--muted); margin-top:8px}
+
+    /* ====== DASHBOARD (tersedia, tapi tidak dipanggil dari login) ====== */
+    .topbar{
+      position:sticky; top:0; z-index:10; display:flex; gap:10px; align-items:center; justify-content:space-between;
+      padding:10px 12px; background:var(--card); border-bottom:1px solid var(--soft);
+    }
+    .userchip{font-size:13px; color:var(--muted)}
+    .container{
+      height:calc(100vh - 52px);
+      display:grid; grid-template-columns: minmax(320px, 420px) 1fr;
+      grid-template-areas: "form mushaf";
+      gap:12px; padding:12px;
+    }
+    #formPanel{grid-area:form}
+    #mushafPanel{grid-area:mushaf}
+
+    .panel{background:var(--card); border:1px solid var(--soft); border-radius:14px; box-shadow:0 1px 2px rgba(0,0,0,.04); overflow:auto;}
+    .panel .inner{padding:16px}
+    .section{margin-bottom:16px}
+    .section h3{margin:0 0 8px; font-size:14px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+    label{display:block; font-size:13px; margin-bottom:8px}
+    input[type="text"], input[type="date"], input[type="number"], select, textarea{
+      width:100%; padding:10px 12px; border:1px solid var(--soft); border-radius:10px; font:inherit; background:#fff;
+    }
+    textarea{min-height:90px; resize:vertical}
+    .grid-2{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    .rubric-row{display:grid; grid-template-columns: 140px 1fr 52px; gap:10px; align-items:center; padding:8px 0; border-bottom:1px dashed #eceff5}
+    .rubric-row:last-child{border-bottom:none}
+    .rubric-name{font-size:14px}
+    .rubric-score output{display:inline-block; min-width:40px; text-align:right; font-variant-numeric: tabular-nums}
+    input[type="range"]{width:100%}
+
+    .summary{display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:center; padding:12px; border:1px solid var(--soft); border-radius:12px; background:#fafafa;
+      transition:border-color .2s, background .2s;}
+    .summary .big{font-size:28px; font-weight:700}
+    .badge{display:inline-block; padding:4px 10px; border-radius:999px; background:#eef6ff; color:#0b63d1; font-weight:600}
+
+    .actions{display:flex; gap:8px; flex-wrap:wrap}
+    .btn.ghost{background:transparent}
+    .btn:focus{outline:3px solid var(--ring); outline-offset:2px}
+
+    .mushaf-header{position:sticky; top:0; z-index:5; background:var(--card);
+      border-bottom:1px solid var(--soft); padding:10px 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .mushaf-area{padding:18px; line-height:2.1; font-size:26px; direction:rtl; text-align:justify; font-family: "Traditional Arabic", "Amiri", serif}
+    .ayah{padding:2px 6px; border-radius:6px; display:inline}
+    .ayah.hl{background:var(--hl)} .ayah.hl2{background:var(--hl2)}
+    .muted{color:var(--muted)}
+
+    @media (max-width: 920px){
+      .container{grid-template-columns: 1fr; grid-template-areas:"mushaf" "form";}
+      .mushaf-area{font-size:24px}
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ====== LOGIN ====== -->
+  <div class="auth-wrap" id="login-card">
+    <div class="card">
+      <h1>Portal Penilaian</h1>
+      <p>Masuk untuk mengakses dashboard Lembar Penilaian.</p>
+
+      <form id="login-form" onsubmit="return false;">
+        <div class="form-row">
+          <label>Username</label>
+          <input class="input" id="username" placeholder="ustadz / atau NIS (mis. 552233)" autocomplete="username" />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <div class="password-group">
+            <input class="input" id="password" type="password" placeholder="••••••" autocomplete="current-password" />
+            <span id="toggle-password" class="toggle-password" title="Tampilkan/sembunyikan password">👁</span>
+          </div>
+        </div>
+        <button class="btn primary" id="btn-login" type="submit">Masuk</button>
+        <div id="login-error"></div>
+        <div class="hint">Versi ini meniru A57.html: submit **tidak** membuka dashboard — hanya <code>console.log</code>.</div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====== DASHBOARD (tidak dipanggil oleh login handler) ====== -->
+  <div id="dashboard-card" style="display:none;">
+    <div class="topbar">
+      <div class="userchip">Masuk sebagai: <b><span id="namaUser">–</span></b></div>
+      <div style="display:flex; gap:8px; align-items:center">
+        <button class="btn" id="logout-btn" type="button">Keluar</button>
+      </div>
+    </div>
+
+    <main class="container">
+      <!-- KIRI: FORM PENILAIAN -->
+      <section class="panel" id="formPanel" aria-label="Form Penilaian">
+        <div class="inner">
+          <form id="penilaianForm" onsubmit="return false;">
+            <div class="section">
+              <h3>Identitas</h3>
+              <div class="grid-2">
+                <label>Nama Santri
+                  <input type="text" id="namaSantri" placeholder="Contoh: Ahmad Zaki" />
+                </label>
+                <label>NIS
+                  <input type="text" id="nisSantri" placeholder="Contoh: 552233" />
+                </label>
+              </div>
+              <div class="grid-2">
+                <label>Kelas / Halaqah
+                  <input type="text" id="kelasSantri" placeholder="Contoh: Kelas 3 – Halaqah Ust. Budi" />
+                </label>
+                <label>Tanggal
+                  <input type="date" id="tanggal" />
+                </label>
+              </div>
+              <label>Penguji
+                <input type="text" id="penguji" placeholder="Nama Ustadz/Ustadzah" />
+              </label>
+            </div>
+
+            <div class="section">
+              <h3>Aspek Penilaian</h3>
+              <div class="rubric-row">
+                <div class="rubric-name">Tajwid <span class="muted">(30%)</span></div>
+                <div class="rubric-score"><input type="range" id="rTajwid" min="0" max="100" step="1" value="80" /></div>
+                <div><output id="oTajwid">80</output></div>
+              </div>
+              <div class="rubric-row">
+                <div class="rubric-name">Makharijul Huruf <span class="muted">(25%)</span></div>
+                <div class="rubric-score"><input type="range" id="rMakharij" min="0" max="100" step="1" value="80" /></div>
+                <div><output id="oMakharij">80</output></div>
+              </div>
+              <div class="rubric-row">
+                <div class="rubric-name">Kelancaran <span class="muted">(25%)</span></div>
+                <div class="rubric-score"><input type="range" id="rLancar" min="0" max="100" step="1" value="80" /></div>
+                <div><output id="oLancar">80</output></div>
+              </div>
+              <div class="rubric-row">
+                <div class="rubric-name">Tartil/Irama <span class="muted">(15%)</span></div>
+                <div class="rubric-score"><input type="range" id="rTartil" min="0" max="100" step="1" value="80" /></div>
+                <div><output id="oTartil">80</output></div>
+              </div>
+              <div class="rubric-row">
+                <div class="rubric-name">Adab/Sikap <span class="muted">(5%)</span></div>
+                <div class="rubric-score"><input type="range" id="rAdab" min="0" max="100" step="1" value="80" /></div>
+                <div><output id="oAdab">80</output></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <h3>Catatan</h3>
+              <textarea id="catatan" placeholder="Catatan penguji… (lafaz perlu ditekan, mad iwad, idgham, dsb.)"></textarea>
+            </div>
+
+            <div class="section">
+              <div class="summary" id="summaryBox" aria-live="polite">
+                <div>
+                  <div class="muted">Nilai Akhir</div>
+                  <div class="big" id="nilaiAkhir">80.0</div>
+                </div>
+                <div>
+                  <div class="muted">Predikat</div>
+                  <div class="badge" id="predikat">B</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn primary" id="btnSimpan" type="button">Simpan</button>
+              <button class="btn" id="btnUnduhPdf" type="button">Unduh PDF (Coming Soon)</button>
+              <button class="btn ghost" id="btnReset" type="button">Reset</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- KANAN: HALAMAN AL-QUR'AN -->
+      <section class="panel" id="mushafPanel" aria-label="Halaman Mushaf">
+        <div class="mushaf-header">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px">Page
+            <select id="pageSelect"></select>
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px">Surah dari
+            <select id="surahFrom"></select>
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px">Ayat
+            <select id="ayahFrom"></select>
+          </label>
+          <span class="muted" aria-hidden="true">→</span>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px">ke Surah
+            <select id="surahTo"></select>
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px">Ayat
+            <select id="ayahTo"></select>
+          </label>
+          <span style="flex:1"></span>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px">Ukuran teks
+            <input type="range" id="fontScale" min="20" max="40" value="26" />
+          </label>
+        </div>
+        <div class="mushaf-area" id="mushafArea"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    /* =========================
+       UTIL
+       ========================= */
+    const $  = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+
+    // Predikat → huruf
+    function predikat(n){
+      if(n>=90) return 'A';
+      if(n>=85) return 'A-';
+      if(n>=80) return 'B+';
+      if(n>=75) return 'B';
+      if(n>=70) return 'B-';
+      if(n>=65) return 'C+';
+      if(n>=60) return 'C';
+      return 'D';
+    }
+
+    /* =========================
+       LOGIN (ASLI A57: hanya console.log, tidak buka dashboard)
+       ========================= */
+    const loginCard  = $('#login-card');
+    const dashCard   = $('#dashboard-card');
+    const loginForm  = $('#login-form');
+    const usernameEl = $('#username');
+    const passwordEl = $('#password');
+    const loginErr   = $('#login-error');
+
+    // toggle password 👁
+    $('#toggle-password')?.addEventListener('click', ()=>{
+      const type = passwordEl.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordEl.setAttribute('type', type);
+    });
+
+    // Handler login: benar-benar seperti A57 → hanya log, tidak menampilkan dashboard
+    loginForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const u = (usernameEl.value||'').trim();
+      const p = (passwordEl.value||'').trim();
+      console.log('Login:', u, p); // A57 original behavior
+      // Tidak ada aksi lain. Tetap di halaman login.
+    });
+
+    // Boot: selalu tampilkan login
+    (function boot(){
+      loginCard.style.display = 'grid';
+      dashCard.style.display  = 'none';
+    })();
+
+    /* =========================
+       DASHBOARD (Penilaian + Mushaf) – tersedia jika nanti ingin diaktifkan
+       ========================= */
+    const BOBOT = { tajwid: 0.30, makharij: 0.25, lancar: 0.25, tartil: 0.15, adab: 0.05 };
+    const cmpPair = (p, q) => (p.surah - q.surah) || (p.ayat - q.ayat);
+    const debounce = (fn, wait=60) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; };
+
+    function bindRange(idRange, idOut){
+      const el = $("#"+idRange); const out = $("#"+idOut);
+      if(!el||!out) return;
+      const fn = ()=>{ out.value = Number(el.value).toFixed(0); hitungNilaiAkhir(); };
+      el.addEventListener('input', fn); fn();
+    }
+    function initRanges(){
+      bindRange('rTajwid','oTajwid'); bindRange('rMakharij','oMakharij');
+      bindRange('rLancar','oLancar'); bindRange('rTartil','oTartil'); bindRange('rAdab','oAdab');
+    }
+    function hitungNilaiAkhir(){
+      const v = {
+        tajwid: +$('#rTajwid').value || 0,  makharij: +$('#rMakharij').value || 0,
+        lancar: +$('#rLancar').value || 0,  tartil:   +$('#rTartil').value   || 0,
+        adab:   +$('#rAdab').value   || 0,
+      };
+      const total = v.tajwid*BOBOT.tajwid + v.makharij*BOBOT.makharij + v.lancar*BOBOT.lancar + v.tartil*BOBOT.tartil + v.adab*BOBOT.adab;
+      $('#nilaiAkhir').textContent = total.toFixed(1);
+      $('#predikat').textContent = predikat(total);
+      const ok = total >= 85;
+      $('#summaryBox').style.borderColor = ok ? 'var(--ok)' : 'var(--warn)';
+      $('#summaryBox').style.background  = ok ? 'var(--okBg)' : 'var(--warnBg)';
+    }
+
+    // Mushaf
+    const fontSlider = document.getElementById('fontScale');
+    const mushafArea = document.getElementById('mushafArea');
+
+    const SURAH_NAMES = [
+      "Al-Fatihah","Al-Baqarah","Ali 'Imran","An-Nisa'","Al-Ma'idah","Al-An'am","Al-A'raf","Al-Anfal","At-Taubah","Yunus",
+      "Hud","Yusuf","Ar-Ra'd","Ibrahim","Al-Hijr","An-Nahl","Al-Isra'","Al-Kahf","Maryam","Ta Ha",
+      "Al-Anbiya'","Al-Hajj","Al-Mu'minun","An-Nur","Al-Furqan","Ash-Shu'ara'","An-Naml","Al-Qasas","Al-'Ankabut","Ar-Rum",
+      "Luqman","As-Sajdah","Al-Ahzab","Saba'","Fatir","Ya-Sin","As-Saffat","Sad","Az-Zumar","Ghafir",
+      "Fussilat","Ash-Shura","Az-Zukhruf","Ad-Dukhan","Al-Jathiyah","Al-Ahqaf","Muhammad","Al-Fath","Al-Hujurat","Qaf",
+      "Adz-Dzariyat","At-Tur","An-Najm","Al-Qamar","Ar-Rahman","Al-Waqi'ah","Al-Hadid","Al-Mujadilah","Al-Hashr","Al-Mumtahanah",
+      "As-Saff","Al-Jumu'ah","Al-Munafiqun","At-Taghabun","At-Talaq","At-Tahrim","Al-Mulk","Al-Qalam","Al-Haqqah","Al-Ma'arij",
+      "Nuh","Al-Jinn","Al-Muzzammil","Al-Muddaththir","Al-Qiyamah","Al-Insan","Al-Mursalat","An-Naba'","An-Nazi'at","'Abasa",
+      "At-Takwir","Al-Infitar","Al-Mutaffifin","Al-Inshiqaq","Al-Buruj","At-Tariq","Al-A'la","Al-Ghashiyah","Al-Fajr","Al-Balad",
+      "Ash-Shams","Al-Layl","Ad-Duha","Al-Sharh","At-Tin","Al-'Alaq","Al-Qadr","Al-Bayyinah","Az-Zalzalah","Al-'Adiyat",
+      "Al-Qari'ah","At-Takathur","Al-'Asr","Al-Humazah","Al-Fil","Quraysh","Al-Ma'un","Al-Kawthar","Al-Kafirun","An-Nasr",
+      "Al-Masad","Al-Ikhlas","Al-Falaq","An-Nas"
+    ];
+
+    const SOURCES = {
+      quran:   'https://raw.githubusercontent.com/dickymiswardi/mtq/main/symbol1.json',
+      pageMap: 'https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json'
+    };
+
+    let quranData = {};
+    let ayahPageMap = {};
+    const surahMaxAyah = {};
+    const fontLoadedPages = new Set();
+    const pageIndex = {};
+    let lastRenderedRange = null;
+
+    function makeOpts(n){ return Array.from({length:n}, (_,i)=>`<option value="${i+1}">${i+1}</option>`).join(''); }
+    function fillSurahSelect(sel){
+      const el=$(sel);
+      el.innerHTML = Array.from({length:114}, (_,i)=>{
+        const no = i+1; const name = SURAH_NAMES[i] || `Surah ${no}`;
+        return `<option value="${no}">${no} — ${name}</option>`;
+      }).join('');
+    }
+    function fillAyahSelect(sel, max){
+      const el=$(sel); const safe = Math.max(1, Number(max||1));
+      el.innerHTML = makeOpts(safe);
+    }
+    function fillPageSelect(){ $('#pageSelect').innerHTML = makeOpts(604); }
+
+    function computeSurahMax(){
+      for (const key of Object.keys(ayahPageMap||{})){
+        const [s,a] = key.split(':').map(Number);
+        if(!s || !a) continue;
+        if(!surahMaxAyah[s] || a>surahMaxAyah[s]) surahMaxAyah[s]=a;
+      }
+      for(let s=1;s<=114;s++){ if(!surahMaxAyah[s]) surahMaxAyah[s]= (s===1?7: (s===9?129:286)); }
+    }
+    function buildPageIndex(){
+      for(const [key, page] of Object.entries(ayahPageMap)){
+        const [s,a] = key.split(':').map(Number);
+        if(!s || !a || !page) continue;
+        (pageIndex[page] ||= []).push({surah:s, ayat:a});
+      }
+      for(const p of Object.keys(pageIndex)){ pageIndex[p].sort(cmpPair); }
+    }
+
+    async function loadQuran(){
+      try{
+        const [q, p] = await Promise.all([
+          fetch(SOURCES.quran).then(r=>r.json()),
+          fetch(SOURCES.pageMap).then(r=>r.json())
+        ]);
+        quranData = q; ayahPageMap = p;
+        computeSurahMax(); buildPageIndex();
+
+        fillPageSelect();
+        fillSurahSelect('#surahFrom'); fillSurahSelect('#surahTo');
+        fillAyahSelect('#ayahFrom', surahMaxAyah[1]||7);
+        fillAyahSelect('#ayahTo',   surahMaxAyah[1]||7);
+
+        $('#pageSelect').value = '1';
+        applyPageSelection(1);
+      }catch(err){
+        const mushafArea = document.getElementById('mushafArea');
+        mushafArea.innerHTML = `<div class="muted">Gagal memuat data Qur'an. Periksa koneksi atau sumber data.</div>`;
+        console.error(err);
+      }
+    }
+
+    async function ensurePageFont(page){
+      if(fontLoadedPages.has(page)) return;
+      const pageStr = String(page).padStart(3,'0');
+      const fontUrl = `https://raw.githubusercontent.com/dickymiswardi/quran/main/fonts/QCF_P${pageStr}.TTF`;
+      try{
+        const font = new FontFace(`QCF_P${pageStr}`, `url(${fontUrl})`);
+        await font.load(); document.fonts.add(font); fontLoadedPages.add(page);
+      }catch(err){ console.warn('Gagal load font page', page, err); }
+    }
+
+    const doRenderMushafRange = async ()=>{
+      const sF = +$('#surahFrom').value || 1;
+      const aF = +$('#ayahFrom').value || 1;
+      const sT = +$('#surahTo').value   || sF;
+      const aT = +$('#ayahTo').value    || aF;
+      const keyRange = `${sF}:${aF}-${sT}:${aT}`;
+      if (lastRenderedRange === keyRange) return;
+      lastRenderedRange = keyRange;
+
+      const halamanMap = {};
+      for(let s=sF; s<=sT; s++){
+        const aStart = (s===sF) ? aF : 1;
+        const aEnd   = (s===sT) ? aT : (surahMaxAyah[s]||300);
+        for(let a=aStart; a<=aEnd; a++){
+          const key = `${s}:${a}`;
+          const teks = quranData[key];
+          const page = ayahPageMap[key];
+          if(!teks || !page) continue;
+          (halamanMap[page] ||= []).push({surah:s, ayat:a, teks:String(teks).replace(/\|/g,' ')});
+        }
+      }
+
+      const mushafArea = document.getElementById('mushafArea');
+      mushafArea.innerHTML = '';
+      const pages = Object.keys(halamanMap).map(Number).sort((x,y)=>x-y);
+      for(const page of pages){
+        await ensurePageFont(page);
+        const pageStr = String(page).padStart(3,'0');
+        const pageDiv = document.createElement('div');
+        pageDiv.style.fontFamily = `QCF_P${pageStr}, serif`;
+        pageDiv.style.fontSize   = (parseInt(document.getElementById('fontScale')?.value||'26',10))+'px';
+        pageDiv.style.lineHeight = '2.2';
+        pageDiv.style.direction  = 'rtl';
+        pageDiv.style.marginBottom = '20px';
+
+        halamanMap[page].forEach(item=>{
+          const span = document.createElement('span');
+          span.className = 'ayah';
+          span.dataset.surah = String(item.surah);
+          span.dataset.ayah  = String(item.ayat);
+          span.textContent = item.teks;
+          if (item.surah===sF && item.ayat===aF) span.classList.add('hl');
+          if (item.surah===sT && item.ayat===aT) span.classList.add('hl2');
+          pageDiv.appendChild(span);
+          pageDiv.appendChild(document.createTextNode(' '));
+        });
+        mushafArea.appendChild(pageDiv);
+      }
+      if(pages.length === 1){ document.getElementById('pageSelect').value = String(pages[0]); }
+      if(!pages.length){ mushafArea.innerHTML = `<div class="muted">Tidak ada ayat pada rentang yang dipilih.</div>`; }
+    };
+    const renderMushafRange = debounce(doRenderMushafRange, 60);
+
+    function setRange(sFrom, aFrom, sTo, aTo){
+      document.getElementById('surahFrom').value = String(sFrom);
+      fillAyahSelect('#ayahFrom', surahMaxAyah[sFrom] || aFrom);
+      document.getElementById('ayahFrom').value = String(aFrom);
+
+      document.getElementById('surahTo').value = String(sTo);
+      fillAyahSelect('#ayahTo', surahMaxAyah[sTo] || aTo);
+      document.getElementById('ayahTo').value = String(aTo);
+    }
+    function applyPageSelection(page){
+      const arr = pageIndex[page] || [];
+      const mushafArea = document.getElementById('mushafArea');
+      if(!arr.length){
+        mushafArea.innerHTML = `<div class="muted">Halaman ${page} tidak memiliki data.</div>`;
+        return;
+      }
+      const first = arr[0];
+      const last  = arr[arr.length - 1];
+      setRange(first.surah, first.ayat, last.surah, last.ayat);
+      renderMushafRange();
+    }
+    function guardRange(){
+      const sF=+document.getElementById('surahFrom').value, aF=+document.getElementById('ayahFrom').value;
+      let sT=+document.getElementById('surahTo').value,   aT=+document.getElementById('ayahTo').value;
+      if(sT<sF || (sT===sF && aT<aF)){
+        document.getElementById('surahTo').value=String(sF);
+        fillAyahSelect('#ayahTo', surahMaxAyah[sF]||aF);
+        document.getElementById('ayahTo').value=String(aF);
+      }
+    }
+    function onChangeSurah(which){
+      const s = +(which==='from' ? document.getElementById('surahFrom').value : document.getElementById('surahTo').value) || 1;
+      const max = surahMaxAyah[s] || 300;
+      fillAyahSelect(which==='from' ? '#ayahFrom' : '#ayahTo', max);
+      if(which==='to') document.getElementById('ayahTo').value = String(max);
+      guardRange(); renderMushafRange();
+    }
+    function initFontScale(){
+      const saved = localStorage.getItem('fontScale');
+      if (saved) document.getElementById('fontScale').value = String(Math.min(40, Math.max(20, +saved||26)));
+      document.getElementById('mushafArea').style.fontSize = document.getElementById('fontScale').value+'px';
+    }
+
+    // Bind UI (kalau nanti dashboard mau dipakai, panggil bootDashboard() manual)
+    document.addEventListener('DOMContentLoaded', ()=>{
+      document.getElementById('fontScale')?.addEventListener('input', ()=>{
+        localStorage.setItem('fontScale', String(document.getElementById('fontScale').value));
+        renderMushafRange();
+      });
+      document.getElementById('surahFrom')?.addEventListener('change', ()=>onChangeSurah('from'));
+      document.getElementById('surahTo')?.addEventListener('change', ()=>onChangeSurah('to'));
+      document.getElementById('ayahFrom')?.addEventListener('change', ()=>{ guardRange(); renderMushafRange(); });
+      document.getElementById('ayahTo')?.addEventListener('change', ()=>{ guardRange(); renderMushafRange(); });
+      document.getElementById('pageSelect')?.addEventListener('change', ()=> applyPageSelection(+document.getElementById('pageSelect').value||1) );
+
+      // Reset
+      document.getElementById('btnReset')?.addEventListener('click', ()=>{
+        document.getElementById('penilaianForm')?.reset?.();
+        ['rTajwid','rMakharij','rLancar','rTartil','rAdab'].forEach(id=>{
+          const el=document.getElementById(id); if(el){ el.value=80; el.dispatchEvent(new Event('input')); }
+        });
+        document.getElementById('catatan').value='';
+        document.getElementById('pageSelect').value='1';
+        applyPageSelection(1);
+      });
+
+      // Simpan (dummy)
+      document.getElementById('btnSimpan')?.addEventListener('click', ()=>{
+        const d = {
+          identitas: {
+            nama: document.getElementById('namaSantri').value.trim(),
+            nis: document.getElementById('nisSantri').value.trim(),
+            kelas: document.getElementById('kelasSantri').value.trim(),
+            tanggal: document.getElementById('tanggal').value,
+            penguji: document.getElementById('penguji').value.trim(),
+          },
+          bacaan: {
+            page: +(document.getElementById('pageSelect')?.value||'') || null,
+            surahDari: +(document.getElementById('surahFrom')?.value||'') || 1,
+            ayatDari: +(document.getElementById('ayahFrom')?.value||'') || 1,
+            surahSampai: +(document.getElementById('surahTo')?.value||'') || (+(document.getElementById('surahFrom')?.value||'') || 1),
+            ayatSampai: +(document.getElementById('ayahTo')?.value||'') || (+(document.getElementById('ayahFrom')?.value||'') || 1),
+          },
+          nilai: {
+            tajwid: +(document.getElementById('rTajwid')?.value||'') || 0,
+            makharij: +(document.getElementById('rMakharij')?.value||'') || 0,
+            lancar: +(document.getElementById('rLancar')?.value||'') || 0,
+            tartil: +(document.getElementById('rTartil')?.value||'') || 0,
+            adab: +(document.getElementById('rAdab')?.value||'') || 0,
+            akhir: +(document.getElementById('nilaiAkhir')?.textContent||'') || 0,
+            predikat: document.getElementById('predikat')?.textContent || '',
+          },
+          catatan: document.getElementById('catatan')?.value.trim() || '',
+          dibuat: new Date().toISOString(),
+        };
+        console.log('[SIMPAN DUMMY] Data penilaian:', d);
+        const btn = document.getElementById('btnSimpan');
+        const old = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Tersimpan (dummy)…';
+        setTimeout(()=>{ btn.disabled=false; btn.textContent=old; }, 900);
+      });
+
+      // Placeholder PDF
+      document.getElementById('btnUnduhPdf')?.addEventListener('click', ()=> alert('Export PDF masih placeholder. Nanti bisa pakai jsPDF atau html2canvas.') );
+    });
+
+    // (Opsional) Kalau suatu saat ingin mengaktifkan dashboard secara manual:
+    // function bootDashboard(){ loadQuran(); initRanges(); initFontScale(); hitungNilaiAkhir(); }
+  </script>
+</body>
+</html>
