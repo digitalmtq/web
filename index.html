@@ -1763,7 +1763,7 @@ function ambilDariStorage() {
   markData = saved ? JSON.parse(saved) : {};
 }
 
-/* ========= HITUNG NILAI (REVISI: tampil A+, simpan AA) ========= */
+/* ========= HITUNG NILAI (tampil A+, simpan P) ========= */
 function hitungNilai() {
   let totalMinus = 0, hijau = 0, kuning = 0, merah = 0, adaMark = false;
 
@@ -1780,47 +1780,40 @@ function hitungNilai() {
 
   const nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
 
-  // Range huruf: D, C, B, A, AA(=A+ tampil)
+  // Range huruf simpan: D, C, B, A, P (P = A+ tampilan)
   const predikatMap = [
     { max: 59,  text: "ROSIB",          hurufStore: "D"  },
     { max: 69,  text: "MAQBUL",         hurufStore: "C"  },
     { max: 79,  text: "JAYYID",         hurufStore: "B"  },
     { max: 89,  text: "JAYYID JIDDAN",  hurufStore: "A"  },
-    { max: 100, text: "MUMTAZ",         hurufStore: "AA" } // disimpan "AA", tampil "A+"
+    { max: 100, text: "MUMTAZ",         hurufStore: "P" } // simpan "P", tampil "A+"
   ];
 
   let predikat = "-";
-  // tambahan: siapkan default supaya properti return tetap ada meski belum ada mark
   let hurufStore = "-";
   let hurufTampil = "-";
   let predikatText = "-";
 
   if (adaMark) {
     const p = predikatMap.find(p => nilai <= p.max);
-    const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+    const warna = { P: "green", A: "blue", B: "gold", C: "orange", D: "red" };
 
-    hurufStore   = p.hurufStore;                    // AA/A/B/C/D untuk simpan
-    hurufTampil  = (hurufStore === "AA") ? "A+" : hurufStore; // A+ utk UI
+    hurufStore   = p.hurufStore;                     // P/A/B/C/D untuk simpan
+    hurufTampil  = (hurufStore === "P") ? "A+" : hurufStore; // A+ utk UI
     predikatText = p.text;
 
     predikat = `${p.text} <span style="background-color:${warna[hurufStore]};color:white;padding:0 4px;border-radius:3px;">${hurufTampil}</span>`;
   }
 
-  const nilaiEl = document.getElementById("nilai-akhir");
-  const predikatEl = document.getElementById("predikat-akhir");
-  if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
-  if (predikatEl) predikatEl.innerHTML = predikat;
+  document.getElementById("nilai-akhir")?.innerText = nilai.toFixed(1);
+  document.getElementById("predikat-akhir")?.innerHTML = predikat;
+  document.getElementById("modal-mark-warna")?.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
 
-  const warnaDiv = document.getElementById("modal-mark-warna");
-  if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
-
-  // ⬇️ return lama tetap (predikat), plus properti tambahan untuk blok berikutnya
   return { nilai, predikat, hijau, kuning, merah, hurufStore, hurufTampil, predikatText };
 }
 
 
-
-/* ========= TOMBOL NILAI MANUAL (REVISI: tampil A+, simpan AA) ========= */
+/* ========= TOMBOL NILAI MANUAL (tampil A+, simpan P) ========= */
 const _btnNilaiManual = document.getElementById("btn-beri-nilai");
 if (_btnNilaiManual) _btnNilaiManual.onclick = function () {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
@@ -1828,18 +1821,18 @@ if (_btnNilaiManual) _btnNilaiManual.onclick = function () {
   const v = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
 
-  // Pemetaan: <=59:D, <=69:C, <=79:B, <=89:A, >89:AA
+  // Pemetaan: <=59:D, <=69:C, <=79:B, <=89:A, >89:P
   let hurufStore = "D";
   let predikatText = "ROSIB";
   if (v <= 59) { hurufStore = "D"; predikatText = "ROSIB"; }
   else if (v <= 69) { hurufStore = "C"; predikatText = "MAQBUL"; }
   else if (v <= 79) { hurufStore = "B"; predikatText = "JAYYID"; }
   else if (v <= 89) { hurufStore = "A"; predikatText = "JAYYID JIDDAN"; }
-  else { hurufStore = "AA"; predikatText = "MUMTAZ"; } // disimpan AA, tampil A+
+  else { hurufStore = "P"; predikatText = "MUMTAZ"; } // simpan P, tampil A+
 
-  const hurufView = (hurufStore === "AA") ? "A+" : hurufStore;
+  const hurufView = (hurufStore === "P") ? "A+" : hurufStore;
 
-  const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+  const warna = { P: "green", A: "blue", B: "gold", C: "orange", D: "red" };
   const badge = `<span style="background-color:${warna[hurufStore]}; color:white; padding:0 4px; border-radius:3px;">${hurufView}</span>`;
 
   // Reset mark seperti logika asli
@@ -1850,22 +1843,19 @@ if (_btnNilaiManual) _btnNilaiManual.onclick = function () {
   document.getElementById("predikat-akhir").innerHTML = `${predikatText} ${badge}`;
   document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
 
-  // Kirim ke tabel/penyimpanan (dibungkus guard encoder jika tersedia)
+  // Kirim ke tabel/penyimpanan
   if (typeof updateNilaiDiTabel === 'function') {
     const payload = {
       nilai: v,
       predikat: `${predikatText} (${hurufStore})`, // kompatibel kode lama
       predikatText,
-      predikatHurufStored: hurufStore, // AA/A/B/C/D → aman di JSON
+      predikatHurufStored: hurufStore, // P/A/B/C/D → aman di JSON
       predikatHurufView: hurufView     // A+/A/B/C/D → untuk UI
     };
-    // 🔒 Pastikan A+ tidak berubah jadi "A" saat simpan:
-    const safePayload = (typeof _preparePayloadForSave === 'function')
-      ? _preparePayloadForSave(payload)
-      : payload;
-    updateNilaiDiTabel(safePayload);
+    updateNilaiDiTabel(payload);
   }
 };
+
 
 
 
@@ -5975,18 +5965,17 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 
 
 <script>
-// 1) Fungsi badge huruf (menerima kode simpan AA/A/B/C/D atau huruf tampilan)
+// 1) Badge huruf (menerima P/A/B/C/D atau huruf tampilan "A+")
 function bgHuruf(hurufStoredOrView, predikatText = "") {
   const raw = String(hurufStoredOrView ?? "").trim().toUpperCase();
-  // anggap "A+" dan "AA" sama utk tampilan; simpanan tetap "AA"
-  const isAA = (raw === "AA" || raw === "A+");
-  const hurufView  = isAA ? "A+" : raw;     // teks yang tampil
-  const hurufStore = isAA ? "AA" : raw;     // kode simpan utk data-grade
+  // anggap "P", "AA", dan "A+" semuanya A+ utk tampilan; simpanan kita pakai "P"
+  const isAPlus = (raw === "P" || raw === "AA" || raw === "A+");
+  const hurufView  = isAPlus ? "A+" : raw; // teks terlihat
+  const hurufStore = isAPlus ? "P"  : raw; // kode simpan konsisten "P"
 
-  const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+  const warna = { P:"green", A:"blue", B:"gold", C:"orange", D:"red" };
   const color = warna[hurufStore] || "gray";
 
-  // predikatText opsional
   const text = predikatText ? predikatText + " " : "";
   return `${text}<span class="badge-grade" data-grade="${hurufStore}" style="background-color:${color}; color:white; padding:0 4px; border-radius:3px;">${hurufView}</span>`;
 }
@@ -5994,7 +5983,7 @@ function bgHuruf(hurufStoredOrView, predikatText = "") {
 // 2) Data dari server / dataSantri
 let dataSantri = []; // nanti diisi fetch atau data.push
 
-// 3) Render tabel (tahan banting jika field kosong)
+// 3) Render tabel
 function renderTabelPredikat() {
   if (!Array.isArray(dataSantri)) return;
   dataSantri.forEach(data => {
@@ -6003,12 +5992,12 @@ function renderTabelPredikat() {
 
     const nilai = Number(data?.buttonCell?.nilai ?? data?.nilai ?? 0);
 
-    // Prioritas: kode simpan (AA/A/B/C/D). Fallback ke huruf tampilan (A+/A/...) lalu default "D".
+    // Prioritas: kode simpan (P/A/B/C/D). Fallback: huruf tampilan atau default "D".
     const hurufStoredOrView =
       data?.buttonCell?.predikatHurufStored ??
-      data?.buttonCell?.predikatHuruf ??        // nama lama (jika masih ada)
+      data?.buttonCell?.predikatHuruf ??     // nama lama jika masih ada
       data?.predikatHurufStored ??
-      data?.predikatHurufView ??                // UI-only
+      data?.predikatHurufView ??             // UI-only
       "D";
 
     const predikatText = data?.buttonCell?.predikatText ?? data?.predikatText ?? "";
@@ -6018,6 +6007,7 @@ function renderTabelPredikat() {
   });
 }
 </script>
+
 
 
 <script>
