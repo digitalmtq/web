@@ -1278,23 +1278,31 @@ async function buatUserNIS() {
   <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
     <h3>Download Rekap Nilai</h3>
     
-    <!-- Kontrol Rekap -->
+    <!-- Kontrol Rekap: 3 baris x 2 kolom -->
     <div class="pdf-rekap-controls">
-      <label for="pdf-start-date">
-        <span>Mulai</span>
+      <!-- Row 1, Col 1: Mulai -->
+      <div class="date-item">
+        <label for="pdf-start-date">Mulai</label>
         <input type="date" id="pdf-start-date" />
-      </label>
+      </div>
 
-      <label for="pdf-end-date">
-        <span>s/d</span>
+      <!-- Row 1, Col 2: s/d -->
+      <div class="date-item">
+        <label for="pdf-end-date">s/d</label>
         <input type="date" id="pdf-end-date" />
-      </label>
+      </div>
 
-      <!-- Tombol unduh -->
+      <!-- Row 2, Col 1: PDF Halaqoh -->
       <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
+
+      <!-- Row 2, Col 2: Excel Halaqoh -->
       <button id="download-xls-rekap" class="rekap-btn">Excel Halaqoh</button>
+
+      <!-- Row 3, Col 1: PDF Individual -->
       <button id="download-pdf-santri" class="rekap-btn">PDF Individual</button>
-	  <button id="download-pdf-allkelas" class="rekap-btn">PDF All Halaqoh</button>
+
+      <!-- Row 3, Col 2: PDF All Halaqoh -->
+      <button id="download-pdf-allkelas" class="rekap-btn">PDF All Halaqoh</button>
     </div>
 
     <!-- Tombol tutup -->
@@ -1303,6 +1311,32 @@ async function buatUserNIS() {
     </div>
   </div>
 </div>
+
+<!-- CSS khusus modal ini saja -->
+<style>
+  /* Grid 2 kolom untuk 6 item (3 baris) */
+  #pdfModalOverlay .pdf-rekap-controls{
+    display:grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap:.6rem .8rem;              /* row-gap, column-gap */
+    align-items:center;
+    margin-top:.5rem;
+  }
+
+  /* Label nempel ke input & kompak */
+  #pdfModalOverlay .date-item{
+    display:inline-flex; align-items:center; gap:.2rem; white-space:nowrap;
+  }
+  #pdfModalOverlay .date-item input[type="date"]{
+    width:12ch; min-width:10ch;
+  }
+
+  /* Tombol melebar mengikuti kolom agar sejajar rapi */
+  #pdfModalOverlay .rekap-btn{
+    width:100%;
+  }
+</style>
+
 
 <!-- Modal Kedua: Pilih Santri (muncul saat klik "PDF per Santri") -->
 <div id="santriModalOverlay" style="
