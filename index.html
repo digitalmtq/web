@@ -1778,16 +1778,16 @@ function hitungNilai() {
   }
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
   const predikatMap = [
-    { max: 59, text: "ROSIB", huruf: "D" },
-    { max: 69, text: "MAQBUL", huruf: "C" },
-    { max: 79, text: "JAYYID", huruf: "B" },
-    { max: 89, text: "JAYYID JIDDAN", huruf: "A" },
-    { max: 100, text: "MUMTAZ", huruf: "AA" }
+    { max: 59, text: "ROSIB", huruf: "E" },
+    { max: 69, text: "MAQBUL", huruf: "D" },
+    { max: 79, text: "JAYYID", huruf: "C" },
+    { max: 89, text: "JAYYID JIDDAN", huruf: "B" },
+    { max: 100, text: "MUMTAZ", huruf: "A" }
   ];
   let predikat = "-";
   if (adaMark) {
     const p = predikatMap.find(p => nilai <= p.max);
-    const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+    const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
     predikat = `${p.text} <span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
   }
   const nilaiEl = document.getElementById("nilai-akhir");
@@ -1960,11 +1960,11 @@ document.getElementById("btn-beri-nilai").onclick = function() {
   const v = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
   let pred = "-";
-  if (v <= 59) pred = "ROSIB (D)";
-  else if (v <= 69) pred = "MAQBUL (C)";
-  else if (v <= 79) pred = "JAYYID (B)";
-  else if (v <= 89) pred = "JAYYID JIDDAN (A)";
-  else pred = "MUMTAZ (AA)";
+  if (v <= 59) pred = "ROSIB (E)";
+  else if (v <= 69) pred = "MAQBUL (D)";
+  else if (v <= 79) pred = "JAYYID (C)";
+  else if (v <= 89) pred = "JAYYID JIDDAN (B)";
+  else pred = "MUMTAZ (A)";
   markData = {}; // kosongkan mark
   document.getElementById("nilai-akhir").innerText = v.toFixed(1);
   document.getElementById("predikat-akhir").innerText = pred;
@@ -5925,7 +5925,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 <script>
 // 1. Fungsi untuk memberi warna hanya huruf predikat
 function bgHuruf(huruf, predikatText = "") {
-  const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+  const warna = { A: "green", B: "blue", C: "gold", D: "orange", E: "red" };
   // huruf diberi background, predikatText normal
   return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
 }
