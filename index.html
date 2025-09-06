@@ -2463,6 +2463,72 @@ async function loadSantriData() {
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
+  // ===== NEW: LocalStorage cache setoran terakhir per kelas =====
+  const LAST_SA_NS = "mtq:lastSA:v1";
+  const _lsKey = (kls) => `${LAST_SA_NS}:${String(kls||'').trim()}`;
+
+  function readLastSAMap(kls){
+    try{
+      const raw = localStorage.getItem(_lsKey(kls));
+      if (!raw) return { updatedAt:null, items:{} };
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !parsed.items) return { updatedAt:null, items:{} };
+      return { updatedAt: parsed.updatedAt || null, items: parsed.items || {} };
+    }catch{ return { updatedAt:null, items:{} }; }
+  }
+  function writeLastSAMap(kls, data){
+    try{
+      localStorage.setItem(_lsKey(kls), JSON.stringify({
+        updatedAt: new Date().toISOString(),
+        items: data?.items || {}
+      }));
+    }catch(e){ /* jika storage penuh, abaikan */ }
+  }
+  function setLastSAInStorage(kls, key, tgl, s, a){
+    if (!key || !tgl || !s || !a) return;
+    const data = readLastSAMap(kls);
+    const cur  = data.items[key];
+    const isNewer =
+      (!cur) ||
+      (String(tgl) > String(cur.tgl)) ||
+      (String(tgl) === String(cur.tgl) && (
+        Number(s) > Number(cur.s) || (Number(s) === Number(cur.s) && Number(a) > Number(cur.a))
+      ));
+    if (isNewer){
+      data.items[key] = { tgl:String(tgl).slice(0,10), s:Number(s), a:Number(a) };
+      writeLastSAMap(kls, data);
+    }
+  }
+  function getLastSAFromStorage(kls, key, dateISO){
+    if (!key) return null;
+    const { items } = readLastSAMap(kls);
+    const rec = items[key];
+    if (!rec) return null;
+    // jangan pakai cache yang "melewati" tanggal baris
+    if (!rec.tgl || String(rec.tgl) > String(dateISO)) return null;
+    return { tgl: rec.tgl, s: Number(rec.s)||1, a: Number(rec.a)||1 };
+  }
+  function mergeAbsensiIntoStorage(kls, absensiList){
+    for (const r of (absensiList||[])){
+      const tgl = r?.tanggal ? String(r.tanggal).slice(0,10) : null;
+      const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
+      const smp = r?.sampai || r?.sampaiSetoran;
+      const m   = /^\s*(\d+)\s*:\s*(\d+)\s*$/.exec(String(smp||""));
+      if (!tgl || !key || !m) continue;
+      setLastSAInStorage(kls, key, tgl, Number(m[1]), Number(m[2]));
+    }
+  }
+  function nextAfterSA(s, a){
+    const cur = (window.surahList||[]).find(x => Number(x.id) === Number(s));
+    if (!cur) return { s:Number(s)||1, a:Number(a)||1 };
+    const maxAyat = Number(cur.jumlah_ayat)||1;
+    if (Number(a) < maxAyat) return { s:Number(s), a:Number(a)+1 };
+    const nextId = Number(s)+1;
+    const nextSurah = (window.surahList||[]).find(x => Number(x.id) === nextId);
+    return nextSurah ? { s:nextId, a:1 } : { s:Number(s), a:maxAyat }; // jika sudah An-Nas, tetap di ayat terakhir
+  }
+  // ===== END NEW (LS cache) =====
+
   // ===== NEW: Konfigurasi & util jenjang (future-proof) =====
   const JENJANG_MAX = Number(window.JENJANG_MAX ?? 34); // ubah ke 100 / 300 / 1000 sesuai kebutuhan
 
@@ -2517,85 +2583,6 @@ async function loadSantriData() {
   window.semesterMap   ??= {}; // key = NIS (prioritas) atau ID → "1".."6"
   window.jenjangMap    ??= {}; // key -> "A1".."A8" atau ""
   window.keteranganMap ??= {}; // key -> "" | "SP1".."SP4"
-
-  // ===== NEW: util SA & histori =====
-  const SA_RE = /^\s*(\d+)\s*:\s*(\d+)\s*$/;
-  const parseSA = (v) => {
-    const m = SA_RE.exec(String(v ?? ""));
-    if (!m) return null;
-    return { s: +m[1], a: +m[2] };
-  };
-  const cmpSA = (A, B) => { // bandingkan "seberapa akhir" SA
-    if (!A && !B) return 0;
-    if (!A) return -1;
-    if (!B) return 1;
-    if (A.s !== B.s) return A.s - B.s;
-    return A.a - B.a;
-  };
-  const nextAfter = (s, a) => { // ayat berikutnya, lompat surah jika habis
-    const cur = surahList.find(x => Number(x.id) === Number(s));
-    if (!cur) return { s: Number(s) || 1, a: Number(a) || 1 };
-    const maxAyat = Number(cur.jumlah_ayat) || 1;
-    if (Number(a) < maxAyat) return { s: Number(s), a: Number(a) + 1 };
-    const nextId = Number(s) + 1;
-    const nextSurah = surahList.find(x => Number(x.id) === nextId);
-    return { s: nextSurah ? nextId : Number(s), a: nextSurah ? 1 : Number(a) }; // jika 114 habis, tetap di 114:last+1 (fallback)
-  };
-
-  // Bangun histori per key: array entri {tgl, dariSA, sampaiSA}, sudah di-sort naik
-  const buildHistoryMaps = (arr) => {
-    const byNis  = new Map();
-    const byId   = new Map();
-    const byName = new Map();
-    const push = (map, key, it) => {
-      if (!key) return;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(it);
-    };
-    for (const r of (arr || [])) {
-      const tgl = r?.tanggal ? String(r.tanggal).slice(0,10) : null;
-      const dari = parseSA(r?.dari ?? r?.dariSetoran);
-      const smp  = parseSA(r?.sampai ?? r?.sampaiSetoran);
-      if (!tgl || !smp) continue; // minimal butuh 'sampai' + tanggal
-      const it = { tgl, dariSA: dari, sampaiSA: smp };
-      const id  = (r?.id  ?? "").toString().trim();
-      const nis = (r?.nis ?? "").toString().trim();
-      const nm  = (r?.nama ?? "").toString().trim().toLowerCase();
-      if (nis) push(byNis, nis, it);
-      if (id)  push(byId,  id,  it);
-      if (nm)  push(byName, nm,  it);
-    }
-    const sorter = (a, b) => a.tgl.localeCompare(b.tgl) || cmpSA(a.sampaiSA, b.sampaiSA);
-    for (const m of [byNis, byId, byName]) {
-      for (const [k, list] of m.entries()) list.sort(sorter);
-    }
-    return { byNis, byId, byName };
-  };
-
-  // Ambil last sebelum/hingga tanggal tertentu
-  const findLastBefore = (maps, keys, dateISO) => {
-    const { byNis, byId, byName } = maps || {};
-    const [nis, id, nameKey] = keys;
-    const pick = (list) => {
-      if (!list || !list.length) return null;
-      // cari last dengan tgl <= dateISO; jika ada beberapa di tgl sama, pilih 'sampai' terbesar
-      let best = null;
-      for (const it of list) {
-        if (it.tgl > dateISO) break;
-        if (!best || it.tgl > best.tgl || (it.tgl === best.tgl && cmpSA(best.sampaiSA, it.sampaiSA) < 0)) {
-          best = it;
-        }
-      }
-      return best;
-    };
-    return (
-      pick(nis && byNis?.get(nis)) ||
-      pick(id  && byId?.get(id))   ||
-      pick(nameKey && byName?.get(nameKey)) ||
-      null
-    );
-  };
-  // ===== END NEW util SA & histori =====
 
   // Helpers kecil
   const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
@@ -2690,9 +2677,8 @@ async function loadSantriData() {
     // Ambil absensi (single / range)
     let absensiRaw = [];
     const endFilter = tanggalFilterAkhir ? tanggalFilterAkhir.value : "";
-    const isRange = !!(endFilter && endFilter !== tanggal);
 
-    if (isRange) {
+    if (endFilter && endFilter !== tanggal) {
       const resAbsensiRange = await fetch(
         `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(endFilter)}&t=${Date.now()}`
       );
@@ -2735,35 +2721,8 @@ async function loadSantriData() {
       return { ...r, id, nis, nama, semester: semesterFix, jenjang: jenjangFix, keterangan: ketFix };
     });
 
-    // ===== NEW: siapkan histori setoran sampai tanggal akhir (untuk auto-default SA)
-    // endISO = tanggal akhir yang dipakai referensi histori
-    const endISO = isRange ? String(endFilter).slice(0,10) : String(tanggal).slice(0,10);
-
-    // cache global: kurangi fetch ulang saat kelas & endISO sama
-    if (!window._lastSetoranCache || window._lastSetoranCache.kelas !== kelas || window._lastSetoranCache.endISO !== endISO) {
-      window._lastSetoranCache = { kelas, endISO, maps: null, ready: null };
-    }
-
-    // Jika data yang kita punya belum mencakup histori penuh sampai endISO (kasus single-date),
-    // ambil rentang luas dari awal agar “last” valid.
-    if (!isRange) {
-      // hanya fetch sekali per kelas+endISO
-      if (!window._lastSetoranCache.ready) {
-        window._lastSetoranCache.ready = (async () => {
-          const resHist = await fetch(
-            `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=2000-01-01&end=${encodeURIComponent(endISO)}&t=${Date.now()}`
-          );
-          const hist = await resHist.json().catch(()=>[]);
-          window._lastSetoranCache.maps = buildHistoryMaps(Array.isArray(hist) ? hist : []);
-        })();
-      }
-      await window._lastSetoranCache.ready;
-    } else {
-      // mode range: absensiData sudah mencakup start..end → cukup build dari situ
-      window._lastSetoranCache.maps = buildHistoryMaps(absensiData);
-    }
-
-    const historyMaps = window._lastSetoranCache.maps || buildHistoryMaps([]);
+    // === NEW: masukkan data yang barusan di-fetch ke cache storage (gratis)
+    mergeAbsensiIntoStorage(kelas, absensiData);
 
     // Ambil user login & filter akses santri (tetap)
     const username = localStorage.getItem("username");
@@ -2791,8 +2750,9 @@ async function loadSantriData() {
 
     // RENDER TABEL
     santriTableBody.innerHTML = "";
+    const isRange = !!(endFilter && endFilter !== tanggal);
 
-    // Index absensi untuk JOIN cepat (yang lama dipertahankan)
+    // Index absensi untuk JOIN cepat
     if (!isRange) {
       var absById   = new Map();
       var absByNis  = new Map();
@@ -2857,29 +2817,27 @@ async function loadSantriData() {
 
         const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
 
-        // === CHANGED: tentukan "dari/sampai" default dengan auto-lanjut dari histori
-        // ambil string dari data bila ada; jika kosong → cari last sebelum rowDate
-        const rowDate = (isRange && dataAbsensi?.tanggal) ? String(dataAbsensi.tanggal).slice(0,10) : String(tanggal).slice(0,10);
+        // === NEW: tentukan rowDate + default SA dari cache jika tidak ada di dataAbsensi
+        const rowDateISO = (isRange && dataAbsensi?.tanggal) ? String(dataAbsensi.tanggal).slice(0,10) : String(tanggal).slice(0,10);
 
+        // 1) nilai dari data hari ini (jika ada)
         let dariStr   = dataAbsensi?.dari   || dataAbsensi?.dariSetoran   || "";
         let sampaiStr = dataAbsensi?.sampai || dataAbsensi?.sampaiSetoran || "";
 
-        if (!dariStr || !sampaiStr) {
-          const last = findLastBefore(
-            historyMaps,
-            [snis, sid, snameK],
-            rowDate
-          );
-          if (last && last.sampaiSA) {
-            const nxt = nextAfter(last.sampaiSA.s, last.sampaiSA.a);
+        // 2) jika kosong, coba dari STORAGE (paling cepat)
+        if (!dariStr || !sampaiStr){
+          const storageKey = (snis || sid || "");
+          const last = getLastSAFromStorage(kelas, storageKey, rowDateISO); // {tgl,s,a} atau null
+          if (last){
+            const nxt = nextAfterSA(last.s, last.a); // lanjut ayat berikutnya
             dariStr = `${nxt.s}:${nxt.a}`;
-            sampaiStr = dariStr; // biar user tinggal lanjut
-          } else {
-            // fallback lama
-            dariStr = "1:1";
-            sampaiStr = "1:1";
+            sampaiStr = dariStr;
           }
         }
+
+        // 3) fallback paling akhir (tetap aman): kalau masih kosong → 1:1
+        if (!dariStr)   dariStr   = "1:1";
+        if (!sampaiStr) sampaiStr = "1:1";
 
         const dari   = String(dariStr).split(":");
         const sampai = String(sampaiStr).split(":");
@@ -2958,7 +2916,7 @@ async function loadSantriData() {
               <option value="Hadir" ${dataAbsensi?.absensi === "Hadir" ? "selected" : ""}>Hadir</option>
               <option value="Alpha" ${dataAbsensi?.absensi === "Alpha" ? "selected" : ""}>Alpha</option>
               <option value="Sakit" ${dataAbsensi?.absensi === "Sakit" ? "selected" : ""}>Sakit</option>
-              <option value="Izin"  ${dataAbsensi?.absensi === "Izin"  ? "selected" : ""}>Izin</option>
+              <option value="Izin" ${dataAbsensi?.absensi === "Izin" ? "selected" : ""}>Izin</option>
             </select>
           </td>
           <td>
@@ -2999,7 +2957,7 @@ async function loadSantriData() {
         row.dataset.id        = dsId;
         row.dataset.nis       = dsNis;
         row.dataset.key       = (dsNis || dsId || "");
-        row.dataset.tanggal   = rowDate;
+        row.dataset.tanggal   = rowDateISO;
         row.dataset.jenjang   = jenNow || ""; // untuk rollback
         row.dataset.keterangan= ketNow || ""; // untuk rollback
 
@@ -3029,9 +2987,10 @@ async function loadSantriData() {
         fillAyatOptions(ayatDari,   surahDari.value,   dariArr[1]);
         fillAyatOptions(ayatSampai, surahSampai.value, sampaiArr[1]);
 
-        // sinkron pilihan
         surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
         surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
+
+        // sinkron otomatis
         surahDari.addEventListener("change", () => {
           surahSampai.value = surahDari.value;
           fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
@@ -3140,10 +3099,10 @@ async function loadSantriData() {
             const newSem = String(semSel.value || oldSem);
 
             if (!isValidSemester(newSem)) {
-  		      alert(`Semester harus 1-${SEMESTER_MAX}.`);
-  		      semSel.value = oldSem;
-  		      return;
-		      }
+              alert(`Semester harus 1-${SEMESTER_MAX}.`);
+              semSel.value = oldSem;
+              return;
+            }
 
             semSel.disabled = true;
             semSel.style.opacity = "0.6";
