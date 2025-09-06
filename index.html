@@ -1763,51 +1763,14 @@ function ambilDariStorage() {
   markData = saved ? JSON.parse(saved) : {};
 }
 
-/* ========= HITUNG NILAI ========= */
-/* ========= ENCODE/DECODE PREDIKAT (A+ ↔ "AA") ========= */
-function encodeHuruf(h) {
-  const s = String(h ?? '').trim().toUpperCase();
-  return s === 'A+' ? 'AA' : s;             // simpan A+ sebagai "AA"
-}
-function decodeHuruf(stored) {
-  const s = String(stored ?? '').trim().toUpperCase();
-  return s === 'AA' ? 'A+' : s;             // tampilkan "AA" sebagai A+
-}
-
-/* ========= ATURAN PREDIKAT DARI NILAI =========
-   A+ : pembulatan = 100
-   A  : 90–99.49...
-   B  : 80–89.49...
-   C  : 70–79.49...
-   D  : <70
-*/
-function deriveHurufFromNilai(v) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 'D';
-  if (Math.round(n) === 100) return 'A+';
-  if (n >= 90) return 'A';
-  if (n >= 80) return 'B';
-  if (n >= 70) return 'C';
-  return 'D';
-}
-
-/* ========= BADGE TAMPIL HURUF ========= */
-function badgeHuruf(storedOrView) {
-  const h = decodeHuruf(storedOrView);
-  const warna = { 'A+':'green', 'A':'green', 'B':'blue', 'C':'gold', 'D':'orange' };
-  const color = warna[h] || 'gray';
-  return `<span style="background-color:${color}; color:white; padding:0 6px; border-radius:4px;">${h}</span>`;
-}
-
-/* ========= HITUNG NILAI (REVISI: tanpa E, pakai huruf saja) ========= */
+/* ========= HITUNG NILAI (REVISI: tampil A+, simpan AA) ========= */
 function hitungNilai() {
   let totalMinus = 0, hijau = 0, kuning = 0, merah = 0, adaMark = false;
 
   for (let ayat in markData) {
     if (ayat === 'audio') continue; // abaikan daftar audio
     for (let idx in markData[ayat]) {
-      const mark = markData[ayat][idx]; 
-      if (!mark) continue;
+      const mark = markData[ayat][idx]; if (!mark) continue;
       adaMark = true;
       if (mark === "green")  { totalMinus += 0.5; hijau++; }
       else if (mark === "yellow") { totalMinus += 1;   kuning++; }
@@ -1815,87 +1778,102 @@ function hitungNilai() {
     }
   }
 
-  const nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
+  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
 
-  // Huruf menurut aturan baru
-  const hurufView  = deriveHurufFromNilai(nilai);
-  const hurufStore = encodeHuruf(hurufView); // A+ → "AA"
+  // Range huruf: D, C, B, A, AA(=A+ tampil)
+  const predikatMap = [
+    { max: 59,  text: "ROSIB",          hurufStore: "D"  },
+    { max: 69,  text: "MAQBUL",         hurufStore: "C"  },
+    { max: 79,  text: "JAYYID",         hurufStore: "B"  },
+    { max: 89,  text: "JAYYID JIDDAN",  hurufStore: "A"  },
+    { max: 100, text: "MUMTAZ",         hurufStore: "AA" } // disimpan "AA", tampil "A+"
+  ];
 
-  // Tulis ke UI ringkasan
+  let predikat = "-";
+  if (adaMark) {
+    const p = predikatMap.find(p => nilai <= p.max);
+    const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+
+    // ===== tampilan vs simpan =====
+    const hurufTampil = (p.hurufStore === "AA") ? "A+" : p.hurufStore; // UI
+    const hurufWarnaKey = p.hurufStore; // warna tetap pakai key simpan (AA/A/B/C/D)
+
+    predikat = `${p.text} <span style="background-color:${warna[hurufWarnaKey]};color:white;padding:0 4px;border-radius:3px;">${hurufTampil}</span>`;
+  }
+
   const nilaiEl = document.getElementById("nilai-akhir");
   const predikatEl = document.getElementById("predikat-akhir");
   if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
-  if (predikatEl) predikatEl.innerHTML = badgeHuruf(hurufStore); // hanya badge huruf
+  if (predikatEl) predikatEl.innerHTML = predikat;
 
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
 
-  return { nilai, hurufView, hurufStore, hijau, kuning, merah };
+  return { nilai, predikat, hijau, kuning, merah };
 }
 
-/* ========= TOMBOL NILAI MANUAL (REVISI) ========= */
-const _btn = document.getElementById("btn-beri-nilai");
-if (_btn) _btn.onclick = function() {
+
+/* ========= TOMBOL NILAI MANUAL (REVISI: tampil A+, simpan AA) ========= */
+const _btnNilaiManual = document.getElementById("btn-beri-nilai");
+if (_btnNilaiManual) _btnNilaiManual.onclick = function () {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
 
-  const v = parseFloat(document.getElementById("input-nilai-manual")?.value);
+  const v = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
 
-  const hurufView  = deriveHurufFromNilai(v);
-  const hurufStore = encodeHuruf(hurufView); // A+ → "AA"
+  // Pemetaan sesuai snippet Anda: <=59:D, <=69:C, <=79:B, <=89:A, >89:AA
+  let hurufStore = "D";
+  let predikatText = "ROSIB";
+  if (v <= 59) { hurufStore = "D"; predikatText = "ROSIB"; }
+  else if (v <= 69) { hurufStore = "C"; predikatText = "MAQBUL"; }
+  else if (v <= 79) { hurufStore = "B"; predikatText = "JAYYID"; }
+  else if (v <= 89) { hurufStore = "A"; predikatText = "JAYYID JIDDAN"; }
+  else { hurufStore = "AA"; predikatText = "MUMTAZ"; } // disimpan AA, tampil A+
 
-  // kosongkan mark seperti logika lama
+  // Teks huruf untuk tampilan (AA -> A+)
+  const hurufView = (hurufStore === "AA") ? "A+" : hurufStore;
+
+  // Warna badge mengikuti kode simpan
+  const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+  const badge = `<span style="background-color:${warna[hurufStore]}; color:white; padding:0 4px; border-radius:3px;">${hurufView}</span>`;
+
+  // Reset mark seperti logika asli
   markData = {};
 
   // Update UI ringkasan
-  document.getElementById("nilai-akhir")?.innerText = v.toFixed(1);
-  document.getElementById("predikat-akhir")!.innerHTML = badgeHuruf(hurufStore);
-  document.getElementById("modal-mark-warna")!.innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
+  document.getElementById("nilai-akhir").innerText = v.toFixed(1);
+  // tampilkan text + badge (contoh: "MUMTAZ [badge A+]")
+  document.getElementById("predikat-akhir").innerHTML = `${predikatText} ${badge}`;
+  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
 
-  // Kirim ke tabel/penyimpanan
+  // Backward compatible: tetap kirim 'predikat' string sederhana,
+  // plus field baru untuk penyimpanan & tampilan.
   if (typeof updateNilaiDiTabel === 'function') {
     updateNilaiDiTabel({
       nilai: v,
-      predikat: hurufView,            // kompatibel kode lama
-      predikatHurufView: hurufView,   // untuk UI
-      predikatHurufStored: hurufStore // untuk JSON (A+ disimpan "AA")
+      predikat: `${predikatText} (${hurufStore})`, // kompatibel kode lama
+      predikatText,               // "MUMTAZ", dst
+      predikatHurufStored: hurufStore, // AA/A/B/C/D → aman di JSON
+      predikatHurufView: hurufView     // A+/A/B/C/D → untuk UI
     });
   }
-};
+};	
 
-/* ========= (OPSIONAL) bgHuruf lama → redirect ke badgeHuruf ========= */
-function bgHuruf(hurufOrStored, _predikatText = "") {
-  // Abaikan predikatText (kini tidak dipakai). Pastikan input boleh "AA".
-  return badgeHuruf(hurufOrStored);
-}
 
-/* ========= DATA DARI SERVER ========= */
-let dataSantri = []; // nanti diisi fetch/data.push
-
-/* ========= RENDER TABEL (REVISI) ========= */
-function renderTabelPredikat() {
-  if (!Array.isArray(dataSantri)) return;
-  dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-
-    const nilai = Number(
-      data?.buttonCell?.nilai ??
-      data?.nilai ?? 0
-    );
-
-    // Ambil KODE TERSIMPAN lebih dulu (AA/A/B/C/D). Fallback ke view/derive.
-    const stored = data?.buttonCell?.predikatHurufStored ??
-                   data?.buttonCell?.predikatHuruf ??        // nama lama
-                   data?.predikatHurufStored ??
-                   encodeHuruf(
-                     data?.buttonCell?.predikatHurufView ??
-                     data?.predikatHurufView ??
-                     deriveHurufFromNilai(nilai)
-                   );
-
-    cell.innerHTML = `<strong>${Number.isFinite(nilai) ? nilai.toFixed(1) : '-'}</strong> - ${badgeHuruf(stored)}`;
-  });
+/* ========= UPDATE TABEL ========= */
+function updateNilaiDiTabel({ nilai, predikat }) {
+  if (!currentIdSiswa) return;
+  let row = currentRowEl || [...document.querySelectorAll("table tbody tr")]
+    .find(r => String(r.cells[0].innerText.trim()) === String(currentIdSiswa));
+  if (row) {
+    const cell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
+    if (cell) {
+      cell.innerHTML = `
+        <div class="nilai-ringkas"><strong>${Number(nilai).toFixed(1)}</strong> ${predikat}</div>
+        <button class="lihat-quran-btn">Lembar Penilaian</button>`;
+      row.markData = JSON.parse(JSON.stringify(markData));
+    }
+  }
 }
 
 /* ========= BUAT KATA KLIK ========= */
@@ -5985,6 +5963,51 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 });
 </script>
 
+
+
+<script>
+// 1) Fungsi badge huruf (menerima kode simpan AA/A/B/C/D atau huruf tampilan)
+function bgHuruf(hurufStoredOrView, predikatText = "") {
+  const raw = String(hurufStoredOrView ?? "").trim().toUpperCase();
+  // "AA" adalah kode simpan untuk A+
+  const isAA = raw === "AA";
+  const hurufView = isAA ? "A+" : raw;                 // yang tampil
+  const warna = { AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+  const color = warna[isAA ? "AA" : hurufView] || "gray"; // mapping warna pakai key simpan
+  // predikatText opsional (biarkan kosong jika tak dipakai)
+  return `${predikatText ? predikatText + " " : ""}<span style="background-color:${color}; color:white; padding:0 4px; border-radius:3px;">${hurufView}</span>`;
+}
+
+// 2) Data dari server / dataSantri
+let dataSantri = []; // nanti diisi fetch atau data.push
+
+// 3) Render tabel (tahan banting jika field kosong)
+function renderTabelPredikat() {
+  if (!Array.isArray(dataSantri)) return;
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data?.id} .nilai-ringkas`);
+    if (!cell) return;
+
+    const nilai = Number(
+      data?.buttonCell?.nilai ?? data?.nilai ?? 0
+    );
+    // Prioritas ambil kode simpan (AA/A/B/C/D). Fallback ke huruf tampilan atau derive sederhana.
+    const hurufStoredOrView =
+      data?.buttonCell?.predikatHurufStored ??
+      data?.buttonCell?.predikatHuruf ??       // nama lama (jika masih ada)
+      data?.predikatHurufStored ??
+      data?.predikatHurufView ??               // kalau UI-only tersimpan
+      "D";                                     // default aman
+
+    const predikatText =
+      data?.buttonCell?.predikatText ??
+      data?.predikatText ?? "";
+
+    cell.innerHTML =
+      `<strong>${Number.isFinite(nilai) ? nilai.toFixed(1) : "-"}</strong> - ${bgHuruf(hurufStoredOrView, predikatText)}`;
+  });
+}
+</script>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
