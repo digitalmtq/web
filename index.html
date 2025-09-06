@@ -2463,72 +2463,6 @@ async function loadSantriData() {
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
-  // ===== NEW: LocalStorage cache setoran terakhir per kelas =====
-  const LAST_SA_NS = "mtq:lastSA:v1";
-  const _lsKey = (kls) => `${LAST_SA_NS}:${String(kls||'').trim()}`;
-
-  function readLastSAMap(kls){
-    try{
-      const raw = localStorage.getItem(_lsKey(kls));
-      if (!raw) return { updatedAt:null, items:{} };
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object' || !parsed.items) return { updatedAt:null, items:{} };
-      return { updatedAt: parsed.updatedAt || null, items: parsed.items || {} };
-    }catch{ return { updatedAt:null, items:{} }; }
-  }
-  function writeLastSAMap(kls, data){
-    try{
-      localStorage.setItem(_lsKey(kls), JSON.stringify({
-        updatedAt: new Date().toISOString(),
-        items: data?.items || {}
-      }));
-    }catch(e){ /* jika storage penuh, abaikan */ }
-  }
-  function setLastSAInStorage(kls, key, tgl, s, a){
-    if (!key || !tgl || !s || !a) return;
-    const data = readLastSAMap(kls);
-    const cur  = data.items[key];
-    const isNewer =
-      (!cur) ||
-      (String(tgl) > String(cur.tgl)) ||
-      (String(tgl) === String(cur.tgl) && (
-        Number(s) > Number(cur.s) || (Number(s) === Number(cur.s) && Number(a) > Number(cur.a))
-      ));
-    if (isNewer){
-      data.items[key] = { tgl:String(tgl).slice(0,10), s:Number(s), a:Number(a) };
-      writeLastSAMap(kls, data);
-    }
-  }
-  function getLastSAFromStorage(kls, key, dateISO){
-    if (!key) return null;
-    const { items } = readLastSAMap(kls);
-    const rec = items[key];
-    if (!rec) return null;
-    // jangan pakai cache yang "melewati" tanggal baris
-    if (!rec.tgl || String(rec.tgl) > String(dateISO)) return null;
-    return { tgl: rec.tgl, s: Number(rec.s)||1, a: Number(rec.a)||1 };
-  }
-  function mergeAbsensiIntoStorage(kls, absensiList){
-    for (const r of (absensiList||[])){
-      const tgl = r?.tanggal ? String(r.tanggal).slice(0,10) : null;
-      const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
-      const smp = r?.sampai || r?.sampaiSetoran;
-      const m   = /^\s*(\d+)\s*:\s*(\d+)\s*$/.exec(String(smp||""));
-      if (!tgl || !key || !m) continue;
-      setLastSAInStorage(kls, key, tgl, Number(m[1]), Number(m[2]));
-    }
-  }
-  function nextAfterSA(s, a){
-    const cur = (window.surahList||[]).find(x => Number(x.id) === Number(s));
-    if (!cur) return { s:Number(s)||1, a:Number(a)||1 };
-    const maxAyat = Number(cur.jumlah_ayat)||1;
-    if (Number(a) < maxAyat) return { s:Number(s), a:Number(a)+1 };
-    const nextId = Number(s)+1;
-    const nextSurah = (window.surahList||[]).find(x => Number(x.id) === nextId);
-    return nextSurah ? { s:nextId, a:1 } : { s:Number(s), a:maxAyat }; // jika sudah An-Nas, tetap di ayat terakhir
-  }
-  // ===== END NEW (LS cache) =====
-
   // ===== NEW: Konfigurasi & util jenjang (future-proof) =====
   const JENJANG_MAX = Number(window.JENJANG_MAX ?? 34); // ubah ke 100 / 300 / 1000 sesuai kebutuhan
 
@@ -2721,9 +2655,6 @@ async function loadSantriData() {
       return { ...r, id, nis, nama, semester: semesterFix, jenjang: jenjangFix, keterangan: ketFix };
     });
 
-    // === NEW: masukkan data yang barusan di-fetch ke cache storage (gratis)
-    mergeAbsensiIntoStorage(kelas, absensiData);
-
     // Ambil user login & filter akses santri (tetap)
     const username = localStorage.getItem("username");
     const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r => r.json());
@@ -2816,31 +2747,10 @@ async function loadSantriData() {
         const row = document.createElement("tr");
 
         const surahOptions = surahList.map(s => `<option value="${s.id}">${s.nama}</option>`).join("");
+        const dari   = (dataAbsensi?.dari   || "1:1").split(":");
+        const sampai = (dataAbsensi?.sampai || "1:1").split(":");
 
-        // === NEW: tentukan rowDate + default SA dari cache jika tidak ada di dataAbsensi
-        const rowDateISO = (isRange && dataAbsensi?.tanggal) ? String(dataAbsensi.tanggal).slice(0,10) : String(tanggal).slice(0,10);
-
-        // 1) nilai dari data hari ini (jika ada)
-        let dariStr   = dataAbsensi?.dari   || dataAbsensi?.dariSetoran   || "";
-        let sampaiStr = dataAbsensi?.sampai || dataAbsensi?.sampaiSetoran || "";
-
-        // 2) jika kosong, coba dari STORAGE (paling cepat)
-        if (!dariStr || !sampaiStr){
-          const storageKey = (snis || sid || "");
-          const last = getLastSAFromStorage(kelas, storageKey, rowDateISO); // {tgl,s,a} atau null
-          if (last){
-            const nxt = nextAfterSA(last.s, last.a); // lanjut ayat berikutnya
-            dariStr = `${nxt.s}:${nxt.a}`;
-            sampaiStr = dariStr;
-          }
-        }
-
-        // 3) fallback paling akhir (tetap aman): kalau masih kosong → 1:1
-        if (!dariStr)   dariStr   = "1:1";
-        if (!sampaiStr) sampaiStr = "1:1";
-
-        const dari   = String(dariStr).split(":");
-        const sampai = String(sampaiStr).split(":");
+        const rowDate = (isRange && dataAbsensi?.tanggal) ? dataAbsensi.tanggal : tanggal;
 
         const subTanggal = isRange && dataAbsensi?.tanggal
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
@@ -2957,7 +2867,7 @@ async function loadSantriData() {
         row.dataset.id        = dsId;
         row.dataset.nis       = dsNis;
         row.dataset.key       = (dsNis || dsId || "");
-        row.dataset.tanggal   = rowDateISO;
+        row.dataset.tanggal   = rowDate;
         row.dataset.jenjang   = jenNow || ""; // untuk rollback
         row.dataset.keterangan= ketNow || ""; // untuk rollback
 
@@ -3099,10 +3009,10 @@ async function loadSantriData() {
             const newSem = String(semSel.value || oldSem);
 
             if (!isValidSemester(newSem)) {
-              alert(`Semester harus 1-${SEMESTER_MAX}.`);
-              semSel.value = oldSem;
-              return;
-            }
+  		alert(`Semester harus 1-${SEMESTER_MAX}.`);
+  		semSel.value = oldSem;
+  		return;
+		}
 
             semSel.disabled = true;
             semSel.style.opacity = "0.6";
