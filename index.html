@@ -1723,14 +1723,7 @@ function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
 </div>
 
 <!-- ============ Library encoder MP3 (WAJIB di /js/) ============ -->
-<script>
-  // Pastikan folder ini berisi:
-  // - WebAudioRecorder.min.js
-  // - WebAudioRecorderMp3.min.js
-  // - WebAudioRecorderWorker.min.js
-  // Catatan: JANGAN di-minify ulang via bundler.
-  window.WEB_AUDIO_WORKER_DIR = '/js/';
-</script>
+<script>window.WEB_AUDIO_WORKER_DIR = '/js/';</script>
 <script src="/js/WebAudioRecorder.min.js" defer></script>
 <script src="/js/WebAudioRecorderMp3.min.js" defer></script>
 
@@ -1741,12 +1734,12 @@ let ayahPageMap = {};
 let markData = {};
 let currentIdSiswa = null;     // id/nis baris aktif
 let currentRowEl = null;       // <tr> aktif
-const recordListEl = document.getElementById('record-list'); // hanya di modal rekaman
-const WORKER_DIR = window.WEB_AUDIO_WORKER_DIR || '/js/';     // penting untuk worker + file encoder
+const recordListEl   = document.getElementById('record-list'); // hanya di modal rekaman
+const WORKER_DIR = window.WEB_AUDIO_WORKER_DIR || '/js/';       // penting untuk worker + .mem
 
 /* ========= UTIL KELAS/TANGGAL ========= */
 function getKelasTanggalAktif() {
-  const kelas   = document.getElementById('kelas')?.value || 'default';
+  const kelas = document.getElementById('kelas')?.value || 'default';
   const tanggal = currentRowEl?.dataset?.tanggal || document.getElementById('tanggal')?.value || 'default';
   return { kelas, tanggal };
 }
@@ -1754,11 +1747,11 @@ function getKelasTanggalAktif() {
 /* ========= AMBIL MARKS + AUDIO (SERVER) ========= */
 async function ambilMarksDariNetlify(id, kelas, tanggal) {
   try {
-    const res = await fetch(`/.netlify/functions/getMarksAudio?id=${encodeURIComponent(id)}&kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
+    const res = await fetch(`/.netlify/functions/getMarksAudio?id=${id}&kelas=${kelas}&tanggal=${tanggal}`);
     if (!res.ok) throw new Error('Gagal ambil marks dari server');
     const data = await res.json();
     return data.marks || {};
-  } catch (err) {
+  } catch(err) {
     console.error(err);
     return {};
   }
@@ -1766,7 +1759,7 @@ async function ambilMarksDariNetlify(id, kelas, tanggal) {
 
 /* ========= AUDIO: UTIL MIME ========= */
 function getMimeType(filename) {
-  const ext = String(filename).split('.').pop().toLowerCase();
+  const ext = filename.split('.').pop().toLowerCase();
   if (ext === 'mp3') return 'audio/mpeg';
   if (ext === 'ogg') return 'audio/ogg';
   if (ext === 'webm') return 'audio/webm';
@@ -1775,10 +1768,6 @@ function getMimeType(filename) {
 
 /* ========= RENDER AUDIO HANYA DI MODAL REKAMAN ========= */
 function tampilkanAudioDiModalRekam(marks) {
-  if (!recordListEl) {
-    console.warn('[rekam] #record-list tidak ditemukan, lewati render list.');
-    return;
-  }
   recordListEl.innerHTML = '';
   if (marks && Array.isArray(marks.audio) && marks.audio.length) {
     for (const filename of marks.audio) {
@@ -1792,211 +1781,6 @@ function tampilkanAudioDiModalRekam(marks) {
     }
   }
 }
-
-/* ========= REKAMAN .MP3 DENGAN WebAudioRecorder ========= */
-let audioCtx   = null;
-let micStream  = null;
-let sourceNode = null;
-let mp3Recorder = null;
-let isRecording = false;
-
-const recordStartBtn = document.getElementById('record-start');
-const recordStopBtn  = document.getElementById('record-stop');
-const recordDurEl    = document.getElementById('record-duration');
-const recordSpinEl   = document.getElementById('record-spinner');
-
-let durSec = 0;
-let durTimer = null;
-
-function formatTime(sec) {
-  const m = String(Math.floor(sec / 60)).padStart(2, '0');
-  const s = String(sec % 60).padStart(2, '0');
-  return `${m}:${s}`;
-}
-
-async function ensureMicNodes() {
-  if (audioCtx && micStream && sourceNode) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  sourceNode = audioCtx.createMediaStreamSource(micStream);
-}
-
-function stopRecordingIfNeeded(cancelOnly = false) {
-  try {
-    if (mp3Recorder && isRecording && !cancelOnly) mp3Recorder.finishRecording();
-  } catch (e) {
-    console.warn('[rekam] finishRecording gagal:', e);
-  }
-  isRecording = false;
-  clearInterval(durTimer);
-  if (recordStartBtn) recordStartBtn.disabled = false;
-  if (recordStopBtn)  recordStopBtn.disabled  = true;
-}
-
-/* ========= PREFLIGHT: CEK ASET WORKER/ENCODER ========= */
-async function _headOk(url) {
-  try {
-    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-async function preflightWorkers() {
-  // Nama umum di rilis resmi
-  const candidates = [
-    WORKER_DIR.replace(/\/?$/, '/') + 'WebAudioRecorderWorker.min.js',
-    WORKER_DIR.replace(/\/?$/, '/') + 'WebAudioRecorderMp3.min.js'
-  ];
-  const results = await Promise.all(candidates.map(_headOk));
-  const missing = candidates.filter((_, i) => !results[i]);
-  if (missing.length) {
-    console.error('[rekam] File worker/encoder tidak ditemukan:', missing);
-    alert('File worker/encoder MP3 tidak ditemukan. Pastikan folder /js/ berisi file worker & encoder yang benar.');
-    return false;
-  }
-  return true;
-}
-
-/* ========= EVENT LISTENERS ========= */
-if (recordStartBtn && recordStopBtn) {
-  recordStartBtn.addEventListener('click', async () => {
-    try {
-      // Cek aset critical dulu
-      const ready = await preflightWorkers();
-      if (!ready) return;
-
-      await ensureMicNodes();
-
-      mp3Recorder = new WebAudioRecorder(sourceNode, {
-        workerDir: WORKER_DIR,          // ← pastikan ke /js/
-        encoding: 'mp3',
-        numChannels: 1,                 // mono = lebih ringan
-        onEncoderLoading(rec, enc) {
-          console.log('[MP3] Loading encoder:', enc);
-        },
-        onEncoderLoaded(rec, enc) {
-          console.log('[MP3] Encoder loaded:', enc);
-        },
-        onTimeout(rec) {
-          console.warn('[MP3] timeout: auto-finish');
-          stopRecordingIfNeeded(false);
-        },
-        onComplete: async function (rec, blob) {
-          try { await handleRecordedBlobMP3(blob); }
-          catch (e) { console.error('[MP3] onComplete error:', e); }
-        },
-        onError: function (rec, err) {
-          console.error('[MP3] Error:', err);
-          alert('Terjadi kesalahan saat rekam/encode.');
-        }
-      });
-
-      mp3Recorder.setOptions({
-        timeLimit: 300,            // 5 menit
-        encodeAfterRecord: true,   // encode setelah stop
-        mp3: { bitRate: 128 }      // cukup bagus + kecil
-      });
-
-      mp3Recorder.startRecording();
-      isRecording = true;
-
-      durSec = 0;
-      if (recordDurEl) recordDurEl.textContent = '00:00';
-      durTimer = setInterval(() => {
-        durSec++;
-        if (recordDurEl) recordDurEl.textContent = formatTime(durSec);
-      }, 1000);
-
-      recordStartBtn.disabled = true;
-      recordStopBtn.disabled = false;
-    } catch (err) {
-      console.error(err);
-      alert('Tidak bisa mengakses mikrofon atau memulai rekaman.');
-    }
-  });
-
-  recordStopBtn.addEventListener('click', () => {
-    if (!mp3Recorder || !isRecording) return;
-    recordStopBtn.disabled = true;
-    recordStartBtn.disabled = false;
-    clearInterval(durTimer);
-    try { mp3Recorder.finishRecording(); } catch (e) { console.warn(e); }
-    isRecording = false;
-  });
-} else {
-  console.warn('[rekam] Tombol start/stop tidak ditemukan di DOM.');
-}
-
-/* ========= HANDLE BLOB & UPLOAD ========= */
-async function handleRecordedBlobMP3(blob) {
-  try {
-    if (recordSpinEl) recordSpinEl.style.display = 'inline-flex';
-
-    const { kelas, tanggal } = getKelasTanggalAktif();
-    const ts = Date.now();
-    const safeTanggal = String(tanggal).replace(/[^0-9-]/g, '');
-    const filename = `rec_${kelas}_${currentIdSiswa}_${safeTanggal}_${ts}.mp3`;
-
-    // Helper: blob -> dataURL (base64)
-    const blobToDataURL = (b) => new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
-      r.onerror = rej;
-      r.readAsDataURL(b);
-    });
-
-    let uploaded = false;
-    let url = '';
-
-    try {
-      const base64 = await blobToDataURL(blob);
-
-      // 1) Upload audio ke repo
-      const up = await fetch('/.netlify/functions/upload-audio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: filename, base64 }) // folder default: "audio"
-      });
-      const upJson = await up.json();
-      if (!up.ok || !upJson?.success) throw new Error(upJson?.error || 'Upload audio gagal');
-      uploaded = true;
-
-      // 2) Append ke marks.audio (non-blocking)
-      fetch('/.netlify/functions/appendAudioToMarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentIdSiswa, ...getKelasTanggalAktif(), filename })
-      }).catch(() => { /* optional logging */ });
-
-      // 3) URL streaming dari function
-      url = `/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}`;
-    } catch (e) {
-      console.warn('Upload/append audio gagal, file disimpan lokal saja.', e);
-      uploaded = false;
-      url = URL.createObjectURL(blob); // fallback lokal
-    }
-
-    // 4) Render audio BARU di modal rekaman
-    if (recordListEl) {
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <audio controls preload="metadata" style="width:100%;">
-          <source src="${url}" type="audio/mpeg">
-          Browser Anda tidak mendukung audio.
-        </audio>`;
-      recordListEl.appendChild(li);
-    }
-
-    // 5) Update struktur data
-    markData.audio = Array.isArray(markData.audio) ? markData.audio : [];
-    if (uploaded) markData.audio.push(filename);
-
-  } finally {
-    if (recordSpinEl) recordSpinEl.style.display = 'none';
-  }
-}
-
 
 /* ========= STORAGE ========= */
 function getStorageKey() {
@@ -2248,6 +2032,145 @@ document.getElementById('record-close').addEventListener('click', () => {
   stopRecordingIfNeeded(true);
   document.getElementById('overlay-record').style.display = 'none';
 });
+
+/* ========= REKAMAN .MP3 DENGAN WebAudioRecorder ========= */
+let audioCtx = null;
+let micStream = null;
+let sourceNode = null;
+let mp3Recorder = null;
+let isRecording = false;
+
+const recordStartBtn = document.getElementById('record-start');
+const recordStopBtn  = document.getElementById('record-stop');
+const recordDurEl    = document.getElementById('record-duration');
+const recordSpinEl   = document.getElementById('record-spinner');
+
+let durSec = 0;
+let durTimer = null;
+
+function formatTime(sec){ const m = String(Math.floor(sec/60)).padStart(2,'0'); const s = String(sec%60).padStart(2,'0'); return `${m}:${s}`; }
+
+async function ensureMicNodes(){
+  if (audioCtx && micStream && sourceNode) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+  sourceNode = audioCtx.createMediaStreamSource(micStream);
+}
+
+function stopRecordingIfNeeded(cancelOnly=false){
+  try { if (mp3Recorder && isRecording && !cancelOnly) mp3Recorder.finishRecording(); } catch(e){}
+  isRecording = false;
+  clearInterval(durTimer);
+  recordStartBtn.disabled = false;
+  recordStopBtn.disabled = true;
+}
+
+recordStartBtn.addEventListener('click', async () => {
+  try{
+    await ensureMicNodes();
+
+    mp3Recorder = new WebAudioRecorder(sourceNode, {
+      workerDir: WORKER_DIR,   // ← pastikan ke /js/
+      encoding: 'mp3',
+      numChannels: 2,          // ← MP3 encoder butuh stereo
+      onComplete: async function(rec, blob){
+        await handleRecordedBlobMP3(blob);
+      },
+      onError: function(rec, err){ console.error(err); alert('Terjadi kesalahan saat rekam/encode.'); }
+    });
+
+    mp3Recorder.setOptions({
+      timeLimit: 300,            // 5 menit
+      encodeAfterRecord: true,   // encode setelah stop
+      mp3: { bitRate: 320 }      // 320 kbps
+    });
+
+    mp3Recorder.startRecording();
+    isRecording = true;
+
+    durSec = 0; recordDurEl.textContent = '00:00';
+    durTimer = setInterval(()=>{ durSec++; recordDurEl.textContent = formatTime(durSec); }, 1000);
+
+    recordStartBtn.disabled = true;
+    recordStopBtn.disabled  = false;
+  } catch(err){
+    console.error(err);
+    alert('Tidak bisa mengakses mikrofon.');
+  }
+});
+
+recordStopBtn.addEventListener('click', () => {
+  if (!mp3Recorder || !isRecording) return;
+  recordStopBtn.disabled  = true;
+  recordStartBtn.disabled = false;
+  clearInterval(durTimer);
+  try { mp3Recorder.finishRecording(); } catch(e){ console.warn(e); }
+  isRecording = false;
+});
+
+async function handleRecordedBlobMP3(blob){
+  // tampilkan spinner
+  recordSpinEl.style.display = 'inline-flex';
+
+  const { kelas, tanggal } = getKelasTanggalAktif();
+  const ts = Date.now();
+  const safeTanggal = String(tanggal).replace(/[^0-9-]/g,'');
+  const filename = `rec_${kelas}_${currentIdSiswa}_${safeTanggal}_${ts}.mp3`;
+
+  // Helper: blob -> dataURL (base64)
+  function blobToDataURL(b){
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(b);
+    });
+  }
+
+  let uploaded = false;
+  try{
+    const base64 = await blobToDataURL(blob);
+
+    // 1) Upload audio ke repo
+    const up = await fetch('/.netlify/functions/upload-audio', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ fileName: filename, base64 }) // folder default: "audio"
+    });
+    const upJson = await up.json();
+    if (!up.ok || !upJson?.success) throw new Error(upJson?.error || 'Upload audio gagal');
+    uploaded = true;
+
+    // 2) Append ke marks.audio
+    await fetch('/.netlify/functions/appendAudioToMarks', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ id: currentIdSiswa, ...getKelasTanggalAktif(), filename })
+    }).catch(()=>{});
+  } catch(e){
+    console.warn('Upload/append audio gagal, file disimpan lokal saja.', e);
+  }
+
+  // 3) Tampilkan rekaman BARU di modal rekaman (bukan overlay Qur'an)
+  const url = uploaded
+    ? `/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}`
+    : URL.createObjectURL(blob);
+
+  const li = document.createElement('li');
+  li.innerHTML = `
+    <audio controls preload="metadata" style="width:100%;">
+      <source src="${url}" type="audio/mpeg">
+      Browser Anda tidak mendukung audio.
+    </audio>`;
+  recordListEl.appendChild(li);
+
+  // 4) Update struktur data (tanpa merender di overlay Qur'an)
+  markData.audio = Array.isArray(markData.audio) ? markData.audio : [];
+  if (uploaded) markData.audio.push(filename);
+
+  // selesai
+  recordSpinEl.style.display = 'none';
+}
 </script>
 
 
