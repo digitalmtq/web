@@ -1763,117 +1763,60 @@ function ambilDariStorage() {
   markData = saved ? JSON.parse(saved) : {};
 }
 
-/* ========= HITUNG NILAI (simpan P, tampil A+) ========= */
+/* ========= HITUNG NILAI ========= */
 function hitungNilai() {
   let totalMinus = 0, hijau = 0, kuning = 0, merah = 0, adaMark = false;
-
   for (let ayat in markData) {
     if (ayat === 'audio') continue; // abaikan daftar audio
     for (let idx in markData[ayat]) {
       const mark = markData[ayat][idx]; if (!mark) continue;
       adaMark = true;
-      if (mark === "green")  { totalMinus += 0.5; hijau++; }
-      else if (mark === "yellow") { totalMinus += 1;   kuning++; }
-      else if (mark === "red")    { totalMinus += 2;   merah++; }
+      if (mark === "green") { totalMinus += 0.5; hijau++; }
+      else if (mark === "yellow") { totalMinus += 1; kuning++; }
+      else if (mark === "red") { totalMinus += 2; merah++; }
     }
   }
-
-  const nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
-
-  // Range huruf simpan: D, C, B, A, P (P mewakili A+ saat ditampilkan)
+  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
   const predikatMap = [
-    { max: 59,  text: "ROSIB",          huruf: "D"  },
-    { max: 69,  text: "MAQBUL",         huruf: "C"  },
-    { max: 79,  text: "JAYYID",         huruf: "B"  },
-    { max: 89,  text: "JAYYID JIDDAN",  huruf: "A"  },
-    { max: 100, text: "MUMTAZ",         huruf: "P" } // simpan "P", tampil "A+"
+    { max: 59, text: "ROSIB", huruf: "D" },
+    { max: 69, text: "MAQBUL", huruf: "C" },
+    { max: 79, text: "JAYYID", huruf: "B" },
+    { max: 89, text: "JAYYID JIDDAN", huruf: "A" },
+    { max: 100, text: "MUMTAZ PLUS", huruf: "A" }
   ];
-
   let predikat = "-";
-  let hurufStore = "-";     // P/A/B/C/D untuk simpan
-  let hurufView  = "-";     // A+/A/B/C/D untuk tampilan
-  let predikatText = "-";
-
   if (adaMark) {
     const p = predikatMap.find(p => nilai <= p.max);
-    const warna = { P: "green", A: "blue", B: "gold", C: "orange", D: "red" };
-
-    hurufStore   = p.huruf;
-    hurufView    = (hurufStore === "P") ? "A+" : hurufStore;
-    predikatText = p.text;
-
-    predikat = `${predikatText} <span style="background-color:${warna[hurufStore]};color:white;padding:0 4px;border-radius:3px;">${hurufView}</span>`;
+    const warna = { A: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+    predikat = `${p.text} <span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
   }
-
   const nilaiEl = document.getElementById("nilai-akhir");
   const predikatEl = document.getElementById("predikat-akhir");
   if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
   if (predikatEl) predikatEl.innerHTML = predikat;
-
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
-
-  // return lama dipertahankan + tambahan info terstruktur
-  return { nilai, predikat, hijau, kuning, merah, hurufStore, hurufView, predikatText };
+  return { nilai, predikat, hijau, kuning, merah };
 }
 
-
-
-/* ========= TOMBOL NILAI MANUAL (simpan P, tampil A+) ========= */
+/* ========= TOMBOL NILAI MANUAL ========= */
 document.getElementById("btn-beri-nilai").onclick = function() {
   if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
-
   const v = parseFloat(document.getElementById("input-nilai-manual").value);
   if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
-
-  // Mapping: <=59:D, <=69:C, <=79:B, <=89:A, >89:P (P = A+ tampilan)
-  let hurufStore = "D";
-  let predikatText = "ROSIB";
-  if (v <= 59) { hurufStore = "D"; predikatText = "ROSIB"; }
-  else if (v <= 69) { hurufStore = "C"; predikatText = "MAQBUL"; }
-  else if (v <= 79) { hurufStore = "B"; predikatText = "JAYYID"; }
-  else if (v <= 89) { hurufStore = "A"; predikatText = "JAYYID JIDDAN"; }
-  else { hurufStore = "P"; predikatText = "MUMTAZ"; } // simpan "P", tampilan "A+"
-
-  const hurufView = (hurufStore === "P") ? "A+" : hurufStore; // teks yang tampil
-
-  // Badge warna (pakai kode simpan)
-  const warna = { P: "green", A: "blue", B: "gold", C: "orange", D: "red" };
-  const badge = `<span style="background-color:${warna[hurufStore]}; color:white; padding:0 4px; border-radius:3px;">${hurufView}</span>`;
-
-  // Reset mark seperti logika asli
-  markData = {};
-
-  // Update UI ringkasan
+  let pred = "-";
+  if (v <= 59) pred = "ROSIB (D)";
+  else if (v <= 69) pred = "MAQBUL (C)";
+  else if (v <= 79) pred = "JAYYID (B)";
+  else if (v <= 89) pred = "JAYYID JIDDAN (A)";
+  else pred = "MUMTAZ PLUS (A)";
+  markData = {}; // kosongkan mark
   document.getElementById("nilai-akhir").innerText = v.toFixed(1);
-  document.getElementById("predikat-akhir").innerHTML = `${predikatText} ${badge}`;
+  document.getElementById("predikat-akhir").innerText = pred;
   document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
-
-  // Kirim payload yang bersih: TEKS predikat murni + huruf di field khusus
-  // (tanpa format "MUMTAZ (P)" agar server tidak mem-parsing ulang)
-  updateNilaiDiTabel({
-    nilai: v,
-
-    // teks murni
-    predikat: predikatText,
-    predikatText: predikatText,
-
-    // huruf untuk penyimpanan & tampilan
-    predikatHuruf: hurufStore,           // P/A/B/C/D
-    predikatHurufStored: hurufStore,     // pastikan disimpan "P" utk A+
-    predikatHurufView: hurufView,        // A+/A/B/C/D utk UI
-
-    // mirror di buttonCell agar jalur simpan manapun konsisten
-    buttonCell: {
-      nilai: v,
-      predikatText: predikatText,
-      predikatHuruf: hurufStore         // PENTING: "P" tersimpan di sini
-    }
-  });
+  updateNilaiDiTabel({ nilai: v, predikat: pred });
 };
 
-
-	
 /* ========= UPDATE TABEL ========= */
 function updateNilaiDiTabel({ nilai, predikat }) {
   if (!currentIdSiswa) return;
@@ -5982,19 +5925,9 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 <script>
 // 1. Fungsi untuk memberi warna hanya huruf predikat
 function bgHuruf(huruf, predikatText = "") {
-  const codeRaw = String(huruf ?? "").trim().toUpperCase();
-  const isAPlus = (codeRaw === "P" || codeRaw === "AA" || codeRaw === "A+");
-
-  // kode simpan yang konsisten untuk badge/data-attribute
-  const stored = isAPlus ? "P" : (codeRaw || "D");
-  // teks yang ditampilkan
-  const view   = isAPlus ? "A+" : stored;
-
-  const warna  = { P: "green", AA: "green", A: "blue", B: "gold", C: "orange", D: "red" };
-  const color  = warna[stored] || "gray";
-
-  const prefix = predikatText ? predikatText + " " : "";
-  return `${prefix}<span class="badge-grade" data-grade="${stored}" style="background-color:${color}; color:white; padding:0 4px; border-radius:3px;">${view}</span>`;
+  const warna = { A: "green", A: "blue", B: "gold", C: "orange", D: "red" };
+  // huruf diberi background, predikatText normal
+  return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
 }
 
 // 2. Data dari server / dataSantri
@@ -6002,23 +5935,13 @@ let dataSantri = []; // nanti diisi fetch atau data.push
 
 // 3. Fungsi render tabel
 function renderTabelPredikat() {
-  if (!Array.isArray(dataSantri)) return;
   dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data?.id} .nilai-ringkas`);
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
     if (!cell) return;
-
-    const nilai = Number(data?.buttonCell?.nilai ?? data?.nilai ?? 0);
-    // Ambil huruf tersimpan atau fallback
-    const huruf = (data?.buttonCell?.predikatHuruf ?? data?.predikatHuruf ?? "D");
-    const text  = (data?.buttonCell?.predikatText ?? data?.predikatText ?? "");
-
-    cell.innerHTML =
-      `<strong>${Number.isFinite(nilai) ? nilai.toFixed(1) : "-"}</strong> - ${bgHuruf(huruf, text)}`;
+    cell.innerHTML = `<strong>${data.buttonCell.nilai.toFixed(1)}</strong> - ${bgHuruf(data.buttonCell.predikatHuruf, data.buttonCell.predikatText)}`;
   });
 }
 </script>
-
-
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
