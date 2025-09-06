@@ -1764,25 +1764,49 @@ function ambilDariStorage() {
 }
 
 /* ========= HITUNG NILAI ========= */
-/* =================== ENCODER/DECODER =================== */
-// Simpan A+ jadi "AA" agar aman di JSON
+/* ========= ENCODE/DECODE PREDIKAT (A+ ↔ "AA") ========= */
 function encodeHuruf(h) {
   const s = String(h ?? '').trim().toUpperCase();
-  return (s === 'A+') ? 'AA' : s;
+  return s === 'A+' ? 'AA' : s;             // simpan A+ sebagai "AA"
 }
 function decodeHuruf(stored) {
   const s = String(stored ?? '').trim().toUpperCase();
-  return (s === 'AA') ? 'A+' : s;
+  return s === 'AA' ? 'A+' : s;             // tampilkan "AA" sebagai A+
 }
 
-/* =================== HITUNG NILAI =================== */
+/* ========= ATURAN PREDIKAT DARI NILAI =========
+   A+ : pembulatan = 100
+   A  : 90–99.49...
+   B  : 80–89.49...
+   C  : 70–79.49...
+   D  : <70
+*/
+function deriveHurufFromNilai(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 'D';
+  if (Math.round(n) === 100) return 'A+';
+  if (n >= 90) return 'A';
+  if (n >= 80) return 'B';
+  if (n >= 70) return 'C';
+  return 'D';
+}
+
+/* ========= BADGE TAMPIL HURUF ========= */
+function badgeHuruf(storedOrView) {
+  const h = decodeHuruf(storedOrView);
+  const warna = { 'A+':'green', 'A':'green', 'B':'blue', 'C':'gold', 'D':'orange' };
+  const color = warna[h] || 'gray';
+  return `<span style="background-color:${color}; color:white; padding:0 6px; border-radius:4px;">${h}</span>`;
+}
+
+/* ========= HITUNG NILAI (REVISI: tanpa E, pakai huruf saja) ========= */
 function hitungNilai() {
   let totalMinus = 0, hijau = 0, kuning = 0, merah = 0, adaMark = false;
 
   for (let ayat in markData) {
-    if (ayat === 'audio') continue;
+    if (ayat === 'audio') continue; // abaikan daftar audio
     for (let idx in markData[ayat]) {
-      const mark = markData[ayat][idx];
+      const mark = markData[ayat][idx]; 
       if (!mark) continue;
       adaMark = true;
       if (mark === "green")  { totalMinus += 0.5; hijau++; }
@@ -1791,48 +1815,87 @@ function hitungNilai() {
     }
   }
 
-  let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
+  const nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
 
-  // 🎯 Predikat baru
-  let huruf = "D";
-  if (Math.round(nilai) === 100) huruf = "A+";
-  else if (nilai >= 90) huruf = "A";
-  else if (nilai >= 80) huruf = "B";
-  else if (nilai >= 70) huruf = "C";
-  else huruf = "D";
+  // Huruf menurut aturan baru
+  const hurufView  = deriveHurufFromNilai(nilai);
+  const hurufStore = encodeHuruf(hurufView); // A+ → "AA"
 
-  const hurufStore = encodeHuruf(huruf);
-  const warna = { "A+": "green", "A": "green", "B": "blue", "C": "gold", "D": "orange" };
-  const color = warna[huruf] || "gray";
-
-  const predikatHTML = `<span style="background-color:${color};color:white;padding:0 6px;border-radius:4px;">${huruf}</span>`;
-
-  // Tulis ke UI
+  // Tulis ke UI ringkasan
   const nilaiEl = document.getElementById("nilai-akhir");
   const predikatEl = document.getElementById("predikat-akhir");
   if (nilaiEl) nilaiEl.innerText = nilai.toFixed(1);
-  if (predikatEl) predikatEl.innerHTML = predikatHTML;
+  if (predikatEl) predikatEl.innerHTML = badgeHuruf(hurufStore); // hanya badge huruf
 
   const warnaDiv = document.getElementById("modal-mark-warna");
   if (warnaDiv) warnaDiv.innerHTML = `🟩 ${hijau} &nbsp; 🟨 ${kuning} &nbsp; 🟥 ${merah}`;
 
-  return { nilai, hurufView: huruf, hurufStore, hijau, kuning, merah };
+  return { nilai, hurufView, hurufStore, hijau, kuning, merah };
 }
 
-/* ========= UPDATE TABEL ========= */
-function updateNilaiDiTabel({ nilai, predikat }) {
-  if (!currentIdSiswa) return;
-  let row = currentRowEl || [...document.querySelectorAll("table tbody tr")]
-    .find(r => String(r.cells[0].innerText.trim()) === String(currentIdSiswa));
-  if (row) {
-    const cell = [...row.cells].find(td => td.querySelector(".lihat-quran-btn"));
-    if (cell) {
-      cell.innerHTML = `
-        <div class="nilai-ringkas"><strong>${Number(nilai).toFixed(1)}</strong> ${predikat}</div>
-        <button class="lihat-quran-btn">Lembar Penilaian</button>`;
-      row.markData = JSON.parse(JSON.stringify(markData));
-    }
+/* ========= TOMBOL NILAI MANUAL (REVISI) ========= */
+const _btn = document.getElementById("btn-beri-nilai");
+if (_btn) _btn.onclick = function() {
+  if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
+
+  const v = parseFloat(document.getElementById("input-nilai-manual")?.value);
+  if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual dari 0 sampai 100.");
+
+  const hurufView  = deriveHurufFromNilai(v);
+  const hurufStore = encodeHuruf(hurufView); // A+ → "AA"
+
+  // kosongkan mark seperti logika lama
+  markData = {};
+
+  // Update UI ringkasan
+  document.getElementById("nilai-akhir")?.innerText = v.toFixed(1);
+  document.getElementById("predikat-akhir")!.innerHTML = badgeHuruf(hurufStore);
+  document.getElementById("modal-mark-warna")!.innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
+
+  // Kirim ke tabel/penyimpanan
+  if (typeof updateNilaiDiTabel === 'function') {
+    updateNilaiDiTabel({
+      nilai: v,
+      predikat: hurufView,            // kompatibel kode lama
+      predikatHurufView: hurufView,   // untuk UI
+      predikatHurufStored: hurufStore // untuk JSON (A+ disimpan "AA")
+    });
   }
+};
+
+/* ========= (OPSIONAL) bgHuruf lama → redirect ke badgeHuruf ========= */
+function bgHuruf(hurufOrStored, _predikatText = "") {
+  // Abaikan predikatText (kini tidak dipakai). Pastikan input boleh "AA".
+  return badgeHuruf(hurufOrStored);
+}
+
+/* ========= DATA DARI SERVER ========= */
+let dataSantri = []; // nanti diisi fetch/data.push
+
+/* ========= RENDER TABEL (REVISI) ========= */
+function renderTabelPredikat() {
+  if (!Array.isArray(dataSantri)) return;
+  dataSantri.forEach(data => {
+    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
+    if (!cell) return;
+
+    const nilai = Number(
+      data?.buttonCell?.nilai ??
+      data?.nilai ?? 0
+    );
+
+    // Ambil KODE TERSIMPAN lebih dulu (AA/A/B/C/D). Fallback ke view/derive.
+    const stored = data?.buttonCell?.predikatHurufStored ??
+                   data?.buttonCell?.predikatHuruf ??        // nama lama
+                   data?.predikatHurufStored ??
+                   encodeHuruf(
+                     data?.buttonCell?.predikatHurufView ??
+                     data?.predikatHurufView ??
+                     deriveHurufFromNilai(nilai)
+                   );
+
+    cell.innerHTML = `<strong>${Number.isFinite(nilai) ? nilai.toFixed(1) : '-'}</strong> - ${badgeHuruf(stored)}`;
+  });
 }
 
 /* ========= BUAT KATA KLIK ========= */
@@ -1973,36 +2036,6 @@ document.addEventListener('click', async function (e) {
     }
   }
 });
-
-/* =================== NILAI MANUAL =================== */
-document.getElementById("btn-beri-nilai").onclick = function() {
-  if (!currentIdSiswa) return alert("Klik 'Lembar Penilaian' dulu.");
-  const v = parseFloat(document.getElementById("input-nilai-manual").value);
-  if (isNaN(v) || v < 0 || v > 100) return alert("Masukkan Nilai Manual 0–100.");
-
-  let huruf = "D";
-  if (Math.round(v) === 100) huruf = "A+";
-  else if (v >= 90) huruf = "A";
-  else if (v >= 80) huruf = "B";
-  else if (v >= 70) huruf = "C";
-  else huruf = "D";
-
-  const hurufStore = encodeHuruf(huruf);
-  const warna = { "A+": "green", "A": "green", "B": "blue", "C": "gold", "D": "orange" };
-  const color = warna[huruf] || "gray";
-  const predikatHTML = `<span style="background-color:${color};color:white;padding:0 6px;border-radius:4px;">${huruf}</span>`;
-
-  markData = {}; // reset mark
-  document.getElementById("nilai-akhir").innerText = v.toFixed(1);
-  document.getElementById("predikat-akhir").innerHTML = predikatHTML;
-  document.getElementById("modal-mark-warna").innerHTML = `🟩 0 &nbsp; 🟨 0 &nbsp; 🟥 0`;
-
-  updateNilaiDiTabel({
-    nilai: v,
-    predikatHurufView: huruf,    // untuk UI
-    predikatHurufStored: hurufStore // untuk JSON
-  });
-};
 
 /* ========= TOGGLE & TUTUP ========= */
 document.getElementById("toggle-keterangan").addEventListener("click", () => {
@@ -5952,27 +5985,6 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 });
 </script>
 
-
-
-<script>
-/* =================== UTIL TABEL =================== */
-function bgHuruf(stored) {
-  const hv = decodeHuruf(stored); // "AA" → "A+"
-  const warna = { "A+": "green", "A": "green", "B": "blue", "C": "gold", "D": "orange" };
-  const color = warna[hv] || "gray";
-  return `<span style="background-color:${color};color:white;padding:0 6px;border-radius:4px;">${hv}</span>`;
-}
-
-function renderTabelPredikat() {
-  dataSantri.forEach(data => {
-    const cell = document.querySelector(`#row-${data.id} .nilai-ringkas`);
-    if (!cell) return;
-    const stored = data.predikatHurufStored ?? data.predikatHuruf;
-    const nilai = Number(data.nilai ?? 0);
-    cell.innerHTML = `<strong>${nilai.toFixed(1)}</strong> - ${bgHuruf(stored)}`;
-  });
-}
-</script>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
