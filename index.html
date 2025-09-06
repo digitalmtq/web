@@ -1787,7 +1787,7 @@ function hitungNilai() {
   let predikat = "-";
   if (adaMark) {
     const p = predikatMap.find(p => nilai <= p.max);
-    const warna = { A: "green", A: "green", B: "gold", C: "orange", D: "red" };
+    const warna = { A: "green", A: "green", B: "blue", C: "orange", D: "red" };
     predikat = `${p.text} <span style="background-color:${warna[p.huruf]};color:white;padding:0 4px;border-radius:3px;">${p.huruf}</span>`;
   }
   const nilaiEl = document.getElementById("nilai-akhir");
@@ -5925,7 +5925,7 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 <script>
 // 1. Fungsi untuk memberi warna hanya huruf predikat
 function bgHuruf(huruf, predikatText = "") {
-  const warna = { A: "green", A: "green", B: "gold", C: "orange", D: "red" };
+  const warna = { A: "green", A: "green", B: "blue", C: "orange", D: "red" };
   // huruf diberi background, predikatText normal
   return `${predikatText} <span style="background-color:${warna[huruf]}; color:white; padding:0 4px; border-radius:3px;">${huruf}</span>`;
 }
