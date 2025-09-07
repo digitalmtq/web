@@ -28,7 +28,7 @@
 }
 
 /* underline animasi halus */
-button.lihat-quran-btn::after {
+button.::after {
   content: "";
   position: absolute;
   left: 0;
@@ -39,11 +39,11 @@ button.lihat-quran-btn::after {
   transition: width 0.00s ease;
 }
 
-button.lihat-quran-btn:hover {
+button.:hover {
   color: #ffffff;
 }
 
-button.lihat-quran-btn:hover::after {
+button.:hover::after {
   width: 100%;
 }
 
@@ -1563,6 +1563,27 @@ function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
     </div>
   </div>
 </div>
+
+
+<!-- Modal Overlay Absensi Flex -->
+<div id="absensiModalOverlay" style="
+  display:none; 
+  position:fixed; 
+  top:0; left:0; 
+  width:100%; height:100%; 
+  background:rgba(0,0,0,0.5); 
+  z-index:1000; 
+  justify-content:center; 
+  align-items:center;">
+  
+  <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%; max-height:90%; overflow:auto;">
+    <h3 style="margin-top:0">Edit Absensi</h3>
+    <div id="absensiModalContent"></div>
+    <div style="margin-top:12px; text-align:right;">
+      <button id="absensiModalClose" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;">Tutup</button>
+    </div>
+  </div>
+</div>
   
   
   <!-- ======================= OVERLAY LEMBAR PENILAIAN (TANPA PLAYBACK AUDIO) ======================= -->
@@ -2459,8 +2480,7 @@ logoutBtn.addEventListener("click", () => {
 });
 
 // ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
-// Catatan: Sekarang widget TIDAK dirender di tabel. Kita render di modal overlay.
-// Tabel hanya punya tombol "Atur Absensi".
+// Catatan: Tambahan utama di sini adalah ABS_FLEX_LABELS + pemakaian label di renderAbsensiFlex.
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
@@ -2471,7 +2491,7 @@ logoutBtn.addEventListener("click", () => {
   };
 
   // ====== Label Custom per Item (bisa dioverride dari luar kalau perlu) ======
-  // Jika key tidak ada di map ini, fallback ke "namaStatus index" (mis. "Hadir 3").
+  // Jika key tidak ada di map ini, fallback ke "namaStatus index" (mis. "hadir 3").
   window.ABS_FLEX_LABELS = Object.assign({
     // Hadir
     hadir1: "Hadir Pagi 1",
@@ -2489,6 +2509,7 @@ logoutBtn.addEventListener("click", () => {
 
   function labelFor(st, idx){
     const key = `${st}${idx}`.toLowerCase();
+    // Capitalize default status untuk fallback agar rapih (Hadir 3, Izin 4, ...)
     const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
     return window.ABS_FLEX_LABELS?.[key] || `${cap(st)} ${idx}`;
   }
@@ -2548,7 +2569,7 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
-  // ===== Widget renderer (dipakai di dalam modal) =====
+  // Render widget ke <td class="abs-flex-cell">
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
     const root = (typeof container === "string") ? document.getElementById(container) : container;
     if (!root) throw new Error("Container absensi tidak ditemukan");
@@ -2557,23 +2578,23 @@ logoutBtn.addEventListener("click", () => {
 
     root.innerHTML = `
       <div class="absflex-head" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-        <label style="font-size:12px;color:#6b7280">Jumlah sesi:</label>
+        <label style="font-size:12px;color:#6b7280">Sesi aktif:</label>
         <select class="absflex-target" style="padding:2px 6px;border:1px solid #e5e7eb;border-radius:8px;">
           ${Array.from({length:ABS_FLEX_CFG.maxTarget},(_,i)=>`<option value="${i+1}" ${i+1==target?'selected':''}>${i+1}</option>`).join("")}
         </select>
-        <span class="absflex-percent" style="display:none">0%</span>
+        <span class="absflex-percent" style="border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;background:#eef2ff;font-weight:600;">0%</span>
         <div style="margin-left:auto;display:flex;gap:6px;">
           <button type="button" class="absflex-fill"  style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">Penuhi Target</button>
           <button type="button" class="absflex-clear" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">Kosongkan</button>
         </div>
       </div>
-      <div class="absflex-grid" style="display:grid;grid-template-columns:repeat(${perStatus},minmax(160px,1fr));gap:8px;">
+      <div class="absflex-grid" style="display:grid;grid-template-columns:repeat(${perStatus},minmax(90px,1fr));gap:8px;">
         ${ABS_FLEX_CFG.statuses.map(st => `
           <div style="border:1px solid #e5e7eb;border-radius:10px;padding:8px;">
             <div style="font-weight:700;margin-bottom:6px;text-transform:capitalize;">${st}</div>
-            <div style="display:grid;grid-template-columns:1fr;gap:6px;">
+            <div style="display:grid;grid-template-columns:repeat(${Math.min(perStatus,3)},1fr);gap:6px;">
               ${Array.from({length:perStatus},(_,i)=>`
-                <label style="display:flex;align-items:center;gap:8px;">
+                <label style="display:flex;align-items:center;gap:6px;">
                   <input type="checkbox" data-abskey="${st}${i+1}">
                   <span>${labelFor(st, i+1)}</span>
                 </label>
@@ -2584,7 +2605,7 @@ logoutBtn.addEventListener("click", () => {
       </div>
     `;
 
-    const percentEl = root.querySelector(".absflex-percent"); // disembunyikan di UI
+    const percentEl = root.querySelector(".absflex-percent");
     const targetEl  = root.querySelector(".absflex-target");
     const boxes     = [...root.querySelectorAll('input[type="checkbox"][data-abskey]')];
 
@@ -2604,10 +2625,16 @@ logoutBtn.addEventListener("click", () => {
         b.checked = !!it?.checked;
       });
     }
+    function recolor(p){
+      percentEl.style.background = p>=80 ? '#dcfce7' : p>=50 ? '#fff7ed' : '#fee2e2';
+      percentEl.style.borderColor= p>=80 ? '#86efac' : p>=50 ? '#fdba74' : '#fca5a5';
+    }
     function recalcExpose(){
       const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
       const rec = computePercent(items, t);
-      // expose ke container untuk proses SAVE
+      percentEl.textContent = `${Math.round(rec.percent)}%`;
+      recolor(rec.percent);
+      // expose ke cell untuk proses SAVE
       root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
       root._absensiTarget  = rec.target;
       root._absensiChecked = rec.checked;
@@ -2617,6 +2644,7 @@ logoutBtn.addEventListener("click", () => {
     // listeners
     root.addEventListener("change", (e) => {
       if (e.target === targetEl) {
+        // clamp ke target baru
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
         writeUI(); recalcExpose();
         return;
@@ -2625,6 +2653,7 @@ logoutBtn.addEventListener("click", () => {
         const k = String(e.target.dataset.abskey).toLowerCase();
         const it = items.find(x => x.key === k);
         if (it) it.checked = !!e.target.checked;
+        // clamp jika > target
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
         writeUI(); recalcExpose();
       }
@@ -2632,6 +2661,7 @@ logoutBtn.addEventListener("click", () => {
 
     root.querySelector(".absflex-fill").addEventListener("click", () => {
       const target = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
+      // isi dari kiri ke kanan sampai memenuhi target
       let cnt = items.filter(it=>it.checked).length;
       if (cnt < target){
         for (const it of items){
@@ -2674,84 +2704,6 @@ logoutBtn.addEventListener("click", () => {
   };
 })();
 
-
-
-// ============ Modal Overlay Absensi (singleton) ============
-(function(){
-  function ensureAbsensiModal(){
-    let modal = document.getElementById("absensi-flex-modal");
-    if (modal) return modal;
-
-    modal = document.createElement("div");
-    modal.id = "absensi-flex-modal";
-    modal.style.cssText = `
-      position: fixed; inset: 0; display:none;
-      align-items: center; justify-content: center;
-      background: rgba(0,0,0,.4); z-index: 9999;
-    `;
-    modal.innerHTML = `
-      <div class="abs-modal-card" style="background:#fff;border-radius:12px;max-width:900px;width:92%;max-height:88vh;display:flex;flex-direction:column;">
-        <div style="padding:12px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;">
-          <strong style="font-size:16px;">Atur Absensi</strong>
-          <div class="abs-modal-subtitle" style="font-size:12px;color:#6b7280;margin-left:auto;"></div>
-          <button type="button" class="abs-modal-close" style="border:none;background:transparent;font-size:18px;line-height:1;cursor:pointer;">✕</button>
-        </div>
-        <div class="abs-modal-body" style="padding:16px;overflow:auto;">
-          <div id="absensi-flex-mount"></div>
-        </div>
-        <div style="padding:12px 16px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end;">
-          <button type="button" class="abs-modal-cancel" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;">Batal</button>
-          <button type="button" class="abs-modal-save" style="padding:8px 12px;border:1px solid #2563eb;border-radius:10px;background:#2563eb;color:#fff;">Simpan</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    return modal;
-  }
-
-  // buka modal untuk satu baris
-  window.openAbsensiModalForRow = function(row){
-    const modal = ensureAbsensiModal();
-    const card  = modal.querySelector(".abs-modal-card");
-    const mount = modal.querySelector("#absensi-flex-mount");
-    const sub   = modal.querySelector(".abs-modal-subtitle");
-
-    // ambil preset dari dataAbsensi yang sudah ter-merge di render
-    const cell = row.querySelector(".abs-flex-cell");
-    // Jika cell sudah pernah diisi, jadikan preset dari cell; jika belum, pakai dari dataAbsensi (atribusi diset saat render)
-    const preset = Array.isArray(cell._absensiItems) ? cell._absensiItems : (cell._presetItems || null);
-    const target = Number(cell._absensiTarget || cell._presetTarget || window.ABS_FLEX_CFG.defaultTarget);
-
-    // render widget ke modal
-    mount.innerHTML = "";
-    const widget = renderAbsensiFlex(mount, { target, presetItems: preset });
-
-    // tampilkan info nama di subjudul
-    const nama = row.querySelector(".col-nama")?.childNodes?.[0]?.textContent?.trim() || "";
-    const nis  = row.querySelector(".col-nis")?.textContent?.trim() || "";
-    sub.textContent = `${nama} — ${nis}`;
-
-    // handlers
-    const close = () => { modal.style.display = "none"; };
-    modal.querySelector(".abs-modal-close").onclick  = close;
-    modal.querySelector(".abs-modal-cancel").onclick = close;
-
-    modal.querySelector(".abs-modal-save").onclick = () => {
-      // commit hasil dari widget ke cell (disembunyikan pada tabel)
-      cell._absensiItems   = widget._absensiItems;
-      cell._absensiTarget  = widget._absensiTarget;
-      cell._absensiChecked = widget._absensiChecked;
-      cell._absensiPercent = widget._absensiPercent;
-      close();
-    };
-
-    // buka
-    modal.style.display = "flex";
-  };
-})();
-</script>
-
-<script>
 // === Load data santri ===
 async function loadDataSantri() {
   const kelas = kelasSelect.value;
@@ -3192,11 +3144,12 @@ async function loadSantriData() {
             </select>
           </td>
 
-          <!-- ============ ABSENSI: tombol modal ============ -->
+          <!-- ============ GANTI: ABSENSI FLEX ============ -->
           <td class="abs-flex-cell">
-            <button type="button" class="btn-atur-absensi" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">Atur Absensi</button>
-          </td>
-          <!-- ============================================== -->
+  		<button type="button" class="btn-absensi-flex">Absensi</button>
+  		<div class="abs-mini" style="font-size:12px;opacity:.8"></div>
+		</td>
+          <!-- ============================================ -->
 
           <td>
             <select class="keterangan">
@@ -3389,21 +3342,74 @@ async function loadSantriData() {
           });
         }
 
-        // =============== ABSENSI FLEX: SIAPKAN PRESET & TOMBOL ===============
-        (function initAbsensiButtonForRow(){
+        // =============== ABSENSI FLEX: INIT DARI DATA ===============
+        (function initAbsensiFlexForRow(){
           const cell = row.querySelector(".abs-flex-cell");
           const { preset, target } = window.__makePresetAbsensiItems(dataAbsensi || {});
-          // simpan preset awal di cell, supaya modal pertama kali punya default
-          cell._presetItems  = preset;
-          cell._presetTarget = target;
+          // render widget (label custom aktif otomatis lewat labelFor)
+          renderAbsensiFlex(cell, { target, presetItems: preset });
+          // tampilkan mini badge di kolom "nilai-ringkas"
+          const miniHost = row.querySelector(".nilai-ringkas");
+          if (miniHost) {
+            const span = document.createElement("div");
+            span.className = "abs-mini";
+            span.style.fontSize = "12px";
+            span.style.opacity  = "0.8";
+            span.textContent = `Absensi: ${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
+            miniHost.appendChild(span);
 
-          // pasang handler untuk tombol
-          const btn = cell.querySelector(".btn-atur-absensi");
-          if (btn) {
-            btn.addEventListener("click", () => openAbsensiModalForRow(row));
+            // update otomatis saat berubah
+            cell.addEventListener("change", () => {
+              span.textContent = `Absensi: ${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
+            }, true);
           }
         })();
-        // ======================================================================
+
+		// =============== ABSENSI FLEX: INIT MODAL ===============
+(function initAbsensiFlexModalForRow(){
+  const cell = row.querySelector(".abs-flex-cell");
+  const btn  = cell.querySelector(".btn-absensi-flex");
+  const mini = cell.querySelector(".abs-mini");
+  const { preset, target } = window.__makePresetAbsensiItems(dataAbsensi || {});
+
+  // simpan state sementara untuk cell ini
+  cell._absPreset = preset;
+  cell._absTarget = target;
+
+  function updateMini(){
+    const percent = cell._absensiPercent ?? 0;
+    const checked = cell._absensiChecked ?? 0;
+    const tgt     = cell._absensiTarget ?? target;
+    mini.textContent = `Absensi: ${percent}% (${checked}/${tgt})`;
+  }
+  updateMini();
+
+  btn.addEventListener("click", () => {
+    const modal = document.getElementById("absensiModalOverlay");
+    const content = document.getElementById("absensiModalContent");
+    content.innerHTML = "";
+    // render widget di modal
+    renderAbsensiFlex(content, { target: cell._absTarget, presetItems: cell._absPreset });
+
+    // sinkronisasi hasil ke cell setelah modal diubah
+    content.addEventListener("change", () => {
+      cell._absensiItems   = content._absensiItems;
+      cell._absensiTarget  = content._absensiTarget;
+      cell._absensiChecked = content._absensiChecked;
+      cell._absensiPercent = content._absensiPercent;
+      cell._absPreset      = content._absensiItems;
+      cell._absTarget      = content._absensiTarget;
+      updateMini();
+    }, { once:true });
+
+    modal.style.display = "flex";
+  });
+})();
+
+document.getElementById("absensiModalClose").addEventListener("click", () => {
+document.getElementById("absensiModalOverlay").style.display = "none";
+});
+        // =============================================================
       });
     });
   } catch (err) {
@@ -3620,7 +3626,7 @@ async function simpanDataMutabaah(saveBtn) {
     return Number.isNaN(asNum) ? raw : asNum;
   }
 
-  // ===== NEW: helper ringkasan legacy dari items (mayoritas) =====
+  // ===== NEW: ringkasan legacy dari items (mayoritas) =====
   function legacyFromItems(items) {
     const tally = {hadir:0, izin:0, sakit:0, alpha:0};
     for (const it of (items||[])) {
@@ -3635,6 +3641,18 @@ async function simpanDataMutabaah(saveBtn) {
     return {hadir:"Hadir", izin:"Izin", sakit:"Sakit", alpha:"Alpha"}[best];
   }
 
+  // ===== NEW: bangun absensi6 (opsional kompat lama) dari items+target =====
+  function buildAbsensi6(items, target) {
+    const t = Math.max(1, Math.min(6, Number(target)||1));
+    const chosen = (items||[])
+      .filter(it => it.checked)
+      .map(it => String(it.key).toLowerCase().replace(/\d+$/,"")); // "hadir1" -> "hadir"
+    // ambil t pertama; isi sisa dengan ""
+    const out = [];
+    for (let i=0;i<t;i++) out.push(chosen[i] || "");
+    return out;
+  }
+
   // ===== NEW: ambil nilai Absensi Flex dari sel (kalau ada) =====
   function getAbsensiFlexFromRow(row, existing = {}) {
     const cell = row.querySelector(".abs-flex-cell");
@@ -3645,18 +3663,18 @@ async function simpanDataMutabaah(saveBtn) {
         absensiTarget: Number(existing.absensiTarget) || 0,
         absensiChecked: Number(existing.absensiChecked) || 0,
         absensiPercent: Number(existing.absensiPercent) || 0,
-        absensiLegacy: existing.absensi || ""
+        absensiLegacy: existing.absensi || "",
+        absensi6: Array.isArray(existing.absensi6) ? existing.absensi6 : []
       };
     }
-    const absensiItems   = Array.isArray(cell._absensiItems)   ? cell._absensiItems   : (Array.isArray(cell._presetItems) ? cell._presetItems : []);
-    const absensiTarget  = Number(cell._absensiTarget || cell._presetTarget || 0);
+    const absensiItems   = Array.isArray(cell._absensiItems)   ? cell._absensiItems   : [];
+    const absensiTarget  = Number(cell._absensiTarget || 0);
     const absensiChecked = Number(cell._absensiChecked || 0);
     const absensiPercent = Number(cell._absensiPercent || 0);
-
-    // legacy ringkasan untuk kompatibilitas
     const absensiLegacy  = legacyFromItems(absensiItems);
+    const absensi6       = buildAbsensi6(absensiItems, absensiTarget); // opsional kompat lama
 
-    return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensiLegacy };
+    return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensiLegacy, absensi6 };
   }
 
   // ===== UI lock =====
@@ -3709,6 +3727,7 @@ async function simpanDataMutabaah(saveBtn) {
         const absensiChecked  = flex.absensiChecked;
         const absensiPercent  = flex.absensiPercent;
         const absensiLegacy   = flex.absensiLegacy;
+        const absensi6        = flex.absensi6; // opsional
 
         // ======== Field lain (tetap) ========
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
@@ -3747,12 +3766,13 @@ async function simpanDataMutabaah(saveBtn) {
           jenjang,
           semester,
 
-          // Absensi (baru + legacy)
+          // Absensi (baru + legacy + kompat lama opsional)
           absensi: absensiLegacy,              // ringkasan mayoritas (kompat lama)
           absensiItems,                        // [{key:"hadir1",checked:true}, ...]
           absensiTarget,                       // denominator (1..6)
           absensiChecked,                      // jumlah yang dicentang
           absensiPercent,                      // 0..100
+          absensi6,                            // opsional: array panjang=target berisi status/"" (kompat lama)
 
           // Bidang lain
           dari: `${surahDari}:${ayatDari}`,
@@ -3811,7 +3831,6 @@ document.getElementById("save-btn").addEventListener("click", function () {
 document.getElementById("save-btn-modal").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
-
 
 // ============================
 // Download PDF
