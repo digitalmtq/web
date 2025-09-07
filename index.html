@@ -2459,39 +2459,15 @@ logoutBtn.addEventListener("click", () => {
 });
 
 // ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
-// Catatan: Tambahan utama di sini adalah ABS_FLEX_LABELS + pemakaian label di renderAbsensiFlex.
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
     perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 2), // default 2 unit per status (hadir1..2, dst)
     maxTarget: 6,                                       // denominator 1..6
-    defaultTarget: 2                                    // default denominator
+    defaultTarget: 2,                                   // default denominator
+    labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
   };
-
-  // ====== Label Custom per Item (bisa dioverride dari luar kalau perlu) ======
-  // Jika key tidak ada di map ini, fallback ke "namaStatus index" (mis. "hadir 3").
-  window.ABS_FLEX_LABELS = Object.assign({
-    // Hadir
-    hadir1: "Hadir Pagi 1",
-    hadir2: "Hadir Sore 2",
-    // Izin
-    izin1:  "Izin Pagi 1",
-    izin2:  "Izin Sore 2",
-    // Sakit
-    sakit1: "Sakit Pagi 1",
-    sakit2: "Sakit Sore 2",
-    // Alpha
-    alpha1: "Alpha Pagi 1",
-    alpha2: "Alpha Sore 2",
-  }, window.ABS_FLEX_LABELS || {});
-
-  function labelFor(st, idx){
-    const key = `${st}${idx}`.toLowerCase();
-    // Capitalize default status untuk fallback agar rapih (Hadir 3, Izin 4, ...)
-    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-    return window.ABS_FLEX_LABELS?.[key] || `${cap(st)} ${idx}`;
-  }
 
   function buildKeys(perStatus = ABS_FLEX_CFG.perStatus){
     const n = Math.max(1, Math.min(6, perStatus|0 || 2));
@@ -2501,11 +2477,33 @@ logoutBtn.addEventListener("click", () => {
     }
     return keys;
   }
+
+  function defaultLabel(st, i){
+    // Label bawaan:
+    // - Jika perStatus=2 → "Hadir Pagi 1", "Hadir Sore 2", dst
+    // - Selain itu → "Hadir 1", "Hadir 2", dst
+    const idx = i - 1;
+    if ((ABS_FLEX_CFG.perStatus|0) === 2) {
+      const sesi = idx === 0 ? "Pagi" : "Sore";
+      const Title = st.charAt(0).toUpperCase() + st.slice(1);
+      return `${Title} ${sesi} ${i}`;
+    }
+    const Title = st.charAt(0).toUpperCase() + st.slice(1);
+    return `${Title} ${i}`;
+  }
+
+  function labelFor(st, i){
+    const map = ABS_FLEX_CFG.labels;
+    if (map && Array.isArray(map[st]) && map[st][i-1]) return map[st][i-1];
+    return defaultLabel(st, i);
+  }
+
   function computePercent(items, target){
     const tgt = Math.max(1, Math.min(ABS_FLEX_CFG.maxTarget, target|0 || ABS_FLEX_CFG.defaultTarget));
     const checked = (items||[]).reduce((a,it)=>a+(it.checked?1:0),0);
     return { percent: Math.min(checked, tgt)/tgt*100, checked, target: tgt };
   }
+
   function clampToTarget(items, target, mode="lifo"){
     const tgt = Math.max(1, Math.min(ABS_FLEX_CFG.maxTarget, target|0 || ABS_FLEX_CFG.defaultTarget));
     const on  = (items||[]).filter(it=>it.checked);
@@ -2516,6 +2514,7 @@ logoutBtn.addEventListener("click", () => {
     const offSet = new Set(toOff);
     return items.map(it => offSet.has(it.key) ? {...it, checked:false} : it);
   }
+
   // Legacy → items bernomor
   function legacyToItems(legacy, target=2){
     const st = String((legacy||"").toLowerCase());
@@ -2523,13 +2522,13 @@ logoutBtn.addEventListener("click", () => {
     const perStatus = ABS_FLEX_CFG.perStatus;
     const keys = buildKeys(perStatus);
     const items = keys.map(k => ({key:k, checked:false}));
-    // isi dari kiri ke kanan sesuai target
     let filled = 0;
     for (let i=0;i<items.length && filled<target;i++){
       if (items[i].key.startsWith(base)) { items[i].checked = true; filled++; }
     }
     return items;
   }
+
   // absensi6 (array status per slot) → items bernomor
   function abs6ToItems(absensi6=[], target=6){
     const perStatus = ABS_FLEX_CFG.perStatus;
@@ -2548,7 +2547,7 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
-  // Render widget ke <td class="abs-flex-cell">
+  // Render widget ke target container (dipakai di MODAL)
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
     const root = (typeof container === "string") ? document.getElementById(container) : container;
     if (!root) throw new Error("Container absensi tidak ditemukan");
@@ -2567,7 +2566,7 @@ logoutBtn.addEventListener("click", () => {
           <button type="button" class="absflex-clear" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">Kosongkan</button>
         </div>
       </div>
-      <div class="absflex-grid" style="display:grid;grid-template-columns:repeat(${perStatus},minmax(90px,1fr));gap:8px;">
+      <div class="absflex-grid" style="display:grid;grid-template-columns:repeat(${perStatus},minmax(140px,1fr));gap:8px;">
         ${ABS_FLEX_CFG.statuses.map(st => `
           <div style="border:1px solid #e5e7eb;border-radius:10px;padding:8px;">
             <div style="font-weight:700;margin-bottom:6px;text-transform:capitalize;">${st}</div>
@@ -2613,7 +2612,7 @@ logoutBtn.addEventListener("click", () => {
       const rec = computePercent(items, t);
       percentEl.textContent = `${Math.round(rec.percent)}%`;
       recolor(rec.percent);
-      // expose ke cell untuk proses SAVE
+      // expose ke container (dipakai untuk sync ke cell pemanggil)
       root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
       root._absensiTarget  = rec.target;
       root._absensiChecked = rec.checked;
@@ -2623,7 +2622,6 @@ logoutBtn.addEventListener("click", () => {
     // listeners
     root.addEventListener("change", (e) => {
       if (e.target === targetEl) {
-        // clamp ke target baru
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
         writeUI(); recalcExpose();
         return;
@@ -2632,7 +2630,6 @@ logoutBtn.addEventListener("click", () => {
         const k = String(e.target.dataset.abskey).toLowerCase();
         const it = items.find(x => x.key === k);
         if (it) it.checked = !!e.target.checked;
-        // clamp jika > target
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
         writeUI(); recalcExpose();
       }
@@ -2640,7 +2637,6 @@ logoutBtn.addEventListener("click", () => {
 
     root.querySelector(".absflex-fill").addEventListener("click", () => {
       const target = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
-      // isi dari kiri ke kanan sampai memenuhi target
       let cnt = items.filter(it=>it.checked).length;
       if (cnt < target){
         for (const it of items){
@@ -2662,27 +2658,62 @@ logoutBtn.addEventListener("click", () => {
 
   // Converter untuk preset dari data lama/baru (dipakai saat render baris)
   window.__makePresetAbsensiItems = function(dataAbsensi){
-    // Prioritas preset:
-    // 1) absensiItems + absensiTarget (baru)
     if (Array.isArray(dataAbsensi?.absensiItems)){
       const target = Number(dataAbsensi?.absensiTarget) || ABS_FLEX_CFG.defaultTarget;
       return { preset: dataAbsensi.absensiItems, target };
     }
-    // 2) absensi6 + absensiActive (generasi sebelumnya)
     if (Array.isArray(dataAbsensi?.absensi6)){
       const target = Number(dataAbsensi?.absensiActive) || 6;
       const items = abs6ToItems(dataAbsensi.absensi6, target);
       return { preset: items, target: Math.max(1, Math.min(6, target)) };
     }
-    // 3) legacy absensi (string tunggal) → default target=2
     if (typeof dataAbsensi?.absensi === "string" && dataAbsensi.absensi){
       const items = legacyToItems(dataAbsensi.absensi, ABS_FLEX_CFG.defaultTarget);
       return { preset: items, target: ABS_FLEX_CFG.defaultTarget };
     }
     return { preset: null, target: ABS_FLEX_CFG.defaultTarget };
   };
+
+  // expose helper compute (optional)
+  window.__absflex_computePercent = computePercent;
 })();
 
+
+
+// === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja)
+(function(){
+  function ensureAbsensiModal(){
+    if (document.getElementById("absensiModalOverlay")) return;
+    const overlay = document.createElement("div");
+    overlay.id = "absensiModalOverlay";
+    overlay.style.cssText = [
+      "display:none","position:fixed","inset:0","background:rgba(0,0,0,.5)","z-index:1000",
+      "justify-content:center","align-items:center"
+    ].join(";");
+
+    overlay.innerHTML = `
+      <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
+        <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
+          <h3 style="margin:0;font-size:18px;">Edit Absensi</h3>
+          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">Tutup</button>
+        </div>
+        <div id="absensiModalContent"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // close handlers
+    const closeBtn = overlay.querySelector("#absensiModalClose");
+    closeBtn.addEventListener("click", () => overlay.style.display = "none");
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.style.display = "none";
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") overlay.style.display = "none";
+    });
+  }
+  window.ensureAbsensiModal = ensureAbsensiModal;
+})();
 
 // === Load data santri ===
 async function loadDataSantri() {
@@ -2712,6 +2743,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     console.error("Gagal load surah/pagesMap:", err);
   }
+
+  // pastikan modal absensi tersedia
+  ensureAbsensiModal();
 
   const isLoggedIn = localStorage.getItem("isLoggedIn");
   if (isLoggedIn) {
@@ -3027,6 +3061,15 @@ async function loadSantriData() {
       Object.values(absensiByName).forEach(sorter);
     }
 
+    // helper lokal untuk hitung ringkas dari preset (tanpa render)
+    function computeLocal(items, target){
+      const maxT = Number(window.ABS_FLEX_CFG?.maxTarget ?? 6);
+      const tgt = Math.max(1, Math.min(maxT, Number(target)||Number(window.ABS_FLEX_CFG?.defaultTarget||2)));
+      const checked = (items||[]).reduce((a,it)=>a+(it?.checked?1:0),0);
+      const percent = Math.round((Math.min(checked, tgt)/tgt)*100);
+      return { checked, tgt, percent };
+    }
+
     // Render per santri
     santriData.forEach((santri) => {
       const sid    = keyId(santri.id);
@@ -3124,9 +3167,12 @@ async function loadSantriData() {
             </select>
           </td>
 
-          <!-- ============ GANTI: ABSENSI FLEX ============ -->
-          <td class="abs-flex-cell"></td>
-          <!-- ============================================ -->
+          <!-- ============ ABSENSI FLEX via MODAL BUTTON ============ -->
+          <td class="abs-flex-cell">
+            <button type="button" class="btn-absensi-flex" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">📋 Absensi</button>
+            <div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
+          </td>
+          <!-- ======================================================= -->
 
           <td>
             <select class="keterangan">
@@ -3319,27 +3365,48 @@ async function loadSantriData() {
           });
         }
 
-        // =============== ABSENSI FLEX: INIT DARI DATA ===============
-        (function initAbsensiFlexForRow(){
+        // =============== ABSENSI FLEX via MODAL BUTTON ===============
+        (function initAbsensiFlexModalForRow(){
           const cell = row.querySelector(".abs-flex-cell");
+          const btn  = cell.querySelector(".btn-absensi-flex");
+          const mini = cell.querySelector(".abs-mini");
           const { preset, target } = window.__makePresetAbsensiItems(dataAbsensi || {});
-          // render widget (label custom aktif otomatis lewat labelFor)
-          renderAbsensiFlex(cell, { target, presetItems: preset });
-          // tampilkan mini badge di kolom "nilai-ringkas"
-          const miniHost = row.querySelector(".nilai-ringkas");
-          if (miniHost) {
-            const span = document.createElement("div");
-            span.className = "abs-mini";
-            span.style.fontSize = "12px";
-            span.style.opacity  = "0.8";
-            span.textContent = `Absensi: ${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
-            miniHost.appendChild(span);
 
-            // update otomatis saat berubah
-            cell.addEventListener("change", () => {
-              span.textContent = `Absensi: ${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
-            }, true);
+          // state awal di cell (agar SAVE bisa baca)
+          const itemsInit = Array.isArray(preset) ? preset : [];
+          const comp = computeLocal(itemsInit, target);
+          cell._absensiItems   = itemsInit;
+          cell._absensiTarget  = comp.tgt;
+          cell._absensiChecked = comp.checked;
+          cell._absensiPercent = comp.percent;
+
+          function updateMini(){
+            mini.textContent = `Absensi: ${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
           }
+          updateMini();
+
+          btn.addEventListener("click", () => {
+            ensureAbsensiModal();
+            const modal   = document.getElementById("absensiModalOverlay");
+            const content = document.getElementById("absensiModalContent");
+            content.innerHTML = "";
+
+            // render widget di modal (gunakan state terakhir dari cell)
+            const presetItems = Array.isArray(cell._absensiItems) ? cell._absensiItems : itemsInit;
+            const tgt = Number(cell._absensiTarget) || target;
+            const widget = renderAbsensiFlex(content, { target: tgt, presetItems });
+
+            // sinkronisasi hasil ke cell setiap ada perubahan di modal
+            content.addEventListener("change", () => {
+              cell._absensiItems   = widget._absensiItems;
+              cell._absensiTarget  = widget._absensiTarget;
+              cell._absensiChecked = widget._absensiChecked;
+              cell._absensiPercent = widget._absensiPercent;
+              updateMini();
+            });
+
+            modal.style.display = "flex";
+          });
         })();
         // =============================================================
       });
@@ -3351,7 +3418,6 @@ async function loadSantriData() {
 
   overlay.style.display = "none";
 }
-
 
 
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
