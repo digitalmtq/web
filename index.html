@@ -3812,9 +3812,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
 // ============================
 // ============================
-// ============================
-// ============================
-// Download PDF (dengan Absensi Flex)
+// Download PDF
 // ============================
 (function(){
   const $ = sel => document.querySelector(sel);
@@ -3853,57 +3851,57 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       #download-pdf-rekap.rekap-btn{ background:#0ea5e9; }
       #download-xls-rekap.rekap-btn{ background:#22c55e; }
       #download-pdf-santri.rekap-btn{ background:#8b5cf6; }
-      #download-pdf-allkelas.rekap-btn{ background:#f59e0b; }
+	  #download-pdf-allkelas.rekap-btn{ background:#f59e0b; } /* oranye */
       .pdf-rekap-controls .rekap-btn:hover{ filter:brightness(.97); }
       .pdf-rekap-controls .rekap-btn:disabled{ opacity:.6; cursor:not-allowed; }
     `;
     document.head.appendChild(s);
   })();
 
-  /** Konversi kode A1..A34 => label ILA..ILD, 1A..1J, 2A..2J, 3A..3J, dst */
-  function jenjangLabel(code) {
-    const m = String(code || '').trim().match(/^A(\d+)$/i);
-    if (!m) return String(code || '');     // kalau kosong/di luar pola, tampilkan apa adanya
-    const n = Number(m[1]);
-    if (n >= 1 && n <= 4) {
-      return ['ILA','ILB','ILC','ILD'][n - 1];
-    }
-    // A5..A14 => 1A..1J, A15..A24 => 2A..2J, A25..A34 => 3A..3J, dst
-    const group = Math.floor((n - 5) / 10) + 1;        // 1, 2, 3, ...
-    const idx   = (n - 5) % 10;                        // 0..9
-    const letter = String.fromCharCode(65 + idx);      // 'A'..'J'
-    return `${group}${letter}`;
+	/** Konversi kode A1..A34 => label ILA..ILD, 1A..1J, 2A..2J, 3A..3J, dst */
+function jenjangLabel(code) {
+  const m = String(code || '').trim().match(/^A(\d+)$/i);
+  if (!m) return String(code || '');     // kalau kosong/di luar pola, tampilkan apa adanya
+  const n = Number(m[1]);
+  if (n >= 1 && n <= 4) {
+    return ['ILA','ILB','ILC','ILD'][n - 1];
   }
+  // A5..A14 => 1A..1J, A15..A24 => 2A..2J, A25..A34 => 3A..3J, dst
+  const group = Math.floor((n - 5) / 10) + 1;        // 1, 2, 3, ...
+  const idx   = (n - 5) % 10;                        // 0..9
+  const letter = String.fromCharCode(65 + idx);      // 'A'..'J'
+  return `${group}${letter}`;
+}
 
   // === Helper Kelas/Kelompok ===
   function buildKelasKelompokLine(kelas, kelasEl) {
     const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
     const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {
-      kelas_012526: "Kelompok Ust. Tukimin",
-      kelas_022526: "Kelompok Ust. Dicky Miswardi",
-      kelas_032526: "Kelompok Ust. Jundullah BA",
-      kelas_042526: "Kelompok Ust. Abdullah.",
-      kelas_052526: "Kelompok Ust. Ro'uuf Noor Huda Su'udin",
-      kelas_062526: "Kelompok Ust. Salahuddin Santoaji Priatmojo",
-      kelas_072526: "Kelompok Ust. Hammam Ahmed Saleh Al Naqeb",
-      kelas_082526: "Kelompok Ust. Alif Rafiqul",
-      kelas_092526: "Kelompok Ust. Ali Wardana",
-      kelas_102526: "Kelompok Ust. Mullah Muhammad Umar",
-      kelas_112526: "Kelompok Ust. Akhsani Taqwim",
-      kelas_122526: "Kelompok Ust. Ikhsan Nur Khamid",
-      kelas_132526: "Kelompok Ust. Abdul Haq",
-      kelas_142526: "Kelompok Ust. Abdullah Al Guspari",
-      kelas_152526: "Kelompok Ust. Abdullah Rafi",
-      kelas_162526: "Kelompok Ust. Fajrul Ihsan",
-      kelas_172526: "Kelompok Ust. Idris",
-      kelas_182526: "Kelompok Ust. Muhammad athayya mumtaz",
-      kelas_192526: "Kelompok Ust. M. Hanan Azizi",
-      kelas_202526: "Kelompok Ust. Muhammad Rama Miayasin",
-      kelas_212526: "Kelompok Ust. Nur Afiq",
-      kelas_222526: "Kelompok Ust. Raditya Baswara Raharjo",
-      kelas_232526: "Kelompok Ust. Rafie Zahran Kurniawan",
-      kelas_242526: "Kelompok Ust. Shidiq Hasan Khan"
-    };
+  kelas_012526: "Kelompok Ust. Tukimin",
+  kelas_022526: "Kelompok Ust. Dicky Miswardi",
+  kelas_032526: "Kelompok Ust. Jundullah BA",
+  kelas_042526: "Kelompok Ust. Abdullah.",
+  kelas_052526: "Kelompok Ust. Ro'uuf Noor Huda Su'udin",
+  kelas_062526: "Kelompok Ust. Salahuddin Santoaji Priatmojo",
+  kelas_072526: "Kelompok Ust. Hammam Ahmed Saleh Al Naqeb",
+  kelas_082526: "Kelompok Ust. Alif Rafiqul",
+  kelas_092526: "Kelompok Ust. Ali Wardana",
+  kelas_102526: "Kelompok Ust. Mullah Muhammad Umar",
+  kelas_112526: "Kelompok Ust. Akhsani Taqwim",
+  kelas_122526: "Kelompok Ust. Ikhsan Nur Khamid",
+  kelas_132526: "Kelompok Ust. Abdul Haq",
+  kelas_142526: "Kelompok Ust. Abdullah Al Guspari",
+  kelas_152526: "Kelompok Ust. Abdullah Rafi",
+  kelas_162526: "Kelompok Ust. Fajrul Ihsan",
+  kelas_172526: "Kelompok Ust. Idris",
+  kelas_182526: "Kelompok Ust. Muhammad athayya mumtaz",
+  kelas_192526: "Kelompok Ust. M. Hanan Azizi",
+  kelas_202526: "Kelompok Ust. Muhammad Rama Miayasin",
+  kelas_212526: "Kelompok Ust. Nur Afiq",
+  kelas_222526: "Kelompok Ust. Raditya Baswara Raharjo",
+  kelas_232526: "Kelompok Ust. Rafie Zahran Kurniawan",
+  kelas_242526: "Kelompok Ust. Shidiq Hasan Khan"
+};
     let kelompok = custom[kelas] || "";
     if (!kelompok) {
       const optText = kelasEl?.options?.[kelasEl.selectedIndex]?.text?.trim() || "";
@@ -3948,17 +3946,18 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   pdfBtn?.addEventListener('click', pdfRekapDownload);
   xlsBtn?.addEventListener('click', xlsRekapDownload);
 
+
   if (!allKelasBtn) {
-    const wrap = document.querySelector('.pdf-rekap-controls');
-    if (wrap) {
-      allKelasBtn = document.createElement('button');
-      allKelasBtn.id = 'download-pdf-allkelas';
-      allKelasBtn.className = 'rekap-btn';
-      allKelasBtn.textContent = 'Download PDF All Kelas';
-      wrap.appendChild(allKelasBtn);
-    }
+  const wrap = document.querySelector('.pdf-rekap-controls');
+  if (wrap) {
+    allKelasBtn = document.createElement('button');
+    allKelasBtn.id = 'download-pdf-allkelas';
+    allKelasBtn.className = 'rekap-btn';
+    allKelasBtn.textContent = 'Download PDF All Kelas';
+    wrap.appendChild(allKelasBtn);
   }
-  allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
+}
+allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
 
   // Saat tanggal berubah, muat ulang opsi santri (opsional)
   $('#pdf-start-date')?.addEventListener('change', () => { window._populateSantriSelect?.(); });
@@ -4137,50 +4136,22 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   // === Pewarnaan sel SP ===
   function PDF_spPaintCell(doc, x, y, w, h, spValue){
     const v = String(spValue||'').toUpperCase().replace(/\s+/g,''); // SP1 / SP 1 -> SP1
-    if (v === 'SP1'){
+    if (v === 'SP1'){            // kuning terang
       doc.setFillColor(255,241,118); // #FFF176
       doc.rect(x, y, w, h, 'F');
-      return null;
+      return null;               // text warna normal
     }
-    if (v === 'SP2'){
+    if (v === 'SP2'){            // merah terang
       doc.setFillColor(255,205,210); // #FFCDD2
       doc.rect(x, y, w, h, 'F');
       return null;
     }
-    if (v === 'SP3'){
+    if (v === 'SP3'){            // hitam, text putih
       doc.setFillColor(0,0,0);
       doc.rect(x, y, w, h, 'F');
-      return [255,255,255];
+      return [255,255,255];      // override text -> putih
     }
     return null;
-  }
-
-  // >>> ABS FLEX: hitung percent dari struktur JSON lama/baru
-  function PDF_absFlexFromRow(it){
-    const MAX_T = 6, DEF_T = 2;
-    // Case 1: absensiItems + absensiTarget
-    if (Array.isArray(it?.absensiItems)) {
-      const target = Math.max(1, Math.min(MAX_T, (it?.absensiTarget|0) || DEF_T));
-      const checked = it.absensiItems.reduce((a,x)=>a + (x?.checked?1:0), 0);
-      const percent = Math.round((Math.min(checked, target) / target) * 100);
-      return { checked, target, percent };
-    }
-    // Case 2: absensi6 + absensiActive
-    if (Array.isArray(it?.absensi6)) {
-      const target = Math.max(1, Math.min(MAX_T, (it?.absensiActive|0) || 6));
-      const valid = new Set(['hadir','izin','sakit','alpha']);
-      const checked = it.absensi6.slice(0, target).reduce((a,s)=>
-        a + (valid.has(String(s||'').toLowerCase()) ? 1 : 0), 0
-      );
-      const percent = Math.round((Math.min(checked, target) / target) * 100);
-      return { checked, target, percent };
-    }
-    // Case 3: legacy string (hadir/izin/sakit/alpha)
-    if (typeof it?.absensi === 'string' && it.absensi.trim()) {
-      const target = DEF_T, checked = DEF_T;
-      return { checked, target, percent: 100 };
-    }
-    return null; // tidak ada data absensi flex
   }
 
   // ================= PDF Rekap Kelas =================
@@ -4244,18 +4215,18 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         { key:'no',       title:'No.',  w:11, minW:11, maxW:12, align:'center' },
         { key:'nis',      title:'NIS',  w:24, minW:18, maxW:34, align:'left'   },
         { key:'nama',     title:'Nama', w:46, minW:36, maxW:80, align:'left'   },
-        { key:'sem',      title:'SM',   w:12, minW:12, maxW:12, align:'center' },
-        { key:'jenjang',  title:'KLS',  w:14, minW:14, maxW:14, align:'center' },
+        { key:'sem',      title:'SM',   w:12, minW:12, maxW:12, align:'center' }, // dipersempit
+        { key:'jenjang',  title:'KLS',  w:14, minW:14, maxW:14, align:'center' }, // dipersempit
         { key:'h',        title:'H',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
-        { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
+		{ key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' }, // kolom baru
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
-        { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
+        { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' }, // ganti label
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
       ];
@@ -4267,16 +4238,9 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
         const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
-
-        // >>> ABS FLEX (rata-rata harian bila tersedia, fallback lama)
         const personalDays = Number(r.daysCount || 0);
-        const avgFlex = (r.absFlexCount > 0) ? Math.round(r.absFlexSum / r.absFlexCount) : null;
-        const hadirPct = (avgFlex != null)
-          ? avgFlex
-          : (function(){
-              const hadirDays = Number(r.hadirDays || 0);
-              return personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
-            })();
+        const hadirDays    = Number(r.hadirDays || 0);
+        const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
 
         return {
           no: String(idx+1),
@@ -4284,7 +4248,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           nama: r.nama || '-',
           sem: r.semester ?? '-',
           jenjang: jenjangLabel(r.jenjang ?? ''),
-          ket: r.keterangan ?? '-',
+          ket: r.keterangan ?? '-',                 // SP
           h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
           hadirPct: `${hadirPct}%`,
           setoran: setoranText,
@@ -4453,493 +4417,727 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     }
   }
 
-  // ===== Helper: ambil semua key kelas =====
-  function _getAllKelasKeys(){
-    if (Array.isArray(window.ALL_KELAS_KEYS) && window.ALL_KELAS_KEYS.length){
-      return [...new Set(window.ALL_KELAS_KEYS.map(String))].sort((a,b)=>{
-        const na = +(String(a).match(/(\d+)/)?.[1]||1e9);
-        const nb = +(String(b).match(/(\d+)/)?.[1]||1e9);
-        return na-nb || String(a).localeCompare(String(b),'id');
-      });
-    }
-    const el = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
-    const vals = el ? [...el.options].map(o=>o.value).filter(Boolean) : [];
-    let keys = vals.length ? [...new Set(vals)] : [];
-    if (!keys.length){
-      const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {};
-      keys = Object.keys(custom||{});
-    }
-    keys.sort((a,b)=>{
+
+// ===== Helper: ambil semua key kelas =====
+function _getAllKelasKeys(){
+  // Prioritas: global window.ALL_KELAS_KEYS jika disediakan
+  if (Array.isArray(window.ALL_KELAS_KEYS) && window.ALL_KELAS_KEYS.length){
+    return [...new Set(window.ALL_KELAS_KEYS.map(String))].sort((a,b)=>{
       const na = +(String(a).match(/(\d+)/)?.[1]||1e9);
       const nb = +(String(b).match(/(\d+)/)?.[1]||1e9);
       return na-nb || String(a).localeCompare(String(b),'id');
     });
-    return keys;
   }
 
-  // ===== Helper: line "Kelas: X, Kelompok: Y" untuk kelas tertentu =====
-  function _kelasKelompokLineFor(kelasKey){
-    const kelasNum = (String(kelasKey||'').match(/(\d+)/)?.[1]) || (kelasKey || '-');
-    const el = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
+  // Fallback: opsi <select id="kelasSelect">
+  const el = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
+  const vals = el ? [...el.options].map(o=>o.value).filter(Boolean) : [];
+  let keys = vals.length ? [...new Set(vals)] : [];
+
+  // Fallback lagi: dari NAMA_KELAS_CUSTOM/windows.namaKelasCustom
+  if (!keys.length){
     const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {};
-    let kelompok = custom[kelasKey] || "";
-
-    if (!kelompok && el){
-      const opt = [...el.options].find(o => o.value === kelasKey);
-      const optText = opt?.text?.trim() || "";
-      if (optText){
-        const fromOpt = (optText.match(/Kelompok\s+(.+)/i)?.[1] || optText).trim();
-        kelompok = fromOpt;
-      }
-    }
-    kelompok = (kelompok || '').replace(/^Kelompok\s+/i, '').trim() || '-';
-    return { kelasNum, kelompok, line: `Halaqoh: ${kelasNum}, ${kelompok}` };
+    keys = Object.keys(custom||{});
   }
 
-  // ====== Ambil & Agregasi Data utk 1 kelas spesifik ======
-  async function collectRekapDataForClass(kelasKey, startDate, endDate){
-    const { line: kelasLine } = _kelasKelompokLineFor(kelasKey);
+  // Urutkan berdasar angka kelas
+  keys.sort((a,b)=>{
+    const na = +(String(a).match(/(\d+)/)?.[1]||1e9);
+    const nb = +(String(b).match(/(\d+)/)?.[1]||1e9);
+    return na-nb || String(a).localeCompare(String(b),'id');
+  });
+  return keys;
+}
 
-    // 1) ABSENSI
-    const absUrl = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
-    const resAbs = await fetch(absUrl);
-    if (!resAbs.ok) throw new Error('Gagal mengambil data absensi.');
-    let allData = await resAbs.json();
-    if (!Array.isArray(allData) || allData.length === 0) return null; // SKIP kelas tanpa data
+// ===== Helper: line "Kelas: X, Kelompok: Y" untuk kelas tertentu (tanpa perlu selected) =====
+function _kelasKelompokLineFor(kelasKey){
+  const kelasNum = (String(kelasKey||'').match(/(\d+)/)?.[1]) || (kelasKey || '-');
+  const el = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
+  const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {};
+  let kelompok = custom[kelasKey] || "";
 
-    // 2) ROSTER
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`);
-    const santriData = await resSantri.json().catch(()=>[]) || [];
-
-    // helper index
-    const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-    const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
-    const keyName = v => String(v || "").trim().toLowerCase();
-    const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
-    const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
-    const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
-    const rosterById   = byIdMap(santriData, s => s);
-    const rosterByNis  = byNisMap(santriData, s => s);
-    const rosterByName = byNameMap(santriData, s => s);
-
-    // 3) Normalisasi (+ inject semester, jenjang, keterangan)
-    const allDataNorm = allData.map(r => {
-      let id   = keyId(r?.id ?? "");
-      let nis  = keyNis(r?.nis ?? "");
-      const nmK = keyName(r?.nama);
-      if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
-      if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
-
-      let nama = r?.nama;
-      if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
-      if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
-      if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
-
-      let semester = (r?.semester != null) ? Number(r.semester) : null;
-      if (semester == null) {
-        if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
-        else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
-      }
-
-      let jenjang = r?.jenjang ?? null;
-      if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
-      if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
-
-      let keterangan = r?.keterangan ?? null;
-      if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
-      if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
-
-      return { ...r, id, nis, nama, semester, jenjang, keterangan, tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null };
-    });
-
-    // KBM hari unik
-    const kbmDaySet = new Set();
-    (allDataNorm||[]).forEach(it => { if (it?.tanggal) kbmDaySet.add(String(it.tanggal)); });
-    const kbmDays = kbmDaySet.size;
-
-    // Agregasi
-    const aggMap = PDF_buildRekapPerKey(allDataNorm);
-    const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
-    const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
-    if (!rows.length) return null;
-
-    let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
-    rows.forEach(r=>{ totJuz += r.totalJuz; totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin; totPages += r.totalPageSum; });
-
-    return { kelas: kelasKey, startDate, endDate, kelasLine, kbmDays, rows,
-      totals: { totJuz, totH, totA, totS, totI, totPages }
-    };
-  }
-
-  // ===== PDF ALL KELAS =====
-  async function pdfAllKelasDownload(){
-    const btn = document.getElementById('download-pdf-allkelas');
-    setBtnLoading(btn, true, 'Membuat PDF…');
-    try {
-      const startDate = document.querySelector('#pdf-start-date')?.value;
-      const endDate   = document.querySelector('#pdf-end-date')?.value;
-      if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai & akhir.');
-
-      const kelasKeys = _getAllKelasKeys();
-      if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
-
-      const { jsPDF } = window.jspdf || {};
-      if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
-
-      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a3' });
-
-      // Tema konsisten
-      const theme = {
-        cardBorder: [229,231,235],
-        headerText: [15,23,42],
-        tableHeadFill: [30,136,229],
-        zebraFill: [248,250,252],
-        border: [229,231,235],
-        text: [31,41,55],
-        statusFill: { tuntas: [220,252,231], khatam: [237,233,254] }
-      };
-
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
-      const margin = { left: 12, right: 12, top: 12, bottom: 12 };
-      const fontBody = 8.5, fontHead = fontBody + 1;
-      const lineFactor = 1.18;
-      const lineH = fontBody * 0.3528 * lineFactor;
-      const cellPadX = 1.6, cellPadY = 1.2;
-      const headerRowH = Math.max(9, fontHead * 0.3528 * lineFactor + 2*cellPadY);
-
-      // ===== Spasi & tinggi untuk header 'nempel' + keep-with-next
-      const CLASS_HEADER_FONT = 10;
-      const CLASS_HEADER_LINE_H = CLASS_HEADER_FONT * 0.3528 * 1.10;
-      const HEADER_TO_TABLE_GAP = 0.8;
-      const BETWEEN_CLASSES_GAP = 5.0;
-      const ROW_MIN_H = (fontBody * 0.3528 * 1.18) + 2*cellPadY;
-
-      // Judul utama
-      function drawMainTitle(){
-        doc.setTextColor(...theme.headerText);
-        doc.setFont('helvetica','bold'); doc.setFontSize(14);
-        doc.text('Rekap Absensi & Setoran', margin.left, margin.top);
-        doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
-        doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 6);
-        doc.setTextColor(...theme.text);
-      }
-
-      // Footer
-      function drawFooter(pageNo, totalPages, printedAt){
-        const y = pageH - 6;
-        doc.setDrawColor(...theme.border); doc.setLineWidth(0.2);
-        doc.line(margin.left-2, y-3, pageW-margin.right+2, y-3);
-        doc.setFontSize(8);
-        doc.text(`Dicetak: ${printedAt}`, margin.left, y);
-        doc.text(`Halaman ${pageNo} / ${totalPages}`, pageW - margin.right - 30, y);
-      }
-
-      // Header kecil per kelas
-      function drawClassHeaderCompact(kelasLine, kbmDays, totalSantri, yStart){
-        const headerText = `${kelasLine}, KBM: ${kbmDays} hari, Total Santri: ${totalSantri}`;
-        doc.setFont('helvetica','bold'); doc.setFontSize(CLASS_HEADER_FONT);
-        const baseline = yStart + CLASS_HEADER_LINE_H * 0.72;
-        doc.text(headerText, margin.left, baseline);
-        return CLASS_HEADER_LINE_H;
-      }
-      function ensureSpaceForClassBlock(yCurrent){
-        const need = CLASS_HEADER_LINE_H + HEADER_TO_TABLE_GAP + headerRowH + ROW_MIN_H;
-        if (yCurrent + need > pageH - margin.bottom){
-          doc.addPage('a3','landscape');
-          return margin.top + 6;
-        }
-        return yCurrent;
-      }
-
-      const baseCols = [
-        { key:'no',       title:'No.',  w:11, minW:11, maxW:12, align:'center' },
-        { key:'nis',      title:'NIS',  w:24, minW:18, maxW:34, align:'left'   },
-        { key:'nama',     title:'Nama', w:46, minW:36, maxW:80, align:'left'   },
-        { key:'sem',      title:'SM',   w:12, minW:12, maxW:12, align:'center' },
-        { key:'jenjang',  title:'KLS',  w:14, minW:14, maxW:14, align:'center' },
-        { key:'h',        title:'H',    w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
-        { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
-        { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
-        { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
-        { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
-        { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
-        { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
-        { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
-        { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
-      ];
-
-      const contentW = pageW - margin.left - margin.right;
-      let y = margin.top + 12;
-      drawMainTitle();
-
-      const printedAt = new Date().toLocaleString();
-
-      for (const kelasKey of kelasKeys){
-        let data = null;
-        try {
-          data = await collectRekapDataForClass(kelasKey, startDate, endDate);
-        } catch (e) {
-          console.warn('Gagal kelas', kelasKey, e);
-          continue;
-        }
-        if (!data) continue;
-
-        const { kelasLine, kbmDays, rows } = data;
-
-        const tableData = rows.map((r, idx) => {
-          const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-          const pred      = PDF_predikatFromScore(nilaiAvg);
-          const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
-          const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
-          const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
-
-          // >>> ABS FLEX
-          const personalDays = Number(r.daysCount || 0);
-          const avgFlex = (r.absFlexCount > 0) ? Math.round(r.absFlexSum / r.absFlexCount) : null;
-          const hadirPct = (avgFlex != null)
-            ? avgFlex
-            : (function(){
-                const hadirDays = Number(r.hadirDays || 0);
-                return personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
-              })();
-
-          return {
-            no: String(idx+1),
-            nis: r.nis || r.id || '-',
-            nama: r.nama || '-',
-            sem: r.semester ?? '-',
-            jenjang: jenjangLabel(r.jenjang ?? ''),
-            ket: r.keterangan ?? '-',
-            h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
-            hadirPct: `${hadirPct}%`,
-            setoran: setoranText,
-            juz: juzText,
-            totJuz: r.totalJuz.toFixed(2),
-            persen: statusJuz.label,
-            nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
-            pred: pred.huruf
-          };
-        });
-
-        const cols = JSON.parse(JSON.stringify(baseCols));
-        fitColumnsFlex(doc, cols, tableData, fontBody, contentW, cellPadX);
-
-        // ===== PRE-FLIGHT
-        y = ensureSpaceForClassBlock(y);
-
-        // Header kelas (rapat ke tabel)
-        y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
-        y += HEADER_TO_TABLE_GAP;
-
-        // Header tabel
-        drawTableHeader(doc, cols, margin.left, y, headerRowH, fontHead, theme, cellPadX);
-        y += headerRowH;
-
-        // Isi tabel
-        let rowIndex = 0;
-        doc.setLineWidth(0.2);
-
-        for (const row of tableData) {
-          const wraps = cols.map(col =>
-            doc.splitTextToSize(String(row[col.key] ?? ''), Math.max(1, col.w - 2*cellPadX))
-          );
-          const rowTextHeights = wraps.map(lines => lines.length * lineH);
-          const rowH = Math.max(lineH + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
-
-          if (y + rowH > pageH - margin.bottom) {
-            doc.addPage('a3', 'landscape');
-            y = margin.top + 6;
-
-            y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
-            y += HEADER_TO_TABLE_GAP;
-
-            drawTableHeader(doc, cols, margin.left, y, headerRowH, fontHead, theme, cellPadX);
-            y += headerRowH;
-            rowIndex = 0;
-          }
-
-          if (rowIndex % 2 === 1) {
-            doc.setFillColor(248,250,252);
-            doc.rect(margin.left, y, sumWidth(cols), rowH, 'F');
-          }
-
-          let x = margin.left;
-          doc.setFont('helvetica','normal');
-          doc.setFontSize(fontBody);
-          doc.setTextColor(...theme.text);
-          doc.setDrawColor(...theme.border);
-
-          for (let ci=0; ci<cols.length; ci++){
-            const col = cols[ci];
-            const lines = wraps[ci];
-
-            // Highlight THMS tuntas/khatam
-            if (col.key === 'persen') {
-              const val = String(row[col.key] || '').toUpperCase();
-              if (val === 'TUNTAS' || val === 'KHATAM') {
-                const fill = (val === 'TUNTAS') ? theme.statusFill.tuntas : theme.statusFill.khatam;
-                doc.setFillColor(...fill);
-                doc.rect(x, y, col.w, rowH, 'F');
-              }
-            }
-
-            // Pewarnaan kolom SP
-            let spTextColor = null;
-            if (col.key === 'ket') {
-              spTextColor = PDF_spPaintCell(doc, x, y, col.w, rowH, row.ket);
-              if (spTextColor) doc.setTextColor(...spTextColor);
-            }
-
-            const textBlockH = lines.length * lineH;
-            let yy = y + (rowH - textBlockH)/2 + lineH*0.82;
-            let tx, opt = {};
-            if (col.align === 'right') { tx = x + col.w - cellPadX; opt = { align:'right' }; }
-            else if (col.align === 'center') { tx = x + col.w/2; opt = { align:'center' }; }
-            else { tx = x + cellPadX; }
-            for (let li=0; li<lines.length; li++){
-              doc.text(String(lines[li]), tx, yy, opt);
-              yy += lineH;
-            }
-
-            doc.rect(x, y, col.w, rowH);
-            if (spTextColor) doc.setTextColor(...theme.text);
-            x += col.w;
-          }
-
-          y += rowH;
-          rowIndex++;
-        }
-
-        // jarak antar kelas
-        y += BETWEEN_CLASSES_GAP;
-      }
-
-      // ===== Tanda tangan sekali di paling bawah =====
-      const printed = new Date();
-      const printedISO = printed.toISOString().slice(0,10);
-      const m = String(endDate||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      const ttdDate = m ? `${m[3]}-${m[2]}-${m[1]}` : (String(printedISO).match(/^(\d{4})-(\d{2})-(\d{2})$/) ? String(printedISO).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3-$2-$1') : printed.toLocaleDateString('id-ID'));
-
-      const signNeededH = 36, spaceTop = 6;
-      if (y + spaceTop + signNeededH > pageH - margin.bottom){
-        doc.addPage('a3', 'landscape');
-        y = margin.top + 6;
-      }
-      y += spaceTop;
-
-      const totalW = pageW - margin.left - margin.right;
-      const colGap = 8;
-      const colW   = (totalW - colGap) / 2;
-      const leftX  = margin.left;
-      const rightX = margin.left + colW + colGap;
-
-      doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
-
-      const headY = y + 8;
-      doc.text('Mengetahui,', leftX, headY);
-      doc.text('Pengampu Kelas,', rightX, headY);
-
-      const lineY = headY + 24;
-      doc.setDrawColor(...theme.border);
-      doc.line(leftX,  lineY, leftX  + colW - 10, lineY);
-      doc.line(rightX, lineY, rightX + colW - 10, lineY);
-
-      const totalPages = doc.internal.getNumberOfPages();
-      for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooter(p, totalPages, printedAt); }
-
-      const fileName = `Rekap_AllKelas_${startDate}_sd_${endDate}.pdf`;
-      doc.save(fileName);
-    } catch (err) {
-      console.error(err);
-      alert('Gagal mengunduh PDF All Kelas: ' + (err.message || err));
-    } finally {
-      setBtnLoading(btn, false);
+  if (!kelompok && el){
+    const opt = [...el.options].find(o => o.value === kelasKey);
+    const optText = opt?.text?.trim() || "";
+    if (optText){
+      const fromOpt = (optText.match(/Kelompok\s+(.+)/i)?.[1] || optText).trim();
+      kelompok = fromOpt;
     }
   }
+  kelompok = (kelompok || '').replace(/^Kelompok\s+/i, '').trim() || '-';
+  return { kelasNum, kelompok, line: `Halaqoh: ${kelasNum}, ${kelompok}` };
+}
 
-	
-  // ============== PDF per Santri (REVISI: absensi flex) ==============
-async function pdfSantriDownload(){
-  // --- helper khusus absensi flex (inline supaya mandiri) ---
-  const ABS_FLEX_CFG = {
-    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 2),
-    maxTarget: 6,
-    defaultTarget: 2,
-    statuses: ["hadir","izin","sakit","alpha"]
+// ====== Ambil & Agregasi Data utk 1 kelas spesifik ======
+async function collectRekapDataForClass(kelasKey, startDate, endDate){
+  const { line: kelasLine } = _kelasKelompokLineFor(kelasKey);
+
+  // 1) ABSENSI
+  const absUrl = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
+  const resAbs = await fetch(absUrl);
+  if (!resAbs.ok) throw new Error('Gagal mengambil data absensi.');
+  let allData = await resAbs.json();
+  if (!Array.isArray(allData) || allData.length === 0) return null; // SKIP kelas tanpa data
+
+  // 2) ROSTER
+  const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`);
+  const santriData = await resSantri.json().catch(()=>[]) || [];
+
+  // helper index (local copy)
+  const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
+  const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
+  const keyName = v => String(v || "").trim().toLowerCase();
+  const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
+  const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
+  const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
+  const rosterById   = byIdMap(santriData, s => s);
+  const rosterByNis  = byNisMap(santriData, s => s);
+  const rosterByName = byNameMap(santriData, s => s);
+
+  // 3) Normalisasi (+ inject semester, jenjang, keterangan)
+  const allDataNorm = allData.map(r => {
+    let id   = keyId(r?.id ?? "");
+    let nis  = keyNis(r?.nis ?? "");
+    const nmK = keyName(r?.nama);
+    if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
+    if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
+
+    let nama = r?.nama;
+    if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
+    if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
+    if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
+
+    let semester = (r?.semester != null) ? Number(r.semester) : null;
+    if (semester == null) {
+      if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
+      else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
+    }
+
+    let jenjang = r?.jenjang ?? null;
+    if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
+    if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
+
+    let keterangan = r?.keterangan ?? null;
+    if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
+    if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
+
+    return { ...r, id, nis, nama, semester, jenjang, keterangan, tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null };
+  });
+
+  // KBM hari unik
+  const kbmDaySet = new Set();
+  (allDataNorm||[]).forEach(it => { if (it?.tanggal) kbmDaySet.add(String(it.tanggal)); });
+  const kbmDays = kbmDaySet.size;
+
+  // Agregasi
+  const aggMap = PDF_buildRekapPerKey(allDataNorm);
+  const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
+  const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
+  if (!rows.length) return null;
+
+  // Ringkasan total (opsional)
+  let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
+  rows.forEach(r=>{ totJuz += r.totalJuz; totH += r.hadir; totA += r.alpha; totS += r.sakit; totI += r.izin; totPages += r.totalPageSum; });
+
+  return { kelas: kelasKey, startDate, endDate, kelasLine, kbmDays, rows,
+    totals: { totJuz, totH, totA, totS, totI, totPages }
   };
-  function _normStr(v){ return String(v==null?'':v).trim(); }
-  function _toInt(v,def=null){ const n = parseInt(v,10); return Number.isFinite(n)?n:def; }
+}
 
-  // hitung dari array items: [{key:'hadir1',checked:true}, ...] + target
-  function computeFromItems(itemsRaw, targetRaw){
-    const items = Array.isArray(itemsRaw) ? itemsRaw : [];
-    const tgt = Math.max(1, Math.min(ABS_FLEX_CFG.maxTarget, _toInt(targetRaw, ABS_FLEX_CFG.defaultTarget) || ABS_FLEX_CFG.defaultTarget));
-    let h=0,i=0,s=0,a=0, checked=0;
-    for (const it of items){
-      if (!it || !it.checked) continue;
-      checked++;
-      const k = _normStr(it.key).toLowerCase();
-      if      (k.startsWith('hadir')) h++;
-      else if (k.startsWith('izin'))  i++;
-      else if (k.startsWith('sakit')) s++;
-      else if (k.startsWith('alpha')) a++;
+// ===== PDF ALL KELAS =====
+async function pdfAllKelasDownload(){
+  const btn = document.getElementById('download-pdf-allkelas');
+  setBtnLoading(btn, true, 'Membuat PDF…');
+  try {
+    const startDate = document.querySelector('#pdf-start-date')?.value;
+    const endDate   = document.querySelector('#pdf-end-date')?.value;
+    if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai & akhir.');
+
+    const kelasKeys = _getAllKelasKeys();
+    if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
+
+    const { jsPDF } = window.jspdf || {};
+    if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
+
+    const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a3' });
+
+    // Tema konsisten
+    const theme = {
+      cardBorder: [229,231,235],
+      headerText: [15,23,42],
+      tableHeadFill: [30,136,229],
+      zebraFill: [248,250,252],
+      border: [229,231,235],
+      text: [31,41,55],
+      statusFill: { tuntas: [220,252,231], khatam: [237,233,254] }
+    };
+
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = { left: 12, right: 12, top: 12, bottom: 12 };
+    const fontBody = 8.5, fontHead = fontBody + 1;
+    const lineFactor = 1.18;
+    const lineH = fontBody * 0.3528 * lineFactor;
+    const cellPadX = 1.6, cellPadY = 1.2;
+    const headerRowH = Math.max(9, fontHead * 0.3528 * lineFactor + 2*cellPadY);
+
+    // ===== Spasi & tinggi untuk header 'nempel' + keep-with-next
+    const CLASS_HEADER_FONT = 10;                                   // pt
+    const CLASS_HEADER_LINE_H = CLASS_HEADER_FONT * 0.3528 * 1.10;  // ≈ 3.9 mm
+    const HEADER_TO_TABLE_GAP = 0.8;                                 // mm (nempel tapi tidak mepet)
+    const BETWEEN_CLASSES_GAP = 5.0;                                 // mm (jarak antar tabel kelas)
+    const ROW_MIN_H = (fontBody * 0.3528 * 1.18) + 2*cellPadY;       // tinggi minimal 1 baris data
+
+    // Judul utama (sekali) + Periode (sekali)
+    function drawMainTitle(){
+      doc.setTextColor(...theme.headerText);
+      doc.setFont('helvetica','bold'); doc.setFontSize(14);
+      doc.text('Rekap Absensi & Setoran', margin.left, margin.top);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+      doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 6);
+      doc.setTextColor(...theme.text);
     }
-    const percent = Math.round((Math.min(checked, tgt) / tgt) * 100);
-    return { h,i,s,a, checked, target:tgt, percent };
+
+    // Footer kecil per halaman
+    function drawFooter(pageNo, totalPages, printedAt){
+      const y = pageH - 6;
+      doc.setDrawColor(...theme.border); doc.setLineWidth(0.2);
+      doc.line(margin.left-2, y-3, pageW-margin.right+2, y-3);
+      doc.setFontSize(8);
+      doc.text(`Dicetak: ${printedAt}`, margin.left, y);
+      doc.text(`Halaman ${pageNo} / ${totalPages}`, pageW - margin.right - 30, y);
+    }
+
+    // Header kecil per kelas — 1 baris ringkas TANPA "Periode"
+    function drawClassHeaderCompact(kelasLine, kbmDays, totalSantri, yStart){
+      const headerText = `${kelasLine}, KBM: ${kbmDays} hari, Total Santri: ${totalSantri}`;
+      doc.setFont('helvetica','bold'); doc.setFontSize(CLASS_HEADER_FONT);
+      // Baseline disetel agar jarak ke tabel rapat & konsisten
+      const baseline = yStart + CLASS_HEADER_LINE_H * 0.72;
+      doc.text(headerText, margin.left, baseline);
+      return CLASS_HEADER_LINE_H; // tinggi yang "dipakai"
+    }
+
+    // Cek ruang supaya header kelas tidak "gantung" (keep-with-next)
+    function ensureSpaceForClassBlock(yCurrent){
+      const need = CLASS_HEADER_LINE_H + HEADER_TO_TABLE_GAP + headerRowH + ROW_MIN_H;
+      if (yCurrent + need > pageH - margin.bottom){
+        doc.addPage('a3','landscape');
+        return margin.top + 6; // halaman baru, tanpa judul utama
+      }
+      return yCurrent;
+    }
+
+    // Kolom konsisten (SM/KLS/SP sempit & THMS)
+    const baseCols = [
+      { key:'no',       title:'No.',  w:11, minW:11, maxW:12, align:'center' },
+      { key:'nis',      title:'NIS',  w:24, minW:18, maxW:34, align:'left'   },
+      { key:'nama',     title:'Nama', w:46, minW:36, maxW:80, align:'left'   },
+      { key:'sem',      title:'SM',   w:12, minW:12, maxW:12, align:'center' },
+      { key:'jenjang',  title:'KLS',  w:14, minW:14, maxW:14, align:'center' },
+      { key:'h',        title:'H',    w:8,  minW:6,  maxW:10, align:'center' },
+      { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
+      { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
+      { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
+      { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
+	  { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
+      { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
+      { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
+      { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
+      { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
+      { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
+      { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
+    ];
+
+    const contentW = pageW - margin.left - margin.right;
+    let y = margin.top + 12; // (judul + periode) lalu enter
+    drawMainTitle();
+
+    const printedAt = new Date().toLocaleString();
+
+    // Loop semua kelas (serial agar stabil & hemat memori)
+    for (const kelasKey of kelasKeys){
+      let data = null;
+      try {
+        data = await collectRekapDataForClass(kelasKey, startDate, endDate);
+      } catch (e) {
+        console.warn('Gagal kelas', kelasKey, e);
+        continue;
+      }
+      if (!data) continue; // skip jika kosong
+
+      const { kelasLine, kbmDays, rows } = data;
+
+      const tableData = rows.map((r, idx) => {
+        const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+        const pred      = PDF_predikatFromScore(nilaiAvg);
+        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+        const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
+        const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
+        const personalDays = Number(r.daysCount || 0);
+        const hadirDays    = Number(r.hadirDays || 0);
+        const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
+
+        return {
+          no: String(idx+1),
+          nis: r.nis || r.id || '-',
+          nama: r.nama || '-',
+          sem: r.semester ?? '-',
+          jenjang: jenjangLabel(r.jenjang ?? ''),
+          ket: r.keterangan ?? '-',
+          h: r.hadir, a: r.alpha, s: r.sakit, i: r.izin,
+          hadirPct: `${hadirPct}%`,
+          setoran: setoranText,
+          juz: juzText,
+          totJuz: r.totalJuz.toFixed(2),
+          persen: statusJuz.label,
+          nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
+          pred: pred.huruf
+        };
+      });
+
+      // Clone kolom agar leluasa adjust per kelas
+      const cols = JSON.parse(JSON.stringify(baseCols));
+      fitColumnsFlex(doc, cols, tableData, fontBody, contentW, cellPadX);
+
+      // ===== PRE-FLIGHT: jangan biarkan header kelas 'gantung'
+      y = ensureSpaceForClassBlock(y);
+
+      // Header kelas (rapat ke tabel)
+      y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
+      y += HEADER_TO_TABLE_GAP;
+
+      // Header tabel
+      drawTableHeader(doc, cols, margin.left, y, headerRowH, fontHead, theme, cellPadX);
+      y += headerRowH;
+
+      // Isi tabel
+      let rowIndex = 0;
+      doc.setLineWidth(0.2);
+
+      for (const row of tableData) {
+        const wraps = cols.map(col =>
+          doc.splitTextToSize(String(row[col.key] ?? ''), Math.max(1, col.w - 2*cellPadX))
+        );
+        const rowTextHeights = wraps.map(lines => lines.length * lineH);
+        const rowH = Math.max(lineH + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
+
+        // Page break jika tidak muat
+        if (y + rowH > pageH - margin.bottom) {
+          doc.addPage('a3', 'landscape');
+          y = margin.top + 6;
+
+          // Ulangi header kelas agar konteks tetap menempel ke tabel
+          y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
+          y += HEADER_TO_TABLE_GAP;
+
+          drawTableHeader(doc, cols, margin.left, y, headerRowH, fontHead, theme, cellPadX);
+          y += headerRowH;
+          rowIndex = 0;
+        }
+
+        // Zebra
+        if (rowIndex % 2 === 1) {
+          doc.setFillColor(248,250,252);
+          doc.rect(margin.left, y, sumWidth(cols), rowH, 'F');
+        }
+
+        let x = margin.left;
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(fontBody);
+        doc.setTextColor(...theme.text);
+        doc.setDrawColor(...theme.border);
+
+        for (let ci=0; ci<cols.length; ci++){
+          const col = cols[ci];
+          const lines = wraps[ci];
+
+          // Highlight THMS tuntas/khatam
+          if (col.key === 'persen') {
+            const val = String(row[col.key] || '').toUpperCase();
+            if (val === 'TUNTAS' || val === 'KHATAM') {
+              const fill = (val === 'TUNTAS') ? theme.statusFill.tuntas : theme.statusFill.khatam;
+              doc.setFillColor(...fill);
+              doc.rect(x, y, col.w, rowH, 'F');
+            }
+          }
+
+          // Pewarnaan kolom SP
+          let spTextColor = null;
+          if (col.key === 'ket') {
+            spTextColor = PDF_spPaintCell(doc, x, y, col.w, rowH, row.ket);
+            if (spTextColor) doc.setTextColor(...spTextColor);
+          }
+
+          const textBlockH = lines.length * lineH;
+          let yy = y + (rowH - textBlockH)/2 + lineH*0.82;
+          let tx, opt = {};
+          if (col.align === 'right') { tx = x + col.w - cellPadX; opt = { align:'right' }; }
+          else if (col.align === 'center') { tx = x + col.w/2; opt = { align:'center' }; }
+          else { tx = x + cellPadX; }
+          for (let li=0; li<lines.length; li++){
+            doc.text(String(lines[li]), tx, yy, opt);
+            yy += lineH;
+          }
+
+          doc.rect(x, y, col.w, rowH);
+          if (spTextColor) doc.setTextColor(...theme.text);
+          x += col.w;
+        }
+
+        y += rowH;
+        rowIndex++;
+      }
+
+      // Jarak setelah tabel kelas selesai
+      y += BETWEEN_CLASSES_GAP;
+    }
+
+    // ===== Tanda tangan sekali di paling bawah =====
+    const printed = new Date();
+    const printedISO = printed.toISOString().slice(0,10);
+    const m = String(endDate||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const ttdDate = m ? `${m[3]}-${m[2]}-${m[1]}` : (String(printedISO).match(/^(\d{4})-(\d{2})-(\d{2})$/) ? String(printedISO).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3-$2-$1') : printed.toLocaleDateString('id-ID'));
+
+    const signNeededH = 36, spaceTop = 6;
+    if (y + spaceTop + signNeededH > pageH - margin.bottom){
+      doc.addPage('a3', 'landscape');
+      y = margin.top + 6;
+    }
+    y += spaceTop;
+
+    const totalW = pageW - margin.left - margin.right;
+    const colGap = 8;
+    const colW   = (totalW - colGap) / 2;
+    const leftX  = margin.left;
+    const rightX = margin.left + colW + colGap;
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(11);
+    doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+
+    const headY = y + 8;
+    doc.text('Mengetahui,', leftX, headY);
+    doc.text('Pengampu Kelas,', rightX, headY);
+
+    const lineY = headY + 24;
+    doc.setDrawColor(...theme.border);
+    doc.line(leftX,  lineY, leftX  + colW - 10, lineY);
+    doc.line(rightX, lineY, rightX + colW - 10, lineY);
+
+    // Footer per halaman
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooter(p, totalPages, printedAt); }
+
+    const fileName = `Rekap_AllKelas_${startDate}_sd_${endDate}.pdf`;
+    doc.save(fileName);
+  } catch (err) {
+    console.error(err);
+    alert('Gagal mengunduh PDF All Kelas: ' + (err.message || err));
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+// ===== Util =====
+function sumWidth(cols){ return cols.reduce((s,c)=>s + (Number(c.w)||0), 0); }
+
+// ======= Parser & Aggregator util =======
+function PDF_normKey(v){ return String(v ?? '').trim(); }
+function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
+function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
+function PDF_parseSA(sa){ const m=String(sa||'').trim().match(/^(\d+)\s*:\s*(\d+)$/); return m?{s:+m[1], a:+m[2]}:null; }
+function PDF_compareSA(x,y){ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; }
+function PDF_normStatus(s){
+  s = (typeof s === 'string' ? s : String(s||'')).trim().toLowerCase();
+  if (['hadir','h'].includes(s)) return 'hadir';
+  if (['alpha','alfa','alpa','a'].includes(s)) return 'alpha';
+  if (['sakit','skt','s'].includes(s)) return 'sakit';
+  if (['izin','ijin','izn','i'].includes(s)) return 'izin';
+  return 'lainnya';
+}
+
+/** >>>> BARU: Ambil absensi fleksibel dari JSON (objek atau angka) <<<<
+    Prioritas:
+    1) it.absensi sebagai objek {hadir, alpha, sakit, izin}
+    2) field langsung it.hadir/it.alpha/it.sakit/it.izin
+    3) fallback 1 status string: it.absensi atau it.status (one-hot = 1)
+**/
+function PDF_pickAttendance(it){
+  const out = { hadir:0, alpha:0, sakit:0, izin:0, total:0, lainnya:0 };
+  const abs = it?.absensi;
+
+  const n = v => {
+    const num = PDF_num2(v);
+    return Number.isFinite(num) ? Math.max(0, num) : 0;
+  };
+
+  let usedNumeric = false;
+
+  if (abs && typeof abs === 'object'){
+    out.hadir = n(abs.hadir ?? abs.H ?? abs.h);
+    out.alpha = n(abs.alpha ?? abs.alfa ?? abs.alpa ?? abs.A);
+    out.sakit = n(abs.sakit ?? abs.S);
+    out.izin  = n(abs.izin  ?? abs.ijin ?? abs.I);
+    usedNumeric = (out.hadir+out.alpha+out.sakit+out.izin) > 0;
   }
 
-  // hitung dari absensi6: ['hadir','alpha', ...] + absensiActive
-  function computeFromAbs6(arrRaw, activeRaw){
-    const arr = Array.isArray(arrRaw) ? arrRaw : [];
-    const tgt = Math.max(1, Math.min(ABS_FLEX_CFG.maxTarget, _toInt(activeRaw, ABS_FLEX_CFG.maxTarget) || ABS_FLEX_CFG.maxTarget));
-    let h=0,i=0,s=0,a=0, checked=0;
-    for (let idx=0; idx<Math.min(tgt, arr.length); idx++){
-      const st = _normStr(arr[idx]).toLowerCase();
-      if (st==='hadir'){ h++; checked++; }
-      else if (st==='izin'){ i++; checked++; }
-      else if (st==='sakit'){ s++; checked++; }
-      else if (st==='alpha'){ a++; checked++; }
+  if (!usedNumeric){
+    // coba field langsung
+    const h = n(it?.hadir), a = n(it?.alpha ?? it?.alfa ?? it?.alpa), s = n(it?.sakit), i = n(it?.izin ?? it?.ijin);
+    if (h+a+s+i > 0){
+      out.hadir=h; out.alpha=a; out.sakit=s; out.izin=i;
+      usedNumeric = true;
     }
-    const percent = Math.round((Math.min(checked, tgt) / tgt) * 100);
-    return { h,i,s,a, checked, target:tgt, percent };
   }
 
-  // legacy: "hadir"/"izin"/"sakit"/"alpha" → isi sebanyak target default
-  function computeFromLegacy(stRaw, targetRaw){
-    const st = _normStr(stRaw).toLowerCase();
-    const tgt = Math.max(1, Math.min(ABS_FLEX_CFG.maxTarget, _toInt(targetRaw, ABS_FLEX_CFG.defaultTarget) || ABS_FLEX_CFG.defaultTarget));
-    let h=0,i=0,s=0,a=0;
-    if (st==='hadir') h=tgt;
-    else if (st==='izin') i=tgt;
-    else if (st==='sakit') s=tgt;
-    else a=tgt; // tak dikenal ⇒ alpha
-    const checked = tgt;
-    const percent = 100;
-    return { h,i,s,a, checked, target:tgt, percent };
+  if (!usedNumeric){
+    // fallback 1 status string
+    const st = PDF_normStatus(it?.absensi ?? it?.status);
+    if (st==='hadir') out.hadir = 1;
+    else if (st==='alpha') out.alpha = 1;
+    else if (st==='sakit') out.sakit = 1;
+    else if (st==='izin') out.izin = 1;
+    else out.lainnya = 1;
   }
 
-  function computeAbsensiFlexForRecord(r){
-    // urutan prioritas sesuai data baru → lama
-    if (Array.isArray(r?.absensiItems) || Array.isArray(r?.absensi_items)){
-      return computeFromItems(r.absensiItems ?? r.absensi_items, r.absensiTarget ?? r.absensi_target ?? r.target);
+  out.total = out.hadir + out.alpha + out.sakit + out.izin;
+  return out;
+}
+
+function PDF_predikatFromScore(nilai){
+  const map = [
+    { max: 59,  text: 'ROSIB',         huruf: 'D' },
+    { max: 69,  text: 'MAQBUL',        huruf: 'C' },
+    { max: 79,  text: 'JAYYID',        huruf: 'B' },
+    { max: 89,  text: 'JAYYID JIDDAN', huruf: 'A' },
+    { max: 100, text: 'MUMTAZ',        huruf: 'A+' }
+  ];
+  return map.find(p => nilai <= p.max) || map[map.length-1];
+}
+function PDF_parseJuzTerbacaField(val){
+  const out = new Set();
+  if (val == null) return out;
+  if (Array.isArray(val)) {
+    val.forEach(v => {
+      if (typeof v === 'number' && Number.isFinite(v)) out.add(v);
+      else if (typeof v === 'string') PDF_parseJuzTerbacaField(v).forEach(n => out.add(n));
+    });
+    return out;
+  }
+  if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
+  let str = String(val);
+  str = str.replace(/[–—−]/g, '-');
+  str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
+  str = str.replace(/juz\s*:?/gi, 'juz ');
+  const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    let a = parseInt(m[1], 10);
+    let b = m[2] ? parseInt(m[2], 10) : a;
+    if (a > b) [a, b] = [b, a];
+    a = Math.max(1, Math.min(30, a));
+    b = Math.max(1, Math.min(30, b));
+    for (let x = a; x <= b; x++) out.add(x);
+  }
+  return out;
+}
+function PDF_fmtSASegment(seg){ return `${seg.from.s}:${seg.from.a}-${seg.to.s}:${seg.to.a}`; }
+function PDF_dedupSASegments(arr){
+  const seen = new Set(), out = [];
+  for (const seg of (arr||[])) {
+    if (!seg?.from || !seg?.to) continue;
+    const norm = (PDF_compareSA(seg.from, seg.to) <= 0) ? seg : {from: seg.to, to: seg.from};
+    const key = `${norm.from.s}:${norm.from.a}-${norm.to.s}:${norm.to.a}`;
+    if (!seen.has(key)) { seen.add(key); out.push(norm); }
+  }
+  return out;
+}
+function PDF_sortSASegments(list){
+  return [...(list||[])].sort((A,B)=>{
+    const c1 = PDF_compareSA(A?.from, B?.from);
+    if (c1 !== 0) return c1;
+    return PDF_compareSA(A?.to, B?.to);
+  });
+}
+function PDF_joinSAsegments(arr){
+  const list = PDF_sortSASegments(PDF_dedupSASegments(arr));
+  if (!list.length) return '-';
+  return list.map(PDF_fmtSASegment).join(', ');
+}
+function PDF_sortRangeSegments(list){
+  return [...(list||[])].sort((a,b)=>{
+    const a0 = Number(a?.[0]), a1 = Number(a?.[1]);
+    const b0 = Number(b?.[0]), b1 = Number(b?.[1]);
+    if (a0 !== b0) return a0 - b0;
+    return a1 - b1;
+  });
+}
+function PDF_joinRangeSegments(arr, collapseSingle=false){
+  if (!arr || !arr.length) return '-';
+  const seen = new Set(), tmp = [];
+  for (const seg of arr){
+    if (!Array.isArray(seg) || seg.length<2) continue;
+    let a = Number(seg[0]), b = Number(seg[1]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    if (a > b) [a,b] = [b,a];
+    const key = `${a}-${b}`;
+    if (!seen.has(key)) { seen.add(key); tmp.push([a,b]); }
+  }
+  const out = PDF_sortRangeSegments(tmp).map(([a,b]) => (collapseSingle && a===b) ? `${a}` : `${a}-${b}`);
+  return out.length ? out.join(', ') : '-';
+}
+function PDF_percentCapaian(totalJuzNum, semester){
+  const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+  const total = Number(totalJuzNum);
+  const sem   = Number(semester);
+  if (!Number.isFinite(total)) return 0;
+  if (total >= 30) return 100;
+  const batas = batasSemester[sem] || 0;
+  if (batas <= 0) return 0;
+  let p = Math.floor((total / batas) * 100);
+  return Math.max(0, Math.min(100, p));
+}
+function PDF_totalAllJuzStatus(totalJuzNum, semester){
+  const p = PDF_percentCapaian(totalJuzNum, semester);
+  if (Number(totalJuzNum) >= 30) return { label:'KHATAM', percent:100 };
+  if (p >= 100) return { label:'TUNTAS', percent:p };
+  return { label: `${p}%`, percent:p };
+}
+
+/** === Aggregator: sekarang fleksibel membaca absensi dari JSON === */
+function PDF_buildRekapPerKey(items){
+  const map = Object.create(null);
+  for (const it of (items||[])) {
+    const id  = PDF_normKey(it?.id);
+    const nis = PDF_normKey(it?.nis);
+    const key = PDF_normKey(nis || id);
+    if (!key) continue;
+
+    if (!map[key]) map[key] = {
+      id:id||'', nis:nis||'', nama: it?.nama || '',
+      hadir:0, alpha:0, sakit:0, izin:0, lainnya:0,
+      dariMin:null, sampaiMax:null,
+      pageStartMin:null, pageEndMax:null,
+      totalPageSum:0,
+      totalJuz:0,
+      _nilaiByDate:Object.create(null),
+      nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
+      juzSet:new Set(),
+      semester: (it?.semester!=null ? Number(it.semester) : null),
+      jenjang: (it?.jenjang ?? null),
+      keterangan: (it?.keterangan ?? null),      // SP
+      saSegments: [], pageSegments: [], juzSegments: [],
+      _datesAll: new Set(), _datesHadir: new Set()
+    };
+    const r = map[key];
+    if (!r.nama && it?.nama) r.nama = it.nama;
+
+    const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
+
+    // >>>> gunakan pembaca absensi fleksibel
+    const att = PDF_pickAttendance(it);
+    r.hadir += att.hadir;
+    r.alpha += att.alpha;
+    r.sakit += att.sakit;
+    r.izin  += att.izin;
+    r.lainnya += att.lainnya;
+
+    // penanda hari personal (hitung hanya bila NIS match untuk stabilitas)
+    if (tgl && r.nis && nis && nis === r.nis){
+      if (att.total > 0 || att.lainnya > 0) r._datesAll.add(tgl);
+      if (att.hadir > 0) r._datesHadir.add(tgl);
     }
-    if (Array.isArray(r?.absensi6)){
-      return computeFromAbs6(r.absensi6, r.absensiActive ?? r.absensi_active ?? r.target);
+
+    const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
+    const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
+    if (dari && smp) {
+      const seg = (PDF_compareSA(dari, smp) <= 0) ? {from: dari, to: smp} : {from: smp, to: dari};
+      r.saSegments.push(seg);
     }
-    if (_normStr(r?.absensi)){
-      return computeFromLegacy(r.absensi, r.absensiTarget ?? r.absensi_target ?? r.target);
+    const rng = PDF_parseRange(it?.halaman || it?.page);
+    const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
+    if (tp!=null) r.totalPageSum += tp;
+    else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
+    if (rng){
+      let [a,b] = rng; if (a>b) [a,b]=[b,a];
+      r.pageSegments.push([a,b]);
+      if (Number.isFinite(a) && (r.pageStartMin==null || a<r.pageStartMin)) r.pageStartMin=a;
+      if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
     }
-    // fallback lama (status tunggal)
-    const st = _normStr(r?.status ?? r?.absensi).toLowerCase();
-    if (st){ return computeFromLegacy(st, r.absensiTarget ?? r.target); }
-    return { h:0,i:0,s:0,a:0, checked:0, target:ABS_FLEX_CFG.defaultTarget, percent:0 };
+
+    const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
+    if (vJ!=null) r.totalJuz += vJ;
+
+    const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
+    const vN = PDF_num2(vNraw);
+    if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
+
+    const jtRaw = it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? it?.juz;
+    const set = PDF_parseJuzTerbacaField(jtRaw);
+    if (set.size) {
+      set.forEach(n=> r.juzSet.add(n));
+      const arr = Array.from(set).sort((a,b)=>a-b);
+      let start = arr[0], prev = arr[0];
+      for (let i=1; i<=arr.length; i++){
+        const curr = arr[i];
+        if (curr === prev + 1) { prev = curr; continue; }
+        r.juzSegments.push([start, prev]);
+      }
+    }
+
+    if (r.semester==null   && it?.semester   !=null) r.semester   = Number(it.semester);
+    if (r.jenjang == null  && it?.jenjang    !=null) r.jenjang    = it.jenjang;
+    if (r.keterangan == null && it?.keterangan !=null) r.keterangan = it.keterangan; // SP
   }
 
+  for (const k in map){
+    const r = map[k];
+    r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
+    for (const t in r._nilaiByDate){
+      const v = r._nilaiByDate[t];
+      r.nilaiSum += v; r.nilaiCount += 1;
+      if (v < r.nilaiMin) r.nilaiMin = v;
+      if (v > r.nilaiMax) r.nilaiMax = v;
+    }
+    if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
+    if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
+
+    r.daysCount  = r._datesAll.size;
+    r.hadirDays  = r._datesHadir.size;
+
+    r.saSegments   = PDF_dedupSASegments(r.saSegments);
+    r.pageSegments = (function dedupRange(list){
+      const seen = new Set(), out=[];
+      for (const seg of (list||[])){
+        if (!Array.isArray(seg) || seg.length<2) continue;
+        let a = Number(seg[0]), b = Number(seg[1]);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        if (a>b) [a,b]=[b,a];
+        const key = `${a}-${b}`;
+        if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
+      }
+      return out;
+    })(r.pageSegments);
+    r.juzSegments  = (function dedupRange(list){
+      const seen = new Set(), out=[];
+      for (const seg of (list||[])){
+        if (!Array.isArray(seg) || seg.length<2) continue;
+        let a = Number(seg[0]), b = Number(seg[1]);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        if (a>b) [a,b]=[b,a];
+        const key = `${a}-${b}`;
+        if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
+      }
+      return out;
+    })(r.juzSegments);
+  }
+  return map;
+}
+
+})();
+	
+  // ============== PDF per Santri ==============
+async function pdfSantriDownload(){
   const triggerBtn = document.getElementById('okSantriSelect') || pdfSantriBtn;
   setBtnLoading(triggerBtn, true, 'Membuat PDF…');
   try {
@@ -4963,11 +5161,12 @@ async function pdfSantriDownload(){
                         ?? (mine.find(it => it.jenjang!=null)?.jenjang)
                         ?? '-';
     const jenjangSantriLabel = jenjangLabel(jenjangSantri);
+
     const keteranganSantri = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.keterangan)
                         ?? (mine.find(it => it.keterangan!=null)?.keterangan)
                         ?? '-';
 
-    // --- agregasi harian (dengan absensi flex) ---
+    // ======= Agregasi per tanggal (pakai PDF_pickAttendance)
     const byDate = new Map();
     for (const it of mine) {
       const tgl = it.tanggal || '-';
@@ -4975,8 +5174,6 @@ async function pdfSantriDownload(){
         byDate.set(tgl, {
           tanggal: tgl,
           cnt: { hadir:0, alpha:0, sakit:0, izin:0, lainnya:0 },
-          // akumulasi untuk hitung % berbasis target
-          _absTargetSum: 0, _absCheckedSum: 0,
           sa: [], pages: [], juz: [],
           totalPage: 0, totalJuz: 0,
           nilaiSum: 0, nilaiCount: 0
@@ -4984,29 +5181,26 @@ async function pdfSantriDownload(){
       }
       const d = byDate.get(tgl);
 
-      // >>> ABSENSI FLEX
-      const af = computeAbsensiFlexForRecord(it);
-      d.cnt.hadir += af.h;
-      d.cnt.alpha += af.a;
-      d.cnt.sakit += af.s;
-      d.cnt.izin  += af.i;
-      d._absTargetSum  += af.target;
-      d._absCheckedSum += Math.min(af.checked, af.target);
+      // >>> fleksibel angka/objek/string
+      const att = PDF_pickAttendance(it);
+      d.cnt.hadir  += att.hadir;
+      d.cnt.alpha  += att.alpha;
+      d.cnt.sakit  += att.sakit;
+      d.cnt.izin   += att.izin;
+      d.cnt.lainnya+= att.lainnya;
 
-      // --- setoran ---
       const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
       const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
       if (dari && smp) d.sa.push((PDF_compareSA(dari, smp) <= 0) ? {from:dari, to:smp} : {from:smp, to:dari});
 
-      // --- halaman / total page ---
       const rng = PDF_parseRange(it?.halaman || it?.page);
       const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
       if (tp!=null) d.totalPage += tp; else if (rng) d.totalPage += Math.max(0, rng[1]-rng[0]+1);
       if (rng) { let [a,b] = rng; if (a>b) [a,b]=[b,a]; d.pages.push([a,b]); }
 
-      // --- juz total & rentang terbaca ---
       const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
       if (vJ!=null) d.totalJuz += vJ;
+
       const jtSet = PDF_parseJuzTerbacaField(it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? null);
       if (jtSet.size) {
         const arr = Array.from(jtSet).sort((a,b)=>a-b);
@@ -5018,14 +5212,12 @@ async function pdfSantriDownload(){
         }
       }
 
-      // --- nilai ---
       const vN = PDF_num2(it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
       if (vN!=null) { d.nilaiSum += vN; d.nilaiCount++; }
     }
 
     const dayRows = [...byDate.values()].sort((a,b)=> (a.tanggal||'').localeCompare(b.tanggal||''));
 
-    // --- rekap total (pakai hasil aggregator kelas bila ada) ---
     const agg = aggRows.find(r => r.nis === key || (!r.nis && r.id === key));
     const totH = agg?.hadir ?? dayRows.reduce((s,d)=>s+d.cnt.hadir,0);
     const totA = agg?.alpha ?? dayRows.reduce((s,d)=>s+d.cnt.alpha,0);
@@ -5037,13 +5229,12 @@ async function pdfSantriDownload(){
     const statusJuzTotal = PDF_totalAllJuzStatus(totJuz, agg?.semester ?? semesterSantri);
 
     const daysCount = agg?.daysCount ?? dayRows.length;
-    // hadirDays = hari yang punya checked>0 (bukan sekadar status hadir), supaya konsisten dengan absensi flex
-    const hadirDays = agg?.hadirDays ?? dayRows.filter(d => d._absCheckedSum > 0).length;
+    const hadirDays = agg?.hadirDays ?? dayRows.filter(d => d.cnt.hadir > 0).length;
     const hadirPctTotal = daysCount > 0 ? Math.round((hadirDays / daysCount) * 100) : 0;
 
-    // --- tabel per-hari ---
     const tableRows = dayRows.map((d, idx) => {
-      const hadirPct = d._absTargetSum > 0 ? Math.round(100 * (d._absCheckedSum / d._absTargetSum)) : 0;
+      const validSessions = d.cnt.hadir + d.cnt.alpha + d.cnt.sakit + d.cnt.izin;
+      const hadirPct = validSessions > 0 ? Math.round(100 * d.cnt.hadir / validSessions) : 0;
       const nilaiHarian = d.nilaiCount ? (d.nilaiSum/d.nilaiCount) : 0;
       const predHarian  = PDF_predikatFromScore(nilaiHarian);
       const statusJuzHarian = PDF_totalAllJuzStatus(d.totalJuz, semesterSantri);
@@ -5139,7 +5330,7 @@ async function pdfSantriDownload(){
 
     const cols = [
       { key:'no',       title:'No.',  w:11, minW:11, maxW:12, align:'center' },
-      { key:'nis',      title:'NIS / Tanggal',  w:26, minW:20, maxW:36, align:'left'   }, // label diperjelas
+      { key:'nis',      title:'NIS',  w:26, minW:20, maxW:36, align:'left'   },
       { key:'nama',     title:'Nama', w:46, minW:36, maxW:80, align:'left'   },
       { key:'sem',      title:'SM',   w:12, minW:12, maxW:12, align:'center' },
       { key:'jenjang',  title:'KLS',  w:14, minW:14, maxW:14, align:'center' },
@@ -5148,7 +5339,7 @@ async function pdfSantriDownload(){
       { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
       { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
       { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
-      { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
+      { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' }, // baru
       { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
       { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
       { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
@@ -5225,7 +5416,7 @@ async function pdfSantriDownload(){
           }
         }
 
-        // pewarnaan khusus kolom SP
+        // >>> pewarnaan khusus kolom SP
         let spTextColor = null;
         if (col.key === 'ket') {
           spTextColor = PDF_spPaintCell(doc, x, y, col.w, rowH, row.ket);
@@ -5308,6 +5499,462 @@ async function pdfSantriDownload(){
 }
 window._pdfSantriDownload = pdfSantriDownload;
 
+// ================= Excel (.xlsx) =================
+async function xlsRekapDownload(){
+  setBtnLoading(xlsBtn, true, 'Membuat Excel…');
+  try {
+    await ensureXLSX();
+    const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
+
+    const header = [
+      "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
+      "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","THMS","Nilai Rata2","Predikat"
+    ];
+    const body = rows.map((r, idx) => {
+      const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+      const pred      = PDF_predikatFromScore(nilaiAvg);
+      const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+
+      const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
+      const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
+      const personalDays = Number(r.daysCount || 0);
+      const hadirDays    = Number(r.hadirDays || 0);
+      const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
+
+      return [
+        idx+1,
+        r.nis || r.id || '',
+        r.nama || '',
+        (r.semester ?? ''),
+        jenjangLabel(r.jenjang ?? ''),
+        r.hadir, r.alpha, r.sakit, r.izin,
+        hadirPct,
+        (r.keterangan ?? ''), // SP
+        setoranText,
+        juzText,
+        Number(r.totalJuz.toFixed(2)),
+        statusJuz.label,
+        (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
+        pred.huruf
+      ];
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+    ws['!cols'] = autoFitColumns([header, ...body]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
+
+    const meta = [
+      ["Rekap Absensi & Setoran", ""],
+      ["Kelas / Kelompok", kelasLine],
+      ["Periode", `${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`],
+      ["KBM (hari)", kbmDays],
+      ["Total Santri", rows.length],
+      [],
+      ["Ringkasan", ""],
+      ["Hadir", totals.totH],
+      ["Alpha", totals.totA],
+      ["Sakit", totals.totS],
+      ["Izin",  totals.totI],
+      ["Total Page", Math.round(totals.totPages)],
+      ["Total Juz", Number(totals.totJuz.toFixed(2))]
+    ];
+    const wsMeta = XLSX.utils.aoa_to_sheet(meta);
+    wsMeta['!cols'] = [{wch:24},{wch:40}];
+    XLSX.utils.book_append_sheet(wb, wsMeta, 'Meta');
+
+    const fileName = `Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+  } catch (err) {
+    console.error(err);
+    alert('Gagal mengunduh Excel: ' + (err.message || err));
+  } finally {
+    setBtnLoading(xlsBtn, false);
+  }
+}
+
+// ===== Util =====
+function sumWidth(cols){ return cols.reduce((s,c)=>s + (Number(c.w)||0), 0); }
+function autoFitColumns(aoa){
+  const colCount = Math.max(...aoa.map(r => r.length));
+  const cols = Array.from({length: colCount}, (_,i) => {
+    const maxLen = Math.max(...aoa.map(row => {
+      const v = row[i];
+      if (v == null) return 0;
+      const s = (typeof v === 'string') ? v : String(v);
+      return s.length;
+    }), 0);
+    return { wch: Math.min(60, Math.max(6, Math.ceil(maxLen * 1.1) + 2)) };
+  });
+  return cols;
+}
+function fitColumnsFlex(doc, cols, tableData, fontSize, contentW, padX){
+  const keys = cols.map(c => c.key);
+  const weights = keys.map((k,i) => {
+    const headLen = String(cols[i].title || '').length;
+    let maxLen = headLen;
+    const sampleLimit = Math.min(300, tableData.length);
+    for (let r=0; r<sampleLimit; r++){
+      const s = String(tableData[r][k] ?? '');
+      if (s.length > maxLen) maxLen = s.length;
+    }
+    if (['nama','setoran','juz'].includes(k)) maxLen *= 1.25;
+    return maxLen;
+  });
+
+  const minSum = cols.reduce((a,c)=>a+(c.minW||c.w||8),0);
+  const maxSum = cols.reduce((a,c)=>a+(c.maxW||c.w||8),0);
+  const target = Math.max(minSum, Math.min(maxSum, contentW));
+
+  const sumWgt = weights.reduce((a,b)=>a+b,0) || 1;
+  let widths = cols.map((c,i)=>{
+    const minW = c.minW ?? c.w ?? 8;
+    const maxW = c.maxW ?? (minW+20);
+    const frac = weights[i] / sumWgt;
+    const raw  = minW + (target - minSum) * frac;
+    return Math.max(minW, Math.min(maxW, raw));
+  });
+
+  let used = widths.reduce((a,b)=>a+b,0);
+  let diff = target - used;
+  const step = diff >= 0 ? 0.1 : -0.1;
+  let guard = 0;
+  while (Math.abs(diff) > 0.09 && guard++ < 200){
+    for (let i=0; i<cols.length && Math.abs(diff)>0.09; i++){
+      const minW = cols[i].minW ?? cols[i].w ?? 8;
+      const maxW = cols[i].maxW ?? (minW+20);
+      const canGrow = diff>0 && widths[i] + step <= maxW;
+      const canShrink = diff<0 && widths[i] + step >= minW;
+      if (canGrow || canShrink){ widths[i] += step; diff -= step; }
+    }
+  }
+
+  widths = widths.map(w => Math.round(w*10)/10);
+  const sumRounded = widths.reduce((a,b)=>a+b,0);
+  const fix = Math.round((target - sumRounded)*10)/10;
+  widths[widths.length-1] += fix;
+
+  for (let i=0;i<cols.length;i++) cols[i].w = widths[i];
+}
+
+// ======= Parser & Aggregator util =======
+function PDF_normKey(v){ return String(v ?? '').trim(); }
+function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
+function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
+function PDF_parseSA(sa){ const m=String(sa||'').trim().match(/^(\d+)\s*:\s*(\d+)$/); return m?{s:+m[1], a:+m[2]}:null; }
+function PDF_compareSA(x,y){ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; }
+function PDF_normStatus(s){
+  s = (typeof s === 'string' ? s : String(s||'')).trim().toLowerCase();
+  if (['hadir','h'].includes(s)) return 'hadir';
+  if (['alpha','alfa','alpa','a'].includes(s)) return 'alpha';
+  if (['sakit','skt','s'].includes(s)) return 'sakit';
+  if (['izin','ijin','izn','i'].includes(s)) return 'izin';
+  return 'lainnya';
+}
+
+/** >>>> BARU: Ambil absensi fleksibel dari JSON (objek atau angka) <<<<
+    Prioritas:
+    1) it.absensi sebagai objek {hadir, alpha, sakit, izin}
+    2) field langsung it.hadir/it.alpha/it.sakit/it.izin
+    3) fallback 1 status string: it.absensi atau it.status (one-hot = 1)
+**/
+function PDF_pickAttendance(it){
+  const out = { hadir:0, alpha:0, sakit:0, izin:0, total:0, lainnya:0 };
+  const abs = it?.absensi;
+
+  const n = v => {
+    const num = PDF_num2(v);
+    return Number.isFinite(num) ? Math.max(0, num) : 0;
+  };
+
+  let usedNumeric = false;
+
+  if (abs && typeof abs === 'object'){
+    out.hadir = n(abs.hadir ?? abs.H ?? abs.h);
+    out.alpha = n(abs.alpha ?? abs.alfa ?? abs.alpa ?? abs.A);
+    out.sakit = n(abs.sakit ?? abs.S);
+    out.izin  = n(abs.izin  ?? abs.ijin ?? abs.I);
+    usedNumeric = (out.hadir+out.alpha+out.sakit+out.izin) > 0;
+  }
+
+  if (!usedNumeric){
+    const h = n(it?.hadir), a = n(it?.alpha ?? it?.alfa ?? it?.alpa), s = n(it?.sakit), i = n(it?.izin ?? it?.ijin);
+    if (h+a+s+i > 0){
+      out.hadir=h; out.alpha=a; out.sakit=s; out.izin=i;
+      usedNumeric = true;
+    }
+  }
+
+  if (!usedNumeric){
+    const st = PDF_normStatus(it?.absensi ?? it?.status);
+    if (st==='hadir') out.hadir = 1;
+    else if (st==='alpha') out.alpha = 1;
+    else if (st==='sakit') out.sakit = 1;
+    else if (st==='izin') out.izin = 1;
+    else out.lainnya = 1;
+  }
+
+  out.total = out.hadir + out.alpha + out.sakit + out.izin;
+  return out;
+}
+
+function PDF_predikatFromScore(nilai){
+  const map = [
+    { max: 59,  text: 'ROSIB',         huruf: 'D' },
+    { max: 69,  text: 'MAQBUL',        huruf: 'C' },
+    { max: 79,  text: 'JAYYID',        huruf: 'B' },
+    { max: 89,  text: 'JAYYID JIDDAN', huruf: 'A' },
+    { max: 100, text: 'MUMTAZ',        huruf: 'A+' }
+  ];
+  return map.find(p => nilai <= p.max) || map[map.length-1];
+}
+function PDF_parseJuzTerbacaField(val){
+  const out = new Set();
+  if (val == null) return out;
+  if (Array.isArray(val)) {
+    val.forEach(v => {
+      if (typeof v === 'number' && Number.isFinite(v)) out.add(v);
+      else if (typeof v === 'string') PDF_parseJuzTerbacaField(v).forEach(n => out.add(n));
+    });
+    return out;
+  }
+  if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
+  let str = String(val);
+  str = str.replace(/[–—−]/g, '-');
+  str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
+  str = str.replace(/juz\s*:?/gi, 'juz ');
+  const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    let a = parseInt(m[1], 10);
+    let b = m[2] ? parseInt(m[2], 10) : a;
+    if (a > b) [a, b] = [b, a];
+    a = Math.max(1, Math.min(30, a));
+    b = Math.max(1, Math.min(30, b));
+    for (let x = a; x <= b; x++) out.add(x);
+  }
+  return out;
+}
+function PDF_fmtSASegment(seg){ return `${seg.from.s}:${seg.from.a}-${seg.to.s}:${seg.to.a}`; }
+function PDF_dedupSASegments(arr){
+  const seen = new Set(), out = [];
+  for (const seg of (arr||[])) {
+    if (!seg?.from || !seg?.to) continue;
+    const norm = (PDF_compareSA(seg.from, seg.to) <= 0) ? seg : {from: seg.to, to: seg.from};
+    const key = `${norm.from.s}:${norm.from.a}-${norm.to.s}:${norm.to.a}`;
+    if (!seen.has(key)) { seen.add(key); out.push(norm); }
+  }
+  return out;
+}
+function PDF_sortSASegments(list){
+  return [...(list||[])].sort((A,B)=>{
+    const c1 = PDF_compareSA(A?.from, B?.from);
+    if (c1 !== 0) return c1;
+    return PDF_compareSA(A?.to, B?.to);
+  });
+}
+function PDF_joinSAsegments(arr){
+  const list = PDF_sortSASegments(PDF_dedupSASegments(arr));
+  if (!list.length) return '-';
+  return list.map(PDF_fmtSASegment).join(', ');
+}
+function PDF_sortRangeSegments(list){
+  return [...(list||[])].sort((a,b)=>{
+    const a0 = Number(a?.[0]), a1 = Number(a?.[1]);
+    const b0 = Number(b?.[0]), b1 = Number(b?.[1]);
+    if (a0 !== b0) return a0 - b0;
+    return a1 - b1;
+  });
+}
+function PDF_joinRangeSegments(arr, collapseSingle=false){
+  if (!arr || !arr.length) return '-';
+  const seen = new Set(), tmp = [];
+  for (const seg of arr){
+    if (!Array.isArray(seg) || seg.length<2) continue;
+    let a = Number(seg[0]), b = Number(seg[1]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    if (a > b) [a,b] = [b,a];
+    const key = `${a}-${b}`;
+    if (!seen.has(key)) { seen.add(key); tmp.push([a,b]); }
+  }
+  const out = PDF_sortRangeSegments(tmp).map(([a,b]) => (collapseSingle && a===b) ? `${a}` : `${a}-${b}`);
+  return out.length ? out.join(', ') : '-';
+}
+function PDF_percentCapaian(totalJuzNum, semester){
+  const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+  const total = Number(totalJuzNum);
+  const sem   = Number(semester);
+  if (!Number.isFinite(total)) return 0;
+  if (total >= 30) return 100;
+  const batas = batasSemester[sem] || 0;
+  if (batas <= 0) return 0;
+  let p = Math.floor((total / batas) * 100);
+  return Math.max(0, Math.min(100, p));
+}
+function PDF_totalAllJuzStatus(totalJuzNum, semester){
+  const p = PDF_percentCapaian(totalJuzNum, semester);
+  if (Number(totalJuzNum) >= 30) return { label:'KHATAM', percent:100 };
+  if (p >= 100) return { label:'TUNTAS', percent:p };
+  return { label: `${p}%`, percent:p };
+}
+
+// === Aggregator: simpan jenjang & keterangan, ABSENSI fleksibel ===
+function PDF_buildRekapPerKey(items){
+  const map = Object.create(null);
+  for (const it of (items||[])) {
+    const id  = PDF_normKey(it?.id);
+    const nis = PDF_normKey(it?.nis);
+    const key = PDF_normKey(nis || id);
+    if (!key) continue;
+
+    if (!map[key]) map[key] = {
+      id:id||'', nis:nis||'', nama: it?.nama || '',
+      hadir:0, alpha:0, sakit:0, izin:0, lainnya:0,
+      dariMin:null, sampaiMax:null,
+      pageStartMin:null, pageEndMax:null,
+      totalPageSum:0,
+      totalJuz:0,
+      _nilaiByDate:Object.create(null),
+      nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
+      juzSet:new Set(),
+      semester: (it?.semester!=null ? Number(it.semester) : null),
+      jenjang: (it?.jenjang ?? null),
+      keterangan: (it?.keterangan ?? null),      // SP
+      saSegments: [], pageSegments: [], juzSegments: [],
+      _datesAll: new Set(), _datesHadir: new Set()
+    };
+    const r = map[key];
+    if (!r.nama && it?.nama) r.nama = it.nama;
+
+    const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
+
+    // >>>> gunakan pembaca absensi fleksibel
+    const att = PDF_pickAttendance(it);
+    r.hadir += att.hadir;
+    r.alpha += att.alpha;
+    r.sakit += att.sakit;
+    r.izin  += att.izin;
+    r.lainnya += att.lainnya;
+
+    // penanda hari personal hanya jika NIS match (stabil)
+    if (tgl && r.nis && nis && nis === r.nis){
+      if (att.total > 0 || att.lainnya > 0) r._datesAll.add(tgl);
+      if (att.hadir > 0) r._datesHadir.add(tgl);
+    }
+
+    const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
+    const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
+    if (dari && smp) {
+      const seg = (PDF_compareSA(dari, smp) <= 0) ? {from: dari, to: smp} : {from: smp, to: dari};
+      r.saSegments.push(seg);
+    }
+    const rng = PDF_parseRange(it?.halaman || it?.page);
+    const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
+    if (tp!=null) r.totalPageSum += tp;
+    else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
+    if (rng){
+      let [a,b] = rng; if (a>b) [a,b]=[b,a];
+      r.pageSegments.push([a,b]);
+      if (Number.isFinite(a) && (r.pageStartMin==null || a<r.pageStartMin)) r.pageStartMin=a;
+      if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
+    }
+
+    const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
+    if (vJ!=null) r.totalJuz += vJ;
+
+    const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
+    const vN = PDF_num2(vNraw);
+    if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
+
+    const jtRaw = it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? it?.juz;
+    const set = PDF_parseJuzTerbacaField(jtRaw);
+    if (set.size) {
+      set.forEach(n=> r.juzSet.add(n));
+      const arr = Array.from(set).sort((a,b)=>a-b);
+      let start = arr[0], prev = arr[0];
+      for (let i=1; i<=arr.length; i++){
+        const curr = arr[i];
+        if (curr === prev + 1) { prev = curr; continue; }
+        r.juzSegments.push([start, prev]);
+      }
+    }
+
+    if (r.semester==null   && it?.semester   !=null) r.semester   = Number(it.semester);
+    if (r.jenjang == null  && it?.jenjang    !=null) r.jenjang    = it.jenjang;
+    if (r.keterangan == null && it?.keterangan !=null) r.keterangan = it.keterangan; // SP
+  }
+
+  for (const k in map){
+    const r = map[k];
+    r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
+    for (const t in r._nilaiByDate){
+      const v = r._nilaiByDate[t];
+      r.nilaiSum += v; r.nilaiCount += 1;
+      if (v < r.nilaiMin) r.nilaiMin = v;
+      if (v > r.nilaiMax) r.nilaiMax = v;
+    }
+    if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
+    if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
+
+    r.daysCount  = r._datesAll.size;
+    r.hadirDays  = r._datesHadir.size;
+
+    r.saSegments   = PDF_dedupSASegments(r.saSegments);
+    r.pageSegments = (function dedupRange(list){
+      const seen = new Set(), out=[];
+      for (const seg of (list||[])){
+        if (!Array.isArray(seg) || seg.length<2) continue;
+        let a = Number(seg[0]), b = Number(seg[1]);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        if (a>b) [a,b]=[b,a];
+        const key = `${a}-${b}`;
+        if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
+      }
+      return out;
+    })(r.pageSegments);
+    r.juzSegments  = (function dedupRange(list){
+      const seen = new Set(), out=[];
+      for (const seg of (list||[])){
+        if (!Array.isArray(seg) || seg.length<2) continue;
+        let a = Number(seg[0]), b = Number(seg[1]);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        if (a>b) [a,b]=[b,a];
+        const key = `${a}-${b}`;
+        if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
+      }
+      return out;
+    })(r.juzSegments);
+  }
+  return map;
+}
+
+// ======= Header tabel =======
+function drawTableHeader(doc, cols, x, y, rowH, fontSize, theme, padX){
+  const totalW = sumWidth(cols);
+  doc.setFillColor(...theme.tableHeadFill);
+  doc.setDrawColor(...theme.border);
+  doc.rect(x, y, totalW, rowH, 'FD');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(fontSize);
+  doc.setTextColor(255,255,255);
+  let cx = x;
+  const lh = fontSize * 0.3528 * 1.18;
+  for (const col of cols){
+    const lines = doc.splitTextToSize(String(col.title||''), Math.max(1, col.w - 2*padX));
+    const textH = lines.length * lh;
+    const yy = y + (rowH - textH)/2 + lh*0.82;
+    const tx = (col.align==='right') ? (cx + col.w - padX)
+             : (col.align==='center') ? (cx + col.w/2)
+             : (cx + padX);
+    const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
+    for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
+    doc.rect(cx, y, col.w, rowH);
+    cx += col.w;
+  }
+  doc.setTextColor(31,41,55);
+  doc.setFont('helvetica','normal');
+}
 
 
 
