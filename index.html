@@ -2561,10 +2561,6 @@ logoutBtn.addEventListener("click", () => {
           ${Array.from({length:ABS_FLEX_CFG.maxTarget},(_,i)=>`<option value="${i+1}" ${i+1==target?'selected':''}>${i+1}</option>`).join("")}
         </select>
         <span class="absflex-percent" style="border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;background:#eef2ff;font-weight:600;">0%</span>
-        <div style="margin-left:auto;display:flex;gap:6px;">
-          <button type="button" class="absflex-fill"  style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Penuhi Target</button>
-          <button type="button" class="absflex-clear" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Kosongkan</button>
-        </div>
       </div>
       <div class="absflex-grid" style="display:grid;grid-template-columns:repeat(${perStatus},minmax(140px,1fr));gap:8px;">
         ${ABS_FLEX_CFG.statuses.map(st => `
@@ -2633,22 +2629,6 @@ logoutBtn.addEventListener("click", () => {
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
         writeUI(); recalcExpose();
       }
-    });
-
-    root.querySelector(".absflex-fill").addEventListener("click", () => {
-      const target = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
-      let cnt = items.filter(it=>it.checked).length;
-      if (cnt < target){
-        for (const it of items){
-          if (!it.checked){ it.checked = true; cnt++; if (cnt>=target) break; }
-        }
-      }
-      items = clampToTarget(items, target, "lifo");
-      writeUI(); recalcExpose();
-    });
-    root.querySelector(".absflex-clear").addEventListener("click", () => {
-      items.forEach(it => it.checked = false);
-      writeUI(); recalcExpose();
     });
 
     // init tampilan
@@ -3169,7 +3149,7 @@ async function loadSantriData() {
 
           <!-- ============ ABSENSI FLEX via MODAL BUTTON ============ -->
           <td class="abs-flex-cell">
-            <button type="button" class="btn-absensi-flex" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">📝</button>
+            <button type="button" class="btn-absensi-flex" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Data</button>
             <div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
           </td>
           <!-- ======================================================= -->
