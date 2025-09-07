@@ -28,7 +28,7 @@
 }
 
 /* underline animasi halus */
-button.::after {
+button.lihat-quran-btn::after {
   content: "";
   position: absolute;
   left: 0;
@@ -39,11 +39,11 @@ button.::after {
   transition: width 0.00s ease;
 }
 
-button.:hover {
+button.lihat-quran-btn:hover {
   color: #ffffff;
 }
 
-button.:hover::after {
+button.lihat-quran-btn:hover::after {
   width: 100%;
 }
 
@@ -1563,27 +1563,6 @@ function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
     </div>
   </div>
 </div>
-
-
-<!-- Modal Overlay Absensi Flex -->
-<div id="absensiModalOverlay" style="
-  display:none; 
-  position:fixed; 
-  top:0; left:0; 
-  width:100%; height:100%; 
-  background:rgba(0,0,0,0.5); 
-  z-index:1000; 
-  justify-content:center; 
-  align-items:center;">
-  
-  <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%; max-height:90%; overflow:auto;">
-    <h3 style="margin-top:0">Edit Absensi</h3>
-    <div id="absensiModalContent"></div>
-    <div style="margin-top:12px; text-align:right;">
-      <button id="absensiModalClose" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;">Tutup</button>
-    </div>
-  </div>
-</div>
   
   
   <!-- ======================= OVERLAY LEMBAR PENILAIAN (TANPA PLAYBACK AUDIO) ======================= -->
@@ -2704,6 +2683,7 @@ logoutBtn.addEventListener("click", () => {
   };
 })();
 
+
 // === Load data santri ===
 async function loadDataSantri() {
   const kelas = kelasSelect.value;
@@ -3145,10 +3125,7 @@ async function loadSantriData() {
           </td>
 
           <!-- ============ GANTI: ABSENSI FLEX ============ -->
-          <td class="abs-flex-cell">
-  		<button type="button" class="btn-absensi-flex">Absensi</button>
-  		<div class="abs-mini" style="font-size:12px;opacity:.8"></div>
-		</td>
+          <td class="abs-flex-cell"></td>
           <!-- ============================================ -->
 
           <td>
@@ -3364,51 +3341,6 @@ async function loadSantriData() {
             }, true);
           }
         })();
-
-		// =============== ABSENSI FLEX: INIT MODAL ===============
-(function initAbsensiFlexModalForRow(){
-  const cell = row.querySelector(".abs-flex-cell");
-  const btn  = cell.querySelector(".btn-absensi-flex");
-  const mini = cell.querySelector(".abs-mini");
-  const { preset, target } = window.__makePresetAbsensiItems(dataAbsensi || {});
-
-  // simpan state sementara untuk cell ini
-  cell._absPreset = preset;
-  cell._absTarget = target;
-
-  function updateMini(){
-    const percent = cell._absensiPercent ?? 0;
-    const checked = cell._absensiChecked ?? 0;
-    const tgt     = cell._absensiTarget ?? target;
-    mini.textContent = `Absensi: ${percent}% (${checked}/${tgt})`;
-  }
-  updateMini();
-
-  btn.addEventListener("click", () => {
-    const modal = document.getElementById("absensiModalOverlay");
-    const content = document.getElementById("absensiModalContent");
-    content.innerHTML = "";
-    // render widget di modal
-    renderAbsensiFlex(content, { target: cell._absTarget, presetItems: cell._absPreset });
-
-    // sinkronisasi hasil ke cell setelah modal diubah
-    content.addEventListener("change", () => {
-      cell._absensiItems   = content._absensiItems;
-      cell._absensiTarget  = content._absensiTarget;
-      cell._absensiChecked = content._absensiChecked;
-      cell._absensiPercent = content._absensiPercent;
-      cell._absPreset      = content._absensiItems;
-      cell._absTarget      = content._absensiTarget;
-      updateMini();
-    }, { once:true });
-
-    modal.style.display = "flex";
-  });
-})();
-
-document.getElementById("absensiModalClose").addEventListener("click", () => {
-document.getElementById("absensiModalOverlay").style.display = "none";
-});
         // =============================================================
       });
     });
@@ -3419,7 +3351,6 @@ document.getElementById("absensiModalOverlay").style.display = "none";
 
   overlay.style.display = "none";
 }
-
 
 
 
@@ -3831,6 +3762,7 @@ document.getElementById("save-btn").addEventListener("click", function () {
 document.getElementById("save-btn-modal").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
+
 
 // ============================
 // Download PDF
