@@ -2080,9 +2080,9 @@ recordStartBtn.addEventListener('click', async () => {
     });
 
     mp3Recorder.setOptions({
-      timeLimit: 300,            // 5 menit
+      timeLimit: 600,            // 10 menit
       encodeAfterRecord: true,   // encode setelah stop
-      mp3: { bitRate: 256 }      // 256 kbps
+      mp3: { bitRate: 128 }      // 128 kbps
     });
 
     mp3Recorder.startRecording();
@@ -2458,7 +2458,10 @@ logoutBtn.addEventListener("click", () => {
   }, 500);
 });
 
+
+
 // ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
+// Catatan: Tambahan utama di sini adalah ABS_FLEX_LABELS + pemakaian label di renderAbsensiFlex.
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
@@ -2467,6 +2470,30 @@ logoutBtn.addEventListener("click", () => {
     maxTarget: 6,                                       // denominator 1..6
     defaultTarget: 2                                    // default denominator
   };
+
+  // ====== Label Custom per Item (bisa dioverride dari luar kalau perlu) ======
+  // Jika key tidak ada di map ini, fallback ke "namaStatus index" (mis. "hadir 3").
+  window.ABS_FLEX_LABELS = Object.assign({
+    // Hadir
+    hadir1: "Hadir Pagi 1",
+    hadir2: "Hadir Sore 2",
+    // Izin
+    izin1:  "Izin Pagi 1",
+    izin2:  "Izin Sore 2",
+    // Sakit
+    sakit1: "Sakit Pagi 1",
+    sakit2: "Sakit Sore 2",
+    // Alpha
+    alpha1: "Alpha Pagi 1",
+    alpha2: "Alpha Sore 2",
+  }, window.ABS_FLEX_LABELS || {});
+
+  function labelFor(st, idx){
+    const key = `${st}${idx}`.toLowerCase();
+    // Capitalize default status untuk fallback agar rapih (Hadir 3, Izin 4, ...)
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+    return window.ABS_FLEX_LABELS?.[key] || `${cap(st)} ${idx}`;
+  }
 
   function buildKeys(perStatus = ABS_FLEX_CFG.perStatus){
     const n = Math.max(1, Math.min(6, perStatus|0 || 2));
@@ -2550,7 +2577,7 @@ logoutBtn.addEventListener("click", () => {
               ${Array.from({length:perStatus},(_,i)=>`
                 <label style="display:flex;align-items:center;gap:6px;">
                   <input type="checkbox" data-abskey="${st}${i+1}">
-                  <span>${st} ${i+1}</span>
+                  <span>${labelFor(st, i+1)}</span>
                 </label>
               `).join("")}
             </div>
@@ -3298,7 +3325,7 @@ async function loadSantriData() {
         (function initAbsensiFlexForRow(){
           const cell = row.querySelector(".abs-flex-cell");
           const { preset, target } = window.__makePresetAbsensiItems(dataAbsensi || {});
-          // render widget
+          // render widget (label custom aktif otomatis lewat labelFor)
           renderAbsensiFlex(cell, { target, presetItems: preset });
           // tampilkan mini badge di kolom "nilai-ringkas"
           const miniHost = row.querySelector(".nilai-ringkas");
@@ -3483,7 +3510,8 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     kelasSelect.addEventListener("change", loadSantriData);
     tanggalInput.addEventListener("change", loadSantriData);
 
-    // ===== Save Data =====
+
+// ===== Save Data =====
 async function simpanDataMutabaah(saveBtn) {
   const kelas = kelasSelect.value;
   const tanggalUtama = tanggalInput.value; // tanggal di kolom 1
@@ -3533,7 +3561,7 @@ async function simpanDataMutabaah(saveBtn) {
     return Number.isNaN(asNum) ? raw : asNum;
   }
 
-  // ===== NEW: helper ringkasan legacy dari items (mayoritas) =====
+  // ===== NEW: ringkasan legacy dari items (mayoritas) =====
   function legacyFromItems(items) {
     const tally = {hadir:0, izin:0, sakit:0, alpha:0};
     for (const it of (items||[])) {
@@ -3548,6 +3576,18 @@ async function simpanDataMutabaah(saveBtn) {
     return {hadir:"Hadir", izin:"Izin", sakit:"Sakit", alpha:"Alpha"}[best];
   }
 
+  // ===== NEW: bangun absensi6 (opsional kompat lama) dari items+target =====
+  function buildAbsensi6(items, target) {
+    const t = Math.max(1, Math.min(6, Number(target)||1));
+    const chosen = (items||[])
+      .filter(it => it.checked)
+      .map(it => String(it.key).toLowerCase().replace(/\d+$/,"")); // "hadir1" -> "hadir"
+    // ambil t pertama; isi sisa dengan ""
+    const out = [];
+    for (let i=0;i<t;i++) out.push(chosen[i] || "");
+    return out;
+  }
+
   // ===== NEW: ambil nilai Absensi Flex dari sel (kalau ada) =====
   function getAbsensiFlexFromRow(row, existing = {}) {
     const cell = row.querySelector(".abs-flex-cell");
@@ -3558,18 +3598,18 @@ async function simpanDataMutabaah(saveBtn) {
         absensiTarget: Number(existing.absensiTarget) || 0,
         absensiChecked: Number(existing.absensiChecked) || 0,
         absensiPercent: Number(existing.absensiPercent) || 0,
-        absensiLegacy: existing.absensi || ""
+        absensiLegacy: existing.absensi || "",
+        absensi6: Array.isArray(existing.absensi6) ? existing.absensi6 : []
       };
     }
     const absensiItems   = Array.isArray(cell._absensiItems)   ? cell._absensiItems   : [];
     const absensiTarget  = Number(cell._absensiTarget || 0);
     const absensiChecked = Number(cell._absensiChecked || 0);
     const absensiPercent = Number(cell._absensiPercent || 0);
-
-    // legacy ringkasan untuk kompatibilitas
     const absensiLegacy  = legacyFromItems(absensiItems);
+    const absensi6       = buildAbsensi6(absensiItems, absensiTarget); // opsional kompat lama
 
-    return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensiLegacy };
+    return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensiLegacy, absensi6 };
   }
 
   // ===== UI lock =====
@@ -3622,6 +3662,7 @@ async function simpanDataMutabaah(saveBtn) {
         const absensiChecked  = flex.absensiChecked;
         const absensiPercent  = flex.absensiPercent;
         const absensiLegacy   = flex.absensiLegacy;
+        const absensi6        = flex.absensi6; // opsional
 
         // ======== Field lain (tetap) ========
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
@@ -3660,12 +3701,13 @@ async function simpanDataMutabaah(saveBtn) {
           jenjang,
           semester,
 
-          // Absensi (baru + legacy)
+          // Absensi (baru + legacy + kompat lama opsional)
           absensi: absensiLegacy,              // ringkasan mayoritas (kompat lama)
           absensiItems,                        // [{key:"hadir1",checked:true}, ...]
           absensiTarget,                       // denominator (1..6)
           absensiChecked,                      // jumlah yang dicentang
           absensiPercent,                      // 0..100
+          absensi6,                            // opsional: array panjang=target berisi status/"" (kompat lama)
 
           // Bidang lain
           dari: `${surahDari}:${ayatDari}`,
@@ -3724,6 +3766,8 @@ document.getElementById("save-btn").addEventListener("click", function () {
 document.getElementById("save-btn-modal").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
+
+	 
 
 // ============================
 // Download PDF
