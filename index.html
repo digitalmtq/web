@@ -2562,8 +2562,8 @@ logoutBtn.addEventListener("click", () => {
         </select>
         <span class="absflex-percent" style="border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;background:#eef2ff;font-weight:600;">0%</span>
         <div style="margin-left:auto;display:flex;gap:6px;">
-          <button type="button" class="absflex-fill"  style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">Penuhi Target</button>
-          <button type="button" class="absflex-clear" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">Kosongkan</button>
+          <button type="button" class="absflex-fill"  style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Penuhi Target</button>
+          <button type="button" class="absflex-clear" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Kosongkan</button>
         </div>
       </div>
       <div class="absflex-grid" style="display:grid;grid-template-columns:repeat(${perStatus},minmax(140px,1fr));gap:8px;">
@@ -2695,7 +2695,7 @@ logoutBtn.addEventListener("click", () => {
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
           <h3 style="margin:0;font-size:18px;">Edit Absensi</h3>
-          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">Tutup</button>
+          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
       </div>
@@ -3169,7 +3169,7 @@ async function loadSantriData() {
 
           <!-- ============ ABSENSI FLEX via MODAL BUTTON ============ -->
           <td class="abs-flex-cell">
-            <button type="button" class="btn-absensi-flex" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">📋 Absensi</button>
+            <button type="button" class="btn-absensi-flex" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">📝</button>
             <div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
           </td>
           <!-- ======================================================= -->
@@ -3381,7 +3381,7 @@ async function loadSantriData() {
           cell._absensiPercent = comp.percent;
 
           function updateMini(){
-            mini.textContent = `Absensi: ${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
+            mini.textContent = `${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
           }
           updateMini();
 
