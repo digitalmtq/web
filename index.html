@@ -3962,6 +3962,7 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
   // Saat tanggal berubah, muat ulang opsi santri (opsional)
   $('#pdf-start-date')?.addEventListener('change', () => { window._populateSantriSelect?.(); });
   $('#pdf-end-date')?.addEventListener('change', () => { window._populateSantriSelect?.(); });
+  arr.map(x => `<option value="${_esc(x.key)}" data-nama="${_esc(x.nama)}">${_esc(x.nis ? x.nis : x.id)} — ${_esc(x.nama)}</option>`).join('')
 
   // ====== Loader XLSX ======
   async function ensureXLSX(){
@@ -3973,6 +3974,22 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
       document.head.appendChild(sc);
     });
   }
+
+	await ensureJSPDF();
+const { jsPDF } = window.jspdf || {};
+if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
+
+
+	async function ensureJSPDF(){
+  if (window.jspdf?.jsPDF) return;
+  await new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+    sc.onload = resolve; sc.onerror = () => reject(new Error('Gagal memuat jsPDF'));
+    document.head.appendChild(sc);
+  });
+}
+
 
   // ====== Ambil & Agregasi Data ======
   async function collectRekapData(){
@@ -4882,8 +4899,20 @@ async function pdfAllKelasDownload(){
         }
         const d = byDate.get(tgl);
 
-        const st = PDF_normStatus(it?.absensi ?? it?.status);
-        if (d.cnt[st] != null) d.cnt[st]++; else d.cnt.lainnya++;
+        // sesudah:
+if (Array.isArray(it.absensiItems) && it.absensiItems.length){
+  const { cnt, checked } = _tallyAbsensi(it.absensiItems);
+  d.cnt.hadir += cnt.hadir;
+  d.cnt.izin  += cnt.izin;
+  d.cnt.sakit += cnt.sakit;
+  d.cnt.alpha += cnt.alpha;
+  const target = Number(it.absensiTarget)||0;
+  d._validSessions = (d._validSessions||0) + (target>0 ? target : Math.max(checked, cnt.hadir+cnt.izin+cnt.sakit+cnt.alpha));
+} else {
+  const st = PDF_normStatus(it?.absensi ?? it?.status);
+  if (d.cnt[st] != null) d.cnt[st]++; else d.cnt.lainnya++;
+  d._validSessions = (d._validSessions||0) + 1;
+}
 
         const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
         const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
@@ -4934,6 +4963,10 @@ async function pdfAllKelasDownload(){
         const nilaiHarian = d.nilaiCount ? (d.nilaiSum/d.nilaiCount) : 0;
         const predHarian  = PDF_predikatFromScore(nilaiHarian);
         const statusJuzHarian = PDF_totalAllJuzStatus(d.totalJuz, semesterSantri);
+
+		  const validSessions = d._validSessions || (d.cnt.hadir + d.cnt.alpha + d.cnt.sakit + d.cnt.izin);
+		const hadirPct = validSessions > 0 ? Math.round(100 * d.cnt.hadir / validSessions) : 0;
+
 
         return {
           tanggal: d.tanggal,
@@ -5300,6 +5333,19 @@ async function pdfAllKelasDownload(){
       return maxLen;
     });
 
+	  function _tallyAbsensi(items){
+  const cnt = { hadir:0, izin:0, sakit:0, alpha:0 };
+  let checked = 0;
+  for (const it of (items||[])){
+    if (!it?.checked) continue;
+    const base = String(it.key||'').toLowerCase().replace(/\d+$/,''); // hadir1->hadir
+    if (base in cnt) cnt[base] += 1;
+    checked += 1;
+  }
+  return { cnt, checked };
+}
+
+
     const minSum = cols.reduce((a,c)=>a+(c.minW||c.w||8),0);
     const maxSum = cols.reduce((a,c)=>a+(c.maxW||c.w||8),0);
     const target = Math.max(minSum, Math.min(maxSum, contentW));
@@ -5477,8 +5523,42 @@ async function pdfAllKelasDownload(){
       const r = map[key];
       if (!r.nama && it?.nama) r.nama = it.nama;
 
+		
+
       const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
-      const st  = PDF_normStatus(it?.absensi ?? it?.status);
+      if (Array.isArray(it.absensiItems) && it.absensiItems.length){
+  const { cnt } = _tallyAbsensi(it.absensiItems);
+  r.hadir += cnt.hadir;
+  r.izin  += cnt.izin;
+  r.sakit += cnt.sakit;
+  r.alpha += cnt.alpha;
+  // Untuk daysCount/hadirDays: anggap HARI dihitung sekali/unique, hadir jika minimal 1 hadir
+  if (tgl){
+    r._datesAll.add(tgl);
+    if (cnt.hadir > 0) r._datesHadir.add(tgl);
+  }
+} else {
+  const st  = PDF_normStatus(it?.absensi ?? it?.status);
+  if (st==='hadir') r.hadir++;
+  else if (st==='alpha') r.alpha++;
+  else if (st==='sakit') r.sakit++;
+  else if (st==='izin') r.izin++;
+  else r.lainnya++;
+
+  if (tgl){
+    r._datesAll.add(tgl);
+    if (st === 'hadir') r._datesHadir.add(tgl);
+  }
+}
+
+		function _esc(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
 
       if (st==='hadir') r.hadir++;
       else if (st==='alpha') r.alpha++;
