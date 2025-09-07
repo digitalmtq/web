@@ -3811,6 +3811,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
 
 // ============================
+// ============================
 // Download PDF
 // ============================
 (function(){
@@ -4737,7 +4738,7 @@ async function pdfAllKelasDownload(){
 
         // Zebra
         if (rowIndex % 2 === 1) {
-          doc.setFillColor(...theme.zebraFill);
+          doc.setFillColor(248,250,252);
           doc.rect(margin.left, y, sumWidth(cols), rowH, 'F');
         }
 
@@ -5216,15 +5217,16 @@ async function pdfAllKelasDownload(){
         const hadirDays    = Number(r.hadirDays || 0);
         const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
 
+        // >>> FIX: urutan kolom konsisten dengan header (SP setelah "Hadir %")
         return [
           idx+1,
           r.nis || r.id || '',
           r.nama || '',
           (r.semester ?? ''),
           jenjangLabel(r.jenjang ?? ''),
-          (r.keterangan ?? ''),   // SP
           r.hadir, r.alpha, r.sakit, r.izin,
           hadirPct,
+          (r.keterangan ?? ''), // SP sesuai header
           setoranText,
           juzText,
           Number(r.totalJuz.toFixed(2)),
