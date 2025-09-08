@@ -6898,108 +6898,80 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 (function(){
-  const $ = s => document.querySelector(s);
-  const modal    = $('#santriModalOverlay');
-  const openBtn  = $('#download-pdf-santri');
-  const selectEl = $('#pdf-santri-select');
+  const modal   = document.getElementById('santriModalOverlay');
+  const openBtn = document.getElementById('download-pdf-santri');
+  const selectEl= document.getElementById('pdf-santri-select');
 
-  // --- Deteksi NIS login (kumpulkan dari beberapa sumber umum) ---
-  function getLoginNis(){
-    const out = [];
-    const push = v => { if (v!=null){ const s = String(v).trim(); if (s) out.push(s); } };
-
-    // 1) Global yang sering dipakai
-    if (Array.isArray(window.USER_NIS)) window.USER_NIS.forEach(push); else push(window.USER_NIS);
-    try { push(window.CURRENT_USER?.nis); } catch {}
-    try { push(window.USER?.nis); } catch {}
-    try { push(window.user?.nis); } catch {}
-
-    // 2) Storage
-    try { const ls = JSON.parse(localStorage.getItem('USER_NIS')||'null'); Array.isArray(ls)?ls.forEach(push):push(ls); } catch {}
-    try { const ss = JSON.parse(sessionStorage.getItem('USER_NIS')||'null'); Array.isArray(ss)?ss.forEach(push):push(ss); } catch {}
-
-    // 3) Atribut & meta (sering dipasang oleh dashboard)
-    document.querySelectorAll('[data-user-nis],[data-current-nis],[data-nis-user],body[data-nis]').forEach(el=>{
-      push(el.getAttribute('data-user-nis'));
-      push(el.getAttribute('data-current-nis'));
-      push(el.getAttribute('data-nis-user'));
-      push(el.getAttribute('data-nis'));
-    });
-    document.querySelectorAll('meta[name="user:nis"],meta[property="app:userNis"]').forEach(m=>{
-      push(m.getAttribute('content'));
-    });
-
-    const uniq = [...new Set(out)];
-    return (uniq.length === 1) ? uniq[0] : null; // tepat satu → user NIS
+  // simpan fungsi lama (untuk admin/ustadz)
+  if (!window.__OLD_populateSantriSelect && typeof window.populateSantriSelect === 'function') {
+    window.__OLD_populateSantriSelect = window.populateSantriSelect;
   }
 
-  // --- Pangkas dropdown menjadi 1 opsi saja (dan kunci) ---
-  let lockObserver = null;
-  function pruneDropdownToSingleNis(nis){
-    if (!selectEl || !nis) return;
+  async function populateSantriSelectRespectLogin(){
+    if (!selectEl) return;
 
-    // Cari opsi yang cocok; kalau tak ada, buatkan
-    let opt = Array.from(selectEl.options).find(o => String(o.value).trim() === nis);
-    if (!opt) {
-      // coba tebak nama dari opsi yang ada (kalau ada yang NIS sama pada label)
-      const like = Array.from(selectEl.options)
-        .map(o => o.textContent || '')
-        .find(t => t.startsWith(nis+' ') || t.startsWith(nis+'—') || t.startsWith(nis+' —'));
-      const namaGuess = (like ? like.replace(/^\s*\S+\s*[—-]\s*/,'') : (window.USER_NAME||'-')).replace(/"/g,'&quot;');
-      opt = new Option(`${nis} — ${namaGuess}`, nis);
-      opt.setAttribute('data-nama', namaGuess);
+    const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
+    const kelas   = kelasEl?.value || '';
+
+    // --- ambil user login seperti dashboard ---
+    let user = null;
+    try {
+      const username = localStorage.getItem('username'); // sama seperti dashboard
+      const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r=>r.json());
+      user = users.find(u => u.username === username);
+    } catch (e) {
+      console.warn('getUsers gagal:', e);
     }
 
-    // Set isi: hanya opsi ini
-    selectEl.innerHTML = '';
-    selectEl.appendChild(opt);
-    selectEl.value = nis;
-    selectEl.dataset.locked = '1';
+    // jika user NIS → tampilkan 1 opsi saja (nis pertama)
+    if (user && Array.isArray(user.nis) && user.nis.length) {
+      // hormati pembatasan kelas juga (sama seperti dashboard)
+      if (user.kelas && user.kelas.length && kelas && !user.kelas.includes(kelas)) {
+        selectEl.innerHTML = `<option value="">— Tidak ada akses ke kelas ini —</option>`;
+        return;
+      }
 
-    // Observer: kalau ada script lain nambahin opsi → kembalikan jadi 1 lagi
-    if (lockObserver) { try{ lockObserver.disconnect(); }catch{} }
-    lockObserver = new MutationObserver(() => {
-      if (selectEl.dataset.locked !== '1') return;
-      // keep current single option
-      const keepVal  = selectEl.value || nis;
-      const keepText = selectEl.options[0]?.textContent || `${nis}`;
-      const keepNama = selectEl.options[0]?.getAttribute('data-nama') || '';
+      const nis = String(user.nis[0]).trim();
+
+      // ambil nama dari roster kelas aktif (seperti dashboard pakai /getSantri)
+      let nama = '-';
+      try {
+        const roster = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`)
+                       .then(r=>r.json()).catch(()=>[]) || [];
+        const hit = roster.find(s => String(s.nis).trim() === nis || String(s.id).trim() === nis);
+        if (hit?.nama) nama = hit.nama;
+      } catch (e) {}
+
+      const safeNama = (nama || '-').replace(/"/g,'&quot;');
       selectEl.innerHTML =
-        `<option value="${keepVal}" data-nama="${keepNama.replace(/"/g,'&quot;')}">${keepText}</option>`;
-      selectEl.value = keepVal;
-    });
-    lockObserver.observe(selectEl, { childList:true, subtree:true });
+        `<option value="">— Pilih santri —</option>
+         <option value="${nis}" data-nama="${safeNama}">${nis} — ${safeNama}</option>`;
+      selectEl.value = nis;
+
+      // kunci agar pemanggil lain tidak menimpa isi dropdown
+      window.__SANTRI_SCOPE_LOCKED__ = true;
+      return;
+    }
+
+    // bukan user NIS → pakai cara lama (semua santri/akses penuh)
+    if (typeof window.__OLD_populateSantriSelect === 'function') {
+      await window.__OLD_populateSantriSelect();
+    } else {
+      selectEl.innerHTML = `<option value="">— Tidak ada data —</option>`;
+    }
   }
 
-  // --- Jalankan saat modal dibuka & juga segera setelah halaman siap ---
-  function enforceSingleOptionIfUserNis(){
-    const nis = getLoginNis();
-    if (nis) pruneDropdownToSingleNis(nis);
-  }
+  // paksa semua pemanggilan pakai versi ini
+  window.populateSantriSelect  = populateSantriSelectRespectLogin;
+  window._populateSantriSelect = populateSantriSelectRespectLogin;
 
-  openBtn?.addEventListener('click', ()=>{
+  // buka modal → isi dropdown sesuai login-scope (aman, handler existing memanggil populateSantriSelect juga)
+  openBtn?.addEventListener('click', async ()=>{
     if (modal) modal.style.display = 'flex';
-    // Beri sedikit jeda agar fungsi lama sempat mengisi, lalu pangkas:
-    setTimeout(enforceSingleOptionIfUserNis, 0);
-    // Ulangi sekali lagi setelah 300ms untuk mengalahkan fetch async yang telat:
-    setTimeout(enforceSingleOptionIfUserNis, 300);
+    await populateSantriSelectRespectLogin();
   });
-
-  // Kalau select sudah ada saat load, coba kunci juga
-  if (selectEl) {
-    // panggil 2x untuk kasus isi asinkron
-    setTimeout(enforceSingleOptionIfUserNis, 0);
-    setTimeout(enforceSingleOptionIfUserNis, 500);
-  }
-
-  // Pastikan fungsi lama (populateSantriSelect) tidak “melawan” saat sudah dikunci
-  const old1 = window.populateSantriSelect;
-  const old2 = window._populateSantriSelect;
-  window.populateSantriSelect = async function(){ if (selectEl?.dataset.locked==='1') return; if (typeof old1==='function') return old1(); };
-  window._populateSantriSelect = window.populateSantriSelect;
 })();
 </script>
-
 
 </body>
 </html>
