@@ -4866,6 +4866,26 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     }
   }
 })();
+
+
+	 // Guard: jika util belum ada (Blok 3 belum ter-load), define fallback minimal
+if (typeof window.PDF_normKey !== 'function') {
+  window.PDF_normKey = function(v){ return String(v ?? '').trim(); };
+}
+if (typeof window.PDF_normStatus !== 'function') {
+  window.PDF_normStatus = function(s){
+    s = String(s||'').trim().toLowerCase();
+    if (['hadir','h','hadir1','hadir2','hadir3','hadir4','hadir5','hadir6'].includes(s)) return 'hadir';
+    if (['alpha','alfa','alpa','a','alpha1','alpha2','alpha3','alpha4','alpha5','alpha6'].includes(s)) return 'alpha';
+    if (['sakit','skt','s','sakit1','sakit2','sakit3','sakit4','sakit5','sakit6'].includes(s)) return 'sakit';
+    if (['izin','ijin','izn','i','izin1','izin2','izin3','izin4','izin5','izin6'].includes(s)) return 'izin';
+    return 'lainnya';
+  };
+}
+// Jika agregator belum ada (Blok 3 belum ter-load), minimal stub agar tidak crash
+if (typeof window.PDF_buildRekapPerKey !== 'function') {
+  window.PDF_buildRekapPerKey = function(items){ return {}; };
+}
 	
   // ============== PDF per Santri ==============
 async function pdfSantriDownload(){
