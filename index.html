@@ -6911,6 +6911,44 @@ document.addEventListener("DOMContentLoaded", () => {
   // document.getElementById('pdf-start-date')?.addEventListener('change', populateSantriFromLoginScope);
   // document.getElementById('pdf-end-date')?.addEventListener('change',   populateSantriFromLoginScope);
 })();
+
+// ==== Guard: pastikan setBtnLoading tersedia secara global ====
+if (typeof window.setBtnLoading !== 'function') {
+  window.setBtnLoading = function(btn, loading, loadingText='Mengerjakan…'){
+    if (!btn) return;
+    if (loading) {
+      btn.dataset._oldText = btn.textContent;
+      btn.textContent = loadingText;
+      btn.disabled = true;
+    } else {
+      if (btn.dataset._oldText) btn.textContent = btn.dataset._oldText;
+      btn.disabled = false;
+      delete btn.dataset._oldText;
+    }
+  };
+}
+
+// ==== Pastikan referensi tombol & fungsi tersedia ====
+if (!window.pdfSantriBtn) {
+  window.pdfSantriBtn = document.getElementById('download-pdf-santri');
+}
+
+// Jika fungsi populateSantriSelect ada tapi bukan versi global, ekspor
+if (typeof window._populateSantriSelect !== 'function' && typeof window.populateSantriSelect === 'function') {
+  window._populateSantriSelect = window.populateSantriSelect;
+}
+
+// ==== Kaitkan tombol OK modal ke pdfSantriDownload (fallback 2 nama) ====
+document.getElementById('okSantriSelect')?.addEventListener('click', function(){
+  if (typeof window._pdfSantriDownload === 'function') {
+    window._pdfSantriDownload();
+  } else if (typeof window.pdfSantriDownload === 'function') {
+    window.pdfSantriDownload();
+  } else {
+    console.error('pdfSantriDownload tidak ditemukan.');
+    alert('Gagal: fungsi PDF per santri tidak ditemukan.');
+  }
+});
 </script>
 
 
