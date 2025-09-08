@@ -7059,6 +7059,125 @@ document.getElementById('okSantriSelect')?.addEventListener('click', function(){
 });
 </script>
 
+<script>
+// === SMART NIS SCOPE (tampilkan hanya NIS user jika tersedia) ==================
+
+// 1) Baca NIS dari DOM (data-attribute) + tabel dashboard
+function _getNisFromDashboardScope(){
+  const set = new Set();
+
+  // a) data-attribute
+  document.querySelectorAll('[data-nis],[data-santri-nis],[data-user-nis],[data-nis-santri]').forEach(el=>{
+    const v = (el.getAttribute('data-nis')
+      || el.getAttribute('data-santri-nis')
+      || el.getAttribute('data-user-nis')
+      || el.getAttribute('data-nis-santri') || '').trim();
+    if (v) set.add(v);
+  });
+
+  // b) fallback: cari kolom "NIS" pada tabel2
+  if (!set.size) {
+    document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
+      const ths = tb.querySelectorAll('thead th');
+      if (!ths.length) return;
+      let nisIdx = -1;
+      ths.forEach((th,i)=>{
+        const t = (th.textContent||'').trim();
+        if (/(^|\s)nis(\s|$)/i.test(t) && nisIdx === -1) nisIdx = i;
+      });
+      if (nisIdx >= 0) {
+        tb.querySelectorAll('tbody tr').forEach(tr=>{
+          const tds = tr.querySelectorAll('td');
+          const raw = (tds[nisIdx]?.getAttribute('data-nis') || tds[nisIdx]?.textContent || '').trim();
+          if (raw) set.add(raw);
+        });
+      }
+    });
+  }
+
+  return [...set];
+}
+
+// 2) Baca NIS dari memory login
+function _getNisFromLoginMemory(){
+  const fromWin = Array.isArray(window.USER_NIS) ? window.USER_NIS : [];
+  const fromLS  = (()=>{ try{ return JSON.parse(localStorage.getItem('USER_NIS')||'[]'); }catch{return []} })();
+  const fromSS  = (()=>{ try{ return JSON.parse(sessionStorage.getItem('USER_NIS')||'[]'); }catch{return []} })();
+  return [...new Set([...(fromWin||[]), ...(fromLS||[]), ...(fromSS||[])]
+    .map(s=>String(s).trim()).filter(Boolean))];
+}
+
+// 3) Baca peta NIS->Nama dari dashboard (opsional, biar label "NIS — Nama")
+function _buildNameMapFromDashboard(){
+  const map = new Map();
+  document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
+    const ths = tb.querySelectorAll('thead th');
+    if (!ths.length) return;
+    let nisIdx=-1, nameIdx=-1;
+    ths.forEach((th,i)=>{
+      const t=(th.textContent||'').trim();
+      if (/nis/i.test(t)  && nisIdx  === -1) nisIdx  = i;
+      if (/nama/i.test(t) && nameIdx === -1) nameIdx = i;
+    });
+    if (nisIdx >= 0 && nameIdx >= 0) {
+      tb.querySelectorAll('tbody tr').forEach(tr=>{
+        const tds = tr.querySelectorAll('td');
+        const nis  = (tds[nisIdx]?.getAttribute('data-nis') || tds[nisIdx]?.textContent || '').trim();
+        const nama = (tds[nameIdx]?.textContent || '').trim();
+        if (nis) map.set(nis, nama || '-');
+      });
+    }
+  });
+  return map; // Map<nis, nama>
+}
+
+// 4) Bungkus fungsi lama: jika ada scope NIS → isi dropdown HANYA NIS tsb, jika tidak → fallback ke fungsi lama
+(function wrapPopulate(){
+  const sel = document.getElementById('pdf-santri-select');
+  if (!sel) return;
+
+  // simpan referensi fungsi lama (yang list semua)
+  const oldPopulate = window.populateSantriSelect || window._populateSantriSelect;
+
+  async function populateSmart(){
+    // 4a) cari scope NIS user
+    let nisList = _getNisFromDashboardScope();
+    if (!nisList.length) nisList = _getNisFromLoginMemory();
+
+    // 4b) kalau ketemu ⇒ isi dropdown hanya dengan yang bersangkutan
+    if (nisList.length) {
+      const nameMap = _buildNameMapFromDashboard(); // boleh kosong
+      // normalisasi: maksimum satu NIS saja (kalau ada banyak, pakai satu pertama)
+      const uniq = [...new Set(nisList.map(s=>String(s).trim()).filter(Boolean))];
+      const picked = uniq[0]; // “persis satu nama/nis” yang kamu mau
+
+      const nama = (nameMap.get(picked) || '').replace(/"/g,'&quot;');
+      sel.innerHTML = `<option value="">— Pilih santri —</option>
+                       <option value="${picked}" data-nama="${nama || '-'}">${picked}${nama?` — ${nama}`:''}</option>`;
+      // auto-select agar user tinggal klik OK
+      sel.value = picked;
+
+      // stop di sini; jangan tarik roster penuh
+      return;
+    }
+
+    // 4c) kalau scope NIS tidak ada, fallback ke fungsi lama (ambil dari server)
+    if (typeof oldPopulate === 'function') {
+      await oldPopulate();
+      return;
+    }
+
+    // 4d) fallback terakhir: kosong
+    sel.innerHTML = `<option value="">— Tidak ada data —</option>`;
+  }
+
+  // expose & pakai versi smart
+  window.populateSantriSelect = populateSmart;
+  window._populateSantriSelect = populateSmart;
+
+  // Bila tombol “PDF Individual” mengandalkan populateSantriSelect, dia otomatis pakai smart.
+})();
+</script>
 
 </body>
 </html>
