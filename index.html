@@ -3990,6 +3990,49 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   pdfBtn?.addEventListener('click', pdfRekapDownload);
   xlsBtn?.addEventListener('click', xlsRekapDownload);
 
+// -- Guard: pastikan drawTableHeader tersedia secara global --
+if (typeof window.drawTableHeader !== 'function') {
+  window.drawTableHeader = function drawTableHeader(doc, cols, x, y, rowH, fontSize, theme, padX){
+    const totalW = (typeof window.sumWidth === 'function')
+      ? window.sumWidth(cols)
+      : cols.reduce((s,c)=>s + (Number(c.w)||0), 0);
+
+    doc.setFillColor(...theme.tableHeadFill);
+    doc.setDrawColor(...theme.border);
+    doc.rect(x, y, totalW, rowH, 'FD');
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(fontSize);
+    doc.setTextColor(255,255,255);
+
+    let cx = x;
+    const lh = fontSize * 0.3528 * 1.18;
+
+    for (const col of cols){
+      const lines = doc.splitTextToSize(String(col.title||''), Math.max(1, col.w - 2*padX));
+      const textH = lines.length * lh;
+      const yy = y + (rowH - textH)/2 + lh*0.82;
+
+      const tx = (col.align==='right')  ? (cx + col.w - padX)
+               : (col.align==='center') ? (cx + col.w/2)
+               : (cx + padX);
+
+      const opt = (col.align==='right')  ? {align:'right'}
+               : (col.align==='center') ? {align:'center'}
+               : {};
+
+      for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
+
+      doc.rect(cx, y, col.w, rowH);
+      cx += col.w;
+    }
+
+    doc.setTextColor(31,41,55);
+    doc.setFont('helvetica','normal');
+  };
+}
+
+
   if (!allKelasBtn) {
     const wrap = document.querySelector('.pdf-rekap-controls');
     if (wrap) {
