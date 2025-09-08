@@ -6904,105 +6904,165 @@ document.addEventListener("DOMContentLoaded", () => {
   const openBtn   = $('#download-pdf-santri');
   const selectEl  = $('#pdf-santri-select');
 
-  // --- Sumber identitas user (ketat) ---
-  function getUserNisStrict(){
-    // 1) Variabel runtime / storage yang memang diset saat login santri
-    const fromWin = Array.isArray(window.USER_NIS) ? window.USER_NIS : (window.USER_NIS ? [window.USER_NIS] : []);
-    const fromLS  = (()=>{ try{ const v = JSON.parse(localStorage.getItem('USER_NIS')||'[]'); return Array.isArray(v)?v:(v?[v]:[]);}catch{return []} })();
-    const fromSS  = (()=>{ try{ const v = JSON.parse(sessionStorage.getItem('USER_NIS')||'[]'); return Array.isArray(v)?v:(v?[v]:[]);}catch{return []} })();
+  // --- Helper: ambil NIS yang benar2 berasal dari konteks login (bukan tabel umum) ---
+  function resolveLoginNis(){
+    // window.USER_NIS bisa string / array
+    const fromWin = (()=> {
+      if (Array.isArray(window.USER_NIS)) return window.USER_NIS;
+      if (typeof window.USER_NIS === 'string' && window.USER_NIS.trim()) return [window.USER_NIS.trim()];
+      return [];
+    })();
+    const fromLS  = (()=>{ try{
+      const v = JSON.parse(localStorage.getItem('USER_NIS')||'[]');
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string' && v.trim()) return [v.trim()];
+      return [];
+    }catch{return []} })();
+    const fromSS  = (()=>{ try{
+      const v = JSON.parse(sessionStorage.getItem('USER_NIS')||'[]');
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string' && v.trim()) return [v.trim()];
+      return [];
+    }catch{return []} })();
 
-    const all = [...fromWin, ...fromLS, ...fromSS].map(s=>String(s||'').trim()).filter(Boolean);
-    const uniq = [...new Set(all)];
-    // hanya terima jika persis 1 NIS
+    // Atribut spesifik user (bukan tabel)
+    const fromAttr = (()=> {
+      const arr = [];
+      document.querySelectorAll('[data-user-nis],[data-nis-user],[data-current-nis],[data-nis-santri-user]').forEach(el=>{
+        const v = (el.getAttribute('data-user-nis')
+          || el.getAttribute('data-nis-user')
+          || el.getAttribute('data-current-nis')
+          || el.getAttribute('data-nis-santri-user') || '').trim();
+        if (v) arr.push(v);
+      });
+      return arr;
+    })();
+
+    const uniq = [...new Set([...fromWin, ...fromLS, ...fromSS, ...fromAttr]
+      .map(s=>String(s||'').trim())
+      .filter(Boolean))];
+
+    // Kalau persis 1 → itu NIS login. Kalau >1 dianggap ambigu (mungkin admin).
     return (uniq.length === 1) ? uniq[0] : null;
   }
 
-  function getNisFromAttrsStrict(){
-    // 2) Atribut khusus yang memang ditempel untuk user yang sedang login
-    //    (tidak scan tabel umum!)
+  // --- (Hanya jika tidak ada identitas login) Ambil NIS dari dashboard/table ---
+  function getNisFromDashboardLoose(){
     const set = new Set();
-    document.querySelectorAll('[data-user-nis],[data-nis-user],[data-current-nis],[data-nis-santri-user]').forEach(el=>{
-      const v = (el.getAttribute('data-user-nis')
-        || el.getAttribute('data-nis-user')
-        || el.getAttribute('data-current-nis')
-        || el.getAttribute('data-nis-santri-user') || '').trim();
+
+    // data-* generik (boleh)
+    document.querySelectorAll('[data-nis],[data-santri-nis]').forEach(el=>{
+      const v = (el.getAttribute('data-nis')
+        || el.getAttribute('data-santri-nis') || '').trim();
       if (v) set.add(v);
     });
-    const arr = [...set].map(s=>String(s).trim()).filter(Boolean);
-    return (arr.length === 1) ? arr[0] : null;
+
+    // TABEL (fallback terakhir; bisa longgar → hanya dipakai jika tidak ada login NIS)
+    if (!set.size) {
+      document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
+        const ths = tb.querySelectorAll('thead th');
+        if (!ths.length) return;
+        let nisIdx = -1;
+        ths.forEach((th,i)=>{
+          const t = (th.textContent||'').trim();
+          if (/(^|\s)nis(\s|$)/i.test(t) && nisIdx === -1) nisIdx = i;
+        });
+        if (nisIdx >= 0) {
+          tb.querySelectorAll('tbody tr').forEach(tr=>{
+            const tds = tr.querySelectorAll('td');
+            const raw = (tds[nisIdx]?.getAttribute('data-nis') || tds[nisIdx]?.textContent || '').trim();
+            if (raw) set.add(raw);
+          });
+        }
+      });
+    }
+    return [...set];
   }
 
-  function getUserNameHint(){
-    // opsional, untuk label “NIS — Nama” bila ada
-    const fromWin  = (typeof window.USER_NAME === 'string' && window.USER_NAME.trim()) ? window.USER_NAME.trim() : '';
-    const fromAttr = document.querySelector('[data-user-nama],[data-current-nama]')?.getAttribute('data-user-nama')
-                  || document.querySelector('[data-user-nama],[data-current-nama]')?.getAttribute('data-current-nama')
-                  || '';
-    return (fromWin || fromAttr || '').trim();
+  // --- Ambil peta nama opsional (untuk label "NIS — Nama") ---
+  function buildNameMapFromDashboard(){
+    const map = new Map();
+    document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
+      const ths = tb.querySelectorAll('thead th');
+      if (!ths.length) return;
+      let nisIdx=-1, nameIdx=-1;
+      ths.forEach((th,i)=>{
+        const t=(th.textContent||'').trim();
+        if (/nis/i.test(t)  && nisIdx  === -1) nisIdx  = i;
+        if (/nama/i.test(t) && nameIdx === -1) nameIdx = i;
+      });
+      if (nisIdx >= 0 && nameIdx >= 0) {
+        tb.querySelectorAll('tbody tr').forEach(tr=>{
+          const tds = tr.querySelectorAll('td');
+          const nis  = (tds[nisIdx]?.getAttribute('data-nis') || tds[nisIdx]?.textContent || '').trim();
+          const nama = (tds[nameIdx]?.textContent || '').trim();
+          if (nis) map.set(nis, nama || '-');
+        });
+      }
+    });
+    return map;
   }
 
-  // --- Inti: isi dropdown HANYA 1 NIS bila user benar2 santri ---
-  async function populateSantriForStudentOnly(){
+  // --- Inti: jika user NIS → hanya 1 opsi; jika tidak → fallback lama (bisa semua) ---
+  async function populateSantriSmart(){
     if (!selectEl) return;
 
-    // Opsional: jika sistemmu punya role
-    const role = (window.USER_ROLE || document.body?.getAttribute('data-role') || '').toLowerCase();
+    const loginNis = resolveLoginNis();
 
-    const nisFromLogin = getUserNisStrict();
-    const nisFromAttrs = getNisFromAttrsStrict();
-    const picked = nisFromLogin || nisFromAttrs;
+    if (loginNis) {
+      const nameMap = buildNameMapFromDashboard();
+      const nama = (nameMap.get(loginNis) || (window.USER_NAME||'') || '-').toString().replace(/"/g,'&quot;');
 
-    // Terima jika:
-    // - role santri, ATAU
-    // - kita berhasil temukan tepat 1 NIS dari sumber ketat di atas
-    if ((role === 'santri' || role === 'student') && picked) {
-      // ok santri
-    } else if (picked) {
-      // tidak ada role, tapi ada 1 NIS yang valid → tetap kunci ke satu
-    } else {
-      // Tidak bisa memastikan user santri → jangan kunci, biarkan fungsi lama mengisi lengkap
-      const oldPopulate = window.__OLD_populateSantriSelect || window.populateSantriSelect || window._populateSantriSelect;
-      if (typeof oldPopulate === 'function') {
-        await oldPopulate();
-      } else {
-        selectEl.innerHTML = `<option value="">— Pilih santri —</option>`;
-      }
+      // isi 1 opsi saja + auto-select + kunci
+      selectEl.innerHTML =
+        `<option value="">— Pilih santri —</option>
+         <option value="${loginNis}" data-nama="${nama}">${loginNis} — ${nama}</option>`;
+      selectEl.value = loginNis;
+
+      // kunci agar fungsi lain tidak menimpa
+      window.__SANTRI_SCOPE_LOCKED__ = true;
       return;
     }
 
-    // Isi hanya satu opsi + auto-select + kunci agar tidak ditimpa
-    const namaHint = getUserNameHint().replace(/"/g,'&quot;') || '-';
-    selectEl.innerHTML =
-      `<option value="">— Pilih santri —</option>
-       <option value="${picked}" data-nama="${namaHint}">${picked} — ${namaHint}</option>`;
-    selectEl.value = picked;
-
-    window.__SANTRI_SCOPE_LOCKED__ = true; // cegah fungsi lain menimpa dropdown
+    // BUKAN user NIS (admin/guru): boleh tampilkan semua (versi lama/longgar)
+    const nisList = getNisFromDashboardLoose();
+    if (!nisList.length) {
+      selectEl.innerHTML = `<option value="">— Tidak ada NIS —</option>`;
+      return;
+    }
+    const nameMap = buildNameMapFromDashboard();
+    const options = nisList
+      .map(nis => ({ nis, nama: nameMap.get(nis) || '-' }))
+      .sort((a,b) => (a.nama||'').localeCompare(b.nama||'', 'id'));
+    selectEl.innerHTML = [
+      `<option value="">— Pilih santri —</option>`,
+      ...options.map(o => `<option value="${o.nis}" data-nama="${o.nama.replace(/"/g,'&quot;')}">${o.nis} — ${o.nama}</option>`)
+    ].join('');
   }
 
   // --- Hook buka modal ---
   openBtn?.addEventListener('click', ()=>{
     if (modal) modal.style.display = 'flex';
-    populateSantriForStudentOnly();
+    populateSantriSmart();
   });
 
-  // --- Simpan & override fungsi lama agar hormati “scope lock” ---
+  // --- Override fungsi lama agar hormati “scope lock” ---
   if (typeof window.populateSantriSelect === 'function' || typeof window._populateSantriSelect === 'function') {
     window.__OLD_populateSantriSelect = window.populateSantriSelect || window._populateSantriSelect;
   }
   window.populateSantriSelect = async function(){
-    if (window.__SANTRI_SCOPE_LOCKED__) return; // sudah dikunci → jangan diisi massal
+    if (window.__SANTRI_SCOPE_LOCKED__) return; // sudah dikunci utk user NIS
     if (typeof window.__OLD_populateSantriSelect === 'function') {
       await window.__OLD_populateSantriSelect();
     } else {
-      await populateSantriForStudentOnly();
+      await populateSantriSmart();
     }
   };
-  window._populateSantriSelect = window.populateSantriSelect; // kompat
+  window._populateSantriSelect = window.populateSantriSelect;
 
 })(); // end IIFE
 
-// ==== Guard setBtnLoading (kalau belum ada) ====
+// ==== Guard setBtnLoading ====
 if (typeof window.setBtnLoading !== 'function') {
   window.setBtnLoading = function(btn, loading, loadingText='Mengerjakan…'){
     if (!btn) return;
@@ -7035,6 +7095,7 @@ document.getElementById('okSantriSelect')?.addEventListener('click', function(){
   }
 });
 </script>
+
 
 
 </body>
