@@ -6900,86 +6900,55 @@ document.addEventListener("DOMContentLoaded", () => {
 (function(){
   const $ = s => document.querySelector(s);
 
-  const modal     = $('#santriModalOverlay');
-  const openBtn   = $('#download-pdf-santri');
-  const selectEl  = $('#pdf-santri-select');
+  const modal    = $('#santriModalOverlay');
+  const openBtn  = $('#download-pdf-santri');
+  const selectEl = $('#pdf-santri-select');
 
-  // --- Helper: ambil NIS yang benar2 berasal dari konteks login (bukan tabel umum) ---
+  // ---------- 1) DETEKSI NIS LOGIN (super-keras) ----------
   function resolveLoginNis(){
-    // window.USER_NIS bisa string / array
-    const fromWin = (()=> {
-      if (Array.isArray(window.USER_NIS)) return window.USER_NIS;
-      if (typeof window.USER_NIS === 'string' && window.USER_NIS.trim()) return [window.USER_NIS.trim()];
-      return [];
-    })();
-    const fromLS  = (()=>{ try{
-      const v = JSON.parse(localStorage.getItem('USER_NIS')||'[]');
-      if (Array.isArray(v)) return v;
-      if (typeof v === 'string' && v.trim()) return [v.trim()];
-      return [];
-    }catch{return []} })();
-    const fromSS  = (()=>{ try{
-      const v = JSON.parse(sessionStorage.getItem('USER_NIS')||'[]');
-      if (Array.isArray(v)) return v;
-      if (typeof v === 'string' && v.trim()) return [v.trim()];
-      return [];
-    }catch{return []} })();
+    const add = (arr, v) => { if (v!=null) { const s=String(v).trim(); if (s) arr.push(s); } };
+    const bag = [];
 
-    // Atribut spesifik user (bukan tabel)
-    const fromAttr = (()=> {
-      const arr = [];
-      document.querySelectorAll('[data-user-nis],[data-nis-user],[data-current-nis],[data-nis-santri-user]').forEach(el=>{
-        const v = (el.getAttribute('data-user-nis')
-          || el.getAttribute('data-nis-user')
-          || el.getAttribute('data-current-nis')
-          || el.getAttribute('data-nis-santri-user') || '').trim();
-        if (v) arr.push(v);
-      });
-      return arr;
-    })();
+    // a) Window/global
+    if (Array.isArray(window.USER_NIS)) window.USER_NIS.forEach(v=>add(bag,v));
+    else add(bag, window.USER_NIS);
 
-    const uniq = [...new Set([...fromWin, ...fromLS, ...fromSS, ...fromAttr]
-      .map(s=>String(s||'').trim())
-      .filter(Boolean))];
+    // Beberapa objek global yang sering dipakai
+    try { add(bag, window.CURRENT_USER?.nis); } catch {}
+    try { add(bag, window.USER?.nis); } catch {}
+    try { add(bag, window.user?.nis); } catch {}
 
-    // Kalau persis 1 → itu NIS login. Kalau >1 dianggap ambigu (mungkin admin).
+    // b) Storage
+    try {
+      const ls = JSON.parse(localStorage.getItem('USER_NIS')||'null');
+      if (Array.isArray(ls)) ls.forEach(v=>add(bag,v)); else add(bag, ls);
+    } catch {}
+    try {
+      const ss = JSON.parse(sessionStorage.getItem('USER_NIS')||'null');
+      if (Array.isArray(ss)) ss.forEach(v=>add(bag,v)); else add(bag, ss);
+    } catch {}
+
+    // c) Atribut spesifik-user (bukan tabel)
+    document.querySelectorAll('body,[data-user-nis],[data-current-nis],[data-nis-user],[data-nis-santri-user]').forEach(el=>{
+      add(bag, el.getAttribute('data-user-nis'));
+      add(bag, el.getAttribute('data-current-nis'));
+      add(bag, el.getAttribute('data-nis-user'));
+      add(bag, el.getAttribute('data-nis-santri-user'));
+      add(bag, el.getAttribute('data-nis')); // kalau diset di body
+    });
+
+    // d) <meta>
+    document.querySelectorAll('meta[name="user:nis"],meta[property="app:userNis"]').forEach(m=>{
+      add(bag, m.getAttribute('content'));
+    });
+
+    // Bersihkan & unik
+    const uniq = [...new Set(bag)];
+    // Kalau persis 1 → dianggap user NIS. Jika 0 atau >1 → bukan user NIS (admin/guru).
     return (uniq.length === 1) ? uniq[0] : null;
   }
 
-  // --- (Hanya jika tidak ada identitas login) Ambil NIS dari dashboard/table ---
-  function getNisFromDashboardLoose(){
-    const set = new Set();
-
-    // data-* generik (boleh)
-    document.querySelectorAll('[data-nis],[data-santri-nis]').forEach(el=>{
-      const v = (el.getAttribute('data-nis')
-        || el.getAttribute('data-santri-nis') || '').trim();
-      if (v) set.add(v);
-    });
-
-    // TABEL (fallback terakhir; bisa longgar → hanya dipakai jika tidak ada login NIS)
-    if (!set.size) {
-      document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
-        const ths = tb.querySelectorAll('thead th');
-        if (!ths.length) return;
-        let nisIdx = -1;
-        ths.forEach((th,i)=>{
-          const t = (th.textContent||'').trim();
-          if (/(^|\s)nis(\s|$)/i.test(t) && nisIdx === -1) nisIdx = i;
-        });
-        if (nisIdx >= 0) {
-          tb.querySelectorAll('tbody tr').forEach(tr=>{
-            const tds = tr.querySelectorAll('td');
-            const raw = (tds[nisIdx]?.getAttribute('data-nis') || tds[nisIdx]?.textContent || '').trim();
-            if (raw) set.add(raw);
-          });
-        }
-      });
-    }
-    return [...set];
-  }
-
-  // --- Ambil peta nama opsional (untuk label "NIS — Nama") ---
+  // ---------- 2) PETA NAMA (opsional) ----------
   function buildNameMapFromDashboard(){
     const map = new Map();
     document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
@@ -6988,10 +6957,10 @@ document.addEventListener("DOMContentLoaded", () => {
       let nisIdx=-1, nameIdx=-1;
       ths.forEach((th,i)=>{
         const t=(th.textContent||'').trim();
-        if (/nis/i.test(t)  && nisIdx  === -1) nisIdx  = i;
-        if (/nama/i.test(t) && nameIdx === -1) nameIdx = i;
+        if (/^\s*nis\s*$/i.test(t) && nisIdx===-1) nisIdx=i;
+        if (/^\s*nama\s*$/i.test(t) && nameIdx===-1) nameIdx=i;
       });
-      if (nisIdx >= 0 && nameIdx >= 0) {
+      if (nisIdx>=0 && nameIdx>=0){
         tb.querySelectorAll('tbody tr').forEach(tr=>{
           const tds = tr.querySelectorAll('td');
           const nis  = (tds[nisIdx]?.getAttribute('data-nis') || tds[nisIdx]?.textContent || '').trim();
@@ -7003,98 +6972,95 @@ document.addEventListener("DOMContentLoaded", () => {
     return map;
   }
 
-  // --- Inti: jika user NIS → hanya 1 opsi; jika tidak → fallback lama (bisa semua) ---
+  // ---------- 3) LOCK & OBSERVER supaya tak bisa ditimpa ----------
+  let _observer = null;
+  function lockSelect(){
+    if (!selectEl || selectEl.dataset.locked === '1') return;
+    selectEl.dataset.locked = '1';
+    try {
+      _observer = new MutationObserver(muts=>{
+        if (selectEl.dataset.locked !== '1') return;
+        // Jika ada yang nambah opsi, kembalikan ke 1 opsi yang dipilih
+        const keepVal = selectEl.value;
+        const keepText = selectEl.selectedOptions?.[0]?.textContent || '';
+        const keepNama = selectEl.selectedOptions?.[0]?.getAttribute('data-nama') || '';
+        // Reset jadi hanya 1 opsi
+        selectEl.innerHTML =
+          `<option value="${keepVal}" data-nama="${keepNama.replace(/"/g,'&quot;')}">${keepText}</option>`;
+      });
+      _observer.observe(selectEl, { childList:true, subtree:true });
+    } catch {}
+  }
+  function unlockSelect(){
+    if (_observer) { try{ _observer.disconnect(); }catch{} _observer=null; }
+    if (selectEl) delete selectEl.dataset.locked;
+  }
+
+  // ---------- 4) POPULATE SMART ----------
   async function populateSantriSmart(){
     if (!selectEl) return;
 
     const loginNis = resolveLoginNis();
-
-    if (loginNis) {
+    if (loginNis){
       const nameMap = buildNameMapFromDashboard();
-      const nama = (nameMap.get(loginNis) || (window.USER_NAME||'') || '-').toString().replace(/"/g,'&quot;');
+      const nama = (nameMap.get(loginNis) || window.USER_NAME || '-').toString().replace(/"/g,'&quot;');
 
-      // isi 1 opsi saja + auto-select + kunci
+      // HANYA 1 opsi + auto-select + lock
       selectEl.innerHTML =
-        `<option value="">— Pilih santri —</option>
-         <option value="${loginNis}" data-nama="${nama}">${loginNis} — ${nama}</option>`;
+        `<option value="${loginNis}" data-nama="${nama}">${loginNis} — ${nama}</option>`;
       selectEl.value = loginNis;
-
-      // kunci agar fungsi lain tidak menimpa
-      window.__SANTRI_SCOPE_LOCKED__ = true;
+      lockSelect();
       return;
     }
 
-    // BUKAN user NIS (admin/guru): boleh tampilkan semua (versi lama/longgar)
-    const nisList = getNisFromDashboardLoose();
-    if (!nisList.length) {
-      selectEl.innerHTML = `<option value="">— Tidak ada NIS —</option>`;
-      return;
-    }
-    const nameMap = buildNameMapFromDashboard();
-    const options = nisList
-      .map(nis => ({ nis, nama: nameMap.get(nis) || '-' }))
-      .sort((a,b) => (a.nama||'').localeCompare(b.nama||'', 'id'));
-    selectEl.innerHTML = [
-      `<option value="">— Pilih santri —</option>`,
-      ...options.map(o => `<option value="${o.nis}" data-nama="${o.nama.replace(/"/g,'&quot;')}">${o.nis} — ${o.nama}</option>`)
-    ].join('');
+    // Bukan user NIS → jangan lock, biar fungsi lamamu isi penuh (admin/guru)
+    unlockSelect();
+    // Jika kamu ingin tetap fallback isi dari roster, panggil fungsi lama bila ada:
+    const oldPopulate = window.__OLD_populateSantriSelect || window._populateSantriSelect || window.populateSantriSelect;
+    if (typeof oldPopulate === 'function') await oldPopulate();
   }
 
-  // --- Hook buka modal ---
+  // ---------- 5) Hook tombol buka modal ----------
   openBtn?.addEventListener('click', ()=>{
     if (modal) modal.style.display = 'flex';
     populateSantriSmart();
   });
 
-  // --- Override fungsi lama agar hormati “scope lock” ---
-  if (typeof window.populateSantriSelect === 'function' || typeof window._populateSantriSelect === 'function') {
+  // ---------- 6) Override fungsi lama agar hormati LOCK ----------
+  if (typeof window.populateSantriSelect === 'function' || typeof window._populateSantriSelect === 'function'){
     window.__OLD_populateSantriSelect = window.populateSantriSelect || window._populateSantriSelect;
   }
   window.populateSantriSelect = async function(){
-    if (window.__SANTRI_SCOPE_LOCKED__) return; // sudah dikunci utk user NIS
+    // kalau sudah lock (user NIS), jangan diutak-atik
+    if (selectEl?.dataset.locked === '1') return;
     if (typeof window.__OLD_populateSantriSelect === 'function') {
       await window.__OLD_populateSantriSelect();
-    } else {
-      await populateSantriSmart();
     }
   };
   window._populateSantriSelect = window.populateSantriSelect;
 
+  // (opsional) saat modal pertama kali ada di DOM tapi belum diklik
+  if (selectEl && resolveLoginNis()) populateSantriSmart();
+
 })(); // end IIFE
 
-// ==== Guard setBtnLoading ====
+// ==== Guard setBtnLoading (kalau belum ada) ====
 if (typeof window.setBtnLoading !== 'function') {
   window.setBtnLoading = function(btn, loading, loadingText='Mengerjakan…'){
     if (!btn) return;
-    if (loading) {
-      btn.dataset._oldText = btn.textContent;
-      btn.textContent = loadingText;
-      btn.disabled = true;
-    } else {
-      if (btn.dataset._oldText) btn.textContent = btn.dataset._oldText;
-      btn.disabled = false;
-      delete btn.dataset._oldText;
-    }
+    if (loading) { btn.dataset._oldText = btn.textContent; btn.textContent = loadingText; btn.disabled = true; }
+    else { if (btn.dataset._oldText) btn.textContent = btn.dataset._oldText; btn.disabled = false; delete btn.dataset._oldText; }
   };
-}
-
-// ==== Pastikan referensi tombol PDF Individual ====
-if (!window.pdfSantriBtn) {
-  window.pdfSantriBtn = document.getElementById('download-pdf-santri');
 }
 
 // ==== Kaitkan tombol OK modal ke pdfSantriDownload ====
 document.getElementById('okSantriSelect')?.addEventListener('click', function(){
-  if (typeof window._pdfSantriDownload === 'function') {
-    window._pdfSantriDownload();
-  } else if (typeof window.pdfSantriDownload === 'function') {
-    window.pdfSantriDownload();
-  } else {
-    console.error('pdfSantriDownload tidak ditemukan.');
-    alert('Gagal: fungsi PDF per santri tidak ditemukan.');
-  }
+  if (typeof window._pdfSantriDownload === 'function') window._pdfSantriDownload();
+  else if (typeof window.pdfSantriDownload === 'function') window.pdfSantriDownload();
+  else { console.error('pdfSantriDownload tidak ditemukan.'); alert('Gagal: fungsi PDF per santri tidak ditemukan.'); }
 });
 </script>
+
 
 
 
