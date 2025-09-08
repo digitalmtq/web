@@ -2457,7 +2457,9 @@ logoutBtn.addEventListener("click", () => {
     overlay.style.display = "none";
   }, 500);
 });
+ </script>
 
+<script>
 // ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
@@ -3398,8 +3400,9 @@ async function loadSantriData() {
 
   overlay.style.display = "none";
 }
+</script>
 
-
+<script>
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
       const surah = surahList.find(s => s.id == surahId);
       if (!surah) return;
@@ -3550,10 +3553,12 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
   row.querySelector(".total-juz").textContent = totalJuz;
 }
 
-    kelasSelect.addEventListener("change", loadSantriData);
-    tanggalInput.addEventListener("change", loadSantriData);
+kelasSelect.addEventListener("change", loadSantriData);
+tanggalInput.addEventListener("change", loadSantriData);
+</script>
 
-    // ===== Save Data =====
+<script>
+// ===== Save Data =====
 async function simpanDataMutabaah(saveBtn) {
   const kelas = kelasSelect.value;
   const tanggalUtama = tanggalInput.value; // tanggal di kolom 1
@@ -3630,19 +3635,27 @@ async function simpanDataMutabaah(saveBtn) {
     return out;
   }
 
+  // ===== NEW: gabungkan absensi6 menjadi "Hadir1, Hadir2, ..." =====
+  function combinedFromAbs6(absensi6=[]) {
+    return (absensi6 || [])
+      .map((s, i) => s ? (s.charAt(0).toUpperCase() + s.slice(1)) + (i+1) : null)
+      .filter(Boolean)
+      .join(", ");
+  }
+
   // ===== NEW: ambil nilai Absensi Flex dari sel (kalau ada) =====
   function getAbsensiFlexFromRow(row, existing = {}) {
     const cell = row.querySelector(".abs-flex-cell");
     if (!cell) {
       // Fallback: tidak ada widget → pakai existing
-      return {
-        absensiItems: Array.isArray(existing.absensiItems) ? existing.absensiItems : [],
-        absensiTarget: Number(existing.absensiTarget) || 0,
-        absensiChecked: Number(existing.absensiChecked) || 0,
-        absensiPercent: Number(existing.absensiPercent) || 0,
-        absensiLegacy: existing.absensi || "",
-        absensi6: Array.isArray(existing.absensi6) ? existing.absensi6 : []
-      };
+      const absensiItems   = Array.isArray(existing.absensiItems) ? existing.absensiItems : [];
+      const absensiTarget  = Number(existing.absensiTarget) || 0;
+      const absensiChecked = Number(existing.absensiChecked) || 0;
+      const absensiPercent = Number(existing.absensiPercent) || 0;
+      const absensiLegacy  = existing.absensiShort || existing.absensi || "";
+      const absensi6       = Array.isArray(existing.absensi6) ? existing.absensi6 : [];
+      const absensiCombined= combinedFromAbs6(absensi6);
+      return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensiLegacy, absensi6, absensiCombined };
     }
     const absensiItems   = Array.isArray(cell._absensiItems)   ? cell._absensiItems   : [];
     const absensiTarget  = Number(cell._absensiTarget || 0);
@@ -3650,8 +3663,9 @@ async function simpanDataMutabaah(saveBtn) {
     const absensiPercent = Number(cell._absensiPercent || 0);
     const absensiLegacy  = legacyFromItems(absensiItems);
     const absensi6       = buildAbsensi6(absensiItems, absensiTarget); // opsional kompat lama
+    const absensiCombined= combinedFromAbs6(absensi6);
 
-    return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensiLegacy, absensi6 };
+    return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensiLegacy, absensi6, absensiCombined };
   }
 
   // ===== UI lock =====
@@ -3703,8 +3717,9 @@ async function simpanDataMutabaah(saveBtn) {
         const absensiTarget   = flex.absensiTarget;
         const absensiChecked  = flex.absensiChecked;
         const absensiPercent  = flex.absensiPercent;
-        const absensiLegacy   = flex.absensiLegacy;
-        const absensi6        = flex.absensi6; // opsional
+        const absensiLegacy   = flex.absensiLegacy;   // "Hadir"/"Izin"/"Sakit"/"Alpha"
+        const absensi6        = flex.absensi6;        // opsional array
+        const absensiCombined = flex.absensiCombined; // "Hadir1, Hadir2, ..."
 
         // ======== Field lain (tetap) ========
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
@@ -3743,13 +3758,14 @@ async function simpanDataMutabaah(saveBtn) {
           jenjang,
           semester,
 
-          // Absensi (baru + legacy + kompat lama opsional)
-          absensi: absensiLegacy,              // ringkasan mayoritas (kompat lama)
-          absensiItems,                        // [{key:"hadir1",checked:true}, ...]
-          absensiTarget,                       // denominator (1..6)
-          absensiChecked,                      // jumlah yang dicentang
-          absensiPercent,                      // 0..100
-          absensi6,                            // opsional: array panjang=target berisi status/"" (kompat lama)
+          // Absensi (format baru + pelengkap kompat)
+          absensi: absensiCombined,           // <-- STRING GABUNGAN "Hadir1, Hadir2, ..."
+          absensiShort: absensiLegacy,        // ringkasan mayoritas lama
+          absensiItems,                       // [{key:"hadir1",checked:true}, ...]
+          absensiTarget,                      // denominator (1..6)
+          absensiChecked,                     // jumlah yang dicentang
+          absensiPercent,                     // 0..100
+          absensi6,                           // opsional: array panjang=target berisi status/"" (kompat lama)
 
           // Bidang lain
           dari: `${surahDari}:${ayatDari}`,
@@ -3808,8 +3824,9 @@ document.getElementById("save-btn").addEventListener("click", function () {
 document.getElementById("save-btn-modal").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
+</script>
 
-
+<script>
 // ============================
 // ============================
 // Download PDF
