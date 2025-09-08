@@ -3601,42 +3601,25 @@ async function simpanDataMutabaah(saveBtn) {
     return Number.isNaN(asNum) ? raw : asNum;
   }
 
-  // ===== NEW: ringkasan legacy dari items (mayoritas) =====
-  function legacyFromItems(items) {
-    const tally = {hadir:0, izin:0, sakit:0, alpha:0};
-    for (const it of (items||[])) {
-      if (!it.checked) continue;
-      const st = String(it.key||"").toLowerCase().replace(/\d+$/,"");
-      if (st in tally) tally[st]++;
-    }
-    // Prioritas saat seri: Hadir > Izin > Sakit > Alpha
-    const order = ["hadir","izin","sakit","alpha"];
-    let best = "alpha", max = -1;
-    for (const k of order) { if (tally[k] > max) { max = tally[k]; best = k; } }
-    return {hadir:"Hadir", izin:"Izin", sakit:"Sakit", alpha:"Alpha"}[best];
-  }
-
   // ===== NEW: bangun absensi6 (opsional kompat lama) dari items+target =====
   function buildAbsensi6(items, target) {
     const t = Math.max(1, Math.min(6, Number(target)||1));
     const chosen = (items||[])
       .filter(it => it.checked)
-      .map(it => String(it.key).toLowerCase().replace(/\d+$/,"")); // "hadir1" -> "hadir"
+      .map(it => String(it.key).toLowerCase().replace(/\d+$/,""));
     const out = [];
     for (let i=0;i<t;i++) out.push(chosen[i] || "");
     return out;
   }
 
-  // ===== NEW: buat label "Hadir1, Hadir2, Izin3, Sakit4" dari items+target =====
+  // ===== NEW: buat daftar "Hadir1, Hadir2, ..." dari items+target =====
   function buildAbsensiExpanded(items, target) {
     const t = Math.max(1, Math.min(6, Number(target)||1));
-    // Urutkan sesuai layout widget: status per ABS_FLEX_CFG.statuses lalu nomor 1..perStatus
     const perStatus = Number(window.ABS_FLEX_CFG?.perStatus ?? 2);
     const stOrder = Array.isArray(window.ABS_FLEX_CFG?.statuses) && window.ABS_FLEX_CFG.statuses.length
       ? window.ABS_FLEX_CFG.statuses
       : ["hadir","izin","sakit","alpha"];
 
-    // Buat map untuk cek cepat
     const checkedSet = new Set((items||[]).filter(it=>it.checked).map(it=>String(it.key).toLowerCase()));
     const title = s => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -3646,7 +3629,7 @@ async function simpanDataMutabaah(saveBtn) {
       for (let i=1; i<=perStatus; i++) {
         const key = `${st}${i}`;
         if (checkedSet.has(key) && seq <= t) {
-          result.push(`${title(st)}${seq}`);
+          result.push(`${title(st)}${i}`);
           seq++;
         }
       }
@@ -3658,7 +3641,6 @@ async function simpanDataMutabaah(saveBtn) {
   function getAbsensiFlexFromRow(row, existing = {}) {
     const cell = row.querySelector(".abs-flex-cell");
     if (!cell) {
-      // Fallback: tidak ada widget → pakai existing
       const items = Array.isArray(existing.absensiItems) ? existing.absensiItems : [];
       const target = Number(existing.absensiTarget) || 0;
       const expanded = buildAbsensiExpanded(items, target);
@@ -3667,7 +3649,6 @@ async function simpanDataMutabaah(saveBtn) {
         absensiTarget: target,
         absensiChecked: Number(existing.absensiChecked) || 0,
         absensiPercent: Number(existing.absensiPercent) || 0,
-        absensiLegacy: existing.absensi || "",
         absensi6: Array.isArray(existing.absensi6) ? existing.absensi6 : [],
         absensiExpanded: expanded,
         absensiExpandedStr: expanded.join(", ")
@@ -3677,12 +3658,11 @@ async function simpanDataMutabaah(saveBtn) {
     const absensiTarget  = Number(cell._absensiTarget || 0);
     const absensiChecked = Number(cell._absensiChecked || 0);
     const absensiPercent = Number(cell._absensiPercent || 0);
-    const absensiLegacy  = legacyFromItems(absensiItems);
     const absensi6       = buildAbsensi6(absensiItems, absensiTarget);
     const absensiExpanded= buildAbsensiExpanded(absensiItems, absensiTarget);
     const absensiExpandedStr = absensiExpanded.join(", ");
 
-    return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensiLegacy, absensi6, absensiExpanded, absensiExpandedStr };
+    return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensi6, absensiExpanded, absensiExpandedStr };
   }
 
   // ===== UI lock =====
@@ -3692,7 +3672,7 @@ async function simpanDataMutabaah(saveBtn) {
 
   try {
     // ===== 1) Kelompokkan baris per-tanggal baris =====
-    const groupByTanggal = new Map(); // key: YYYY-MM-DD, val: array<row>
+    const groupByTanggal = new Map();
     rows.forEach((row) => {
       const tglBaris = (row.dataset?.tanggal && row.dataset.tanggal.trim())
         ? row.dataset.tanggal.trim()
@@ -3701,11 +3681,9 @@ async function simpanDataMutabaah(saveBtn) {
       groupByTanggal.get(tglBaris).push(row);
     });
 
-    // ===== 2) Untuk setiap tanggal, ambil data lama lalu merge =====
     const hasilKirim = [];
 
     for (const [tanggal, rowsTanggal] of groupByTanggal.entries()) {
-      // -- ambil data lama untuk tanggal ini
       let dataLama = [];
       try {
         const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
@@ -3715,31 +3693,27 @@ async function simpanDataMutabaah(saveBtn) {
       }
       const dataMerged = Array.isArray(dataLama) ? [...dataLama] : [];
 
-      // -- susun payload per baris (untuk tanggal ini)
       rowsTanggal.forEach((row) => {
         const id = getRowId(row);
         const existing = dataMerged.find(d => String(d.id) === String(id)) || {};
+        const nama = getNamaFromCell(row.children[1]);
 
-        const nama = getNamaFromCell(row.children[1]); // hanya nama
-
-        // ⬇️ KUNCI: semester selalu dari master
         const keySem = String((row.dataset?.nis || row.dataset?.id || "")).trim();
         const semester = (window.semesterMap?.[keySem]) ?? existing.semester ?? "";
         const jenjang  = (window.jenjangMap?.[keySem])  ?? existing.jenjang  ?? "";
         const keterangan= (window.keteranganMap?.[keySem])  ?? existing.keterangan ?? "";
 
-        // ======== ABSENSI FLEX (baru) ========
+        // ======== ABSENSI FLEX ========
         const flex = getAbsensiFlexFromRow(row, existing);
         const absensiItems     = flex.absensiItems;
         const absensiTarget    = flex.absensiTarget;
         const absensiChecked   = flex.absensiChecked;
         const absensiPercent   = flex.absensiPercent;
-        const absensiLegacy    = flex.absensiLegacy;
-        const absensi6         = flex.absensi6; // opsional kompat lama
-        const absensiExpanded  = flex.absensiExpanded;       // NEW
-        const absensiExpandedStr = flex.absensiExpandedStr;  // NEW
+        const absensi6         = flex.absensi6;
+        const absensiExpanded  = flex.absensiExpanded;
+        const absensiExpandedStr = flex.absensiExpandedStr;
 
-        // ======== Field lain (tetap) ========
+        // ======== Field lain ========
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
         const ayatDari  = row.querySelector(".ayat-dari")?.value ?? "";
         const surahSampai = row.querySelector(".surah-sampai")?.value ?? "";
@@ -3749,12 +3723,10 @@ async function simpanDataMutabaah(saveBtn) {
         const totalHalaman = row.querySelector(".total-halaman")?.textContent ?? existing.totalHalaman ?? "";
         const juzTerbaca = row.querySelector(".juz-terbaca")?.textContent ?? existing.juzTerbaca ?? "";
 
-        // nilai ringkas di sel (div pertama pada sel tombol)
         const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
         const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
         const parsed = parseNilaiStr(nilaiStr);
 
-        // Jika ada nilai baru valid → pakai, else pakai existing, else jangan timpa
         const adaNilaiBaru = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai));
         let buttonCell;
         if (adaNilaiBaru) {
@@ -3762,10 +3734,9 @@ async function simpanDataMutabaah(saveBtn) {
           const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-') ? parsed.predikatHuruf : (existing.buttonCell?.predikatHuruf ?? "-");
           buttonCell = { nilai: parsed.nilai, predikatText, predikatHuruf };
         } else if (existing.buttonCell) {
-          buttonCell = existing.buttonCell; // pertahankan
+          buttonCell = existing.buttonCell;
         }
 
-        // marks per baris
         const marks = row.markData || existing.marks || { audio: [] };
 
         // ======== SUSUN RECORD BARU ========
@@ -3776,15 +3747,15 @@ async function simpanDataMutabaah(saveBtn) {
           jenjang,
           semester,
 
-          // Absensi (legacy + fleksibel baru)
-          absensi: absensiLegacy,          // ringkasan mayoritas (kompat lama)
-          absensiItems,                    // [{key:"hadir1",checked:true}, ...]
-          absensiTarget,                   // denominator (1..6)
-          absensiChecked,                  // jumlah yang dicentang
-          absensiPercent,                  // 0..100
-          absensi6,                        // opsional: array panjang=target berisi status/"" (kompat lama)
-          absensiExpanded,                 // NEW: ["Hadir1","Hadir2","Izin3",...]
-          absensiExpandedStr,              // NEW: "Hadir1, Hadir2, Izin3, ..."
+          // Absensi (langsung expanded string)
+          absensi: absensiExpandedStr,     // ← sekarang berisi "Hadir1, Hadir2, Izin3..."
+          absensiItems,
+          absensiTarget,
+          absensiChecked,
+          absensiPercent,
+          absensi6,
+          absensiExpanded,
+          absensiExpandedStr,
 
           // Bidang lain
           dari: `${surahDari}:${ayatDari}`,
@@ -3802,7 +3773,6 @@ async function simpanDataMutabaah(saveBtn) {
         if (idx !== -1) dataMerged[idx] = newData; else dataMerged.push(newData);
       });
 
-      // ===== 3) Kirim per-tanggal (endpoint sama) =====
       const res = await fetch("/.netlify/functions/saveData", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3813,7 +3783,6 @@ async function simpanDataMutabaah(saveBtn) {
       hasilKirim.push({ tanggal, ok: !!result?.success, result });
     }
 
-    // ===== 4) Feedback UI =====
     const gagal = hasilKirim.filter(h => !h.ok);
     if (gagal.length === 0) {
       saveBtn.textContent = "✅ Tersimpan";
@@ -3836,7 +3805,6 @@ async function simpanDataMutabaah(saveBtn) {
   }
 }
 
-// Pasang event listener ke dua tombol Save
 document.getElementById("save-btn").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
