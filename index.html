@@ -2457,9 +2457,8 @@ logoutBtn.addEventListener("click", () => {
     overlay.style.display = "none";
   }, 500);
 });
- </script>
 
-<script>
+
 // ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
@@ -3400,9 +3399,8 @@ async function loadSantriData() {
 
   overlay.style.display = "none";
 }
-</script>
 
-<script>
+
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
       const surah = surahList.find(s => s.id == surahId);
       if (!surah) return;
@@ -3555,9 +3553,9 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
 
 kelasSelect.addEventListener("change", loadSantriData);
 tanggalInput.addEventListener("change", loadSantriData);
-</script>
 
-<script>
+
+
 // ===== Save Data =====
 async function simpanDataMutabaah(saveBtn) {
   const kelas = kelasSelect.value;
@@ -3824,9 +3822,9 @@ document.getElementById("save-btn").addEventListener("click", function () {
 document.getElementById("save-btn-modal").addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
-</script>
 
-<script>
+
+
 // ============================
 // ============================
 // Download PDF
