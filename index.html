@@ -4164,7 +4164,7 @@ if (typeof window.drawTableHeader !== 'function') {
 
   // === Isi dropdown santri (modal) ===
   async function populateSantriSelect(){
-    const sel = santriSelect;
+    const sel = document.getElementById('pdf-santri-select') || window.santriSelect;
     if (!sel) return;
 
     const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
@@ -5339,7 +5339,7 @@ async function pdfSantriDownload(){
   const triggerBtn = document.getElementById('okSantriSelect') || pdfSantriBtn;
   setBtnLoading(triggerBtn, true, 'Membuat PDF…');
   try {
-    const sel = santriSelect;
+    const sel = document.getElementById('pdf-santri-select') || window.santriSelect;
     if (!sel || !sel.value) {
       await populateSantriSelect();
       alert('Silakan pilih santri terlebih dahulu.');
@@ -6795,52 +6795,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 (function(){
-  // Util aman dipanggil kapan saja
-  const $ = (s, root=document) => root.querySelector(s);
+  const $ = s => document.querySelector(s);
 
-  // ====== Getter global dinamis (hindari null cache) ======
-  try {
-    if (!('santriSelect' in window)) {
-      Object.defineProperty(window, 'santriSelect', {
-        get(){ return document.getElementById('pdf-santri-select'); },
-        set(){ /* kunci agar selalu ambil dari DOM */ },
-        configurable: true
-      });
-    }
-    if (!('pdfSantriBtn' in window)) {
-      Object.defineProperty(window, 'pdfSantriBtn', {
-        get(){ return document.getElementById('download-pdf-santri'); },
-        set(){ /* kunci */ },
-        configurable: true
-      });
-    }
-  } catch(e){
-    // Fallback jika defineProperty tidak tersedia
-    window.santriSelect = document.getElementById('pdf-santri-select');
-    window.pdfSantriBtn = document.getElementById('download-pdf-santri');
-  }
+  const modal     = $('#santriModalOverlay');
+  const openBtn   = $('#download-pdf-santri');
+  const selectEl  = $('#pdf-santri-select');
 
-  // ====== Guard: setBtnLoading global ======
-  if (typeof window.setBtnLoading !== 'function') {
-    window.setBtnLoading = function(btn, loading, loadingText='Mengerjakan…'){
-      if (!btn) return;
-      if (loading) {
-        btn.dataset._oldText = btn.textContent;
-        btn.textContent = loadingText;
-        btn.disabled = true;
-      } else {
-        if (btn.dataset._oldText) btn.textContent = btn.dataset._oldText;
-        btn.disabled = false;
-        delete btn.dataset._oldText;
-      }
-    };
-  }
-
-  // ====== 1) Ambil NIS dari dashboard (sinkron login) ======
+  // --- 1) Ambil NIS dari dashboard (paling sederhana & sinkron dengan login) ---
   function getNisFromDashboard(){
     const set = new Set();
 
-    // 1a) dari data-attribute
+    // 1a) Elemen yang menyimpan NIS via data-attribute
     document.querySelectorAll('[data-nis],[data-santri-nis],[data-user-nis],[data-nis-santri]').forEach(el=>{
       const v = (el.getAttribute('data-nis')
         || el.getAttribute('data-santri-nis')
@@ -6849,7 +6814,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (v) set.add(v);
     });
 
-    // 1b) fallback: cari kolom "NIS" di tabel
+    // 1b) Fallback: baca kolom bertitel "NIS" di tabel recent jika ada
     if (!set.size) {
       document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
         const ths = tb.querySelectorAll('thead th');
@@ -6871,15 +6836,19 @@ document.addEventListener("DOMContentLoaded", () => {
     return [...set];
   }
 
-  // ====== 2) Ambil dari memori login (opsional) ======
+  // --- 2) (Opsional) kalau dashboard belum tersedia, ambil dari login memory ---
   function getNisFromLoginMemory(){
+    // Setelah login, kamu bisa set salah satu:
+    // window.USER_NIS = ["c23","331"]  // array
+    // localStorage.setItem('USER_NIS', '["c23","331"]')
+    // sessionStorage.setItem('USER_NIS', '["c23","331"]')
     const fromWin = Array.isArray(window.USER_NIS) ? window.USER_NIS : [];
     const fromLS  = (()=>{ try{ return JSON.parse(localStorage.getItem('USER_NIS')||'[]'); }catch{return []} })();
     const fromSS  = (()=>{ try{ return JSON.parse(sessionStorage.getItem('USER_NIS')||'[]'); }catch{return []} })();
     return [...new Set([...(fromWin||[]), ...(fromLS||[]), ...(fromSS||[])].map(s=>String(s).trim()).filter(Boolean))];
   }
 
-  // ====== 3) Peta NIS -> Nama dari dashboard (opsional) ======
+  // --- 3) Ambil peta Nama dari dashboard (opsional, biar labelnya "NIS — Nama") ---
   function buildNameMapFromDashboard(){
     const map = new Map();
     document.querySelectorAll('#recentTable, .recent-table, table').forEach(tb=>{
@@ -6903,80 +6872,149 @@ document.addEventListener("DOMContentLoaded", () => {
     return map; // Map<nis, nama>
   }
 
-  // ====== 4) Populate dropdown — re-query DOM SETIAP PANGGIL ======
+  // --- 4) Inti: populate dropdown SESEDERHANA mungkin ---
   function populateSantriFromLoginScope(){
-    const sel = document.getElementById('pdf-santri-select');
-    if (!sel) return;
+    if (!selectEl) return;
 
+    // Ambil dari dashboard; kalau belum ada → fallback ke memori login
     let nisList = getNisFromDashboard();
     if (!nisList.length) nisList = getNisFromLoginMemory();
 
     if (!nisList.length) {
-      sel.innerHTML = `<option value="">— Tidak ada NIS (cek login/dashboard) —</option>`;
+      selectEl.innerHTML = `<option value="">— Tidak ada NIS (cek login/dashboard) —</option>`;
       return;
     }
 
-    const nameMap = buildNameMapFromDashboard();
+    const nameMap = buildNameMapFromDashboard(); // boleh kosong; kita tetap tampilkan NIS saja
     const options = nisList
       .map(nis => ({ nis, nama: nameMap.get(nis) || '-' }))
       .sort((a,b) => (a.nama||'').localeCompare(b.nama||'', 'id'));
 
-    sel.innerHTML = [
+    selectEl.innerHTML = [
       `<option value="">— Pilih santri —</option>`,
       ...options.map(o => `<option value="${o.nis}" data-nama="${o.nama.replace(/"/g,'&quot;')}">${o.nis} — ${o.nama}</option>`)
     ].join('');
   }
 
-  // ====== 5) Expose versi SMART utk kode lama ======
+  // --- 5) EXPOSE & OVERRIDE: paksa semua pemanggilan lama ikut versi sederhana ini ---
   window._populateSantriSelectSMART = populateSantriFromLoginScope;
-  window._populateSantriSelect      = populateSantriFromLoginScope;
+  window._populateSantriSelect      = populateSantriFromLoginScope; // kalau ada kode lama, otomatis ikut SMART
 
-  // ====== 6) Binding yang tahan elemen dinamis ======
-
-  // a) Buka modal + populate saat tombol PDF Individual diklik
-  document.addEventListener('click', function(e){
-    const t = e.target;
-    if (!t) return;
-    if (t.id === 'download-pdf-santri') {
-      const modal = document.getElementById('santriModalOverlay');
-      if (modal) modal.style.display = 'flex';
-      populateSantriFromLoginScope();
-    }
+  // --- 6) Hook tombol buka modal (kalau handler lamamu juga ada, ini tidak masalah) ---
+  openBtn?.addEventListener('click', ()=>{
+    if (modal) modal.style.display = 'flex';
+    populateSantriFromLoginScope();
   });
 
-  // b) Klik OK pada modal → panggil pdfSantriDownload (dua nama)
-  document.addEventListener('click', function(e){
-    const t = e.target;
-    if (!t) return;
-    if (t.id === 'okSantriSelect') {
-      const fn = window._pdfSantriDownload || window.pdfSantriDownload;
-      if (typeof fn === 'function') {
-        fn();
-      } else {
-        console.error('pdfSantriDownload tidak ditemukan.');
-        alert('Gagal: fungsi PDF per santri tidak ditemukan.');
-      }
-    }
-  });
-
-  // c) (Opsional) saat tanggal berubah, repopulate cepat (tanpa fetch roster)
-  document.getElementById('pdf-start-date')?.addEventListener('change', populateSantriFromLoginScope);
-  document.getElementById('pdf-end-date')?.addEventListener('change', populateSantriFromLoginScope);
-
-  // d) DOMContentLoaded — jaga kasus script di <head>
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      // jika modal sudah terbuka dari default CSS, isi drop-down
-      if ($('#santriModalOverlay')?.style.display === 'flex') populateSantriFromLoginScope();
-    });
-  }
+  // (opsional) kalau mau refresh dropdown saat tanggal diubah, cukup panggil fungsi yang sama.
+  // Tidak akan "melebar" karena sumbernya selalu dashboard/login, bukan roster penuh:
+  // document.getElementById('pdf-start-date')?.addEventListener('change', populateSantriFromLoginScope);
+  // document.getElementById('pdf-end-date')?.addEventListener('change',   populateSantriFromLoginScope);
 })();
 
-// ==== Ekspor populateSantriSelect lama jika ada (kompat) ====
+// ==== Guard: pastikan setBtnLoading tersedia secara global ====
+if (typeof window.setBtnLoading !== 'function') {
+  window.setBtnLoading = function(btn, loading, loadingText='Mengerjakan…'){
+    if (!btn) return;
+    if (loading) {
+      btn.dataset._oldText = btn.textContent;
+      btn.textContent = loadingText;
+      btn.disabled = true;
+    } else {
+      if (btn.dataset._oldText) btn.textContent = btn.dataset._oldText;
+      btn.disabled = false;
+      delete btn.dataset._oldText;
+    }
+  };
+}
+
+// ==== Pastikan referensi tombol & fungsi tersedia ====
+if (!window.pdfSantriBtn) {
+  window.pdfSantriBtn = document.getElementById('download-pdf-santri');
+}
+
+// Jika fungsi populateSantriSelect ada tapi bukan versi global, ekspor
 if (typeof window._populateSantriSelect !== 'function' && typeof window.populateSantriSelect === 'function') {
   window._populateSantriSelect = window.populateSantriSelect;
 }
+
+// ==== Kaitkan tombol OK modal ke pdfSantriDownload (fallback 2 nama) ====
+document.getElementById('okSantriSelect')?.addEventListener('click', function(){
+  if (typeof window._pdfSantriDownload === 'function') {
+    window._pdfSantriDownload();
+  } else if (typeof window.pdfSantriDownload === 'function') {
+    window.pdfSantriDownload();
+  } else {
+    console.error('pdfSantriDownload tidak ditemukan.');
+    alert('Gagal: fungsi PDF per santri tidak ditemukan.');
+  }
+});
 </script>
+
+<script>
+// ==== Guard: pastikan setBtnLoading tersedia secara global ====
+if (typeof window.setBtnLoading !== 'function') {
+  window.setBtnLoading = function(btn, loading, loadingText='Mengerjakan…'){
+    if (!btn) return;
+    if (loading) {
+      btn.dataset._oldText = btn.textContent;
+      btn.textContent = loadingText;
+      btn.disabled = true;
+    } else {
+      if (btn.dataset._oldText) btn.textContent = btn.dataset._oldText;
+      btn.disabled = false;
+      delete btn.dataset._oldText;
+    }
+  };
+}
+
+// ==== Pastikan referensi tombol & fungsi tersedia ====
+if (!window.pdfSantriBtn) {
+  window.pdfSantriBtn = document.getElementById('download-pdf-santri');
+}
+
+// Jika fungsi populateSantriSelect ada tapi bukan versi global, ekspor
+if (typeof window._populateSantriSelect !== 'function' && typeof window.populateSantriSelect === 'function') {
+  window._populateSantriSelect = window.populateSantriSelect;
+}
+
+// ==== Kaitkan tombol OK modal ke pdfSantriDownload (fallback 2 nama) ====
+document.getElementById('okSantriSelect')?.addEventListener('click', function(){
+  if (typeof window._pdfSantriDownload === 'function') {
+    window._pdfSantriDownload();
+  } else if (typeof window.pdfSantriDownload === 'function') {
+    window.pdfSantriDownload();
+  } else {
+    console.error('pdfSantriDownload tidak ditemukan.');
+    alert('Gagal: fungsi PDF per santri tidak ditemukan.');
+  }
+});
+</script>
+
+		<script>
+// Shim global untuk santriSelect agar selalu menunjuk ke #pdf-santri-select
+(function(){
+  function _getSantriSelect(){ return document.getElementById('pdf-santri-select'); }
+  try {
+    // Jika belum ada di window, buat getter dinamis
+    if (!('santriSelect' in window)) {
+      Object.defineProperty(window, 'santriSelect', {
+        get(){ return _getSantriSelect(); },
+        set(){ /* no-op: dikunci agar selalu dari DOM */ },
+        configurable: true
+      });
+    }
+    // Inisialisasi sekali (opsional)
+    if (!_getSantriSelect()) {
+      console.warn('Elemen #pdf-santri-select belum ada saat ini. Pastikan ada di DOM sebelum klik OK.');
+    }
+  } catch(e){
+    // Fallback kalau Object.defineProperty bermasalah
+    window.santriSelect = _getSantriSelect();
+  }
+})();
+</script>
+
 
 
 </body>
