@@ -2811,6 +2811,9 @@ async function loadSantriData() {
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
   overlay.style.display = "flex";
 
+  // pastikan modal absensi tersedia (fungsi global dari blok sebelumnya)
+  if (typeof ensureAbsensiModal === "function") ensureAbsensiModal();
+
   // ===== NEW: Konfigurasi & util jenjang (future-proof) =====
   const JENJANG_MAX = Number(window.JENJANG_MAX ?? 34); // ubah ke 100 / 300 / 1000 sesuai kebutuhan
 
@@ -2827,26 +2830,33 @@ async function loadSantriData() {
     return n <= max;
   };
 
+  // Menjaga label custom yang sudah kamu tulis (ILA, 1A, 2B, dst),
+  // lalu menambahkan A{existing+1}..A{JENJANG_MAX} jika perlu.
   const ensureJenjangOptions = (selectEl, max = JENJANG_MAX, currentValue = "") => {
     if (!selectEl) return;
     const existingVals = new Set([...selectEl.options].map(o => String(o.value || "")));
     const frag = document.createDocumentFragment();
 
+    // Tambah opsi kosong jika belum ada
     if (![...selectEl.options].some(o => o.value === "")) {
       const empty = document.createElement("option");
       empty.value = "";
       empty.textContent = "";
       frag.appendChild(empty);
     }
+
+    // Tambah opsi hingga MAX, tanpa mengganggu label custom yang sudah ada
     for (let i = 1; i <= max; i++) {
       const v = `A${i}`;
       if (!existingVals.has(v)) {
         const opt = document.createElement("option");
         opt.value = v;
-        opt.textContent = v;
+        opt.textContent = v; // label default = value
         frag.appendChild(opt);
       }
     }
+
+    // Sisipkan tambahan di akhir, lalu set nilai saat ini
     if (frag.childNodes.length) selectEl.appendChild(frag);
     if (currentValue !== undefined && currentValue !== null) {
       selectEl.value = String(currentValue);
@@ -2855,9 +2865,9 @@ async function loadSantriData() {
   // ===== END NEW =====
 
   // === cache master
-  window.semesterMap   ??= {};
-  window.jenjangMap    ??= {};
-  window.keteranganMap ??= {};
+  window.semesterMap   ??= {}; // key = NIS (prioritas) atau ID → "1".."6"
+  window.jenjangMap    ??= {}; // key -> "A1".."A8" atau ""
+  window.keteranganMap ??= {}; // key -> "" | "SP1".."SP4"
 
   // Helpers kecil
   const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
@@ -2883,15 +2893,17 @@ async function loadSantriData() {
     const m = new Map();
     for (const a of arr || []) {
       const nm = keyName(a?.nama);
-      if (nm && !m.has(nm)) m.set(nm, pick(a));
+      if (nm && !m.has(nm)) m.set(nm, pick(a)); // ambil yang pertama, hindari overwrite
     }
     return m;
   };
 
+  // dataset helpers (kalau diperlukan bagian lain)
   const getRowKey = row => (row?.dataset?.key || "").trim();
   const getRowId  = row => (row?.dataset?.id  || "").trim();
   const getRowNis = row => (row?.dataset?.nis || "").trim();
 
+  // enable/disable tombol saat mode NIS
   function setButtonsDisabled(disabled) {
     const targets = [
       document.getElementById("save-btn-modal"),
@@ -2928,6 +2940,7 @@ async function loadSantriData() {
     const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     let santriData = await resSantri.json();
 
+    // Bangun peta master
     window.semesterMap   = {};
     window.jenjangMap    = {};
     window.keteranganMap = {};
@@ -2937,10 +2950,11 @@ async function loadSantriData() {
               : (s?.id != null ? String(s.id).trim() : "");
       if (!k) return;
       window.semesterMap[k]   = String(s?.semester   ?? "1");
-      window.jenjangMap[k]    = String(s?.jenjang    ?? "");
-      window.keteranganMap[k] = String(s?.keterangan ?? "");
+      window.jenjangMap[k]    = String(s?.jenjang    ?? "");  // boleh kosong
+      window.keteranganMap[k] = String(s?.keterangan ?? "");  // boleh kosong
     });
 
+    // Index roster
     const rosterById   = byIdMap(santriData, s => s);
     const rosterByNis  = byNisMap(santriData, s => s);
     const rosterByName = byNameMap(santriData, s => s);
@@ -2963,18 +2977,25 @@ async function loadSantriData() {
       absensiRaw = Array.isArray(d) ? d : (d?.list || []);
     }
 
+    // Normalisasi absensi + sematkan field master untuk tampilan
     let absensiData = absensiRaw.map((r) => {
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
       const nm = keyName(r?.nama);
 
-      if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
-      if (!nis && nm && rosterByName.get(nm)?.nis) nis = keyNis(rosterByName.get(nm).nis);
+      if (!nis && id && rosterById.get(id)?.nis) {
+        nis = keyNis(rosterById.get(id).nis);
+      }
+      if (!nis && nm && rosterByName.get(nm)?.nis) {
+        nis = keyNis(rosterByName.get(nm).nis);
+      }
 
+      // isi nama bila kosong
       let nama = r?.nama;
       if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
       if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
 
+      // isi id bila kosong lewat nis
       if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
       const keyMaster   = nis || id || "";
@@ -3002,6 +3023,7 @@ async function loadSantriData() {
       santriData = [];
     }
 
+    // Mode NIS → disable tombol tertentu
     const isModeNIS = !!(user && Array.isArray(user.nis) && user.nis.length);
     setButtonsDisabled(isModeNIS);
     setNISDropdownDisabled(isModeNIS);
@@ -3012,6 +3034,7 @@ async function loadSantriData() {
     santriTableBody.innerHTML = "";
     const isRange = !!(endFilter && endFilter !== tanggal);
 
+    // Index absensi untuk JOIN cepat
     if (!isRange) {
       var absById   = new Map();
       var absByNis  = new Map();
@@ -3062,6 +3085,7 @@ async function loadSantriData() {
         const fromNis  = (snis && absensiByNis?.[snis])  ? absensiByNis[snis]  : [];
         const fromId   = (sid  && absensiById?.[sid])    ? absensiById[sid]    : [];
         const fromName = (snameK && absensiByName?.[snameK]) ? absensiByName[snameK] : [];
+        // gabung & dedup per tanggal (prioritas nis → id → nama)
         const seen = new Set();
         rowsForSantri = [];
         for (const r of [...fromNis, ...fromId, ...fromName]) {
@@ -3069,6 +3093,7 @@ async function loadSantriData() {
           if (!seen.has(k)) { rowsForSantri.push(r); seen.add(k); }
         }
       } else {
+        // single date: prioritas nis → id → nama
         const hit = (snis && absByNis.get(snis))
                  || (sid  && absById.get(sid))
                  || (snameK && absByName.get(snameK))
@@ -3091,11 +3116,13 @@ async function loadSantriData() {
           ? `<div style="font-size:12px;opacity:.65">${dataAbsensi.tanggal}</div>`
           : "";
 
+        // === Nilai master saat ini
         const keyMaster = (snis || sid || "");
         const semNow = (window.semesterMap?.[keyMaster])   ?? santri.semester   ?? "1";
         const jenNow = (window.jenjangMap?.[keyMaster])    ?? santri.jenjang    ?? "";
         const ketNow = (window.keteranganMap?.[keyMaster]) ?? santri.keterangan ?? "";
 
+        // TAMPILAN
         row.innerHTML = `
           <td class="col-nis">${santri.nis ?? santri.id ?? ""}</td>
           <td class="col-nama">${santri.nama ?? ""}${subTanggal}</td>
@@ -3187,26 +3214,28 @@ async function loadSantriData() {
           </td>
         `;
 
-        // DATASET stabil
+        // DATASET stabil (dipakai proses lain)
         const dsId  = keyId(sid);
         const dsNis = keyNis(snis);
         row.dataset.id        = dsId;
         row.dataset.nis       = dsNis;
         row.dataset.key       = (dsNis || dsId || "");
         row.dataset.tanggal   = rowDate;
-        row.dataset.jenjang   = jenNow || "";
-        row.dataset.keterangan= ketNow || "";
+        row.dataset.jenjang   = jenNow || ""; // untuk rollback
+        row.dataset.keterangan= ketNow || ""; // untuk rollback
 
+        // marks jika ada
         if (dataAbsensi && dataAbsensi.marks) row.markData = dataAbsensi.marks;
 
         santriTableBody.appendChild(row);
 
+        // ganti gif jika total-all-juz = 0 (opsional)
         const totalAllJuzTd = row.querySelector("td.total-all-juz");
         if (totalAllJuzTd && totalAllJuzTd.textContent.trim() === "0") {
           totalAllJuzTd.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
         }
 
-        // Surah/Ayat init
+        // Set dropdown surah/ayat
         const surahDari   = row.querySelector(".surah-dari");
         const ayatDari    = row.querySelector(".ayat-dari");
         const surahSampai = row.querySelector(".surah-sampai");
@@ -3224,6 +3253,7 @@ async function loadSantriData() {
         surahDari.addEventListener("change", () => fillAyatOptions(ayatDari, surahDari.value));
         surahSampai.addEventListener("change", () => fillAyatOptions(ayatSampai, surahSampai.value));
 
+        // sinkron otomatis
         surahDari.addEventListener("change", () => {
           surahSampai.value = surahDari.value;
           fillAyatOptions(ayatSampai, surahSampai.value, ayatDari.value);
@@ -3234,21 +3264,23 @@ async function loadSantriData() {
           el.addEventListener("change", () => updateTotalJuz(row));
         });
 
-        // === Jenjang ensure
+        // === NEW: pastikan opsi jenjang otomatis extend s/d JENJANG_MAX
         const jenSel = row.querySelector(".jenjang");
         ensureJenjangOptions(jenSel, JENJANG_MAX, jenNow);
 
-        // === Handler JENJANG
+        // === Handler ubah JENJANG
         if (jenSel) {
           jenSel.addEventListener("change", async () => {
             const key  = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
             const oldJ = String(row.dataset?.jenjang ?? (window.jenjangMap?.[key] ?? jenNow ?? ""));
             const newJ = String(jenSel.value || "");
+
             if (!isValidJenjang(newJ)) {
               alert(`Jenjang harus A1 - A${JENJANG_MAX || '∞'} (atau kosong).`);
               jenSel.value = oldJ;
               return;
             }
+
             jenSel.disabled = true;
             jenSel.style.opacity = "0.6";
             try {
@@ -3257,34 +3289,41 @@ async function loadSantriData() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key, jenjang: newJ })
               });
+
               const text = await res.text();
               let out = {};
               try { out = JSON.parse(text); } catch {}
-              if (!res.ok || out?.success !== true) throw new Error(out?.error || text || "Gagal update jenjang.");
-              window.jenjangMap[key] = newJ;
-              row.dataset.jenjang    = newJ;
+
+              if (!res.ok || out?.success !== true) {
+                throw new Error(out?.error || text || "Gagal update jenjang.");
+              }
+
+              window.jenjangMap[key] = newJ;   // sync cache
+              row.dataset.jenjang    = newJ;   // sync dataset
             } catch (e) {
               alert("Gagal menyimpan jenjang ke kelas: " + e.message);
-              jenSel.value = oldJ;
+              jenSel.value = oldJ; // rollback
             } finally {
               jenSel.disabled = false;
               jenSel.style.opacity = "";
             }
-          });
+          }, { once: false });
         }
 
-        // === Handler KETERANGAN
+        // === Handler ubah KETERANGAN
         const ketSel = row.querySelector(".keterangan");
         if (ketSel) {
           ketSel.addEventListener("change", async () => {
             const key  = String(row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
             const oldK = String(row.dataset?.keterangan ?? (window.keteranganMap?.[key] ?? ketNow ?? ""));
             const newK = String(ketSel.value || "");
+
             if (newK && !/^SP[1-4]$/.test(newK)) {
               alert("Keterangan harus SP1 - SP4 (atau kosong).");
               ketSel.value = oldK;
               return;
             }
+
             ketSel.disabled = true;
             ketSel.style.opacity = "0.6";
             try {
@@ -3293,15 +3332,20 @@ async function loadSantriData() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key, keterangan: newK })
               });
+
               const text = await res.text();
               let out = {};
               try { out = JSON.parse(text); } catch {}
-              if (!res.ok || out?.success !== true) throw new Error(out?.error || text || "Gagal update keterangan.");
-              window.keteranganMap[key] = newK;
-              row.dataset.keterangan  = newK;
+
+              if (!res.ok || out?.success !== true) {
+                throw new Error(out?.error || text || "Gagal update keterangan.");
+              }
+
+              window.keteranganMap[key] = newK; // sync cache
+              row.dataset.keterangan    = newK; // sync dataset
             } catch (e) {
               alert("Gagal menyimpan keterangan ke kelas: " + e.message);
-              ketSel.value = oldK;
+              ketSel.value = oldK; // rollback
             } finally {
               ketSel.disabled = false;
               ketSel.style.opacity = "";
@@ -3309,7 +3353,7 @@ async function loadSantriData() {
           });
         }
 
-        // === Handler SEMESTER
+        // === Handler ubah SEMESTER
         const semSel = row.querySelector(".semester");
         if (semSel) {
           semSel.addEventListener("change", async () => {
@@ -3334,11 +3378,15 @@ async function loadSantriData() {
               const text = await res.text();
               let out = {};
               try { out = JSON.parse(text); } catch {}
-              if (!res.ok || out?.success !== true) throw new Error(out?.error || text || "Gagal update semester.");
-              window.semesterMap[key] = newSem;
+
+              if (!res.ok || out?.success !== true) {
+                throw new Error(out?.error || text || "Gagal update semester.");
+              }
+
+              window.semesterMap[key] = newSem; // sync cache
             } catch (e) {
               alert("Gagal menyimpan semester ke kelas: " + e.message);
-              semSel.value = oldSem;
+              semSel.value = oldSem; // rollback
             } finally {
               semSel.disabled = false;
               semSel.style.opacity = "";
@@ -3351,13 +3399,24 @@ async function loadSantriData() {
           const cell = row.querySelector(".abs-flex-cell");
           const btn  = cell.querySelector(".btn-absensi-flex");
           const mini = cell.querySelector(".abs-mini");
-          const { preset, target } = window.__makePresetAbsensiItems(dataAbsensi || {});
 
-          // state awal di cell (agar SAVE bisa baca)
+          // Ambil preset dari data (fungsi global dari blok absensi)
+          const { preset, target } = (typeof window.__makePresetAbsensiItems === "function")
+            ? window.__makePresetAbsensiItems(dataAbsensi || {})
+            : { preset: null, target: 2 };
+
+          // state awal di cell (agar SAVE bisa baca walau belum dibuka modalnya)
           const itemsInit = Array.isArray(preset) ? preset : [];
-          const comp = computeLocal(itemsInit, target);
+          const comp = (function(items, tgt){
+            const maxT = Number(window.ABS_FLEX_CFG?.maxTarget ?? 6);
+            const t = Math.max(1, Math.min(maxT, Number(tgt)||Number(window.ABS_FLEX_CFG?.defaultTarget||2)));
+            const checked = (items||[]).reduce((a,it)=>a+(it?.checked?1:0),0);
+            const percent = Math.round((Math.min(checked, t)/t)*100);
+            return { checked, t, percent };
+          })(itemsInit, target);
+
           cell._absensiItems   = itemsInit;
-          cell._absensiTarget  = comp.tgt;
+          cell._absensiTarget  = comp.t;
           cell._absensiChecked = comp.checked;
           cell._absensiPercent = comp.percent;
 
@@ -3367,24 +3426,29 @@ async function loadSantriData() {
           updateMini();
 
           btn.addEventListener("click", () => {
-            ensureAbsensiModal();
             const modal   = document.getElementById("absensiModalOverlay");
             const content = document.getElementById("absensiModalContent");
+            if (!modal || !content) return;
             content.innerHTML = "";
 
             // render widget di modal (gunakan state terakhir dari cell)
             const presetItems = Array.isArray(cell._absensiItems) ? cell._absensiItems : itemsInit;
             const tgt = Number(cell._absensiTarget) || target;
-            const widget = renderAbsensiFlex(content, { target: tgt, presetItems });
 
-            // sinkronisasi hasil ke cell setiap ada perubahan di modal
-            content.addEventListener("change", () => {
-              cell._absensiItems   = widget._absensiItems;
-              cell._absensiTarget  = widget._absensiTarget;
-              cell._absensiChecked = widget._absensiChecked;
-              cell._absensiPercent = widget._absensiPercent;
-              updateMini();
-            });
+            const widget = (typeof renderAbsensiFlex === "function")
+              ? renderAbsensiFlex(content, { target: tgt, presetItems })
+              : null;
+
+            if (widget) {
+              // sinkronisasi hasil ke cell setiap ada perubahan di modal
+              content.addEventListener("change", () => {
+                cell._absensiItems   = widget._absensiItems;
+                cell._absensiTarget  = widget._absensiTarget;
+                cell._absensiChecked = widget._absensiChecked;
+                cell._absensiPercent = widget._absensiPercent;
+                updateMini();
+              });
+            }
 
             modal.style.display = "flex";
           });
@@ -3399,7 +3463,6 @@ async function loadSantriData() {
 
   overlay.style.display = "none";
 }
-
 
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
       const surah = surahList.find(s => s.id == surahId);
@@ -3763,7 +3826,7 @@ async function simpanDataMutabaah(saveBtn) {
           absensiTarget,                      // denominator (1..6)
           absensiChecked,                     // jumlah yang dicentang
           absensiPercent,                     // 0..100
-          absensi6,                           // opsional: array panjang=target berisi status/"" (kompat lama)
+          absensi6,                           // opsional: array panjang=target (kompat lama)
 
           // Bidang lain
           dari: `${surahDari}:${ayatDari}`,
