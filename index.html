@@ -3815,8 +3815,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
 
 
 // ============================
-// ============================
-// Download PDF
+// Download PDF/Excel Rekap (slot-based attendance)
 // ============================
 (function(){
   const $ = sel => document.querySelector(sel);
@@ -3877,9 +3876,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   }
 
   // ====== Helper slot absensi (BARU) ======
-  // Menghasilkan count slot per status & target/checked dari 1 record absensi
   function _slotMetricsFromRecord(rec){
-    // Sumber utama: absensiItems + absensiTarget
     const items = Array.isArray(rec?.absensiItems) ? rec.absensiItems : [];
     const target = Number(rec?.absensiTarget) || 0;
     const checked = Number(rec?.absensiChecked) || items.filter(it=>it?.checked).length;
@@ -3891,10 +3888,33 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (st in counts) counts[st]++;
     }
     return {
-      _slotCounts: counts,           // {hadir, izin, sakit, alpha}
-      _slotTarget: target,           // denominasi harian
-      _slotChecked: checked          // jumlah checklist semua status
+      _slotCounts: counts,
+      _slotTarget: target,
+      _slotChecked: checked
     };
+  }
+
+  // ====== Helper agregasi slot per santri (BARU) ======
+  function _aggregateSlotsPerKey(items){
+    const map = new Map();
+    for (const r of (items || [])) {
+      const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
+      if (!key) continue;
+
+      const sc = r?._slotCounts || { hadir:0, izin:0, sakit:0, alpha:0 };
+      const t0 = Number(r?._slotTarget)  || 0;
+      const ch = Number(r?._slotChecked) || 0;
+      const targetToday = t0 > 0 ? t0 : (ch > 0 ? ch : (sc.hadir + sc.izin + sc.sakit + sc.alpha));
+
+      if (!map.has(key)) map.set(key, { hadir:0, izin:0, sakit:0, alpha:0, target:0 });
+      const agg = map.get(key);
+      agg.hadir += sc.hadir;
+      agg.izin  += sc.izin;
+      agg.sakit += sc.sakit;
+      agg.alpha += sc.alpha;
+      agg.target += targetToday;
+    }
+    return map;
   }
 
   // === Helper Kelas/Kelompok ===
@@ -3953,7 +3973,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   const pdfBtn = document.getElementById('download-pdf-rekap');
   let xlsBtn = document.getElementById('download-xls-rekap');
   let allKelasBtn = document.getElementById('download-pdf-allkelas');
-  let pdfSantriBtn = document.getElementById('download-pdf-santri'); // HANYA pemicu modal
+  let pdfSantriBtn = document.getElementById('download-pdf-santri'); // pemicu modal (opsional)
   const santriSelect = document.getElementById('pdf-santri-select');
 
   if (!xlsBtn) {
@@ -3997,7 +4017,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     });
   }
 
-  // ====== Ambil & Agregasi Data ======
+  // ====== Ambil & Agregasi Data (Rekap Kelas) ======
   async function collectRekapData(){
     const kelasEl = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect : document.getElementById('kelasSelect');
     const kelas = kelasEl?.value || '';
@@ -4029,7 +4049,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     const rosterByNis  = byNisMap(santriData, s => s);
     const rosterByName = byNameMap(santriData, s => s);
 
-    // 3) Normalisasi (+ inject semester, jenjang, keterangan)
+    // 3) Normalisasi (+ inject slot metrics)
     const allDataNorm = allData.map(r => {
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
@@ -4056,7 +4076,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
       if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
 
-      // ===== Inject metrik slot (BARU) =====
       const slot = _slotMetricsFromRecord(r);
 
       return { ...r, ...slot, id, nis, nama, semester, jenjang, keterangan, tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null };
@@ -4067,13 +4086,23 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     (allDataNorm||[]).forEach(it => { if (it?.tanggal) kbmDaySet.add(String(it.tanggal)); });
     const kbmDays = kbmDaySet.size;
 
-    // Agregasi — akan diupgrade di Blok 4 untuk pakai _slotCounts/_slotTarget
+    // Agregasi (base) + MERGE slot
     const aggMap = PDF_buildRekapPerKey(allDataNorm);
+    const slotAgg = _aggregateSlotsPerKey(allDataNorm);
+    for (const [k, a] of slotAgg.entries()) {
+      if (!aggMap[k]) continue;
+      aggMap[k].hadirSlots  = a.hadir;
+      aggMap[k].izinSlots   = a.izin;
+      aggMap[k].sakitSlots  = a.sakit;
+      aggMap[k].alphaSlots  = a.alpha;
+      aggMap[k].targetSlots = a.target;
+    }
+
     const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
     const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
     if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
 
-    // Ringkasan total (pakai slot jika tersedia; fallback ke field lama)
+    // Ringkasan total (pakai slot)
     let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
     rows.forEach(r=>{
       totJuz += r.totalJuz;
@@ -4170,20 +4199,20 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
   // === Pewarnaan sel SP ===
   function PDF_spPaintCell(doc, x, y, w, h, spValue){
     const v = String(spValue||'').toUpperCase().replace(/\s+/g,''); // SP1 / SP 1 -> SP1
-    if (v === 'SP1'){            // kuning terang
-      doc.setFillColor(255,241,118); // #FFF176
-      doc.rect(x, y, w, h, 'F');
-      return null;               // text warna normal
-    }
-    if (v === 'SP2'){            // merah terang
-      doc.setFillColor(255,205,210); // #FFCDD2
+    if (v === 'SP1'){
+      doc.setFillColor(255,241,118);
       doc.rect(x, y, w, h, 'F');
       return null;
     }
-    if (v === 'SP3'){            // hitam, text putih
+    if (v === 'SP2'){
+      doc.setFillColor(255,205,210);
+      doc.rect(x, y, w, h, 'F');
+      return null;
+    }
+    if (v === 'SP3'){
       doc.setFillColor(0,0,0);
       doc.rect(x, y, w, h, 'F');
-      return [255,255,255];      // override text -> putih
+      return [255,255,255];
     }
     return null;
   }
@@ -4273,7 +4302,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
 
-        // ======= Perhitungan berbasis SLOT (BARU) =======
+        // SLOT-based
         const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
         const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
         const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
@@ -4288,7 +4317,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           sem: r.semester ?? '-',
           jenjang: jenjangLabel(r.jenjang ?? ''),
           ket: r.keterangan ?? '-',
-          // tampilkan H/A/S/I sebagai JUMLAH SLOT
           h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
           hadirPct: `${hadirPct}%`,
           setoran: setoranText,
@@ -4356,7 +4384,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         }
 
         if (rowIndex % 2 === 1) {
-          doc.setFillColor(...theme.zebraFill);
+          doc.setFillColor(248,250,252);
           doc.rect(x0, y, sumWidth(cols), rowH, 'F');
         }
 
@@ -4370,7 +4398,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           const col = cols[ci];
           const lines = wraps[ci];
 
-          // highlight status THMS (TUNTAS/KHATAM)
           if (col.key === 'persen') {
             const val = String(row[col.key] || '').toUpperCase();
             if (val === 'TUNTAS' || val === 'KHATAM') {
@@ -4380,7 +4407,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
             }
           }
 
-          // >>> pewarnaan khusus kolom SP
           let spTextColor = null;
           if (col.key === 'ket') {
             spTextColor = PDF_spPaintCell(doc, x, y, col.w, rowH, row.ket);
@@ -4399,7 +4425,7 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           }
 
           doc.rect(x, y, col.w, rowH);
-          if (spTextColor) doc.setTextColor(...theme.text); // reset bila sempat di-override
+          if (spTextColor) doc.setTextColor(...theme.text);
           x += col.w;
         }
         y += rowH;
@@ -4565,8 +4591,18 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
     (allDataNorm||[]).forEach(it => { if (it?.tanggal) kbmDaySet.add(String(it.tanggal)); });
     const kbmDays = kbmDaySet.size;
 
-    // Agregasi
+    // Agregasi (base) + MERGE slot
     const aggMap = PDF_buildRekapPerKey(allDataNorm);
+    const slotAgg = _aggregateSlotsPerKey(allDataNorm);
+    for (const [k, a] of slotAgg.entries()) {
+      if (!aggMap[k]) continue;
+      aggMap[k].hadirSlots  = a.hadir;
+      aggMap[k].izinSlots   = a.izin;
+      aggMap[k].sakitSlots  = a.sakit;
+      aggMap[k].alphaSlots  = a.alpha;
+      aggMap[k].targetSlots = a.target;
+    }
+
     const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
     const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
     if (!rows.length) return null;
@@ -4624,7 +4660,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       const cellPadX = 1.6, cellPadY = 1.2;
       const headerRowH = Math.max(9, fontHead * 0.3528 * lineFactor + 2*cellPadY);
 
-      // ===== Spasi & tinggi untuk header 'nempel' + keep-with-next
       const CLASS_HEADER_FONT = 10;
       const CLASS_HEADER_LINE_H = CLASS_HEADER_FONT * 0.3528 * 1.10;
       const HEADER_TO_TABLE_GAP = 0.8;
@@ -4639,7 +4674,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 6);
         doc.setTextColor(...theme.text);
       }
-
       function drawFooter(pageNo, totalPages, printedAt){
         const y = pageH - 6;
         doc.setDrawColor(...theme.border); doc.setLineWidth(0.2);
@@ -4648,7 +4682,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.text(`Dicetak: ${printedAt}`, margin.left, y);
         doc.text(`Halaman ${pageNo} / ${totalPages}`, pageW - margin.right - 30, y);
       }
-
       function drawClassHeaderCompact(kelasLine, kbmDays, totalSantri, yStart){
         const headerText = `${kelasLine}, KBM: ${kbmDays} hari, Total Santri: ${totalSantri}`;
         doc.setFont('helvetica','bold'); doc.setFontSize(CLASS_HEADER_FONT);
@@ -4656,7 +4689,6 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         doc.text(headerText, margin.left, baseline);
         return CLASS_HEADER_LINE_H;
       }
-
       function ensureSpaceForClassBlock(yCurrent){
         const need = CLASS_HEADER_LINE_H + HEADER_TO_TABLE_GAP + headerRowH + ROW_MIN_H;
         if (yCurrent + need > pageH - margin.bottom){
@@ -4687,9 +4719,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       ];
 
       const contentW = pageW - margin.left - margin.right;
-      let y = margin.top + 12;
+      let y = margin.top + 12; // judul + periode
       drawMainTitle();
-
       const printedAt = new Date().toLocaleString();
 
       for (const kelasKey of _getAllKelasKeys()){
@@ -4739,7 +4770,15 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
         const cols = JSON.parse(JSON.stringify(baseCols));
         fitColumnsFlex(doc, cols, tableData, fontBody, contentW, cellPadX);
 
-        y = ensureSpaceForClassBlock(y);
+        // jangan biarkan header kelas 'gantung'
+        y = (function ensure(yCurrent){
+          const need = CLASS_HEADER_LINE_H + HEADER_TO_TABLE_GAP + headerRowH + ROW_MIN_H;
+          if (yCurrent + need > pageH - margin.bottom){
+            doc.addPage('a3','landscape');
+            return margin.top + 6;
+          }
+          return yCurrent;
+        })(y);
 
         y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
         y += HEADER_TO_TABLE_GAP;
@@ -4760,10 +4799,8 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
           if (y + rowH > pageH - margin.bottom) {
             doc.addPage('a3', 'landscape');
             y = margin.top + 6;
-
             y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
             y += HEADER_TO_TABLE_GAP;
-
             drawTableHeader(doc, cols, margin.left, y, headerRowH, fontHead, theme, cellPadX);
             y += headerRowH;
             rowIndex = 0;
@@ -4865,29 +4902,396 @@ document.getElementById("save-btn-modal").addEventListener("click", function () 
       setBtnLoading(btn, false);
     }
   }
-})();
 
+  // ================= Excel (.xlsx) =================
+  async function xlsRekapDownload(){
+    setBtnLoading(xlsBtn, true, 'Membuat Excel…');
+    try {
+      await ensureXLSX();
+      const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
-	 // Guard: jika util belum ada (Blok 3 belum ter-load), define fallback minimal
-if (typeof window.PDF_normKey !== 'function') {
-  window.PDF_normKey = function(v){ return String(v ?? '').trim(); };
-}
-if (typeof window.PDF_normStatus !== 'function') {
-  window.PDF_normStatus = function(s){
+      const header = [
+        "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
+        "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","THMS","Nilai Rata2","Predikat"
+      ];
+      const body = rows.map((r, idx) => {
+        const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+        const pred      = PDF_predikatFromScore(nilaiAvg);
+        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+
+        const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
+        const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
+
+        const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
+        const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
+        const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
+        const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
+        const targetSlots= Number(r.targetSlots ?? 0);
+        const hadirPct   = targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0;
+
+        return [
+          idx+1,
+          r.nis || r.id || '',
+          r.nama || '',
+          (r.semester ?? ''),
+          jenjangLabel(r.jenjang ?? ''),
+          hadirSlots, alphaSlots, sakitSlots, izinSlots,
+          hadirPct,
+          (r.keterangan ?? ''),
+          setoranText,
+          juzText,
+          Number(r.totalJuz.toFixed(2)),
+          statusJuz.label,
+          (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
+          pred.huruf
+        ];
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+      ws['!cols'] = autoFitColumns([header, ...body]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
+
+      const meta = [
+        ["Rekap Absensi & Setoran", ""],
+        ["Kelas / Kelompok", kelasLine],
+        ["Periode", `${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`],
+        ["KBM (hari)", kbmDays],
+        ["Total Santri", rows.length],
+        [],
+        ["Ringkasan", ""],
+        ["Hadir (slot)", totals.totH],
+        ["Alpha (slot)", totals.totA],
+        ["Sakit (slot)", totals.totS],
+        ["Izin (slot)",  totals.totI],
+        ["Total Page", Math.round(totals.totPages)],
+        ["Total Juz", Number(totals.totJuz.toFixed(2))]
+      ];
+      const wsMeta = XLSX.utils.aoa_to_sheet(meta);
+      wsMeta['!cols'] = [{wch:24},{wch:40}];
+      XLSX.utils.book_append_sheet(wb, wsMeta, 'Meta');
+
+      const fileName = `Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengunduh Excel: ' + (err.message || err));
+    } finally {
+      setBtnLoading(xlsBtn, false);
+    }
+  }
+
+  // ===== Util umum (widths) =====
+  function sumWidth(cols){ return cols.reduce((s,c)=>s + (Number(c.w)||0), 0); }
+  function autoFitColumns(aoa){
+    const colCount = Math.max(...aoa.map(r => r.length));
+    const cols = Array.from({length: colCount}, (_,i) => {
+      const maxLen = Math.max(...aoa.map(row => {
+        const v = row[i];
+        if (v == null) return 0;
+        const s = (typeof v === 'string') ? v : String(v);
+        return s.length;
+      }), 0);
+      return { wch: Math.min(60, Math.max(6, Math.ceil(maxLen * 1.1) + 2)) };
+    });
+    return cols;
+  }
+  function fitColumnsFlex(doc, cols, tableData, fontSize, contentW, padX){
+    const keys = cols.map(c => c.key);
+    const weights = keys.map((k,i) => {
+      const headLen = String(cols[i].title || '').length;
+      let maxLen = headLen;
+      const sampleLimit = Math.min(300, tableData.length);
+      for (let r=0; r<sampleLimit; r++){
+        const s = String(tableData[r][k] ?? '');
+        if (s.length > maxLen) maxLen = s.length;
+      }
+      if (['nama','setoran','juz'].includes(k)) maxLen *= 1.25;
+      return maxLen;
+    });
+
+    const minSum = cols.reduce((a,c)=>a+(c.minW||c.w||8),0);
+    const maxSum = cols.reduce((a,c)=>a+(c.maxW||c.w||8),0);
+    const target = Math.max(minSum, Math.min(maxSum, contentW));
+    const sumWgt = weights.reduce((a,b)=>a+b,0) || 1;
+
+    let widths = cols.map((c,i)=>{
+      const minW = c.minW ?? c.w ?? 8;
+      const maxW = c.maxW ?? (minW+20);
+      const frac = weights[i] / sumWgt;
+      const raw  = minW + (target - minSum) * frac;
+      return Math.max(minW, Math.min(maxW, raw));
+    });
+
+    let used = widths.reduce((a,b)=>a+b,0);
+    let diff = target - used;
+    const step = diff >= 0 ? 0.1 : -0.1;
+    let guard = 0;
+    while (Math.abs(diff) > 0.09 && guard++ < 200){
+      for (let i=0; i<cols.length && Math.abs(diff)>0.09; i++){
+        const minW = cols[i].minW ?? cols[i].w ?? 8;
+        const maxW = cols[i].maxW ?? (minW+20);
+        const canGrow = diff>0 && widths[i] + step <= maxW;
+        const canShrink = diff<0 && widths[i] + step >= minW;
+        if (canGrow || canShrink){ widths[i] += step; diff -= step; }
+      }
+    }
+
+    widths = widths.map(w => Math.round(w*10)/10);
+    const sumRounded = widths.reduce((a,b)=>a+b,0);
+    const fix = Math.round((target - sumRounded)*10)/10;
+    widths[widths.length-1] += fix;
+
+    for (let i=0;i<cols.length;i++) cols[i].w = widths[i];
+  }
+
+  // ======= Parser & Aggregator util (lengkap) =======
+  function PDF_normKey(v){ return String(v ?? '').trim(); }
+  function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
+  function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
+  function PDF_parseSA(sa){ const m=String(sa||'').trim().match(/^(\d+)\s*:\s*(\d+)$/); return m?{s:+m[1], a:+m[2]}:null; }
+  function PDF_compareSA(x,y){ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; }
+  function PDF_normStatus(s){
     s = String(s||'').trim().toLowerCase();
-    if (['hadir','h','hadir1','hadir2','hadir3','hadir4','hadir5','hadir6'].includes(s)) return 'hadir';
-    if (['alpha','alfa','alpa','a','alpha1','alpha2','alpha3','alpha4','alpha5','alpha6'].includes(s)) return 'alpha';
-    if (['sakit','skt','s','sakit1','sakit2','sakit3','sakit4','sakit5','sakit6'].includes(s)) return 'sakit';
-    if (['izin','ijin','izn','i','izin1','izin2','izin3','izin4','izin5','izin6'].includes(s)) return 'izin';
+    if (['hadir','h'].includes(s)) return 'hadir';
+    if (['alpha','alfa','alpa','a'].includes(s)) return 'alpha';
+    if (['sakit','skt','s'].includes(s)) return 'sakit';
+    if (['izin','ijin','izn','i'].includes(s)) return 'izin';
     return 'lainnya';
-  };
-}
-// Jika agregator belum ada (Blok 3 belum ter-load), minimal stub agar tidak crash
-if (typeof window.PDF_buildRekapPerKey !== 'function') {
-  window.PDF_buildRekapPerKey = function(items){ return {}; };
-}
+  }
+  function PDF_predikatFromScore(nilai){
+    const map = [
+      { max: 59,  text: 'ROSIB',         huruf: 'D' },
+      { max: 69,  text: 'MAQBUL',        huruf: 'C' },
+      { max: 79,  text: 'JAYYID',        huruf: 'B' },
+      { max: 89,  text: 'JAYYID JIDDAN', huruf: 'A' },
+      { max: 100, text: 'MUMTAZ',        huruf: 'A+' }
+    ];
+    return map.find(p => nilai <= p.max) || map[map.length-1];
+  }
+  function PDF_parseJuzTerbacaField(val){
+    const out = new Set();
+    if (val == null) return out;
+    if (Array.isArray(val)) {
+      val.forEach(v => {
+        if (typeof v === 'number' && Number.isFinite(v)) out.add(v);
+        else if (typeof v === 'string') PDF_parseJuzTerbacaField(v).forEach(n => out.add(n));
+      });
+      return out;
+    }
+    if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
+    let str = String(val);
+    str = str.replace(/[–—−]/g, '-');
+    str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
+    str = str.replace(/juz\s*:?/gi, 'juz ');
+    const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
+    let m;
+    while ((m = re.exec(str)) !== null) {
+      let a = parseInt(m[1], 10);
+      let b = m[2] ? parseInt(m[2], 10) : a;
+      if (a > b) [a, b] = [b, a];
+      a = Math.max(1, Math.min(30, a));
+      b = Math.max(1, Math.min(30, b));
+      for (let x = a; x <= b; x++) out.add(x);
+    }
+    return out;
+  }
+  function PDF_fmtSASegment(seg){ return `${seg.from.s}:${seg.from.a}-${seg.to.s}:${seg.to.a}`; }
+  function PDF_dedupSASegments(arr){
+    const seen = new Set(), out = [];
+    for (const seg of (arr||[])) {
+      if (!seg?.from || !seg?.to) continue;
+      const norm = (PDF_compareSA(seg.from, seg.to) <= 0) ? seg : {from: seg.to, to: seg.from};
+      const key = `${norm.from.s}:${norm.from.a}-${norm.to.s}:${norm.to.a}`;
+      if (!seen.has(key)) { seen.add(key); out.push(norm); }
+    }
+    return out;
+  }
+  function PDF_sortSASegments(list){
+    return [...(list||[])].sort((A,B)=>{
+      const c1 = PDF_compareSA(A?.from, B?.from);
+      if (c1 !== 0) return c1;
+      return PDF_compareSA(A?.to, B?.to);
+    });
+  }
+  function PDF_joinSAsegments(arr){
+    const list = PDF_sortSASegments(PDF_dedupSASegments(arr));
+    if (!list.length) return '-';
+    return list.map(PDF_fmtSASegment).join(', ');
+  }
+  function PDF_sortRangeSegments(list){
+    return [...(list||[])].sort((a,b)=>{
+      const a0 = Number(a?.[0]), a1 = Number(a?.[1]);
+      const b0 = Number(b?.[0]), b1 = Number(b?.[1]);
+      if (a0 !== b0) return a0 - b0;
+      return a1 - b1;
+    });
+  }
+  function PDF_joinRangeSegments(arr, collapseSingle=false){
+    if (!arr || !arr.length) return '-';
+    const seen = new Set(), tmp = [];
+    for (const seg of arr){
+      if (!Array.isArray(seg) || seg.length<2) continue;
+      let a = Number(seg[0]), b = Number(seg[1]);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+      if (a > b) [a,b] = [b,a];
+      const key = `${a}-${b}`;
+      if (!seen.has(key)) { seen.add(key); tmp.push([a,b]); }
+    }
+    const out = PDF_sortRangeSegments(tmp).map(([a,b]) => (collapseSingle && a===b) ? `${a}` : `${a}-${b}`);
+    return out.length ? out.join(', ') : '-';
+  }
+  function PDF_percentCapaian(totalJuzNum, semester){
+    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+    const total = Number(totalJuzNum);
+    const sem   = Number(semester);
+    if (!Number.isFinite(total)) return 0;
+    if (total >= 30) return 100;
+    const batas = batasSemester[sem] || 0;
+    if (batas <= 0) return 0;
+    let p = Math.floor((total / batas) * 100);
+    return Math.max(0, Math.min(100, p));
+  }
+  function PDF_totalAllJuzStatus(totalJuzNum, semester){
+    const p = PDF_percentCapaian(totalJuzNum, semester);
+    if (Number(totalJuzNum) >= 30) return { label:'KHATAM', percent:100 };
+    if (p >= 100) return { label:'TUNTAS', percent:p };
+    return { label: `${p}%`, percent:p };
+  }
+
+  // === Aggregator utama per santri (base; tidak slot) ===
+  function PDF_buildRekapPerKey(items){
+    const map = Object.create(null);
+    for (const it of (items||[])) {
+      const id  = PDF_normKey(it?.id);
+      const nis = PDF_normKey(it?.nis);
+      const key = PDF_normKey(nis || id);
+      if (!key) continue;
+
+      if (!map[key]) map[key] = {
+        id:id||'', nis:nis||'', nama: it?.nama || '',
+        hadir:0, alpha:0, sakit:0, izin:0, lainnya:0,
+        dariMin:null, sampaiMax:null,
+        pageStartMin:null, pageEndMax:null,
+        totalPageSum:0,
+        totalJuz:0,
+        _nilaiByDate:Object.create(null),
+        nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
+        juzSet:new Set(),
+        semester: (it?.semester!=null ? Number(it.semester) : null),
+        jenjang: (it?.jenjang ?? null),
+        keterangan: (it?.keterangan ?? null),
+        saSegments: [], pageSegments: [], juzSegments: [],
+        _datesAll: new Set(), _datesHadir: new Set()
+      };
+      const r = map[key];
+      if (!r.nama && it?.nama) r.nama = it.nama;
+
+      const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
+      const st  = PDF_normStatus(it?.absensi ?? it?.status);
+
+      if (st==='hadir') r.hadir++;
+      else if (st==='alpha') r.alpha++;
+      else if (st==='sakit') r.sakit++;
+      else if (st==='izin') r.izin++;
+      else r.lainnya++;
+
+      if (tgl && r.nis && nis && nis === r.nis) {
+        r._datesAll.add(tgl);
+        if (st === 'hadir') r._datesHadir.add(tgl);
+      }
+
+      const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
+      const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
+      if (dari && smp) {
+        const seg = (PDF_compareSA(dari, smp) <= 0) ? {from: dari, to: smp} : {from: smp, to: dari};
+        r.saSegments.push(seg);
+      }
+
+      const rng = PDF_parseRange(it?.halaman || it?.page);
+      const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
+      if (tp!=null) r.totalPageSum += tp;
+      else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
+      if (rng){
+        let [a,b] = rng; if (a>b) [a,b]=[b,a];
+        r.pageSegments.push([a,b]);
+        if (Number.isFinite(a) && (r.pageStartMin==null || a<r.pageStartMin)) r.pageStartMin=a;
+        if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
+      }
+
+      const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
+      if (vJ!=null) r.totalJuz += vJ;
+
+      const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
+      const vN = PDF_num2(vNraw);
+      if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
+
+      const jtRaw = it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? it?.juz;
+      const set = PDF_parseJuzTerbacaField(jtRaw);
+      if (set.size) {
+        set.forEach(n=> r.juzSet.add(n));
+        const arr = Array.from(set).sort((a,b)=>a-b);
+        let start = arr[0], prev = arr[0];
+        for (let i=1; i<=arr.length; i++){
+          const curr = arr[i];
+          if (curr === prev + 1) { prev = curr; continue; }
+          r.juzSegments.push([start, prev]);
+        }
+      }
+
+      if (r.semester==null   && it?.semester   !=null) r.semester   = Number(it.semester);
+      if (r.jenjang == null  && it?.jenjang    !=null) r.jenjang    = it.jenjang;
+      if (r.keterangan == null && it?.keterangan !=null) r.keterangan = it.keterangan;
+    }
+
+    for (const k in map){
+      const r = map[k];
+      r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
+      for (const t in r._nilaiByDate){
+        const v = r._nilaiByDate[t];
+        r.nilaiSum += v; r.nilaiCount += 1;
+        if (v < r.nilaiMin) r.nilaiMin = v;
+        if (v > r.nilaiMax) r.nilaiMax = v;
+      }
+      if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
+      if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
+
+      r.daysCount  = r._datesAll.size;
+      r.hadirDays  = r._datesHadir.size;
+
+      r.saSegments   = PDF_dedupSASegments(r.saSegments);
+      r.pageSegments = (function dedupRange(list){
+        const seen = new Set(), out=[];
+        for (const seg of (list||[])){
+          if (!Array.isArray(seg) || seg.length<2) continue;
+          let a = Number(seg[0]), b = Number(seg[1]);
+          if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+          if (a>b) [a,b]=[b,a];
+          const key = `${a}-${b}`;
+          if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
+        }
+        return out;
+      })(r.pageSegments);
+      r.juzSegments  = (function dedupRange(list){
+        const seen = new Set(), out=[];
+        for (const seg of (list||[])){
+          if (!Array.isArray(seg) || seg.length<2) continue;
+          let a = Number(seg[0]), b = Number(seg[1]);
+          if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+          if (a>b) [a,b]=[b,a];
+          const key = `${a}-${b}`;
+          if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
+        }
+        return out;
+      })(r.juzSegments);
+    }
+    return map;
+  }
+
+})(); // end IIFE
 	
-  // ============== PDF per Santri ==============
+  // ============== PDF per Santri (slot-based) ==============
 async function pdfSantriDownload(){
   const triggerBtn = document.getElementById('okSantriSelect') || pdfSantriBtn;
   setBtnLoading(triggerBtn, true, 'Membuat PDF…');
@@ -4901,7 +5305,7 @@ async function pdfSantriDownload(){
     const key = sel.value;
     const selectedNama = sel.options[sel.selectedIndex]?.dataset?.nama || '';
 
-    const { kelas, startDate, endDate, kelasLine, rows: aggRows, allDataNorm } = await collectRekapData();
+    const { startDate, endDate, kelasLine, rows: aggRows, allDataNorm } = await collectRekapData();
 
     const mine = allDataNorm.filter(it => (String(it.nis||it.id||'') === key));
     if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih pada rentang tanggal.');
@@ -4924,7 +5328,6 @@ async function pdfSantriDownload(){
       if (!byDate.has(tgl)) {
         byDate.set(tgl, {
           tanggal: tgl,
-          // pakai slot
           cnt: { hadir:0, alpha:0, sakit:0, izin:0, lainnya:0 },
           targetSlots: 0,
           checkedSlots: 0,
@@ -4945,14 +5348,14 @@ async function pdfSantriDownload(){
         d.targetSlots  += Number(it?._slotTarget||0);
         d.checkedSlots += Number(it?._slotChecked||0);
       } else {
-        // fallback lama (jika data lawas)
+        // fallback lama
         const st = PDF_normStatus(it?.absensi ?? it?.status);
         if (d.cnt[st] != null) d.cnt[st]++; else d.cnt.lainnya++;
-        d.targetSlots += 1; // anggap 1 sesi
+        d.targetSlots += 1;
         if (st!=='lainnya') d.checkedSlots += 1;
       }
 
-      // --- Setoran, halaman, juz, nilai (tak diubah) ---
+      // --- Setoran, halaman, juz, nilai ---
       const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
       const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
       if (dari && smp) d.sa.push((PDF_compareSA(dari, smp) <= 0) ? {from:dari, to:smp} : {from:smp, to:dari});
@@ -4982,7 +5385,7 @@ async function pdfSantriDownload(){
 
     const dayRows = [...byDate.values()].sort((a,b)=> (a.tanggal||'').localeCompare(b.tanggal||''));
 
-    // ==== Rekap total slot (pakai dari agg jika ada) ====
+    // ==== Rekap total slot (pakai dari agregat jika ada) ====
     const agg = aggRows.find(r => r.nis === key || (!r.nis && r.id === key));
 
     const totH = (agg?.hadirSlots != null) ? agg.hadirSlots : dayRows.reduce((s,d)=>s+d.cnt.hadir,0);
@@ -5020,7 +5423,6 @@ async function pdfSantriDownload(){
         sem: semesterSantri ?? (agg?.semester ?? '-'),
         jenjang: jenjangSantriLabel,
         ket: keteranganSantri,
-        // tampilkan jumlah slot per tanggal
         h: d.cnt.hadir, a: d.cnt.alpha, s: d.cnt.sakit, i: d.cnt.izin,
         hadirPct: `${hadirPct}%`,
         setoran: PDF_joinSAsegmentsNama(d.sa),
@@ -5055,7 +5457,7 @@ async function pdfSantriDownload(){
       pred: predTotal.huruf
     });
 
-    // === PDF (tetap) ===
+    // === PDF render ===
     const { jsPDF } = window.jspdf || {};
     if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
     const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a3' });
@@ -5075,7 +5477,7 @@ async function pdfSantriDownload(){
     const pageH  = doc.internal.pageSize.getHeight();
     const margin = { left: 12, right: 12, top: 12, bottom: 12 };
     const headerGap = 30, fontBody = 8.5, fontHead = fontBody + 1;
-    const lineFactor = 1.18, lineH = fontBody * 0.3528 * lineFactor;
+    const lineFactor = 1.18, baseLH = fontBody * 0.3528 * lineFactor;
     const fontBodySmall = Math.max(6.5, fontBody - 0.8);
     const cellPadX = 1.6, cellPadY = 1.2;
     const headerRowH = Math.max(9, fontHead * 0.3528 * lineFactor + 2*cellPadY);
@@ -5125,9 +5527,10 @@ async function pdfSantriDownload(){
     const contentW = pageW - margin.left - margin.right;
     fitColumnsFlex(doc, cols, tableRows, fontBody, contentW, cellPadX);
 
+    // header & body
     drawHeaderBarS();
     let x0 = margin.left;
-    let y  = margin.top + headerGap;
+    let y  = margin.top + 30;
 
     drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
     y += headerRowH;
@@ -5137,6 +5540,8 @@ async function pdfSantriDownload(){
 
     for (const row of tableRows) {
       const wraps = cols.map(col => doc.splitTextToSize(String(row[col.key] ?? ''), Math.max(1, col.w - 2*cellPadX)));
+
+      // kolom NIS menampilkan NIS + tanggal (baris kecil)
       const nisIdx = cols.findIndex(c => c.key === 'nis');
       if (nisIdx >= 0) {
         const lines = [String(row.nis || '-')];
@@ -5144,7 +5549,6 @@ async function pdfSantriDownload(){
         wraps[nisIdx] = lines;
       }
 
-      const baseLH = fontBody * 0.3528 * 1.18;
       const lineHSmall = fontBodySmall * 0.3528 * 1.18;
       const rowTextHeights = wraps.map((lines, i) => {
         if (cols[i].key === 'nis' && lines.length === 2) {
@@ -5154,23 +5558,26 @@ async function pdfSantriDownload(){
       });
       const rowH = Math.max(baseLH + 2*cellPadY, Math.max(...rowTextHeights) + 2*cellPadY);
 
+      // page break
       if (y + rowH > pageH - margin.bottom) {
         doc.addPage('a3', 'landscape');
         drawHeaderBarS();
-        y = margin.top + headerGap;
+        y = margin.top + 30;
         drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
         y += headerRowH;
         rowIndex = 0;
       }
 
+      // zebra + highlight rekap
       if (row._isRekap) {
-        doc.setFillColor(255, 249, 196);
+        doc.setFillColor(...theme.rekapFill);
         doc.rect(x0, y, sumWidth(cols), rowH, 'F');
       } else if (rowIndex % 2 === 1) {
-        doc.setFillColor(248,250,252);
+        doc.setFillColor(...theme.zebraFill);
         doc.rect(x0, y, sumWidth(cols), rowH, 'F');
       }
 
+      // cells
       let x = x0;
       doc.setFont('helvetica','normal');
       doc.setFontSize(fontBody);
@@ -5181,6 +5588,7 @@ async function pdfSantriDownload(){
         const col = cols[ci];
         const lines = wraps[ci];
 
+        // highlight THMS
         if (!row._isRekap && col.key === 'persen') {
           const val = String(row[col.key] || '').toUpperCase();
           if (val === 'TUNTAS' || val === 'KHATAM') {
@@ -5190,14 +5598,15 @@ async function pdfSantriDownload(){
           }
         }
 
+        // SP coloring
         let spTextColor = null;
         if (col.key === 'ket') {
           spTextColor = PDF_spPaintCell(doc, x, y, col.w, rowH, row.ket);
           if (spTextColor) doc.setTextColor(...spTextColor);
         }
 
-        const textBlockH = lines.length * baseLH;
-        let yy = y + (rowH - textBlockH)/2 + baseLH*0.82;
+        // text
+        let yy = y + (rowH - (lines.length * baseLH))/2 + baseLH*0.82;
         let tx, opt = {};
         if (col.align === 'right') { tx = x + col.w - cellPadX; opt = { align:'right' }; }
         else if (col.align === 'center') { tx = x + col.w/2; opt = { align:'center' }; }
@@ -5229,7 +5638,7 @@ async function pdfSantriDownload(){
     if (y + spaceTop + neededH > pageH - margin.bottom){
       doc.addPage('a3', 'landscape');
       drawHeaderBarS();
-      y = margin.top + headerGap;
+      y = margin.top + 30;
     }
     y += spaceTop;
 
@@ -5270,270 +5679,6 @@ async function pdfSantriDownload(){
   }
 }
 window._pdfSantriDownload = pdfSantriDownload;
-
-// ================= Excel (.xlsx) =================
-async function xlsRekapDownload(){
-  setBtnLoading(xlsBtn, true, 'Membuat Excel…');
-  try {
-    await ensureXLSX();
-    const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
-
-    const header = [
-      "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
-      "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","THMS","Nilai Rata2","Predikat"
-    ];
-
-    const body = rows.map((r, idx) => {
-      const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-      const pred      = PDF_predikatFromScore(nilaiAvg);
-      const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
-
-      const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
-      const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
-
-      // ==== SLOT-BASED ====
-      const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
-      const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
-      const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
-      const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
-      const targetSlots= Number(r.targetSlots ?? 0);
-      const hadirPct   = targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0;
-
-      return [
-        idx+1,
-        r.nis || r.id || '',
-        r.nama || '',
-        (r.semester ?? ''),
-        jenjangLabel(r.jenjang ?? ''),
-        hadirSlots, alphaSlots, sakitSlots, izinSlots,
-        hadirPct,
-        (r.keterangan ?? ''),
-        setoranText,
-        juzText,
-        Number(r.totalJuz.toFixed(2)),
-        statusJuz.label,
-        (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
-        pred.huruf
-      ];
-    });
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
-    ws['!cols'] = autoFitColumns([header, ...body]);
-    XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
-
-    const meta = [
-      ["Rekap Absensi & Setoran", ""],
-      ["Kelas / Kelompok", kelasLine],
-      ["Periode", `${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`],
-      ["KBM (hari)", kbmDays],
-      ["Total Santri", rows.length],
-      [],
-      ["Ringkasan", ""],
-      ["Hadir (slot)", totals.totH],
-      ["Alpha (slot)", totals.totA],
-      ["Sakit (slot)", totals.totS],
-      ["Izin (slot)",  totals.totI],
-      ["Total Page", Math.round(totals.totPages)],
-      ["Total Juz", Number(totals.totJuz.toFixed(2))]
-    ];
-    const wsMeta = XLSX.utils.aoa_to_sheet(meta);
-    wsMeta['!cols'] = [{wch:24},{wch:40}];
-    XLSX.utils.book_append_sheet(wb, wsMeta, 'Meta');
-
-    const fileName = `Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-
-  } catch (err) {
-    console.error(err);
-    alert('Gagal mengunduh Excel: ' + (err.message || err));
-  } finally {
-    setBtnLoading(xlsBtn, false);
-  }
-}
-
-// ======= Aggregator util (DITINGKATKAN SLOT) =======
-function PDF_buildRekapPerKey(items){
-  const map = Object.create(null);
-  for (const it of (items||[])) {
-    const id  = PDF_normKey(it?.id);
-    const nis = PDF_normKey(it?.nis);
-    const key = PDF_normKey(nis || id);
-    if (!key) continue;
-
-    if (!map[key]) map[key] = {
-      id:id||'', nis:nis||'', nama: it?.nama || '',
-      // counter lama (kompat)
-      hadir:0, alpha:0, sakit:0, izin:0, lainnya:0,
-      // counter SLOT (baru)
-      hadirSlots:0, izinSlots:0, sakitSlots:0, alphaSlots:0,
-      targetSlots:0, checkedSlots:0,
-
-      dariMin:null, sampaiMax:null,
-      pageStartMin:null, pageEndMax:null,
-      totalPageSum:0,
-      totalJuz:0,
-      _nilaiByDate:Object.create(null),
-      nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
-      juzSet:new Set(),
-      semester: (it?.semester!=null ? Number(it.semester) : null),
-      jenjang: (it?.jenjang ?? null),
-      keterangan: (it?.keterangan ?? null),
-      saSegments: [], pageSegments: [], juzSegments: [],
-      _datesAll: new Set(), _datesHadir: new Set()
-    };
-    const r = map[key];
-    if (!r.nama && it?.nama) r.nama = it.nama;
-
-    const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
-
-    // ==== SLOT ====
-    if (it?._slotCounts) {
-      const sc = it._slotCounts;
-      r.hadirSlots += Number(sc.hadir||0);
-      r.izinSlots  += Number(sc.izin ||0);
-      r.sakitSlots += Number(sc.sakit||0);
-      r.alphaSlots += Number(sc.alpha||0);
-      r.targetSlots  += Number(it._slotTarget||0);
-      r.checkedSlots += Number(it._slotChecked||0);
-    } else {
-      // fallback lama: treat 1 sesi
-      const st  = PDF_normStatus(it?.absensi ?? it?.status);
-      if (st==='hadir') r.hadir++;
-      else if (st==='alpha') r.alpha++;
-      else if (st==='sakit') r.sakit++;
-      else if (st==='izin') r.izin++;
-      else r.lainnya++;
-      r.targetSlots += 1;
-      if (st==='hadir') r.hadirSlots += 1;
-      else if (st==='alpha') r.alphaSlots += 1;
-      else if (st==='sakit') r.sakitSlots += 1;
-      else if (st==='izin') r.izinSlots += 1;
-      else {/* lainnya tidak masuk checked */}
-    }
-
-    // untuk statistik hari (biarkan berdasar hadir harian)
-    const stDay = PDF_normStatus(it?.absensi ?? it?.status);
-    if (tgl) {
-      r._datesAll.add(tgl);
-      if (stDay === 'hadir') r._datesHadir.add(tgl);
-    }
-
-    // ==== Setoran & lainnya (unchanged) ====
-    const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
-    const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
-    if (dari && smp) {
-      const seg = (PDF_compareSA(dari, smp) <= 0) ? {from: dari, to: smp} : {from: smp, to: dari};
-      r.saSegments.push(seg);
-    }
-
-    const rng = PDF_parseRange(it?.halaman || it?.page);
-    const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
-    if (tp!=null) r.totalPageSum += tp;
-    else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
-    if (rng){
-      let [a,b] = rng; if (a>b) [a,b]=[b,a];
-      r.pageSegments.push([a,b]);
-      if (Number.isFinite(a) && (r.pageStartMin==null || a<r.pageStartMin)) r.pageStartMin=a;
-      if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
-    }
-
-    const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
-    if (vJ!=null) r.totalJuz += vJ;
-
-    const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
-    const vN = PDF_num2(vNraw);
-    if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
-
-    const jtRaw = it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? it?.juz;
-    const set = PDF_parseJuzTerbacaField(jtRaw);
-    if (set.size) {
-      set.forEach(n=> r.juzSet.add(n));
-      const arr = Array.from(set).sort((a,b)=>a-b);
-      let start = arr[0], prev = arr[0];
-      for (let i=1; i<=arr.length; i++){
-        const curr = arr[i];
-        if (curr === prev + 1) { prev = curr; continue; }
-        r.juzSegments.push([start, prev]);
-      }
-    }
-
-    if (r.semester==null   && it?.semester   !=null) r.semester   = Number(it.semester);
-    if (r.jenjang == null  && it?.jenjang    !=null) r.jenjang    = it.jenjang;
-    if (r.keterangan == null && it?.keterangan !=null) r.keterangan = it.keterangan;
-  }
-
-  // Finalisasi agregat
-  for (const k in map){
-    const r = map[k];
-    r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
-    for (const t in r._nilaiByDate){
-      const v = r._nilaiByDate[t];
-      r.nilaiSum += v; r.nilaiCount += 1;
-      if (v < r.nilaiMin) r.nilaiMin = v;
-      if (v > r.nilaiMax) r.nilaiMax = v;
-    }
-    if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
-    if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
-
-    r.daysCount  = r._datesAll.size;
-    r.hadirDays  = r._datesHadir.size;
-
-    r.saSegments   = PDF_dedupSASegments(r.saSegments);
-    r.pageSegments = (function dedupRange(list){
-      const seen = new Set(), out=[];
-      for (const seg of (list||[])){
-        if (!Array.isArray(seg) || seg.length<2) continue;
-        let a = Number(seg[0]), b = Number(seg[1]);
-        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-        if (a>b) [a,b]=[b,a];
-        const key = `${a}-${b}`;
-        if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
-      }
-      return out;
-    })(r.pageSegments);
-    r.juzSegments  = (function dedupRange(list){
-      const seen = new Set(), out=[];
-      for (const seg of (list||[])){
-        if (!Array.isArray(seg) || seg.length<2) continue;
-        let a = Number(seg[0]), b = Number(seg[1]);
-        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-        if (a>b) [a,b]=[b,a];
-        const key = `${a}-${b}`;
-        if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
-      }
-      return out;
-    })(r.juzSegments);
-  }
-  return map;
-}
-
-// ======= Header tabel (unchanged) =======
-function drawTableHeader(doc, cols, x, y, rowH, fontSize, theme, padX){
-  const totalW = sumWidth(cols);
-  doc.setFillColor(...theme.tableHeadFill);
-  doc.setDrawColor(...theme.border);
-  doc.rect(x, y, totalW, rowH, 'FD');
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(fontSize);
-  doc.setTextColor(255,255,255);
-  let cx = x;
-  const lh = fontSize * 0.3528 * 1.18;
-  for (const col of cols){
-    const lines = doc.splitTextToSize(String(col.title||''), Math.max(1, col.w - 2*padX));
-    const textH = lines.length * lh;
-    const yy = y + (rowH - textH)/2 + lh*0.82;
-    const tx = (col.align==='right') ? (cx + col.w - padX)
-             : (col.align==='center') ? (cx + col.w/2)
-             : (cx + padX);
-    const opt = (col.align==='right') ? {align:'right'} : (col.align==='center') ? {align:'center'} : {};
-    for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
-    doc.rect(cx, y, col.w, rowH);
-    cx += col.w;
-  }
-  doc.setTextColor(31,41,55);
-  doc.setFont('helvetica','normal');
-}
 
 
 
