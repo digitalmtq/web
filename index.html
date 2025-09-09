@@ -1249,7 +1249,7 @@ async function buatUserNIS() {
             <th>Total Juz</th>
             <th>Nilai</th>
             <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting THMS</th>
-			<th>Murajaah</th>
+			<th id="murAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting Murajaah</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -2266,6 +2266,26 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
     </div>
   </div>
 </div>
+
+
+<!-- Overlay Hitung Total Juz Murajaah (rekap range tanggal) -->
+<div id="juzMurOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#fff; padding:20px; border-radius:10px; min-width:300px;">
+    <h3>Rekap Total Juz Murajaah (Rentang Tanggal)</h3>
+
+    <ul style="margin:8px 0 12px; padding-left:1.25rem; list-style:disc; color:#374151">
+      <li>Logika ketuntasan sama seperti THMS (target per semester).</li>
+      <li>Kolom baru di tabel akan menampilkan total juz murajaah pada rentang ini.</li>
+    </ul>
+
+    <label>Dari: <input type="date" id="murRangeDari"></label><br><br>
+    <label>Sampai: <input type="date" id="murRangeSampai" disabled></label><br><br>
+
+    <button id="btnHitungTotalJuzMur">Setting Tanggal Murajaah</button>
+    <button type="button" onclick="document.getElementById('juzMurOverlay').style.display='none'">Close</button>
+  </div>
+</div>
   
  <script>
   // === Deklarasi elemen ===
@@ -2434,9 +2454,6 @@ function aturDropdownKelas(user) {
   try { localStorage.setItem(KELAS_KEY, kelasSelect.value); } catch {}
   loadDataSantri();
 });
-
-  // === Header total juz click ===
-  totalAllJuzHeader.addEventListener("click", bukaOverlayTotalAllJuz);
 
 
 
@@ -3193,7 +3210,7 @@ async function loadSantriData() {
           <!-- ============ ABSENSI FLEX via MODAL BUTTON ============ -->
           <td class="abs-flex-cell">
 		  	<div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
-            <button type="button" class="btn-absensi-flex" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Data</button>
+            <button type="button" class="btn-absensi-flex" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Input</button>
           </td>
           <!-- ======================================================= -->
 
@@ -6685,7 +6702,249 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 })();
 </script>
 
+<script>
+(function(){
+  // ====== Util aman (pakai yang sudah ada bila tersedia) ======
+  const norm = (typeof normKey==='function') ? normKey : (v)=>String(v??'').trim();
+  const pnum = (typeof parseNum==='function') ? parseNum : (v)=>{
+    if (typeof v === 'number') return Number.isFinite(v)?v:0;
+    let s = String(v??'').trim(); if (!s) return 0;
+    s = s.replace(/[^0-9.,-]/g,'');
+    const comma = s.lastIndexOf(','), dot = s.lastIndexOf('.');
+    if (comma>-1 && dot>-1){ if (comma>dot){ s=s.replace(/\./g,'').replace(',', '.'); } else { s=s.replace(/,/g,''); } }
+    else if (comma>-1){ s=s.replace(/\./g,'').replace(',', '.'); }
+    else { s=s.replace(/,/g,''); }
+    const n = parseFloat(s); return Number.isFinite(n)?n:0;
+  };
+  const getNameFromCell = (typeof getNamaFromCell==='function')
+    ? getNamaFromCell
+    : (cell)=>String(cell?.textContent||'').trim();
 
+  const overlayEl = (typeof overlay!=='undefined' && overlay && overlay.style) ? overlay : null;
+
+  // target per semester (sama seperti THMS)
+  const batasSemester = { 1:8, 2:13, 3:18, 4:23, 5:28, 6:30 };
+
+  // ====== 1) Buat kolom baru "All Juz Mur" ======
+  function ensureMurRekapColumn(){
+    const table = document.getElementById('santri-table');
+    if (!table) return;
+
+    // Header kolom data (bukan tombol setting)
+    const theadRow = table.tHead?.rows?.[0];
+    if (theadRow && !theadRow.querySelector('th.mur-rekap-header')){
+      const th = document.createElement('th');
+      th.className = 'mur-rekap-header';
+      th.textContent = 'All Juz Mur';
+      theadRow.appendChild(th);
+    }
+
+    // Tambah <td> per baris
+    const bodyRows = table.tBodies?.[0]?.rows || [];
+    [...bodyRows].forEach(tr=>{
+      if (tr.querySelector('.total-all-juz-murajaah')) return;
+      const td = document.createElement('td');
+      td.className = 'total-all-juz-murajaah';
+      td.innerHTML = `0.00&nbsp;juz <span style="color:red; font-size:12px;">0%</span>`;
+      tr.appendChild(td);
+    });
+  }
+
+  // ====== 2) Overlay open untuk Murajaah ======
+  function bukaOverlayTotalAllJuzMur(){
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const dd = String(today.getDate()).padStart(2,'0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    const dari   = document.getElementById('murRangeDari');
+    const sampai = document.getElementById('murRangeSampai');
+
+    if (dari){
+      dari.max = todayStr;
+      if (!dari.value || dari.value > todayStr) dari.value = todayStr;
+    }
+    if (sampai){
+      sampai.removeAttribute('max');
+      sampai.disabled = false;
+      if (!sampai.value) sampai.value = todayStr;
+    }
+
+    document.getElementById('juzMurOverlay').style.display = 'flex';
+  }
+
+  // tombol header "Setting Murajaah"
+  const murHeaderBtn = document.getElementById('murAllJuzHeader');
+  murHeaderBtn && murHeaderBtn.addEventListener('click', bukaOverlayTotalAllJuzMur);
+
+  // ====== 3) Hitung (manual via overlay) ======
+  async function hitungTotalAllJuzMurFromTable(){
+    const kelas  = window.kelasSelect?.value || '';
+    const dari   = document.getElementById('murRangeDari')?.value;
+    const sampai = document.getElementById('murRangeSampai')?.value;
+
+    if (!dari){ alert('Mohon pilih tanggal Dari.'); return; }
+    if (!sampai){ alert('Mohon pilih tanggal Sampai.'); return; }
+
+    if (overlayEl) overlayEl.style.display = 'flex';
+
+    try{
+      // pastikan semesterMap siap
+      if (typeof ensureSemesterMap === 'function') {
+        await ensureSemesterMap(kelas);
+      } else {
+        window.semesterMap ??= {};
+      }
+
+      // Ambil data absensi rentang
+      const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
+      if (!res.ok) throw new Error('Gagal ambil data absensi.');
+      const payload = await res.json();
+      const allData = Array.isArray(payload) ? payload : (payload?.list || []);
+
+      // Peta nama → key tabel (fallback bila arsip tanpa id/nis)
+      const rows = [...(window.santriTableBody?.querySelectorAll('tr') || [])];
+      const nameToKey = new Map();
+      rows.forEach(row=>{
+        const key = norm(row.dataset?.nis || row.dataset?.id || row.dataset?.key);
+        const nm  = getNameFromCell(row.children?.[1]);
+        if (key && nm) nameToKey.set(nm.toLowerCase(), key);
+      });
+
+      // Rekap by key (sum "juzmurajaah")
+      const rekap = Object.create(null); // key => { mur:0, semester? }
+      (allData||[]).forEach(item=>{
+        let id  = norm(item?.id);
+        let nis = norm(item?.nis);
+        let key = norm(nis || id);
+        if (!key){
+          const nm = norm(item?.nama).toLowerCase();
+          if (nm && nameToKey.has(nm)) key = nameToKey.get(nm);
+        }
+        if (!key) return;
+        if (!rekap[key]) rekap[key] = { mur:0, semester:item?.semester ?? null };
+        rekap[key].mur += pnum(item?.juzmurajaah);
+      });
+
+      // Update ke kolom
+      rows.forEach(row=>{
+        const key  = norm(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
+        const cell = row.querySelector('.total-all-juz-murajaah');
+        if (!cell) return;
+
+        const totalMur = rekap[key] ? pnum(rekap[key].mur) : 0;
+
+        if (totalMur > 0){
+          // dapatkan semester (mirip THMS)
+          let semester = 1;
+          if (typeof getSemesterForKey === 'function'){
+            semester = getSemesterForKey(key, row, rekap[key]?.semester);
+          } else {
+            // fallback sangat sederhana
+            const selVal = row?.querySelector?.('.semester')?.value;
+            semester = Number(selVal||rekap[key]?.semester||1);
+          }
+          const target = batasSemester[semester] || 0;
+          const totalStr = totalMur.toFixed(2);
+
+          let label, warna;
+          if (totalMur >= 30){ label='KHATAM'; warna='purple'; }
+          else {
+            let persen = target>0 ? Math.floor((totalMur/target)*100) : 0;
+            if (persen>100) persen=100;
+            label = (persen>=100) ? 'TUNTAS' : `${persen}%`;
+            warna = (persen>=100) ? 'green' : 'red';
+          }
+
+          cell.innerHTML = `${totalStr}&nbsp;juz <span style="color:${warna}; font-size:12px;">${label}</span>`;
+        } else {
+          cell.innerHTML = `0.00&nbsp;juz <span style="color:red; font-size:12px;">0%</span>`;
+        }
+      });
+
+      // Simpan metadata range ke GitHub (opsional, sama seperti THMS)
+      try {
+        await fetch('/.netlify/functions/aksesAutoUpdateAllJuzMur', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ fromDate:dari, toDate:sampai, kelas, data:[] })
+        });
+      } catch (e) {
+        console.warn('aksesAutoUpdateAllJuzMur gagal (opsional):', e);
+      }
+
+      alert('✅ Total Juz Murajaah (range) berhasil dihitung.');
+    } catch (err){
+      console.error(err);
+      alert('❌ Terjadi kesalahan: '+ err.message);
+    } finally {
+      if (overlayEl) overlayEl.style.display = 'none';
+    }
+  }
+
+  // tombol di overlay
+  document.getElementById('btnHitungTotalJuzMur')
+    ?.addEventListener('click', hitungTotalAllJuzMurFromTable);
+
+  // ====== 4) Hitung otomatis saat render (ambil rentang default dari server) ======
+  async function hitungTotalAllJuzMurOtomatis(){
+    const kelas = window.kelasSelect?.value || '';
+
+    // tunggu tabel siap
+    const rows = window.santriTableBody?.querySelectorAll('tr') || [];
+    if (!rows.length){ setTimeout(hitungTotalAllJuzMurOtomatis, 200); return; }
+
+    const dari   = document.getElementById('murRangeDari');
+    const sampai = document.getElementById('murRangeSampai');
+
+    // ambil tanggal default dari server (opsional)
+    try{
+      const r = await fetch(`/.netlify/functions/getAutoUpdateAllJuzMur?t=${Date.now()}`);
+      if (r.ok){
+        const all = await r.json();
+        const item = (all||[]).find(x=>x.kelas===kelas);
+        if (item){
+          if (dari)   dari.value   = item.fromDate || '';
+          if (sampai) sampai.value = item.toDate   || '';
+        }
+      }
+    } catch(e){ console.warn('getAutoUpdateAllJuzMur gagal (opsional):', e); }
+
+    if (dari?.value && sampai?.value){
+      await hitungTotalAllJuzMurFromTable();
+    }
+  }
+
+  // ====== 5) Hook ke siklus render tabel ======
+  function afterTableRenderedMur(){
+    ensureMurRekapColumn();
+    // biar sinkron dengan tabel THMS yang sudah jalan otomatis
+    setTimeout(hitungTotalAllJuzMurOtomatis, 50);
+  }
+
+  // expose kecil kalau mau dipanggil manual
+  window.murRekap = { afterTableRendered: afterTableRenderedMur };
+
+  // init sekali saat halaman siap
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', afterTableRenderedMur);
+  } else {
+    afterTableRenderedMur();
+  }
+
+  // hook ke loadSantriData bawaan app
+  const _origLoad = window.loadSantriData;
+  window.loadSantriData = async function(...args){
+    if (typeof _origLoad === 'function') await _origLoad.apply(this, args);
+    afterTableRenderedMur();
+  };
+
+  // kalau kelas/tanggal utama diubah, render ulang (opsional)
+  window.tanggalInput?.addEventListener('change', ()=> setTimeout(afterTableRenderedMur, 50));
+  window.kelasSelect  ?.addEventListener('change', ()=> setTimeout(afterTableRenderedMur, 50));
+
+})();
+</script>
 
 <script>
   // ====== KONFIG (opsional dari window.*) ======
