@@ -1,4 +1,5 @@
 // netlify/functions/getAutoUpdateAllJuzMur.js  (COMMONJS, Node 18+)
+
 const GITHUB_REPO = "digitalmtq/server";
 const FILE_PATH   = "autoUpdateAllJuzMur.json";
 const BRANCH      = "main";
@@ -7,11 +8,14 @@ const TOKEN       = process.env.MTQ_TOKEN;
 const ghHeaders = () => ({
   Authorization: `Bearer ${TOKEN}`,
   Accept: "application/vnd.github.v3+json",
-  "User-Agent": "mtq-app/1.0"
+  "User-Agent": "mtq-app/1.0",
+  "X-GitHub-Api-Version": "2022-11-28", // opsional
 });
 
+// ✅ JANGAN encode owner/repo sebagai satu segmen.
+// encode hanya path FILE_PATH & query ref.
 const fileUrl = () =>
-  `https://api.github.com/repos/${encodeURIComponent(GITHUB_REPO)}/contents/${encodeURIComponent(FILE_PATH)}?ref=${encodeURIComponent(BRANCH)}`;
+  `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeURIComponent(FILE_PATH)}?ref=${encodeURIComponent(BRANCH)}`;
 
 exports.handler = async () => {
   try {
@@ -47,12 +51,10 @@ exports.handler = async () => {
     }
 
     const json = await res.json();
-    const b64 = json?.content || "";
-    let content = "";
+    let content = "[]";
     try {
-      content = Buffer.from(b64, "base64").toString("utf8") || "[]";
-      // Validasi agar selalu JSON valid
-      JSON.parse(content);
+      content = Buffer.from(json?.content || "", "base64").toString("utf8") || "[]";
+      JSON.parse(content); // validasi agar pasti JSON valid
     } catch {
       content = "[]";
     }
