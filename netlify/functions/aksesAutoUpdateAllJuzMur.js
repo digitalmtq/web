@@ -1,7 +1,7 @@
 // netlify/functions/aksesAutoUpdateAllJuzMur.js  (COMMONJS, Node 18+)
 
 const GITHUB_REPO = "digitalmtq/server";
-const FILE_PATH   = "autoUpdateAllJuzMur.json"; // ← khusus MUR
+const FILE_PATH   = "autoUpdateAllJuzMur.json"; // ← khusus Murajaah
 const BRANCH      = "main";
 
 const TOKEN = process.env.MTQ_TOKEN;
@@ -21,7 +21,7 @@ const putUrl = (path = FILE_PATH) =>
 async function getCurrentFile() {
   const res = await fetch(fileUrl(), { headers: ghHeaders() });
   if (res.status === 404) {
-    // file belum ada → anggap array kosong
+    // file belum ada
     return { sha: null, contentStr: "[]" };
   }
   if (!res.ok) {
@@ -43,39 +43,19 @@ exports.handler = async (event) => {
     if (!TOKEN) {
       return {
         statusCode: 500,
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ error: "MTQ_TOKEN belum diset di environment." }),
       };
     }
 
-    // === GET: kembalikan isi autoUpdateAllJuzMur.json
-    // Optional query ?kelas=... untuk hanya 1 entri
+    // === GET: ambil isi file seadanya (array JSON) ===
     if (event.httpMethod === "GET") {
       try {
         const { contentStr } = await getCurrentFile();
-
-        // filter opsional per kelas
-        const url = new URL(event.rawUrl || `http://x${event.path}${event.rawQuery ? "?" + event.rawQuery : ""}`);
-        const kelas = url.searchParams.get("kelas");
-
-        if (!kelas) {
-          return {
-            statusCode: 200,
-            headers: { "content-type": "application/json" },
-            body: contentStr,
-          };
-        }
-
-        let arr = [];
-        try {
-          const parsed = JSON.parse(contentStr);
-          arr = Array.isArray(parsed) ? parsed : [];
-        } catch { arr = []; }
-
-        const found = arr.find(x => x && x.kelas === kelas);
         return {
           statusCode: 200,
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(found || null),
+          body: contentStr,
         };
       } catch (e) {
         return {
@@ -86,12 +66,12 @@ exports.handler = async (event) => {
       }
     }
 
-    // === POST: upsert entry berdasarkan kelas
+    // === POST: upsert per kelas (fromDate, toDate, metadata) ===
     if (event.httpMethod === "POST") {
       let payload = {};
       try {
         payload = JSON.parse(event.body || "{}");
-      } catch {
+      } catch (e) {
         return { statusCode: 400, body: JSON.stringify({ error: "Body bukan JSON valid." }) };
       }
 
@@ -100,7 +80,6 @@ exports.handler = async (event) => {
         return { statusCode: 400, body: JSON.stringify({ error: "Parameter 'kelas' wajib ada." }) };
       }
 
-      // ambil file saat ini (atau default [])
       const { sha, contentStr } = await getCurrentFile();
 
       let arr;
@@ -108,11 +87,9 @@ exports.handler = async (event) => {
         const parsed = JSON.parse(contentStr);
         arr = Array.isArray(parsed) ? parsed : [];
       } catch {
-        // jika file korup/format lain → reset jadi array
         arr = [];
       }
 
-      // upsert: cari berdasarkan kelas
       const nowIso = new Date().toISOString();
       const idx = arr.findIndex((x) => x && x.kelas === kelas);
 
@@ -130,7 +107,6 @@ exports.handler = async (event) => {
 
       const newContent = JSON.stringify(arr, null, 2);
 
-      // commit ke GitHub
       const putBody = {
         message: `autoUpdateAllJuzMur: upsert kelas=${kelas} (${fromDate || ""}..${toDate || ""})`,
         content: base64Encode(newContent),
@@ -157,18 +133,6 @@ exports.handler = async (event) => {
         statusCode: 200,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ok: true, saved: record }),
-      };
-    }
-
-    // (opsional) preflight
-    if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-          "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
-        body: "",
       };
     }
 
