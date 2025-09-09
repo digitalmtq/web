@@ -9,7 +9,8 @@ const ghHeaders = () => ({
   Authorization: `Bearer ${TOKEN}`,
   Accept: "application/vnd.github.v3+json",
   "Content-Type": "application/json",
-  "User-Agent": "mtq-app/1.0"
+  "User-Agent": "mtq-app/1.0",
+  "X-GitHub-Api-Version": "2022-11-28", // opsional, bagus untuk future-proof
 });
 
 const fileUrl = () =>
@@ -64,6 +65,7 @@ async function putWithRetry(arr, sha, message, record, kelasKey) {
     branch: BRANCH,
     ...(sha ? { sha } : {})
   };
+
   let putRes = await fetch(putUrl(), {
     method: "PUT",
     headers: ghHeaders(),
@@ -84,6 +86,7 @@ async function putWithRetry(arr, sha, message, record, kelasKey) {
       branch: BRANCH,
       ...(latest.sha ? { sha: latest.sha } : {})
     };
+
     putRes = await fetch(putUrl(), {
       method: "PUT",
       headers: ghHeaders(),
