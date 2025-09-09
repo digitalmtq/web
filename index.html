@@ -6267,7 +6267,8 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
 
   let ayahPageMap = {};              // "s:a" -> page
-  let pageAyahCount = {};            // page -> jumlah ayat di page (dibangun dari ayahPageMap)
+  let pageAyahCount = {};            // page -> jumlah ayat di page
+  let surahMaxAyah = {};             // s -> max ayat (dibangun dari map)
   let currentRowEl = null;           // baris yang sedang diedit
   let dataReady = false;
 
@@ -6280,27 +6281,37 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     return Number.isFinite(n) ? n : 0;
   }
   function getKelas(){ try { return (window.kelasSelect?.value||'').trim(); } catch { return ''; } }
-  function getTanggalUtama(){
-    try { return (window.tanggalInput?.value||'').trim(); } catch { return ''; }
-  }
-  function getRowKey(row){
-    return String(row?.dataset?.nis || row?.dataset?.id || row?.dataset?.key || '').trim();
-  }
-  function storageKey(row){
-    return ['mur', getKelas(), getTanggalUtama(), getRowKey(row)].filter(Boolean).join('|');
-  }
+  function getTanggalUtama(){ try { return (window.tanggalInput?.value||'').trim(); } catch { return ''; } }
+  function getRowKey(row){ return String(row?.dataset?.nis || row?.dataset?.id || row?.dataset?.key || '').trim(); }
+  function storageKey(row){ return ['mur', getKelas(), getTanggalUtama(), getRowKey(row)].filter(Boolean).join('|'); }
 
   // ========= Load map & bangun indeks =========
   async function ensureMap(){
     if (dataReady) return;
     const res = await fetch(MAP_URL);
     ayahPageMap = await res.json();
+
     pageAyahCount = {};
+    surahMaxAyah  = {};
     for (const [key, page] of Object.entries(ayahPageMap)){
       if (!page) continue;
-      if (!pageAyahCount[page]) pageAyahCount[page] = 0;
-      pageAyahCount[page]++;
+
+      // hitung jumlah ayat per halaman
+      pageAyahCount[page] = (pageAyahCount[page] || 0) + 1;
+
+      // ambil max ayat per surah
+      const [sStr, aStr] = key.split(':');
+      const s = Number(sStr), a = Number(aStr);
+      if (s && a) {
+        if (!surahMaxAyah[s] || a > surahMaxAyah[s]) surahMaxAyah[s] = a;
+      }
     }
+
+    // fallback untuk surah yang tidak kebaca (harusnya tidak kejadian)
+    for (let s=1; s<=114; s++){
+      if (!surahMaxAyah[s]) surahMaxAyah[s] = (s===1?7:(s===9?129:286));
+    }
+
     dataReady = true;
   }
 
@@ -6309,12 +6320,13 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     let total = 0;
     for (let s=Number(sF); s<=Number(sT); s++){
       const startA = (s===Number(sF)) ? Number(aF) : 1;
-      const endA   = (s===Number(sT)) ? Number(aT) : 999; // aman, nanti dilimit map
+      const endA   = (s===Number(sT)) ? Number(aT) : surahMaxAyah[s]; // pakai max asli surah
       for (let a=startA; a<=endA; a++){
         const p = ayahPageMap[`${s}:${a}`];
         if (!p || SKIP(p)) continue;
         const perPageAyat = pageAyahCount[p] || 1;
-        total += (0.05 / perPageAyat); // 1 halaman = 1/20 juz dibagi jumlah ayat di halaman
+        // 1 halaman ~ 1/20 juz → bagi rata per ayat di halaman tsb
+        total += (0.05 / perPageAyat);
       }
     }
     return total;
@@ -6325,7 +6337,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     let minP = Infinity, maxP = -Infinity, touched = false;
     for (let s=Number(sF); s<=Number(sT); s++){
       const aStart = (s===Number(sF)) ? Number(aF) : 1;
-      const aEnd   = (s===Number(sT)) ? Number(aT) : 9999;
+      const aEnd   = (s===Number(sT)) ? Number(aT) : surahMaxAyah[s];
       for (let a=aStart; a<=aEnd; a++){
         const p = ayahPageMap[`${s}:${a}`];
         if (!p || SKIP(p)) continue;
@@ -6337,7 +6349,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     return touched ? { pFrom:minP, pTo:maxP } : null;
   }
   function pagesToAyahRange(pFrom,pTo){
-    // ambil ayat pertama di pFrom dan ayat terakhir di pTo
+    // cari ayat pertama di pFrom & ayat terakhir di pTo
     const first = [];
     const last  = [];
     for (const [key, page] of Object.entries(ayahPageMap)){
@@ -6373,14 +6385,24 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     const el = $(sel);
     el.innerHTML = Array.from({length:114}, (_,i)=>{
       const no = i+1, name = SURAH_NAMES[i];
-      return `<option value="${no}">${no} — ${name}</option>`
+      return `<option value="${no}">${no} — ${name}</option>`;
     }).join('');
   }
-  function fillAyahSelect(sel, max, keep=false){
-    const el = $(sel); const prev = keep? Number(el.value):null;
-    const m = Math.max(1, Number(max||1));
-    el.innerHTML = makeOpts(m);
-    if (keep && prev) el.value = String(Math.min(prev, m));
+
+  // → helper baru: isi dropdown AYAT berdasarkan surah terpilih (bukan angka patokan)
+  function fillAyahForSurah(sel, surahId, {keep=false, preset=null} = {}){
+    const el = (typeof sel==='string') ? $(sel) : sel;
+    if (!el) return;
+    const max = Math.max(1, Number(surahMaxAyah[Number(surahId)] || 1));
+    const prev = keep ? Number(el.value) : null;
+    el.innerHTML = makeOpts(max);
+    if (preset!=null) {
+      el.value = String(Math.min(Number(preset), max));
+    } else if (keep && prev) {
+      el.value = String(Math.min(prev, max));
+    } else {
+      el.value = "1";
+    }
   }
 
   // ========= Render info & hitung =========
@@ -6390,27 +6412,28 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     const sT = +$('#mur-surahTo').value   || sF;
     const aT = +$('#mur-ayahTo').value    || aF;
 
+    // sinkron page dari Surah/Ayat
     const pages = ayahRangeToPages(sF,aF,sT,aT);
     if (pages){
       $('#mur-pageFrom').value = String(pages.pFrom);
       $('#mur-pageTo').value   = String(pages.pTo);
-      $('#mur-pagesHint').textContent = `Halaman: ${pages.pFrom}—${pages.pTo}`;
+      if ($('#mur-pagesHint')) $('#mur-pagesHint').textContent = `Halaman: ${pages.pFrom}—${pages.pTo}`;
     } else {
-      $('#mur-pagesHint').textContent = '';
+      if ($('#mur-pagesHint')) $('#mur-pagesHint').textContent = '';
     }
-    $('#mur-infoRange').textContent = `Rentang Surah ${sF}:${aF} → ${sT}:${aT}`;
+    if ($('#mur-infoRange')) $('#mur-infoRange').textContent = `Rentang Surah ${sF}:${aF} → ${sT}:${aT}`;
 
     const total = computeTotalJuz(sF,aF,sT,aT);
-    $('#mur-totalJuz').textContent = total.toFixed(2);
+    if ($('#mur-totalJuz')) $('#mur-totalJuz').textContent = total.toFixed(2);
 
     // sinkronkan ke <td> baris saat ini
     if (currentRowEl){
-      const cell = currentRowEl.querySelector('.murajaah-cell');
+      const cell  = currentRowEl.querySelector('.murajaah-cell');
       const label = cell.querySelector('.mur-label');
       const valEl = cell.querySelector('.mur-val');
       valEl.textContent = total.toFixed(2) + ' juz';
-      label.textContent = ''; // label progress tidak diminta di skema baru
-      // simpan dataset untuk Save Data
+      if (label) label.textContent = '';
+
       const pr = pages || {};
       cell.dataset.murtotal = String(total.toFixed(2));
       cell.dataset.sf = String(sF); cell.dataset.af = String(aF);
@@ -6421,10 +6444,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       // persist per santri+tanggal
       try {
         const key = storageKey(currentRowEl);
-        const obj = {
-          total: Number(total.toFixed(2)),
-          sF,aF,sT,aT, pF:pr.pFrom||'', pT:pr.pTo||''
-        };
+        const obj = { total: Number(total.toFixed(2)), sF,aF,sT,aT, pF:pr.pFrom||'', pT:pr.pTo||'' };
         localStorage.setItem(key, JSON.stringify(obj));
       } catch {}
     }
@@ -6432,9 +6452,9 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
   // ========= Event handlers modal =========
   function bindModalEvents(){
-    $('#mur-close').addEventListener('click', ()=> { $('#murModal').style.display='none'; });
+    $('#mur-close')?.addEventListener('click', ()=> { $('#murModal').style.display='none'; });
 
-    // page -> ayat (kasih default boundary ayat)
+    // page -> ayat (batas ayat HARUS pakai surahMaxAyah)
     function onPageChange(){
       let pF = +$('#mur-pageFrom').value || 1;
       let pT = +$('#mur-pageTo').value   || pF;
@@ -6442,52 +6462,56 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       const r = pagesToAyahRange(pF, pT);
       if (r){
         $('#mur-surahFrom').value = String(r.sFrom);
-        fillAyahSelect('#mur-ayahFrom', 600, false);
-        $('#mur-ayahFrom').value = String(r.aFrom);
+        fillAyahForSurah('#mur-ayahFrom', r.sFrom, {keep:false, preset:r.aFrom});
 
         $('#mur-surahTo').value   = String(r.sTo);
-        fillAyahSelect('#mur-ayahTo', 600, false);
-        $('#mur-ayahTo').value   = String(r.aTo);
+        fillAyahForSurah('#mur-ayahTo',   r.sTo,   {keep:false, preset:r.aTo});
       }
       renderAndCompute();
     }
-    $('#mur-pageFrom').addEventListener('change', onPageChange);
-    $('#mur-pageTo').addEventListener('change', onPageChange);
+    $('#mur-pageFrom')?.addEventListener('change', onPageChange);
+    $('#mur-pageTo')  ?.addEventListener('change', onPageChange);
 
-    // surah change → refill ayat (keep), guard end>=start
+    // surah change → refill ayat pakai jumlah ayat SURAH sebenarnya + guard
     function onSurahChanged(which){
+      const sF = +$('#mur-surahFrom').value || 1;
+      const sT = +$('#mur-surahTo').value   || sF;
+
       if (which==='from'){
-        const s = +$('#mur-surahFrom').value || 1;
-        fillAyahSelect('#mur-ayahFrom', 600, true);
+        fillAyahForSurah('#mur-ayahFrom', sF, {keep:true});
       } else {
-        const s = +$('#mur-surahTo').value || 1;
-        fillAyahSelect('#mur-ayahTo', 600, true);
+        fillAyahForSurah('#mur-ayahTo', sT, {keep:true});
       }
-      // guard
-      const sF=+$('#mur-surahFrom').value, aF=+$('#mur-ayahFrom').value;
-      let sT=+$('#mur-surahTo').value, aT=+$('#mur-ayahTo').value;
-      if (sT<sF || (sT===sF && aT<aF)){
-        $('#mur-surahTo').value=String(sF);
-        fillAyahSelect('#mur-ayahTo', 600, true);
+
+      // guard: (sT:sF, aT>=aF bila surah sama)
+      let aF = +$('#mur-ayahFrom').value || 1;
+      let aT = +$('#mur-ayahTo').value   || 1;
+      let _sF = sF, _sT = sT;
+      if (_sT<_sF || (_sT===_sF && aT<aF)){
+        $('#mur-surahTo').value = String(_sF);
+        fillAyahForSurah('#mur-ayahTo', _sF, {keep:true});
         if (+$('#mur-ayahTo').value < aF) $('#mur-ayahTo').value = String(aF);
       }
+
+      // otomatis sinkron halaman via renderAndCompute
       renderAndCompute();
     }
-    $('#mur-surahFrom').addEventListener('change', ()=>onSurahChanged('from'));
-    $('#mur-surahTo').addEventListener('change',   ()=>onSurahChanged('to'));
+    $('#mur-surahFrom')?.addEventListener('change', ()=>onSurahChanged('from'));
+    $('#mur-surahTo')  ?.addEventListener('change',   ()=>onSurahChanged('to'));
 
-    // ayat change → guard & compute
+    // ayat change → guard & auto-sync halaman
     function onAyatChanged(){
       const sF=+$('#mur-surahFrom').value, aF=+$('#mur-ayahFrom').value;
       let sT=+$('#mur-surahTo').value, aT=+$('#mur-ayahTo').value;
       if (sT<sF || (sT===sF && aT<aF)){
         $('#mur-surahTo').value=String(sF);
+        fillAyahForSurah('#mur-ayahTo', sF, {keep:true});
         if (+$('#mur-ayahTo').value < aF) $('#mur-ayahTo').value = String(aF);
       }
-      renderAndCompute();
+      renderAndCompute(); // ← ini yang otomatis menyesuaikan dropdown halaman
     }
-    $('#mur-ayahFrom').addEventListener('change', onAyatChanged);
-    $('#mur-ayahTo').addEventListener('change',   onAyatChanged);
+    $('#mur-ayahFrom')?.addEventListener('change', onAyatChanged);
+    $('#mur-ayahTo')  ?.addEventListener('change',   onAyatChanged);
   }
 
   // ========= Modal open untuk baris tertentu =========
@@ -6495,14 +6519,12 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     currentRowEl = row;
     $('#murModal').style.display = 'flex';
 
-    // init dropdown (sekali)
+    // init dropdown (sekali & wajib sudah punya surahMaxAyah)
     if (!dataReady){
       await ensureMap();
       fillPageSelects();
       fillSurahSelect('#mur-surahFrom');
       fillSurahSelect('#mur-surahTo');
-      fillAyahSelect('#mur-ayahFrom', 600);
-      fillAyahSelect('#mur-ayahTo', 600);
     }
 
     // restore dari localStorage/dataset jika ada
@@ -6515,21 +6537,20 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         sF=obj.sF||sF; aF=obj.aF||aF; sT=obj.sT||sT; aT=obj.aT||aT;
       }
     } catch {}
-    // dataset dari cell (jika ada & berbeda tanggal/kelas pun tetap ok)
     const cell = row.querySelector('.murajaah-cell');
     if (cell?.dataset?.sf) { sF = +cell.dataset.sf || sF; }
     if (cell?.dataset?.af) { aF = +cell.dataset.af || aF; }
     if (cell?.dataset?.st) { sT = +cell.dataset.st || sT; }
     if (cell?.dataset?.at) { aT = +cell.dataset.at || aT; }
 
+    // set Surah, lalu isi pilihan Ayat sesuai surah aslinya (BUKAN 600)
     $('#mur-surahFrom').value = String(sF);
-    fillAyahSelect('#mur-ayahFrom', 600, false);
-    $('#mur-ayahFrom').value = String(aF);
-    $('#mur-surahTo').value   = String(sT);
-    fillAyahSelect('#mur-ayahTo', 600, false);
-    $('#mur-ayahTo').value    = String(aT);
+    fillAyahForSurah('#mur-ayahFrom', sF, {keep:false, preset:aF});
 
-    renderAndCompute();
+    $('#mur-surahTo').value   = String(sT);
+    fillAyahForSurah('#mur-ayahTo',   sT, {keep:false, preset:aT});
+
+    renderAndCompute(); // ini juga akan isi pageFrom/pageTo otomatis
   }
 
   // ========= Suntik kolom & tombol ke tabel =========
@@ -6605,6 +6626,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   };
 })();
 </script>
+
 
 <script>
   // ====== KONFIG (opsional dari window.*) ======
