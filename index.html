@@ -6705,7 +6705,139 @@ async function ensureSemesterMap(kelas) {
 }
 </script>
 
+<script>
+// Ambil semester (pakai versi THMS kalau ada)
+function getSemesterForKey(key, row, fallback) {
+  const mapVal = window?.semesterMap ? window.semesterMap[key] : null;
+  if (mapVal != null && mapVal !== "") return Number(mapVal);
+  const selVal = row?.querySelector?.(".semester")?.value;
+  if (selVal != null && selVal !== "") return Number(selVal);
+  if (fallback != null && fallback !== "") return Number(fallback);
+  return 1;
+}
 
+// === RECAP MURAJAAH DARI RENTANG TANGGAL ===
+async function hitungTotalAllJuzMurFromTable() {
+  const kelas  = kelasSelect.value;
+  const dari   = document.getElementById("rangeDari")?.value;
+  const sampai = document.getElementById("rangeSampai")?.value;
+
+  if (!dari)   { alert("Mohon pilih tanggal Dari.");   return; }
+  if (!sampai) { alert("Mohon pilih tanggal Sampai."); return; }
+
+  overlay.style.display = "flex";
+  try {
+    await ensureSemesterMap(kelas);
+
+    // ambil absensi rentang (pakai function yg sudah ada di THMS)
+    const res = await fetch(
+      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`
+    );
+    if (!res.ok) throw new Error("Gagal ambil data absensi.");
+    const payload = await res.json();
+    const allData = Array.isArray(payload) ? payload : (payload?.list || []);
+
+    const rows = [...santriTableBody.querySelectorAll("tr")];
+
+    // peta nama → key tabel (fallback)
+    const nameToKey = new Map();
+    rows.forEach(row=>{
+      const key = normKey(row.dataset?.nis || row.dataset?.id || row.dataset?.key);
+      const nm  = (row.children?.[1]?.childNodes?.[0]?.textContent || row.children?.[1]?.textContent || "").trim();
+      if (key && nm) nameToKey.set(nm.toLowerCase(), key);
+    });
+
+    // rekap by key
+    const rekap = Object.create(null); // key => { totalMur, semester? }
+    (allData || []).forEach(item=>{
+      let id  = normKey(item?.id);
+      let nis = normKey(item?.nis);
+      let key = normKey(nis || id);
+      if (!key) {
+        const nm = normKey(item?.nama).toLowerCase();
+        if (nm && nameToKey.has(nm)) key = nameToKey.get(nm);
+      }
+      if (!key) return;
+      if (!rekap[key]) rekap[key] = { totalMur: 0, semester: item?.semester ?? null };
+      rekap[key].totalMur += parseNum(item?.juzmurajaah); // ← POIN PENTING
+    });
+
+    const batasSemester = {1:8,2:13,3:18,4:23,5:28,6:30};
+    const dataToSaveMeta = []; // opsional: cuma untuk count metadata
+
+    rows.forEach(row=>{
+      const key  = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
+      const cell = row.querySelector('.total-all-juz-murajaah');
+      if (!cell) return;
+
+      const totalNum = rekap[key] ? parseNum(rekap[key].totalMur) : 0;
+      if (totalNum) {
+        const semester = getSemesterForKey(key, row, rekap[key]?.semester);
+        const target   = batasSemester[semester] || 0;
+        const totalStr = totalNum.toFixed(2);
+        let label, warna;
+        if (totalNum >= 30) { label='KHATAM'; warna='purple'; }
+        else {
+          let persen = target>0 ? Math.floor((totalNum/target)*100) : 0;
+          if (persen>100) persen=100;
+          if (persen>=100) { label='TUNTAS'; warna='green'; } else { label=`${persen}%`; warna='red'; }
+        }
+        cell.innerHTML = `${totalStr}&nbsp;juz <span style="color:${warna};font-size:14px">${label}</span>`;
+        cell.dataset.murMode = 'range';
+        dataToSaveMeta.push({ key, totalMur: Number(totalStr) });
+      } else {
+        cell.innerHTML = `0.00&nbsp;juz <span style="color:red;font-size:14px">0%</span>`;
+        cell.dataset.murMode = 'range';
+      }
+    });
+
+    // simpan metadata range ke file autoUpdateAllJuzMur.json (opsional tapi bagus)
+    await fetch('/.netlify/functions/aksesAutoUpdateAllJuzMur', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ fromDate:dari, toDate:sampai, kelas, data:dataToSaveMeta })
+    });
+
+    alert('✅ Total All Juz Murajaah (rentang) sudah dihitung.');
+  } catch (err) {
+    console.error(err);
+    alert('❌ Terjadi kesalahan: ' + err.message);
+  } finally {
+    overlay.style.display = "none";
+  }
+}
+
+// Versi otomatis saat halaman selesai render (ambil tanggal default dari autoUpdateAllJuzMur.json)
+async function hitungTotalAllJuzMurOtomatis(){
+  const kelas = kelasSelect.value;
+  const rows = santriTableBody.querySelectorAll("tr");
+  if (!rows.length){ setTimeout(hitungTotalAllJuzMurOtomatis, 200); return; }
+
+  const rangeDari = document.getElementById("rangeDari");
+  const rangeSampai = document.getElementById("rangeSampai");
+
+  try {
+    const r = await fetch('/.netlify/functions/getAutoUpdateAllJuzMur?t='+Date.now());
+    const all = await r.json(); // array
+    const item = (all||[]).find(x=>x.kelas===kelas);
+    if (item){
+      if (rangeDari)   rangeDari.value   = item.fromDate || "";
+      if (rangeSampai) rangeSampai.value = item.toDate   || "";
+    }
+  } catch {}
+
+  if (rangeDari?.value && rangeSampai?.value){
+    hitungTotalAllJuzMurFromTable();
+  }
+}
+
+// panggil otomatis bersama THMS otomasi
+window.addEventListener("DOMContentLoaded", ()=> {
+  setTimeout(hitungTotalAllJuzMurOtomatis, 100);
+});
+
+// (Opsional) tombol manual kalau mau dipisah:
+document.getElementById('btnHitungAllJuzMur')?.addEventListener('click', hitungTotalAllJuzMurFromTable);
+</script>
 
 <script>
 const btnHapusSantri = document.getElementById("btnHapusSantri");
