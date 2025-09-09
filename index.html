@@ -6203,13 +6203,8 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 
 
-
-
-
-
-
-
-	<script>
+<script>
+// ---------- Murajaah ----------
 (function(){
   const MAP_URL='https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json';
   const LAST_PAGE=604;
@@ -6217,7 +6212,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 
-  // ---------- Helper: resolve kelas & tanggal dari berbagai sumber ----------
+  // ---------- Helper: resolve kelas & tanggal dari berbagai sumber Murajaah ----------
   function resolveKelas(){
     // urutan fallback: window var → id → name → data-kelas di table/container → baris
     const byWin = (window.kelasSelect && window.kelasSelect.value) ? window.kelasSelect.value : "";
@@ -6495,7 +6490,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 <script>
 (function(){
-  // ===== util & helpers =====
+  // ===== util & helpers Murajaah=====
   const $  = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
   const normKey = v => String(v ?? "").trim();
