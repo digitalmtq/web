@@ -6248,6 +6248,36 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 // ================================================
 // Revisi: hitungTotalAllJuzMurajaahFromTable (tanpa POST)
 // ================================================
+
+// ==== Helper: hitung total setara juz dari rentang Murajaah (Surah/Ayat) ====
+function __murComputeTotalJuz(sF, aF, sT, aT) {
+  // Pastikan data master sudah ada
+  try {
+    if (!Array.isArray(surahList) || !pagesMap) return 0;
+  } catch { return 0; }
+
+  const SKIP = (h) => (h === 21 || (h >= 602 && h <= 604)); // excluded pages
+  let totalJuz = 0;
+
+  for (let s = Number(sF); s <= Number(sT); s++) {
+    const surah = (surahList || []).find(x => Number(x.id) === Number(s));
+    const maxAyat = surah ? Number(surah.jumlah_ayat) : 0;
+    if (!maxAyat) continue;
+
+    const startAyat = (s === Number(sF)) ? Number(aF) : 1;
+    const endAyat   = (s === Number(sT)) ? Number(aT) : maxAyat;
+
+    for (let a = startAyat; a <= endAyat; a++) {
+      const halaman = pagesMap?.[`${s}:${a}`];
+      if (!halaman || SKIP(halaman)) continue;
+
+      const ayatDiHalaman = Number(jumlahAyatPerHalaman?.[halaman]) || 1;
+      totalJuz += (0.05 / ayatDiHalaman);
+    }
+  }
+  return totalJuz;
+}
+	
 async function hitungTotalAllJuzMurajaahFromTable() {
   const kelas = (typeof kelasSelect !== 'undefined' && kelasSelect) ? kelasSelect.value : '';
   const sF = Number(document.getElementById('mur-surahFrom')?.value || 1);
