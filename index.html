@@ -1249,7 +1249,7 @@ async function buatUserNIS() {
             <th>Total Juz</th>
             <th>Nilai</th>
             <th id="totalAllJuzHeader" style="cursor:pointer; text-decoration:underline;">Setting THMS</th>
-			<th id="totalAllJuzMurHeader" style="cursor:pointer; text-decoration:underline;">Setting Murajaah</th>
+			<th>Murajaah</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -2220,14 +2220,15 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
   </div>
 </div>
 
-<!-- ===========================
-     OVERLAY: Setting Murajaah
-     =========================== -->
-<div id="juzMurOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; justify-content:center; align-items:center;">
-  <div style="background:#fff; padding:16px; border-radius:12px; width:min(960px,95%); max-height:90vh; overflow:auto;">
-    <h3 style="margin:0 0 10px;">Setting Murajaah (Surah/Ayat/Page)</h3>
+<!-- MODAL MURAJAAH -->
+<div id="mur-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;justify-content:center;align-items:center;">
+  <div style="background:#fff;border-radius:12px;padding:16px;width:min(900px,95%);max-height:90vh;overflow:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <h3 style="margin:0">Input Murajaah</h3>
+      <button id="mur-close" type="button">Tutup</button>
+    </div>
 
-    <div class="mushaf-header" style="position:static; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <label>Page dari
         <select id="mur-pageFrom"></select>
       </label>
@@ -2235,7 +2236,7 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
         <select id="mur-pageTo"></select>
       </label>
 
-      <span class="muted" aria-hidden="true">|</span>
+      <span style="color:#6b7280" aria-hidden="true">|</span>
 
       <label>Surah dari
         <select id="mur-surahFrom"></select>
@@ -2243,7 +2244,7 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
       <label>Ayat
         <select id="mur-ayahFrom"></select>
       </label>
-      <span class="muted" aria-hidden="true">→</span>
+      <span style="color:#6b7280" aria-hidden="true">→</span>
       <label>ke Surah
         <select id="mur-surahTo"></select>
       </label>
@@ -2252,16 +2253,62 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
       </label>
     </div>
 
-    <div class="inner" style="padding:0;">
-      <div id="mur-infoRange" class="muted" style="margin:6px 0 12px;"></div>
+    <div style="margin-top:10px;">
+      <div id="mur-info" style="color:#6b7280;margin-bottom:6px;"></div>
+      <div style="font-weight:600;">Total setara Juz: <span id="mur-total-live">0.00</span></div>
     </div>
 
-    <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
-      <button id="btnMurClose" type="button">Close</button>
-      <button id="btnHitungTotalJuzMur" type="button" style="background:#1E88E5; color:#fff; border:1px solid #1E88E5; padding:8px 12px; border-radius:8px;">Hitung Murajaah</button>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+      <button id="mur-apply" type="button" style="background:#1E88E5;color:#fff;border:1px solid #1E88E5;padding:8px 12px;border-radius:8px;">Terapkan ke Baris</button>
     </div>
   </div>
 </div>
+
+
+<!-- MODAL MURAJAAH -->
+<div id="mur-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;justify-content:center;align-items:center;">
+  <div style="background:#fff;border-radius:12px;padding:16px;width:min(900px,95%);max-height:90vh;overflow:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <h3 style="margin:0">Input Murajaah</h3>
+      <button id="mur-close" type="button">Tutup</button>
+    </div>
+
+    <div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <label>Page dari
+        <select id="mur-pageFrom"></select>
+      </label>
+      <label>ke Page
+        <select id="mur-pageTo"></select>
+      </label>
+
+      <span style="color:#6b7280" aria-hidden="true">|</span>
+
+      <label>Surah dari
+        <select id="mur-surahFrom"></select>
+      </label>
+      <label>Ayat
+        <select id="mur-ayahFrom"></select>
+      </label>
+      <span style="color:#6b7280" aria-hidden="true">→</span>
+      <label>ke Surah
+        <select id="mur-surahTo"></select>
+      </label>
+      <label>Ayat
+        <select id="mur-ayahTo"></select>
+      </label>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div id="mur-info" style="color:#6b7280;margin-bottom:6px;"></div>
+      <div style="font-weight:600;">Total setara Juz: <span id="mur-total-live">0.00</span></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+      <button id="mur-apply" type="button" style="background:#1E88E5;color:#fff;border:1px solid #1E88E5;padding:8px 12px;border-radius:8px;">Terapkan ke Baris</button>
+    </div>
+  </div>
+</div>
+
   
  <script>
   // === Deklarasi elemen ===
@@ -2896,6 +2943,7 @@ async function loadSantriData() {
   window.semesterMap   ??= {};
   window.jenjangMap    ??= {};
   window.keteranganMap ??= {};
+  
 
   // Helpers kecil
   const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
@@ -3223,7 +3271,11 @@ async function loadSantriData() {
           <td class="total-all-juz">
             <img src="https://raw.githubusercontent.com/digitalmtq/web/main/meeting.gif" style="width:70px;height:18px;">
           </td>
-		  <td class="total-all-juz-murajaah">0.00&nbsp;juz <span style="color:red;font-size:12px">0%</span></td>
+		  <td class="mur-cell">
+  		<span class="mur-total">0.00 juz</span>
+  		&nbsp;·&nbsp;
+  		<a href="#" class="mur-open" title="Input Data Murajaah">Input Data Murajaah</a>
+		</td>
         `;
 
         // DATASET stabil
@@ -3385,27 +3437,6 @@ async function loadSantriData() {
           });
         }
 
-// =============== MURAJAAH ===============
-(function ensureMurColumn(){
-  const headRow = document.querySelector('table thead tr');
-  if (headRow && !document.getElementById('totalAllJuzMurHeader')) {
-    const th = document.createElement('th');
-    th.id = 'totalAllJuzMurHeader';
-    th.style.cssText = 'cursor:pointer;text-decoration:underline;';
-    th.textContent = 'Setting Murajaah';
-    headRow.appendChild(th);
-  }
-  const bodyRows = document.querySelectorAll('table tbody tr');
-  bodyRows.forEach(tr=>{
-    if (!tr.querySelector('.total-all-juz-murajaah')) {
-      const td = document.createElement('td');
-      td.className = 'total-all-juz-murajaah';
-      td.innerHTML = '0.00&nbsp;juz <span style="color:red;font-size:12px">0%</span>';
-      tr.appendChild(td);
-    }
-  });
-})();
-
         // =============== ABSENSI FLEX via MODAL BUTTON ===============
         (function initAbsensiFlexModalForRow(){
           const cell = row.querySelector(".abs-flex-cell");
@@ -3460,7 +3491,7 @@ async function loadSantriData() {
   overlay.style.display = "none";
 }
 
-
+window.mur_restoreAllRows?.();
 
     function fillAyatOptions(selectEl, surahId, selectedAyat = 1) {
       const surah = surahList.find(s => s.id == surahId);
@@ -3791,13 +3822,6 @@ async function simpanDataMutabaah(saveBtn) {
         const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
         const parsed = parseNilaiStr(nilaiStr);
 
-		const murCell   = row.querySelector(".total-all-juz-murajaah");
-// contoh innerText: "0.70 juz TUNTAS"
-const juzmurajaah = (typeof parseNum === 'function')
-  ? parseNum(murCell?.textContent ?? "")
-  : parseFloat(String(murCell?.textContent ?? "").replace(",", "."))
-      || 0;
-
         const adaNilaiBaru = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai));
         let buttonCell;
         if (adaNilaiBaru) {
@@ -3809,6 +3833,11 @@ const juzmurajaah = (typeof parseNum === 'function')
         }
 
         const marks = row.markData || existing.marks || { audio: [] };
+
+		  // di dalam rowsTanggal.forEach(row) { ... } (tempat kamu ambil field2 lain)
+		const mur = window.mur_collectForRow ? window.mur_collectForRow(row) : null;
+		const juzmurajaah = mur?.juzmurajaah ?? 0;
+
 
         // ======== SUSUN RECORD BARU ========
         const base = {
@@ -3836,16 +3865,14 @@ const juzmurajaah = (typeof parseNum === 'function')
           totalHalaman,
           juzTerbaca,
           keterangan,
-          marks,
-		  juzmurajaah: totalJuzMur,   // <<<<<<<<<< penting
-  		  // boleh juga simpan meta overlay terakhir:
-  		  murRange: {
-    	  sF: totalJuzMurCell?.dataset?.murSurahFrom || null,
-    	  aF: totalJuzMurCell?.dataset?.murAyahFrom  || null,
-    	  sT: totalJuzMurCell?.dataset?.murSurahTo   || null,
-    	  aT: totalJuzMurCell?.dataset?.murAyahTo    || null,
-      	  mode: totalJuzMurCell?.dataset?.murMode    || null
-  		  }
+          marks
+		  juzmurajaah: juzmurajaah,
+  		  murSurahFrom: mur?.murSurahFrom ?? null,
+  		  murAyahFrom:  mur?.murAyahFrom  ?? null,
+  		  murSurahTo:   mur?.murSurahTo   ?? null,
+  		  murAyahTo:    mur?.murAyahTo    ?? null,
+  		  murPageFrom:  mur?.murPageFrom  ?? null,
+  		  murPageTo:    mur?.murPageTo    ?? null
         };
         const newData = buttonCell ? { ...base, buttonCell } : base;
 
@@ -6263,454 +6290,256 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 </script>
 
 <script>
-// === util (guarded) — tidak bentrok kalau sudah ada dari THMS ===
-window.normKey  ||= (v)=>String(v ?? "").trim();
-window.parseNum ||= (v)=>{
-  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
-  let s = String(v ?? "").trim(); if (!s) return 0;
-  s = s.replace(/[^0-9.,-]/g,"");
-  const c=s.lastIndexOf(","), d=s.lastIndexOf(".");
-  if (c>-1 && d>-1) s = (c>d) ? s.replace(/\./g,"").replace(",",".") : s.replace(/,/g,"");
-  else if (c>-1) s = s.replace(/\./g,"").replace(",","."); else s = s.replace(/,/g,"");
-  const n = parseFloat(s); return Number.isFinite(n) ? n : 0;
-};
+(function(){
+  // ====== KONFIG & STATE ======
+  const MUR_LAST_PAGE = 604;
+  const PAGE_MAP_URL = 'https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json';
 
-// === loader Surah & pagesMap (guarded) ===
-window.ensureSurahList ||= async function(){
-  if (Array.isArray(window.surahList) && window.surahList.length) return;
-  try {
-    const r = await fetch('/.netlify/functions/getAyat');
-    if (r.ok) window.surahList = await r.json();
-  } catch(e){ console.warn('ensureSurahList gagal', e); }
-};
+  const $ = (sel,root=document)=>root.querySelector(sel);
+  const makeOpts = (n)=>Array.from({length:n}, (_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
 
-window.ensurePagesMap ||= async function(){
-  if (window.pagesMap && Object.keys(window.pagesMap).length) return;
-  try {
-    const r = await fetch('/.netlify/functions/getPagesMap');
-    if (r.ok) { window.pagesMap = await r.json(); return; }
-  } catch(e){ console.warn('getPagesMap gagal, fallback raw', e); }
-  try {
-    const raw = await fetch('https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json');
-    if (raw.ok) window.pagesMap = await raw.json();
-  } catch(ee){ console.warn('fallback raw gagal', ee); }
-};
+  let pagesMap = {};             // "s:a" -> page
+  const surahMax = {};           // s -> max ayat
+  const pageIndex = {};          // page -> [{s,a}]
+  let currentRow = null;         // <tr> yang sedang diedit modal
 
-// === (opsional) ensureSemesterMap kalau belum ada (re-use pola THMS) ===
-window.ensureSemesterMap ||= async function(kelas){
-  if (window.semesterMap && Object.keys(window.semesterMap).length) return;
-  try {
-    const res = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
-    const santri = await res.json();
-    window.semesterMap = {};
-    (santri||[]).forEach(s=>{
-      const k = normKey(s?.nis) || normKey(s?.id);
-      if (k) window.semesterMap[k] = String(s?.semester ?? "1");
-    });
-  } catch(e){ console.warn('ensureSemesterMap gagal', e); window.semesterMap ??= {}; }
-};
-</script>
+  const SURAH_NAMES = [
+    "Al-Fatihah","Al-Baqarah","Ali 'Imran","An-Nisa'","Al-Ma'idah","Al-An'am","Al-A'raf","Al-Anfal","At-Taubah","Yunus",
+    "Hud","Yusuf","Ar-Ra'd","Ibrahim","Al-Hijr","An-Nahl","Al-Isra'","Al-Kahf","Maryam","Ta Ha",
+    "Al-Anbiya'","Al-Hajj","Al-Mu'minun","An-Nur","Al-Furqan","Ash-Shu'ara'","An-Naml","Al-Qasas","Al-'Ankabut","Ar-Rum",
+    "Luqman","As-Sajdah","Al-Ahzab","Saba'","Fatir","Ya-Sin","As-Saffat","Sad","Az-Zumar","Ghafir",
+    "Fussilat","Ash-Shura","Az-Zukhruf","Ad-Dukhan","Al-Jathiyah","Al-Ahqaf","Muhammad","Al-Fath","Al-Hujurat","Qaf",
+    "Adz-Dzariyat","At-Tur","An-Najm","Al-Qamar","Ar-Rahman","Al-Waqi'ah","Al-Hadid","Al-Mujadilah","Al-Hashr","Al-Mumtahanah",
+    "As-Saff","Al-Jumu'ah","Al-Munafiqun","At-Taghabun","At-Talaq","At-Tahrim","Al-Mulk","Al-Qalam","Al-Haqqah","Al-Ma'arij",
+    "Nuh","Al-Jinn","Al-Muzzammil","Al-Muddaththir","Al-Qiyamah","Al-Insan","Al-Mursalat","An-Naba'","An-Nazi'at","'Abasa",
+    "At-Takwir","Al-Infitar","Al-Mutaffifin","Al-Inshiqaq","Al-Buruj","At-Tariq","Al-A'la","Al-Ghashiyah","Al-Fajr","Al-Balad",
+    "Ash-Shams","Al-Layl","Ad-Duha","Ash-Sharh","At-Tin","Al-'Alaq","Al-Qadr","Al-Bayyinah","Az-Zalzalah","Al-'Adiyat",
+    "Al-Qari'ah","At-Takathur","Al-'Asr","Al-Humazah","Al-Fil","Quraysh","Al-Ma'un","Al-Kawthar","Al-Kafirun","An-Nasr",
+    "Al-Masad","Al-Ikhlas","Al-Falaq","An-Nas"
+  ];
+  const JUZ_START_PAGES = [1,22,42,62,82,102,121,141,161,181,201,221,241,261,281,301,321,341,361,381,401,421,441,461,481,501,521,541,561,581];
 
-<script>
-// ===============================
-// Overlay Murajaah — Page ↔ Surah/Ayat
-// ===============================
-let __mur_init = false;
-let __mur_pageIndex = {};     // page -> ["s:a", ...]
-let __mur_surahMax  = {};     // s -> max ayat
-let __mur_ayahPerPg = {};     // page -> jumlah ayat di halaman (dibangun dari pagesMap)
-const MUR_LAST_PAGE = 604;
+  const mur_norm = (v)=>String(v??"").trim();
+  const mur_num  = (v)=>{
+    if (typeof v==="number") return Number.isFinite(v)?v:0;
+    let s=String(v??"").trim(); if(!s) return 0;
+    s=s.replace(/[^0-9.,-]/g,"");
+    const c=s.lastIndexOf(","), d=s.lastIndexOf(".");
+    if(c>-1 && d>-1){ if(c>d){ s=s.replace(/\./g,"").replace(",","."); } else { s=s.replace(/,/g,""); } }
+    else if(c>-1){ s=s.replace(/\./g,"").replace(",","."); } else { s=s.replace(/,/g,""); }
+    const n=parseFloat(s); return Number.isFinite(n)?n:0;
+  };
 
-const $mur = (id)=>document.getElementById(id);
-const murOpts = (n)=>Array.from({length:n}, (_,i)=>`<option value="${i+1}">${i+1}</option>`).join("");
+  const pageToJuz = (page)=>{ let j=1; for(let i=0;i<JUZ_START_PAGES.length;i++){ if(page>=JUZ_START_PAGES[i]) j=i+1; else break; } return j; };
 
-// --- data prep dari pagesMap ---
-function murBuildIndexes(){
-  __mur_pageIndex = {};
-  __mur_surahMax  = {};
-  __mur_ayahPerPg = {};
-  const map = window.pagesMap || {};
-  for (const [key, page] of Object.entries(map)){
-    if (!page) continue;
-    const [s,a] = key.split(':').map(Number);
-    if (!s || !a) continue;
-    (__mur_pageIndex[page] ||= []).push(`${s}:${a}`);
-    if (!__mur_surahMax[s] || a > __mur_surahMax[s]) __mur_surahMax[s] = a;
-    __mur_ayahPerPg[page] = 1 + ((Number(__mur_ayahPerPg[page])||0));
+  function surahFill(sel){
+    const el = typeof sel==='string'?$(sel):sel;
+    el.innerHTML = SURAH_NAMES.map((nm,i)=>`<option value="${i+1}">${i+1} — ${nm}</option>`).join('');
   }
-  for (let s=1;s<=114;s++){
-    if (!__mur_surahMax[s]) __mur_surahMax[s] = (s===1?7:(s===9?129:286));
+  function ayahFill(sel, sId, keep=false, preset=1){
+    const el = typeof sel==='string'?$(sel):sel;
+    const max = surahMax[Number(sId)] || 1;
+    const prev = keep ? Number(el.value) : null;
+    el.innerHTML = makeOpts(Math.max(1,max));
+    el.value = String(keep && prev ? Math.min(prev,max) : Math.min(Number(preset||1), max));
   }
-  // sort ayat per page
-  Object.values(__mur_pageIndex).forEach(arr=>arr.sort((p,q)=>{
-    const [s1,a1]=p.split(':').map(Number), [s2,a2]=q.split(':').map(Number);
-    return (s1-s2) || (a1-a2);
-  }));
-}
 
-// --- isi dropdown ---
-function murFillPageSelects(){
-  $mur('mur-pageFrom').innerHTML = murOpts(MUR_LAST_PAGE);
-  $mur('mur-pageTo').innerHTML   = murOpts(MUR_LAST_PAGE);
-  $mur('mur-pageFrom').value = '1';
-  $mur('mur-pageTo').value   = '1';
-}
-function murFillSurahSelect(sel){
-  const el = typeof sel==='string'? document.querySelector(sel): sel;
-  if (!el) return;
-  if (Array.isArray(window.surahList) && window.surahList.length){
-    el.innerHTML = window.surahList.map(s=>`<option value="${s.id}">${s.id} — ${s.nama}</option>`).join('');
-  } else {
-    el.innerHTML = Array.from({length:114},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  async function ensureMaps(){
+    if (Object.keys(pagesMap).length) return;
+    if (window.pagesMap && Object.keys(window.pagesMap).length){
+      pagesMap = window.pagesMap;
+    } else {
+      const r = await fetch(PAGE_MAP_URL); pagesMap = await r.json();
+    }
+    for (const [key, page] of Object.entries(pagesMap)){
+      const [s,a] = key.split(':').map(Number);
+      if (!s||!a||!page) continue;
+      if (!surahMax[s] || a>surahMax[s]) surahMax[s]=a;
+      (pageIndex[page] ||= []).push({s,a});
+    }
+    for(let s=1;s<=114;s++){ if(!surahMax[s]) surahMax[s]=(s===1?7:(s===9?129:286)); }
   }
-}
-function murFillAyahSelect(sel, surahId, keep=false, preset=1){
-  const el = typeof sel==='string'? document.querySelector(sel): sel;
-  if (!el) return;
-  let max = 1;
-  if (Array.isArray(window.surahList) && window.surahList.length){
-    const s = window.surahList.find(x=>String(x.id)===String(surahId));
-    max = s? Number(s.jumlah_ayat): (__mur_surahMax[Number(surahId)]||1);
-  } else {
-    max = __mur_surahMax[Number(surahId)]||1;
-  }
-  const prev = keep? Number(el.value): null;
-  el.innerHTML = murOpts(Math.max(1,max));
-  el.value = String(keep && prev? Math.min(prev, max): Math.min(Number(preset||1), max));
-}
 
-// --- konversi ---
-function murPagesToAyahRange(pFrom, pTo){
-  const a1 = __mur_pageIndex?.[pFrom]||[], a2 = __mur_pageIndex?.[pTo]||[];
-  if (!a1.length || !a2.length) return null;
-  const [s1,aF] = a1[0].split(':').map(Number);
-  const [s2,aT] = a2[a2.length-1].split(':').map(Number);
-  return {sFrom:s1, aFrom:aF, sTo:s2, aTo:aT};
-}
-function murAyahRangeToPages(sFrom,aFrom,sTo,aTo){
-  const map = window.pagesMap||{};
-  let minP=Infinity, maxP=-Infinity, found=false;
-  for (let s=+sFrom; s<=+sTo; s++){
-    const aS = (s===+sFrom)? +aFrom: 1;
-    const aE = (s===+sTo)? +aTo: (__mur_surahMax[s]||1);
-    for (let a=aS; a<=aE; a++){
-      const p = map[`${s}:${a}`];
-      if (!p) continue;
-      found = true;
-      if (p<minP) minP=p; if (p>maxP) maxP=p;
+  function pagesToAyahRange(pFrom,pTo){
+    const a = pageIndex[pFrom]||[], b = pageIndex[pTo]||[];
+    if(!a.length||!b.length) return null;
+    const first=a[0], last=b[b.length-1];
+    return { sFrom:first.s, aFrom:first.a, sTo:last.s, aTo:last.a };
+  }
+  function ayahRangeToPages(sF,aF,sT,aT){
+    const touched=new Set();
+    for(let s=sF;s<=sT;s++){
+      const st=(s===sF)?aF:1, en=(s===sT)?aT:(surahMax[s]||1);
+      for(let a=st;a<=en;a++){ const p=pagesMap[`${s}:${a}`]; if(p) touched.add(p); }
+    }
+    return touched;
+  }
+
+  // hitung total juz (pakai jumlahAyatPerHalaman kalau ada; kalau tidak → fallback fraksi halaman per juz)
+  function computeTotalJuz(sF,aF,sT,aT){
+    const hasPerPage = window.jumlahAyatPerHalaman && Object.keys(window.jumlahAyatPerHalaman).length;
+    if (hasPerPage){
+      let total=0;
+      for(let s=sF;s<=sT;s++){
+        const st=(s===sF)?aF:1, en=(s===sT)?aT:(surahMax[s]||1);
+        for(let a=st;a<=en;a++){
+          const p=pagesMap[`${s}:${a}`]; if(!p) continue;
+          if (p===21 || (p>=602 && p<=604)) continue;
+          const cnt=Number(window.jumlahAyatPerHalaman?.[p])||1;
+          total += (0.05 / cnt);
+        }
+      }
+      return total;
+    } else {
+      const pages = ayahRangeToPages(sF,aF,sT,aT);
+      const perJuz = Array.from({length:30}, ()=>({pages:0,total:0}));
+      for(let i=0;i<30;i++){ const start=JUZ_START_PAGES[i]; const end=(i<29?JUZ_START_PAGES[i+1]-1:604); perJuz[i].total=end-start+1; }
+      for(const p of pages){ const j=pageToJuz(p)-1; if(j>=0&&j<30) perJuz[j].pages++; }
+      return perJuz.reduce((acc,j)=>acc+(j.total? j.pages/j.total : 0),0);
     }
   }
-  return found? {pFrom:minP, pTo:maxP}: null;
-}
 
-// --- guards + info ---
-function murGuardPage(){
-  const f = $mur('mur-pageFrom'), t = $mur('mur-pageTo');
-  let pF=+(f.value||1), pT=+(t.value||pF);
-  if (pT<pF){ pT=pF; t.value=String(pT); }
-}
-function murGuardAyah(){
-  const sF=$mur('mur-surahFrom'), aF=$mur('mur-ayahFrom');
-  const sT=$mur('mur-surahTo'),   aT=$mur('mur-ayahTo');
-  const S=+(sF.value||1), A=+(aF.value||1);
-  let   T=+(sT.value||S), U=+(aT.value||A);
-  if (T<S || (T===S && U<A)){
-    sT.value=String(S);
-    murFillAyahSelect('#mur-ayahTo', S, true);
-    if (+aT.value < A) aT.value = String(A);
-  }
-}
-function murRenderInfo(){
-  const sF=+($mur('mur-surahFrom')?.value||1);
-  const aF=+($mur('mur-ayahFrom')?.value||1);
-  const sT=+($mur('mur-surahTo')?.value||sF);
-  const aT=+($mur('mur-ayahTo')?.value||aF);
-  const pr = murAyahRangeToPages(sF,aF,sT,aT);
-  $mur('mur-infoRange').textContent = pr
-    ? `Rentang: Surah ${sF}:${aF} → ${sT}:${aT} (Hal. ${pr.pFrom}–${pr.pTo})`
-    : `Rentang: Surah ${sF}:${aF} → ${sT}:${aT}`;
-}
+  function renderLive(){
+    const sF=+$('#mur-surahFrom').value||1, aF=+$('#mur-ayahFrom').value||1;
+    const sT=+$('#mur-surahTo').value||sF, aT=+$('#mur-ayahTo').value||aF;
 
-// --- handlers ---
-function onMurPageChange(){
-  murGuardPage();
-  const pF=+($mur('mur-pageFrom').value||1);
-  const pT=+($mur('mur-pageTo').value||pF);
-  const r = murPagesToAyahRange(pF,pT);
-  if (r){
-    $mur('mur-surahFrom').value = String(r.sFrom);
-    murFillAyahSelect('#mur-ayahFrom', r.sFrom, false, r.aFrom);
-    $mur('mur-surahTo').value   = String(r.sTo);
-    murFillAyahSelect('#mur-ayahTo', r.sTo, false, r.aTo);
-  }
-  murRenderInfo();
-}
-function onMurSurahChanged(which){
-  if (which==='from'){
-    const s = +($mur('mur-surahFrom').value||1);
-    murFillAyahSelect('#mur-ayahFrom', s, true);
-  } else {
-    const s = +($mur('mur-surahTo').value||1);
-    murFillAyahSelect('#mur-ayahTo', s, true);
-  }
-  murGuardAyah();
-  const sF=+($mur('mur-surahFrom').value||1), aF=+($mur('mur-ayahFrom').value||1);
-  const sT=+($mur('mur-surahTo').value||sF),  aT=+($mur('mur-ayahTo').value||aF);
-  const pr = murAyahRangeToPages(sF,aF,sT,aT);
-  if (pr){ $mur('mur-pageFrom').value=String(pr.pFrom); $mur('mur-pageTo').value=String(pr.pTo); }
-  murRenderInfo();
-}
-function onMurAyatChanged(){
-  murGuardAyah();
-  const sF=+($mur('mur-surahFrom').value||1), aF=+($mur('mur-ayahFrom').value||1);
-  const sT=+($mur('mur-surahTo').value||sF),  aT=+($mur('mur-ayahTo').value||aF);
-  const pr = murAyahRangeToPages(sF,aF,sT,aT);
-  if (pr){ $mur('mur-pageFrom').value=String(pr.pFrom); $mur('mur-pageTo').value=String(pr.pTo); }
-  murRenderInfo();
-}
+    const pages = ayahRangeToPages(sF,aF,sT,aT);
+    let pFrom=1,pTo=1;
+    if (pages.size){ const arr=[...pages].sort((a,b)=>a-b); pFrom=arr[0]; pTo=arr[arr.length-1]; }
+    $('#mur-pageFrom').value=String(pFrom);
+    $('#mur-pageTo').value=String(pTo);
 
-// --- hitung total Murajaah (presisi: fraksi halaman) ---
-function __murComputeTotalJuz(sF,aF,sT,aT){
-  const map = window.pagesMap||{};
-  const SKIP = (h)=> (h===21 || (h>=602 && h<=604));
-  // hitung fraksi halaman: tiap halaman = 0.05 juz; jika hanya sebagian ayat, bagi proporsi
-  const selectedPerPage = {}; // page -> jumlah ayat terpilih
-  for (let s=+sF; s<=+sT; s++){
-    const aStart = (s===+sF)? +aF: 1;
-    const aEnd   = (s===+sT)? +aT: (__mur_surahMax[s]||1);
-    for (let a=aStart; a<=aEnd; a++){
-      const p = map[`${s}:${a}`];
-      if (!p || SKIP(p)) continue;
-      selectedPerPage[p] = 1 + ((selectedPerPage[p]||0));
+    $('#mur-info').textContent = `Rentang: Surah ${sF}:${aF} → ${sT}:${aT} (Hal. ${pFrom}–${pTo})`;
+    $('#mur-total-live').textContent = computeTotalJuz(sF,aF,sT,aT).toFixed(2);
+  }
+
+  function prefillFromRow(row){
+    // default
+    $('#mur-pageFrom').innerHTML = makeOpts(MUR_LAST_PAGE);
+    $('#mur-pageTo').innerHTML   = makeOpts(MUR_LAST_PAGE);
+    surahFill('#mur-surahFrom'); surahFill('#mur-surahTo');
+    ayahFill('#mur-ayahFrom',1,false,1); ayahFill('#mur-ayahTo',1,false,1);
+
+    // restore dari dataset/localStorage
+    const ds = row.dataset || {};
+    const restore = ds.murSel ? JSON.parse(ds.murSel) : null;
+    if (restore){
+      $('#mur-pageFrom').value  = String(restore.pFrom||1);
+      $('#mur-pageTo').value    = String(restore.pTo||1);
+      $('#mur-surahFrom').value = String(restore.sFrom||1); ayahFill('#mur-ayahFrom', restore.sFrom||1, false, restore.aFrom||1);
+      $('#mur-ayahFrom').value  = String(restore.aFrom||1);
+      $('#mur-surahTo').value   = String(restore.sTo||1); ayahFill('#mur-ayahTo', restore.sTo||1, false, restore.aTo||1);
+      $('#mur-ayahTo').value    = String(restore.aTo||1);
+    } else {
+      const r = pagesToAyahRange(1,1);
+      if (r){
+        $('#mur-surahFrom').value = String(r.sFrom); ayahFill('#mur-ayahFrom', r.sFrom, false, r.aFrom);
+        $('#mur-surahTo').value   = String(r.sTo);   ayahFill('#mur-ayahTo',   r.sTo,   false, r.aTo);
+      }
     }
+    renderLive();
   }
-  let total = 0;
-  for (const [pStr,sel] of Object.entries(selectedPerPage)){
-    const p = Number(pStr);
-    const totalAyatHal = __mur_ayahPerPg[p] || sel; // fallback sel jika index belum siap
-    total += (sel/totalAyatHal) * 0.05;
-  }
-  return total; // dalam satuan juz
-}
 
-// --- init overlay pertama kali ---
-async function initMurOverlayIfNeeded(){
-  if (__mur_init) return;
-  await ensureSurahList();
-  await ensurePagesMap();
-  murBuildIndexes();
+  function applyToRow(){
+    if (!currentRow) return;
+    const sF=+$('#mur-surahFrom').value, aF=+$('#mur-ayahFrom').value;
+    const sT=+$('#mur-surahTo').value,   aT=+$('#mur-ayahTo').value;
+    const pF=+$('#mur-pageFrom').value,  pT=+$('#mur-pageTo').value;
+    const total = mur_num($('#mur-total-live').textContent);
 
-  murFillPageSelects();
-  murFillSurahSelect('#mur-surahFrom');
-  murFillSurahSelect('#mur-surahTo');
-  murFillAyahSelect('#mur-ayahFrom', 1, false, 1);
-  murFillAyahSelect('#mur-ayahTo',   1, false, 1);
+    const payload = { sFrom:sF,aFrom:aF,sTo:sT,aTo:aT,pFrom:pF,pTo:pT,total:Number(total.toFixed(2)) };
+    currentRow.dataset.murSel = JSON.stringify(payload);
 
-  // sinkron default page 1–1 -> ayat
-  const r = murPagesToAyahRange(1,1);
-  if (r){
-    $mur('mur-surahFrom').value=String(r.sFrom);
-    murFillAyahSelect('#mur-ayahFrom', r.sFrom, false, r.aFrom);
-    $mur('mur-surahTo').value=String(r.sTo);
-    murFillAyahSelect('#mur-ayahTo', r.sTo, false, r.aTo);
-  }
-  murRenderInfo();
+    const cell = currentRow.querySelector('.mur-cell .mur-total');
+    if (cell) cell.textContent = `${payload.total.toFixed(2)} juz`;
 
-  // events
-  $mur('mur-pageFrom')?.addEventListener('change', onMurPageChange);
-  $mur('mur-pageTo')?.addEventListener('change',   onMurPageChange);
-  $mur('mur-surahFrom')?.addEventListener('change', ()=>onMurSurahChanged('from'));
-  $mur('mur-surahTo')?.addEventListener('change',   ()=>onMurSurahChanged('to'));
-  $mur('mur-ayahFrom')?.addEventListener('change', onMurAyatChanged);
-  $mur('mur-ayahTo')?.addEventListener('change',   onMurAyatChanged);
-  $mur('btnMurClose')?.addEventListener('click', ()=>{ $mur('juzMurOverlay').style.display='none'; });
-
-  __mur_init = true;
-}
-
-// buka modal
-async function bukaOverlayTotalAllJuzMur(){
-  await initMurOverlayIfNeeded();
-  $mur('juzMurOverlay').style.display='flex';
-}
-
-// tombol header → buka modal
-document.getElementById('totalAllJuzMurHeader')
-  ?.addEventListener('click', bukaOverlayTotalAllJuzMur);
-
-// tombol “Hitung Murajaah”: hitung & taruh ke semua baris (mode manual)
-document.getElementById('btnHitungTotalJuzMur')
-  ?.addEventListener('click', async ()=>{
-    const sF=+($mur('mur-surahFrom')?.value||1);
-    const aF=+($mur('mur-ayahFrom')?.value||1);
-    const sT=+($mur('mur-surahTo')?.value||sF);
-    const aT=+($mur('mur-ayahTo')?.value||aF);
-
-    // (opsional) tunggu semesterMap utk label % tuntas
     try {
-      const kelas = (typeof kelasSelect!=='undefined' && kelasSelect)? kelasSelect.value : '';
-      await ensureSemesterMap(kelas);
+      const kelas = window.kelasSelect?.value || 'KELAS';
+      const tgl   = window.tanggalInput?.value || 'TANGGAL';
+      const key   = mur_norm(currentRow.dataset?.nis || currentRow.dataset?.id || currentRow.dataset?.key || "");
+      if (key) localStorage.setItem(`mur:${kelas}:${tgl}:${key}`, JSON.stringify(payload));
     } catch {}
 
-    const total = __murComputeTotalJuz(sF,aF,sT,aT);
-    const totalStr = total.toFixed(2);
-
-    const batasSemester = {1:8,2:13,3:18,4:23,5:28,6:30};
-    const rows = [...(window.santriTableBody?.querySelectorAll('tr')||[])];
-
-    rows.forEach(row=>{
-      const cell = row.querySelector('.total-all-juz-murajaah');
-      if (!cell) return;
-      const key = (row.dataset?.key || row.dataset?.nis || row.dataset?.id || '').trim();
-      let semester = 1;
-      try {
-        const sel = row.querySelector('.semester')?.value;
-        semester = sel ? Number(sel) : Number(window.semesterMap?.[key]||1);
-      } catch {}
-      const target = batasSemester[semester]||0;
-      let label, warna;
-      if (total>=30){ label='KHATAM'; warna='purple'; }
-      else {
-        let persen = target>0 ? Math.floor((total/target)*100) : 0;
-        if (persen>100) persen=100;
-        label = (persen>=100)? 'TUNTAS' : `${persen}%`;
-        warna = (persen>=100)? 'green' : 'red';
-      }
-      cell.innerHTML = `${totalStr}&nbsp;juz <span style="color:${warna};font-size:12px">${label}</span>`;
-      cell.dataset.murMode = 'manual';
-      cell.dataset.murSurahFrom = String(sF);
-      cell.dataset.murAyahFrom  = String(aF);
-      cell.dataset.murSurahTo   = String(sT);
-      cell.dataset.murAyahTo    = String(aT);
-    });
-
-    try { localStorage.setItem('murRangeLast', JSON.stringify({sF,aF,sT,aT})); } catch {}
-    alert('✅ Total Juz Murajaah dihitung. Klik "Save Data" untuk menyimpan ke server (field: juzmurajaah).');
-  });
-</script>
-
-<script>
-// Ambil semester (re-use)
-function getSemesterForKey(key, row, fallback) {
-  const mapVal = window?.semesterMap ? window.semesterMap[key] : null;
-  if (mapVal!=null && mapVal!=="") return Number(mapVal);
-  const selVal = row?.querySelector?.('.semester')?.value;
-  if (selVal!=null && selVal!=="") return Number(selVal);
-  if (fallback!=null && fallback!=="") return Number(fallback);
-  return 1;
-}
-
-// === HITUNG dari rentang tanggal (manual via tombol) ===
-async function hitungTotalAllJuzMurFromTable(){
-  const kelas  = kelasSelect.value;
-  const dari   = document.getElementById('rangeDari')?.value;
-  const sampai = document.getElementById('rangeSampai')?.value;
-
-  if (!dari){ alert('Mohon pilih tanggal Dari.'); return; }
-  if (!sampai){ alert('Mohon pilih tanggal Sampai.'); return; }
-
-  overlay.style.display = 'flex';
-  try {
-    await ensureSemesterMap(kelas);
-
-    const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
-    if (!res.ok) throw new Error('Gagal ambil data absensi.');
-    const payload = await res.json();
-    const allData = Array.isArray(payload) ? payload : (payload?.list || []);
-
-    const rows = [...santriTableBody.querySelectorAll('tr')];
-
-    const nameToKey = new Map();
-    rows.forEach(row=>{
-      const key = normKey(row.dataset?.nis || row.dataset?.id || row.dataset?.key);
-      const nm  = (row.children?.[1]?.childNodes?.[0]?.textContent || row.children?.[1]?.textContent || '').trim();
-      if (key && nm) nameToKey.set(nm.toLowerCase(), key);
-    });
-
-    const rekap = Object.create(null); // key -> { totalMur, semester? }
-    (allData||[]).forEach(item=>{
-      let id  = normKey(item?.id);
-      let nis = normKey(item?.nis);
-      let key = normKey(nis || id);
-      if (!key){
-        const nm = normKey(item?.nama).toLowerCase();
-        if (nm && nameToKey.has(nm)) key = nameToKey.get(nm);
-      }
-      if (!key) return;
-      if (!rekap[key]) rekap[key] = { totalMur:0, semester:item?.semester ?? null };
-      rekap[key].totalMur += parseNum(item?.juzmurajaah); // FIELD PENTING
-    });
-
-    const batasSemester = {1:8,2:13,3:18,4:23,5:28,6:30};
-
-    rows.forEach(row=>{
-      const key  = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
-      const cell = row.querySelector('.total-all-juz-murajaah');
-      if (!cell) return;
-
-      const totalNum = rekap[key]? parseNum(rekap[key].totalMur): 0;
-      if (totalNum){
-        const semester = getSemesterForKey(key, row, rekap[key]?.semester);
-        const target = batasSemester[semester]||0;
-        const totalStr = totalNum.toFixed(2);
-        let label, warna;
-        if (totalNum>=30){ label='KHATAM'; warna='purple'; }
-        else {
-          let persen = target>0 ? Math.floor((totalNum/target)*100) : 0;
-          if (persen>100) persen=100;
-          label = (persen>=100)? 'TUNTAS' : `${persen}%`;
-          warna = (persen>=100)? 'green' : 'red';
-        }
-        cell.innerHTML = `${totalStr}&nbsp;juz <span style="color:${warna};font-size:12px">${label}</span>`;
-        cell.dataset.murMode='range';
-      } else {
-        cell.innerHTML = `0.00&nbsp;juz <span style="color:red;font-size:12px">0%</span>`;
-        cell.dataset.murMode='range';
-      }
-    });
-
-    // simpan metadata range (opsional, utk auto)
-    await fetch('/.netlify/functions/aksesAutoUpdateAllJuzMur', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ fromDate:dari, toDate:sampai, kelas, data:[] })
-    });
-
-    alert('✅ Total All Juz Murajaah (rentang) sudah dihitung.');
-  } catch(e){
-    console.error(e);
-    alert('❌ Terjadi kesalahan: '+e.message);
-  } finally {
-    overlay.style.display='none';
+    $('#mur-overlay').style.display='none';
   }
-}
 
-// === versi otomatis (ambil default range dr file auto) ===
-async function hitungTotalAllJuzMurOtomatis(){
-  const kelas = kelasSelect.value;
-  const rows = santriTableBody.querySelectorAll('tr');
-  if (!rows.length){ setTimeout(hitungTotalAllJuzMurOtomatis, 200); return; }
+  function restoreRowIfAny(row){
+    try{
+      const kelas = window.kelasSelect?.value || 'KELAS';
+      const tgl   = window.tanggalInput?.value || 'TANGGAL';
+      const key   = mur_norm(row.dataset?.nis || row.dataset?.id || row.dataset?.key || "");
+      if (!key) return;
+      const val = localStorage.getItem(`mur:${kelas}:${tgl}:${key}`);
+      if (!val) return;
+      row.dataset.murSel = val;
+      const obj = JSON.parse(val);
+      const cell = row.querySelector('.mur-cell .mur-total');
+      if (cell && obj?.total!=null) cell.textContent = `${Number(obj.total).toFixed(2)} juz`;
+    }catch{}
+  }
 
-  const dEl=document.getElementById('rangeDari'), sEl=document.getElementById('rangeSampai');
-  try {
-    const r = await fetch('/.netlify/functions/getAutoUpdateAllJuzMur?t='+Date.now());
-    const list = await r.json();
-    const item = (list||[]).find(x=>x.kelas===kelas);
-    if (item){
-      if (dEl) dEl.value = item.fromDate || '';
-      if (sEl) sEl.value = item.toDate || '';
-    }
-  } catch {}
+  // ====== Ekspor buat dipanggil dari luar ======
+  window.mur_restoreAllRows = function(){
+    const rows = [...(document.getElementById('santriTableBody')?.querySelectorAll('tr') || [])];
+    rows.forEach(restoreRowIfAny);
+  };
+  window.mur_collectForRow = function(row){
+    const cell = row.querySelector('.mur-cell .mur-total');
+    const total = mur_num(cell?.textContent || "0");
+    const ds = row.dataset?.murSel ? JSON.parse(row.dataset.murSel) : null;
+    return {
+      juzmurajaah: Number(total.toFixed(2)),
+      murSurahFrom: ds?.sFrom ?? null,
+      murAyahFrom:  ds?.aFrom ?? null,
+      murSurahTo:   ds?.sTo   ?? null,
+      murAyahTo:    ds?.aTo   ?? null,
+      murPageFrom:  ds?.pFrom ?? null,
+      murPageTo:    ds?.pTo   ?? null
+    };
+  };
 
-  if (dEl?.value && sEl?.value) hitungTotalAllJuzMurFromTable();
-}
+  // ====== INIT ======
+  async function init(){
+    await ensureMaps();
 
-// panggil otomatis saat halaman siap (berbarengan dengan THMS otomatis)
-window.addEventListener('DOMContentLoaded', ()=> {
-  setTimeout(hitungTotalAllJuzMurOtomatis, 120);
-});
+    // open/close modal
+    document.getElementById('santriTableBody')?.addEventListener('click', (ev)=>{
+      const a = ev.target.closest('.mur-open'); if(!a) return;
+      ev.preventDefault();
+      currentRow = ev.target.closest('tr');
+      prefillFromRow(currentRow);
+      $('#mur-overlay').style.display = 'flex';
+    });
+    $('#mur-close').addEventListener('click', ()=>$('#mur-overlay').style.display='none');
+    $('#mur-apply').addEventListener('click', applyToRow);
+
+    // live re-calc on change
+    $('#mur-pageFrom').addEventListener('change', ()=> {
+      const r = (function(pF,pT){
+        const a = pageIndex[pF]||[], b=pageIndex[pT]||[];
+        if(!a.length||!b.length) return null;
+        const first=a[0], last=b[b.length-1];
+        return { sFrom:first.s, aFrom:first.a, sTo:last.s, aTo:last.a };
+      })(+$('#mur-pageFrom').value, +$('#mur-pageTo').value);
+      if (r){
+        $('#mur-surahFrom').value=String(r.sFrom); ayahFill('#mur-ayahFrom', r.sFrom, false, r.aFrom);
+        $('#mur-surahTo').value=String(r.sTo);     ayahFill('#mur-ayahTo',   r.sTo,   false, r.aTo);
+      }
+      renderLive();
+    });
+    $('#mur-pageTo').addEventListener('change', ()=> $('#mur-pageFrom').dispatchEvent(new Event('change')));
+    $('#mur-surahFrom').addEventListener('change', ()=>{ ayahFill('#mur-ayahFrom', +$('#mur-surahFrom').value, true); renderLive(); });
+    $('#mur-surahTo').addEventListener('change',   ()=>{ ayahFill('#mur-ayahTo',   +$('#mur-surahTo').value,   true); renderLive(); });
+    $('#mur-ayahFrom').addEventListener('change', renderLive);
+    $('#mur-ayahTo').addEventListener('change',   renderLive);
+
+    // restore tampilan (kalau ada cache LS)
+    window.mur_restoreAllRows();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
 </script>
-
-
 
 <script>
   // ====== KONFIG (opsional dari window.*) ======
@@ -7583,140 +7412,7 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
-<script>
-// =============== MURAJAAH: DROP-IN FIX =================
 
-// 1) Pastikan data master siap
-async function murEnsureDataReady() {
-  // surahList
-  if (!Array.isArray(window.surahList) || !window.surahList.length) {
-    try {
-      const r = await fetch("/.netlify/functions/getAyat");
-      if (r.ok) window.surahList = await r.json();
-    } catch (e) { console.warn("[Mur] getAyat gagal:", e); }
-  }
-  // pagesMap
-  if (!window.pagesMap || !Object.keys(window.pagesMap).length) {
-    try {
-      const r = await fetch("/.netlify/functions/getPagesMap");
-      if (r.ok) window.pagesMap = await r.json();
-    } catch (e) {
-      console.warn("[Mur] getPagesMap gagal, fallback raw GitHub:", e);
-      try {
-        const raw = await fetch("https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json");
-        if (raw.ok) window.pagesMap = await raw.json();
-      } catch (ee) { console.warn("[Mur] raw GitHub gagal:", ee); }
-    }
-  }
-  // jumlahAyatPerHalaman (kalau belum ada → bangun dari pagesMap)
-  if (!window.jumlahAyatPerHalaman) {
-    const map = window.pagesMap || {};
-    const j = {};
-    for (const [key, p] of Object.entries(map)) {
-      if (!p) continue;
-      j[p] = (j[p] || 0) + 1;
-    }
-    window.jumlahAyatPerHalaman = j;
-  }
-}
-
-// 2) Hitung total setara juz dari rentang Surah/Ayat
-function __murComputeTotalJuz(sF, aF, sT, aT) {
-  try {
-    if (!Array.isArray(window.surahList) || !window.pagesMap) return 0;
-  } catch { return 0; }
-
-  const SKIP = (h) => (h === 21 || (h >= 602 && h <= 604)); // halaman yang di-exclude
-  let total = 0;
-
-  for (let s = Number(sF); s <= Number(sT); s++) {
-    const surah = (window.surahList || []).find(x => Number(x.id) === Number(s));
-    const maxAyat = surah ? Number(surah.jumlah_ayat) : 0;
-    if (!maxAyat) continue;
-
-    const aStart = (s === Number(sF)) ? Number(aF) : 1;
-    const aEnd   = (s === Number(sT)) ? Number(aT) : maxAyat;
-
-    for (let a = aStart; a <= aEnd; a++) {
-      const page = window.pagesMap?.[`${s}:${a}`];
-      if (!page || SKIP(page)) continue;
-      const ayatPerPage = Number(window.jumlahAyatPerHalaman?.[page]) || 1;
-      total += (0.05 / ayatPerPage); // 1 halaman = 0.05 juz
-    }
-  }
-  return total;
-}
-
-// 3) Ambil semua baris tabel secara aman (tanpa tergantung variabel global)
-function murGetAllRows() {
-  const body =
-    window.santriTableBody ||
-    document.getElementById("santriTableBody") ||
-    document.querySelector("#santriTable tbody") ||
-    document.querySelector("table tbody");
-  return [...(body?.querySelectorAll("tr") || [])];
-}
-
-// 4) Handler tombol "Hitung Murajaah"
-async function hitungTotalAllJuzMurajaahFromTable() {
-  // baca rentang dari overlay
-  const sF = Number(document.getElementById("mur-surahFrom")?.value || 1);
-  const aF = Number(document.getElementById("mur-ayahFrom")?.value || 1);
-  const sT = Number(document.getElementById("mur-surahTo")?.value   || sF);
-  const aT = Number(document.getElementById("mur-ayahTo")?.value    || aF);
-
-  if (!sF || !aF || !sT || !aT) { alert("Rentang Surah/Ayat belum lengkap."); return; }
-
-  // pastikan data siap
-  await murEnsureDataReady();
-
-  // hitung
-  const totalMurNum = __murComputeTotalJuz(sF, aF, sT, aT);
-  const totalMurStr = totalMurNum.toFixed(2);
-
-  // batas per semester (untuk label)
-  const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
-
-  const rows = murGetAllRows();
-  if (!rows.length) console.warn("[Mur] Tidak menemukan baris santri. Pastikan tbody tabel ada.");
-
-  rows.forEach(row => {
-    const cell = row.querySelector(".total-all-juz-murajaah");
-    if (!cell) return;
-
-    // tentukan semester (pakai fungsi kamu kalau ada)
-    const key = (row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
-    const semester = (typeof getSemesterForKey === "function")
-      ? getSemesterForKey(key, row, null)
-      : Number(row.querySelector(".semester")?.value || 1);
-
-    const target = batasSemester[semester] || 0;
-
-    let label, warna;
-    if (totalMurNum >= 30) { label = "KHATAM"; warna = "green"; }
-    else {
-      let persen = target > 0 ? Math.floor((totalMurNum / target) * 100) : 0;
-      if (persen > 100) persen = 100;
-      label = (persen >= 100) ? "TUNTAS" : `${persen}%`;
-      warna = (persen >= 100) ? "green" : "red";
-    }
-
-    // tampilkan + simpan rentang ke dataset (dipakai saat Save Data)
-    cell.innerHTML = `${totalMurStr}&nbsp;juz <span style="color:${warna}; font-size:12px;">${label}</span>`;
-    cell.dataset.murSurahFrom = sF;
-    cell.dataset.murAyahFrom  = aF;
-    cell.dataset.murSurahTo   = sT;
-    cell.dataset.murAyahTo    = aT;
-    cell.dataset.murMode      = 'manual';
-  });
-
-  alert('✅ Total Juz Murajaah dihitung. Klik "Save Data" untuk menyimpan ke server (field: juzmurajaah).');
-}
-
-// 5) Wiring tombol
-document.getElementById("btnHitungTotalJuzMur")
-  ?.addEventListener("click", hitungTotalAllJuzMurajaahFromTable);
-</script>
 
 </body>
 </html>
