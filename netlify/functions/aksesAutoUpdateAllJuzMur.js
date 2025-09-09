@@ -1,5 +1,4 @@
 // netlify/functions/aksesAutoUpdateAllJuzMur.js  (COMMONJS, Node 18+)
-
 const GITHUB_REPO = "digitalmtq/server";
 const FILE_PATH   = "autoUpdateAllJuzMur.json";
 const BRANCH      = "main";
