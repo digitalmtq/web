@@ -6349,211 +6349,329 @@ document.getElementById('btnHitungTotalJuzMur')?.addEventListener('click', hitun
 
 <script>
 // ===============================
-// Step 2: Modal Murajaah (UI only)
+// Step 2: Modal Murajaah (UI only) — FULL REVISED
 // ===============================
 let __mur_initialized = false;
 let __mur_pageIndex = null; // page -> array of "s:a"
 
-// util kecil
-const murMakeOpts = (n) => Array.from({length:n}, (_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
 const MUR_LAST_PAGE = 604;
+const murMakeOpts = (n) =>
+  Array.from({ length: n }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
 
-// bangun index page sekali saja dari pagesMap (key "s:a" -> page)
-function murBuildPageIndex() {
-  if (__mur_pageIndex) return;
-  __mur_pageIndex = {};
-  const map = pagesMap || {};
-  for (const [key, page] of Object.entries(map)) {
-    if (!page) continue;
-    (__mur_pageIndex[page] ||= []).push(key); // simpan "s:a"
+// -------- Data readiness & fallback --------
+
+// Pastikan surahList & pagesMap ada; kalau belum, fetch dari server
+async function ensureMurDataReady() {
+  // Surah
+  try {
+    if (!Array.isArray(window.surahList) || window.surahList.length === 0) {
+      const r = await fetch("/.netlify/functions/getAyat");
+      if (r.ok) window.surahList = await r.json();
+    }
+  } catch (e) {
+    console.warn("Gagal memuat getAyat:", e);
+  }
+
+  // Pages map
+  try {
+    if (!window.pagesMap || Object.keys(window.pagesMap).length === 0) {
+      const r2 = await fetch("/.netlify/functions/getPagesMap");
+      if (r2.ok) window.pagesMap = await r2.json();
+    }
+  } catch (e) {
+    console.warn("Gagal memuat getPagesMap:", e);
   }
 }
 
-// isi select Surah & Ayat berdasar surahList
-function murFillSurahSelect(sel) {
-  const el = typeof sel === 'string' ? document.querySelector(sel) : sel;
-  if (!el || !Array.isArray(surahList)) return;
-  el.innerHTML = surahList.map(s => `<option value="${s.id}">${s.id} — ${s.nama}</option>`).join('');
+// Fallback jumlah ayat kalau data semesta belum lengkap
+function murFallbackMaxAyah(surahId) {
+  const n = Number(surahId);
+  if (n === 1) return 7;       // Al-Fatihah
+  if (n === 9) return 129;     // At-Taubah
+  return 286;                  // fallback umum
 }
-function murFillAyahSelect(sel, surahId, keepValue=false, preset=1) {
-  const el = typeof sel === 'string' ? document.querySelector(sel) : sel;
+
+// -------- Builders & Fillers --------
+
+// Bangun index page sekali dari pagesMap ("s:a" -> page → dibalik jadi page -> ["s:a"])
+function murBuildPageIndex() {
+  if (__mur_pageIndex) return;
+  const map = window.pagesMap || {};
+  if (!map || !Object.keys(map).length) {
+    __mur_pageIndex = null; // tidak tersedia
+    return;
+  }
+  __mur_pageIndex = {};
+  for (const [key, page] of Object.entries(map)) {
+    if (!page) continue;
+    (__mur_pageIndex[page] ||= []).push(key);
+  }
+}
+
+// Isi select Surah (gunakan data jika ada; kalau tidak, fallback 1..114)
+function murFillSurahSelect(sel) {
+  const el = typeof sel === "string" ? document.querySelector(sel) : sel;
   if (!el) return;
-  const s = Array.isArray(surahList) ? surahList.find(x => String(x.id) === String(surahId)) : null;
-  const max = s ? Number(s.jumlah_ayat) : 1;
+
+  if (Array.isArray(window.surahList) && window.surahList.length) {
+    el.innerHTML = window.surahList
+      .map((s) => `<option value="${s.id}">${s.id} — ${s.nama}</option>`)
+      .join("");
+  } else {
+    el.innerHTML = Array.from({ length: 114 }, (_, i) => {
+      const id = i + 1;
+      return `<option value="${id}">${id}</option>`;
+    }).join("");
+  }
+}
+
+// Isi select Ayat (gunakan jumlah_ayat dari data, kalau tidak fallback)
+function murFillAyahSelect(sel, surahId, keepValue = false, preset = 1) {
+  const el = typeof sel === "string" ? document.querySelector(sel) : sel;
+  if (!el) return;
+
+  let max;
+  if (Array.isArray(window.surahList) && window.surahList.length) {
+    const s = window.surahList.find((x) => String(x.id) === String(surahId));
+    max = s ? Number(s.jumlah_ayat) : murFallbackMaxAyah(surahId);
+  } else {
+    max = murFallbackMaxAyah(surahId);
+  }
+
   const prev = keepValue ? Number(el.value) : null;
   el.innerHTML = murMakeOpts(Math.max(1, max));
-  const val = keepValue && prev ? Math.min(prev, max) : Math.min(Number(preset||1), max);
+  const val = keepValue && prev ? Math.min(prev, max) : Math.min(Number(preset || 1), max);
   el.value = String(val);
 }
 
-// Page <-> Ayat conversions (pakai pagesMap)
+// -------- Conversions (Page <-> Ayat) --------
+
+// Page ke rentang Ayat (butuh pagesMap). Jika belum ada data, return null.
 function murPagesToAyahRange(pFrom, pTo) {
   murBuildPageIndex();
+  if (!__mur_pageIndex) return null;
   const firstArr = __mur_pageIndex?.[pFrom] || [];
   const lastArr  = __mur_pageIndex?.[pTo]   || [];
   if (!firstArr.length || !lastArr.length) return null;
-  const [s1,a1] = firstArr[0].split(':').map(Number);
-  const [s2,a2] = lastArr[lastArr.length-1].split(':').map(Number);
-  return { sFrom:s1, aFrom:a1, sTo:s2, aTo:a2 };
+
+  const [s1, a1] = firstArr[0].split(":").map(Number);
+  const [s2, a2] = lastArr[lastArr.length - 1].split(":").map(Number);
+  return { sFrom: s1, aFrom: a1, sTo: s2, aTo: a2 };
 }
+
+// Ayat ke rentang Page (butuh pagesMap). Jika belum ada data, return null.
 function murAyahRangeToPages(sFrom, aFrom, sTo, aTo) {
+  if (!window.pagesMap || !Object.keys(window.pagesMap).length) return null;
+
   let minP = Infinity, maxP = -Infinity, found = false;
-  // iterasi ayat di rentang menggunakan surahList + pagesMap
   for (let s = Number(sFrom); s <= Number(sTo); s++) {
-    const surah = Array.isArray(surahList) ? surahList.find(x => Number(x.id) === s) : null;
-    const totalAyat = surah ? Number(surah.jumlah_ayat) : 300;
-    const aStart = (s===Number(sFrom)) ? Number(aFrom) : 1;
-    const aEnd   = (s===Number(sTo))   ? Number(aTo)   : totalAyat;
-    for (let a=aStart; a<=aEnd; a++) {
-      const p = pagesMap?.[`${s}:${a}`];
+    const surah = Array.isArray(window.surahList)
+      ? window.surahList.find((x) => Number(x.id) === s)
+      : null;
+    const totalAyat = surah ? Number(surah.jumlah_ayat) : murFallbackMaxAyah(s);
+    const aStart = s === Number(sFrom) ? Number(aFrom) : 1;
+    const aEnd   = s === Number(sTo)   ? Number(aTo)   : totalAyat;
+
+    for (let a = aStart; a <= aEnd; a++) {
+      const p = window.pagesMap?.[`${s}:${a}`];
       if (!p) continue;
       if (p < minP) minP = p;
       if (p > maxP) maxP = p;
       found = true;
     }
   }
-  return found ? { pFrom:minP, pTo:maxP } : null;
+  return found ? { pFrom: minP, pTo: maxP } : null;
 }
 
-// guard & sinkronisasi
+// -------- Guards & Info --------
+
 function murGuardPage() {
-  const pFEl = document.getElementById('mur-pageFrom');
-  const pTEl = document.getElementById('mur-pageTo');
+  const pFEl = document.getElementById("mur-pageFrom");
+  const pTEl = document.getElementById("mur-pageTo");
+  if (!pFEl || !pTEl) return;
   let pF = Number(pFEl.value || 1);
   let pT = Number(pTEl.value || pF);
   if (pT < pF) { pT = pF; pTEl.value = String(pT); }
 }
+
 function murGuardAyah() {
-  const sFEl = document.getElementById('mur-surahFrom');
-  const aFEl = document.getElementById('mur-ayahFrom');
-  const sTEl = document.getElementById('mur-surahTo');
-  const aTEl = document.getElementById('mur-ayahTo');
-  const sF = Number(sFEl.value||1), aF = Number(aFEl.value||1);
-  let sT = Number(sTEl.value||sF), aT = Number(aTEl.value||aF);
-  if (sT < sF || (sT===sF && aT<aF)) {
+  const sFEl = document.getElementById("mur-surahFrom");
+  const aFEl = document.getElementById("mur-ayahFrom");
+  const sTEl = document.getElementById("mur-surahTo");
+  const aTEl = document.getElementById("mur-ayahTo");
+  if (!sFEl || !aFEl || !sTEl || !aTEl) return;
+
+  const sF = Number(sFEl.value || 1), aF = Number(aFEl.value || 1);
+  let sT = Number(sTEl.value || sF), aT = Number(aTEl.value || aF);
+  if (sT < sF || (sT === sF && aT < aF)) {
     sTEl.value = String(sF);
-    murFillAyahSelect(aTEl, sF, /*keep*/true);
+    murFillAyahSelect(aTEl, sF, /*keep*/ true);
     if (Number(aTEl.value) < aF) aTEl.value = String(aF);
   }
 }
 
-// render info ringkas (tanpa perhitungan juz; itu di Step 4)
+// Render info ringkas
 function murRenderInfo() {
-  const sF = Number(document.getElementById('mur-surahFrom').value||1);
-  const aF = Number(document.getElementById('mur-ayahFrom').value||1);
-  const sT = Number(document.getElementById('mur-surahTo').value||sF);
-  const aT = Number(document.getElementById('mur-ayahTo').value||aF);
+  const sF = Number(document.getElementById("mur-surahFrom")?.value || 1);
+  const aF = Number(document.getElementById("mur-ayahFrom")?.value || 1);
+  const sT = Number(document.getElementById("mur-surahTo")?.value || sF);
+  const aT = Number(document.getElementById("mur-ayahTo")?.value || aF);
   const pr = murAyahRangeToPages(sF, aF, sT, aT);
-  const info = document.getElementById('mur-infoRange');
-  if (pr) {
-    info.textContent = `Rentang: Surah ${sF}:${aF} → ${sT}:${aT} (Hal. ${pr.pFrom}–${pr.pTo})`;
-  } else {
-    info.textContent = `Rentang: Surah ${sF}:${aF} → ${sT}:${aT}`;
-  }
+  const info = document.getElementById("mur-infoRange");
+  if (!info) return;
+
+  if (pr) info.textContent = `Rentang: Surah ${sF}:${aF} → ${sT}:${aT} (Hal. ${pr.pFrom}–${pr.pTo})`;
+  else    info.textContent = `Rentang: Surah ${sF}:${aF} → ${sT}:${aT}`;
 }
 
-// sinkron jika Page berubah
+// -------- Event Handlers --------
+
 function onMurPageChange() {
   murGuardPage();
-  const pF = Number(document.getElementById('mur-pageFrom').value||1);
-  const pT = Number(document.getElementById('mur-pageTo').value||pF);
+  const pF = Number(document.getElementById("mur-pageFrom")?.value || 1);
+  const pT = Number(document.getElementById("mur-pageTo")?.value   || pF);
   const r = murPagesToAyahRange(pF, pT);
   if (r) {
-    document.getElementById('mur-surahFrom').value = String(r.sFrom);
-    murFillAyahSelect('#mur-ayahFrom', r.sFrom, false, r.aFrom);
-    document.getElementById('mur-surahTo').value   = String(r.sTo);
-    murFillAyahSelect('#mur-ayahTo',   r.sTo,   false, r.aTo);
+    const sFEl = document.getElementById("mur-surahFrom");
+    const aFEl = document.getElementById("mur-ayahFrom");
+    const sTEl = document.getElementById("mur-surahTo");
+    const aTEl = document.getElementById("mur-ayahTo");
+    if (sFEl && aFEl && sTEl && aTEl) {
+      sFEl.value = String(r.sFrom);
+      murFillAyahSelect(aFEl, r.sFrom, false, r.aFrom);
+      sTEl.value = String(r.sTo);
+      murFillAyahSelect(aTEl, r.sTo, false, r.aTo);
+    }
   }
   murRenderInfo();
 }
-// sinkron jika Surah berubah
+
 function onMurSurahChanged(which) {
-  if (which === 'from') {
-    const s = Number(document.getElementById('mur-surahFrom').value||1);
-    murFillAyahSelect('#mur-ayahFrom', s, /*keep*/true);
+  if (which === "from") {
+    const s = Number(document.getElementById("mur-surahFrom")?.value || 1);
+    murFillAyahSelect("#mur-ayahFrom", s, /*keep*/ true);
   } else {
-    const s = Number(document.getElementById('mur-surahTo').value||1);
-    murFillAyahSelect('#mur-ayahTo', s, /*keep*/true);
+    const s = Number(document.getElementById("mur-surahTo")?.value || 1);
+    murFillAyahSelect("#mur-ayahTo", s, /*keep*/ true);
   }
   murGuardAyah();
-  // sync page dari ayah
-  const sF = Number(document.getElementById('mur-surahFrom').value||1);
-  const aF = Number(document.getElementById('mur-ayahFrom').value||1);
-  const sT = Number(document.getElementById('mur-surahTo').value||sF);
-  const aT = Number(document.getElementById('mur-ayahTo').value||aF);
+
+  // Sync page dari ayat (jika pagesMap ada)
+  const sF = Number(document.getElementById("mur-surahFrom")?.value || 1);
+  const aF = Number(document.getElementById("mur-ayahFrom")?.value || 1);
+  const sT = Number(document.getElementById("mur-surahTo")?.value || sF);
+  const aT = Number(document.getElementById("mur-ayahTo")?.value || aF);
   const pr = murAyahRangeToPages(sF, aF, sT, aT);
   if (pr) {
-    document.getElementById('mur-pageFrom').value = String(pr.pFrom);
-    document.getElementById('mur-pageTo').value   = String(pr.pTo);
+    const pFEl = document.getElementById("mur-pageFrom");
+    const pTEl = document.getElementById("mur-pageTo");
+    if (pFEl) pFEl.value = String(pr.pFrom);
+    if (pTEl) pTEl.value = String(pr.pTo);
   }
   murRenderInfo();
 }
-// sinkron jika Ayat berubah
+
 function onMurAyatChanged() {
   murGuardAyah();
-  const sF = Number(document.getElementById('mur-surahFrom').value||1);
-  const aF = Number(document.getElementById('mur-ayahFrom').value||1);
-  const sT = Number(document.getElementById('mur-surahTo').value||sF);
-  const aT = Number(document.getElementById('mur-ayahTo').value||aF);
+  const sF = Number(document.getElementById("mur-surahFrom")?.value || 1);
+  const aF = Number(document.getElementById("mur-ayahFrom")?.value || 1);
+  const sT = Number(document.getElementById("mur-surahTo")?.value || sF);
+  const aT = Number(document.getElementById("mur-ayahTo")?.value || aF);
   const pr = murAyahRangeToPages(sF, aF, sT, aT);
   if (pr) {
-    document.getElementById('mur-pageFrom').value = String(pr.pFrom);
-    document.getElementById('mur-pageTo').value   = String(pr.pTo);
+    const pFEl = document.getElementById("mur-pageFrom");
+    const pTEl = document.getElementById("mur-pageTo");
+    if (pFEl) pFEl.value = String(pr.pFrom);
+    if (pTEl) pTEl.value = String(pr.pTo);
   }
   murRenderInfo();
 }
 
-// inisialisasi modal saat pertama dibuka
-function initMurOverlayIfNeeded() {
+// -------- Init & Open Overlay --------
+
+async function initMurOverlayIfNeeded() {
   if (__mur_initialized) return;
-  if (!Array.isArray(surahList) || !pagesMap) {
-    console.warn("surahList/pagesMap belum siap; modal tetap dilanjutkan.");
+
+  // Data readiness (auto-fetch kalau perlu)
+  await ensureMurDataReady();
+
+  // Bangun index page (jika pagesMap tersedia)
+  try { murBuildPageIndex(); } catch (e) { console.warn(e); }
+
+  // Isi opsi Page (selalu 1..604)
+  const pFrom = document.getElementById("mur-pageFrom");
+  const pTo   = document.getElementById("mur-pageTo");
+  if (pFrom) pFrom.innerHTML = murMakeOpts(MUR_LAST_PAGE);
+  if (pTo)   pTo.innerHTML   = murMakeOpts(MUR_LAST_PAGE);
+
+  // Isi opsi Surah & Ayat
+  murFillSurahSelect("#mur-surahFrom");
+  murFillSurahSelect("#mur-surahTo");
+  murFillAyahSelect("#mur-ayahFrom", 1, false, 1);
+  murFillAyahSelect("#mur-ayahTo",   1, false, 1);
+
+  // Default 1–1 atau restore dari localStorage
+  let restored = false;
+  try {
+    const cache = localStorage.getItem("murRangeLast");
+    if (cache) {
+      const { sF, aF, sT, aT } = JSON.parse(cache);
+      if (Number(sF) && Number(aF) && Number(sT) && Number(aT)) {
+        document.getElementById("mur-surahFrom").value = String(sF);
+        murFillAyahSelect("#mur-ayahFrom", sF, false, aF);
+        document.getElementById("mur-surahTo").value = String(sT);
+        murFillAyahSelect("#mur-ayahTo", sT, false, aT);
+        const pr = murAyahRangeToPages(sF, aF, sT, aT);
+        if (pr) {
+          if (pFrom) pFrom.value = String(pr.pFrom);
+          if (pTo)   pTo.value   = String(pr.pTo);
+        } else {
+          if (pFrom) pFrom.value = "1";
+          if (pTo)   pTo.value   = "1";
+        }
+        restored = true;
+      }
+    }
+  } catch {}
+
+  if (!restored) {
+    if (pFrom) pFrom.value = "1";
+    if (pTo)   pTo.value   = "1";
+    const r = murPagesToAyahRange(1, 1);
+    if (r) {
+      document.getElementById("mur-surahFrom").value = String(r.sFrom);
+      murFillAyahSelect("#mur-ayahFrom", r.sFrom, false, r.aFrom);
+      document.getElementById("mur-surahTo").value = String(r.sTo);
+      murFillAyahSelect("#mur-ayahTo", r.sTo, false, r.aTo);
+    }
   }
-  murBuildPageIndex();
 
-  // isi opsi
-  document.getElementById('mur-pageFrom').innerHTML = murMakeOpts(604);
-  document.getElementById('mur-pageTo').innerHTML   = murMakeOpts(604);
+  // Listeners
+  document.getElementById("mur-pageFrom")?.addEventListener("change", onMurPageChange);
+  document.getElementById("mur-pageTo")?.addEventListener("change",   onMurPageChange);
+  document.getElementById("mur-surahFrom")?.addEventListener("change", () => onMurSurahChanged("from"));
+  document.getElementById("mur-surahTo")?.addEventListener("change",   () => onMurSurahChanged("to"));
+  document.getElementById("mur-ayahFrom")?.addEventListener("change", onMurAyatChanged);
+  document.getElementById("mur-ayahTo")?.addEventListener("change",   onMurAyatChanged);
 
-  murFillSurahSelect('#mur-surahFrom');
-  murFillSurahSelect('#mur-surahTo');
-  murFillAyahSelect('#mur-ayahFrom', 1, false, 1);
-  murFillAyahSelect('#mur-ayahTo',   1, false, 1);
-
-  // default 1–1
-  document.getElementById('mur-pageFrom').value = '1';
-  document.getElementById('mur-pageTo').value   = '1';
-  const r = murPagesToAyahRange(1,1);
-  if (r) {
-    document.getElementById('mur-surahFrom').value = String(r.sFrom);
-    murFillAyahSelect('#mur-ayahFrom', r.sFrom, false, r.aFrom);
-    document.getElementById('mur-surahTo').value   = String(r.sTo);
-    murFillAyahSelect('#mur-ayahTo',   r.sTo,   false, r.aTo);
-  }
-
-  // listeners
-  document.getElementById('mur-pageFrom').addEventListener('change', onMurPageChange);
-  document.getElementById('mur-pageTo').addEventListener('change',   onMurPageChange);
-  document.getElementById('mur-surahFrom').addEventListener('change', ()=>onMurSurahChanged('from'));
-  document.getElementById('mur-surahTo').addEventListener('change',   ()=>onMurSurahChanged('to'));
-  document.getElementById('mur-ayahFrom').addEventListener('change', onMurAyatChanged);
-  document.getElementById('mur-ayahTo').addEventListener('change',   onMurAyatChanged);
-
-  // close button
-  document.getElementById('btnMurClose')?.addEventListener('click', ()=> {
-    document.getElementById('juzMurOverlay').style.display = 'none';
+  // Close
+  document.getElementById("btnMurClose")?.addEventListener("click", () => {
+    const ov = document.getElementById("juzMurOverlay");
+    if (ov) ov.style.display = "none";
   });
 
   __mur_initialized = true;
   murRenderInfo();
 }
 
-// ganti stub Step 1: buka overlay Murajaah
-function bukaOverlayTotalAllJuzMur() {
-  initMurOverlayIfNeeded();
-  document.getElementById('juzMurOverlay').style.display = 'flex';
+// Buka overlay (async) — tunggu init supaya dropdown dipastikan terisi
+async function bukaOverlayTotalAllJuzMur() {
+  await initMurOverlayIfNeeded();
+  const ov = document.getElementById("juzMurOverlay");
+  if (ov) ov.style.display = "flex";
 }
 </script>
+
 
 
 
