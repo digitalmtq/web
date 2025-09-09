@@ -6495,30 +6495,83 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 <script>
 (function(){
-  // ===== util kecil (aman, tidak bentrok)
+  // ===== util kecil & selector aman
   const $  = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
-  const normKeyMur = v => String(v ?? "").trim();
-  const parseNumMur = v => {
+  const normKey = v => String(v ?? "").trim();
+  const parseNum = v => {
     if (typeof window.parseNum === "function") return window.parseNum(v);
     let s = String(v ?? "").trim();
     if (!s) return 0;
     s = s.replace(/[^0-9.,-]/g,"");
-    const comma = s.lastIndexOf(","), dot = s.lastIndexOf(".");
-    if (comma>-1 && dot>-1) { if (comma>dot){ s=s.replace(/\./g,"").replace(",","."); } else { s=s.replace(/,/g,""); } }
-    else if (comma>-1) { s=s.replace(/\./g,"").replace(",","."); }
+    const c = s.lastIndexOf(","), d = s.lastIndexOf(".");
+    if (c>-1 && d>-1){ if (c>d){ s=s.replace(/\./g,"").replace(",","."); } else { s=s.replace(/,/g,""); } }
+    else if (c>-1){ s=s.replace(/\./g,"").replace(",","."); }
     else { s=s.replace(/,/g,""); }
     const n = parseFloat(s); return Number.isFinite(n)?n:0;
   };
 
-  function kelasNow(){ try{ return normKeyMur(window.kelasSelect?.value || $('#kelasSelect')?.value); }catch{return ""} }
-  function getNamaFromCell(cell){
-    if (!cell) return ""; const first = cell.childNodes && cell.childNodes[0];
-    const txt = (first && first.textContent) ? first.textContent : cell.textContent;
-    return String(txt).trim();
+  // ===== deteksi tabel santri secara fleksibel
+  function getSantriTable(){
+    return document.getElementById('santri-table')
+        || document.getElementById('santriTable')
+        || document.querySelector('table[data-role="santri-table"]')
+        || document.querySelector('table.santri-table')
+        || null;
   }
 
-  // ===== pakai ensureSemesterMap/getSemesterForKey jika sudah ada; bila tidak, sediakan fallback
+  // ===== deteksi kelas secara fleksibel (dan simpan ke localStorage)
+  function kelasNow(){
+    // 1) global
+    if (window.kelasSelect && window.kelasSelect.value) {
+      const v = normKey(window.kelasSelect.value);
+      try{ localStorage.setItem('lastKelas', v);}catch{}
+      return v;
+    }
+    // 2) selector umum
+    const sel = document.querySelector(
+      'select#kelasSelect, select[name="kelas"], select[name="kelasSelect"], ' +
+      'select.kelas-select, select.kelas, #kelas, .kelasSelect, .kelas'
+    );
+    if (sel && sel.value){
+      const v = normKey(sel.value);
+      try{ localStorage.setItem('lastKelas', v);}catch{}
+      return v;
+    }
+    // 3) atribut data
+    const ref = document.querySelector('[data-kelas]');
+    if (ref?.dataset?.kelas) {
+      const v = normKey(ref.dataset.kelas);
+      try{ localStorage.setItem('lastKelas', v);}catch{}
+      return v;
+    }
+    // 4) querystring
+    const qs = new URLSearchParams(location.search);
+    const vq = qs.get('kelas') || qs.get('class') || qs.get('kls');
+    if (vq){ const v = normKey(vq); try{ localStorage.setItem('lastKelas', v);}catch{}; return v; }
+    // 5) localStorage (fallback)
+    try{
+      const last = localStorage.getItem('lastKelas');
+      if (last) return normKey(last);
+    }catch{}
+    return '';
+  }
+  // pantau perubahan kelas agar tersimpan
+  (function trackKelas(){
+    const cands = document.querySelectorAll(
+      'select#kelasSelect, select[name="kelas"], select[name="kelasSelect"], ' +
+      'select.kelas-select, select.kelas, #kelas, .kelasSelect, .kelas'
+    );
+    cands.forEach(el=> el.addEventListener('change', ()=> {
+      try{ localStorage.setItem('lastKelas', normKey(el.value||"")); }catch{}
+    }));
+    const k0 = kelasNow(); if (k0) try{ localStorage.setItem('lastKelas', k0);}catch{}
+  })();
+
+  // ===== batas THMS per semester
+  const BATAS = {1:8, 2:13, 3:18, 4:23, 5:28, 6:30};
+
+  // ===== pastikan semesterMap (pakai punyamu kalau ada)
   const ensureSemesterMap = window.ensureSemesterMap || (async function(kelas){
     if (window.semesterMap && Object.keys(window.semesterMap).length) return;
     try{
@@ -6526,12 +6579,11 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       const santri = await r.json();
       window.semesterMap = {};
       (santri||[]).forEach(s=>{
-        const k = normKeyMur(s?.nis) || normKeyMur(s?.id);
+        const k = normKey(s?.nis) || normKey(s?.id);
         if (k) window.semesterMap[k] = String(s?.semester ?? "1");
       });
     }catch(e){ window.semesterMap ??={}; }
   });
-
   function getSemesterForKeyLocal(key, row, fallback){
     if (typeof window.getSemesterForKey === "function") return window.getSemesterForKey(key, row, fallback);
     const mapVal = window?.semesterMap ? window.semesterMap[key] : null;
@@ -6542,14 +6594,11 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     return 1;
   }
 
-  // ===== batas THMS per semester
-  const BATAS = { 1:8, 2:13, 3:18, 4:23, 5:28, 6:30 };
-
-  // ===== sisip header & kolom
+  // ===== sisip header & kolom baru
   function ensureMurRangeColumn(){
-    const table = $('#santri-table'); if (!table) return;
+    const table = getSantriTable(); if (!table) return;
 
-    // header
+    // header sisip "Total Mur (Range)"
     const thRow = table.tHead?.rows?.[0];
     if (thRow && !thRow.querySelector('#murRangeHeader')){
       const th = document.createElement('th');
@@ -6557,12 +6606,13 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       th.style.cursor = 'pointer';
       th.style.textDecoration = 'underline';
       th.textContent = 'Total Mur (Range)';
-      const murTh = thRow.querySelector('.mur-header'); // sisip setelah kolom Murajaah (jika ada)
-      if (murTh && murTh.nextSibling) thRow.insertBefore(th, murTh.nextSibling); else thRow.appendChild(th);
+      const murTh = thRow.querySelector('.mur-header');
+      if (murTh && murTh.nextSibling) thRow.insertBefore(th, murTh.nextSibling);
+      else thRow.appendChild(th);
       th.addEventListener('click', bukaOverlayTotalMurRange);
     }
 
-    // body rows → tambah cell penampung
+    // body rows → tambahkan cell hasil
     const rows = table.tBodies?.[0]?.rows || [];
     [...rows].forEach(tr=>{
       if (tr.querySelector('.total-mur-range')) return;
@@ -6575,21 +6625,18 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     });
   }
 
-  // ===== buka overlay (default tanggal + guard)
+  // ===== overlay buka (restore rentang jika ada)
   function bukaOverlayTotalMurRange(){
     const el = $('#murRangeOverlay'); if (!el) return;
     const today = new Date(); const yyyy = today.getFullYear();
     const mm = String(today.getMonth()+1).padStart(2,"0");
     const dd = String(today.getDate()).padStart(2,"0");
     const todayStr = `${yyyy}-${mm}-${dd}`;
-
     const dari = $('#murRangeDari'); const sampai = $('#murRangeSampai');
     if (dari){ dari.max = todayStr; if (!dari.value || dari.value > todayStr) dari.value = todayStr; }
     if (sampai){ sampai.removeAttribute('max'); if (!sampai.value) sampai.value = todayStr; }
-
-    // coba restore otomatis dari server setting terkahir
-    const kelas = kelasNow();
-    if (kelas) {
+    const kelas = kelasNow(); // boleh kosong di sini; hanya untuk restore
+    if (kelas){
       fetch(`/.netlify/functions/getAutoUpdateAllJuzMur?t=${Date.now()}`).then(r=>r.json()).then(arr=>{
         const item = (arr||[]).find(x=>x.kelas===kelas);
         if (item){
@@ -6598,19 +6645,20 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         }
       }).catch(()=>{});
     }
-
     $('#murRangeStatus').textContent = '';
     el.style.display = 'flex';
   }
 
-  // ===== hitung dari server & terapkan ke tabel
+  // ===== hitung dari server → tampilkan di kolom
   async function hitungTotalMurRangeFromTable(){
     const kelas  = kelasNow();
+    const table  = getSantriTable();
     const dari   = $('#murRangeDari')?.value;
     const sampai = $('#murRangeSampai')?.value;
 
-    if (!kelas){ alert("Mohon pilih kelas."); return; }
-    if (!dari) { alert("Mohon pilih tanggal Dari."); return; }
+    if (!kelas){ alert("Mohon pilih kelas."); console.warn("murajaah: kelas kosong"); return; }
+    if (!table){ alert("Tabel santri belum tersedia."); console.warn("murajaah: table tidak ada"); return; }
+    if (!dari){ alert("Mohon pilih tanggal Dari."); return; }
     if (!sampai){ alert("Mohon pilih tanggal Sampai."); return; }
 
     $('#murRangeStatus').textContent = "⏳ Menghitung…";
@@ -6618,43 +6666,41 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     try{
       await ensureSemesterMap(kelas);
 
-      // Ambil data absensi rentang
       const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
       if (!res.ok) throw new Error("Gagal ambil data absensi.");
       const payload = await res.json();
       const allData = Array.isArray(payload) ? payload : (payload?.list || []);
 
-      const rows = [...($('#santri-table')?.tBodies?.[0]?.rows || [])];
+      const rows = [...(table.tBodies?.[0]?.rows || [])];
 
-      // peta nama → key (fallback kalau arsip tanpa NIS/ID)
+      // peta nama → key (fallback)
       const nameToKey = new Map();
       rows.forEach(row=>{
-        const key = normKeyMur(row.dataset?.nis || row.dataset?.id || row.dataset?.key);
-        const nm  = getNamaFromCell(row.children?.[1]);
-        if (key && nm) nameToKey.set(nm.toLowerCase(), key);
+        const key = normKey(row.dataset?.nis || row.dataset?.id || row.dataset?.key);
+        const nm  = (row.children?.[1] ? (row.children[1].childNodes?.[0]?.textContent || row.children[1].textContent) : "") || "";
+        if (key && nm) nameToKey.set(nm.trim().toLowerCase(), key);
       });
 
-      // rekap per key: sum juzmurajaah + count entri (yang >0)
-      const rekap = Object.create(null); // key → { sum, count, semester? }
+      // rekap per key
+      const rekap = Object.create(null); // key → { sum, count, semester? , id, nis }
       (allData||[]).forEach(item=>{
-        let id  = normKeyMur(item?.id);
-        let nis = normKeyMur(item?.nis);
-        let key = normKeyMur(nis || id);
+        let id  = normKey(item?.id);
+        let nis = normKey(item?.nis);
+        let key = normKey(nis || id);
         if (!key){
-          const nm = normKeyMur(item?.nama).toLowerCase();
+          const nm = normKey(item?.nama).toLowerCase();
           if (nm && nameToKey.has(nm)) key = nameToKey.get(nm);
         }
         if (!key) return;
-        const val = parseNumMur(item?.juzmurajaah);
-        if (!rekap[key]) rekap[key] = { sum:0, count:0, semester:item?.semester ?? null, id:item?.id||"", nis:item?.nis||"", nama:item?.nama||"" };
+        const val = parseNum(item?.juzmurajaah);
+        if (!rekap[key]) rekap[key] = { sum:0, count:0, semester:item?.semester ?? null, id:item?.id||"", nis:item?.nis||"" };
         rekap[key].sum += val;
         if (val > 0) rekap[key].count += 1;
       });
 
-      // tampilkan di kolom + siapkan meta untuk save setting range
-      const meta = [];
+      // tampilkan
       rows.forEach(row=>{
-        const key  = normKeyMur(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
+        const key  = normKey(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
         const cell = row.querySelector('.total-mur-range');
         if (!cell) return;
 
@@ -6673,18 +6719,15 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         }
 
         cell.innerHTML = `${totalStr}&nbsp;juz <span class="mur-range-badge" style="color:${warna}; font-size:12px">${label}</span> <small class="mur-range-count" style="color:#6b7280">(${rec?.count||0})</small>`;
-        // simpan dataset (optional)
         cell.dataset.murRangeTotal = totalStr;
         cell.dataset.murRangeCount = String(rec?.count || 0);
-
-        meta.push({ key, id:rec?.id||"", nis:rec?.nis||"", totalMur:Number(totalStr) });
       });
 
-      // Simpan meta range (opsional, aman bila fungsi tidak ada)
+      // simpan meta range (opsional)
       try{
+        const meta = Object.entries(rekap).map(([key, r])=>({ key, id:r.id||"", nis:r.nis||"", totalMur: Number((r.sum||0).toFixed(2)) }));
         await fetch('/.netlify/functions/aksesAutoUpdateAllJuzMur', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
+          method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ fromDate:dari, toDate:sampai, kelas, data: meta })
         });
       }catch(_){}
@@ -6697,59 +6740,27 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     }
   }
 
-  // tombol “Hitung Total MUR”
+  // tombol overlay
   $('#btnHitungTotalMur')?.addEventListener('click', hitungTotalMurRangeFromTable);
 
-  // ===== otomatis restore setelah tabel dirender
-  async function hitungTotalMurRangeOtomatis(){
-    const kelas = kelasNow(); if (!kelas) return;
-
-    // tunggu baris ada
-    const rows = $('#santri-table')?.tBodies?.[0]?.rows || [];
-    if (!rows.length){ setTimeout(hitungTotalMurRangeOtomatis, 200); return; }
-
-    // coba ambil tanggal default dari server
-    const dariEl = $('#murRangeDari'), sampaiEl = $('#murRangeSampai');
-    try{
-      const res = await fetch(`/.netlify/functions/getAutoUpdateAllJuzMur?t=${Date.now()}`);
-      const all = await res.json();
-      const item = (all||[]).find(x=>x.kelas===kelas);
-      if (item){
-        if (dariEl)   dariEl.value   = item.fromDate || dariEl.value || "";
-        if (sampaiEl) sampaiEl.value = item.toDate   || sampaiEl.value || "";
-      }
-    }catch(e){}
-
-    const dari = dariEl?.value, sampai = sampaiEl?.value;
-    if (dari && sampai){
-      await hitungTotalMurRangeFromTable(); // langsung isi kolom berdasarkan setting terakhir
-    }
-  }
-
-  // ===== hook ke siklus render yang ada
+  // ===== hook render
   function afterTableRenderedMurRange(){
     ensureMurRangeColumn();
   }
-
-  // dipanggil otomatis saat halaman siap & sesudah tabel di-refresh
   const _origLoad = window.loadSantriData;
   window.loadSantriData = async function(...args){
     if (typeof _origLoad === 'function') await _origLoad.apply(this, args);
     setTimeout(afterTableRenderedMurRange, 30);
-    setTimeout(hitungTotalMurRangeOtomatis, 80);
   };
 
   if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', ()=>{
-      afterTableRenderedMurRange();
-      setTimeout(hitungTotalMurRangeOtomatis, 120);
-    });
+    document.addEventListener('DOMContentLoaded', afterTableRenderedMurRange);
   } else {
     afterTableRenderedMurRange();
-    setTimeout(hitungTotalMurRangeOtomatis, 80);
   }
 })();
 </script>
+
 
 
 <script>
