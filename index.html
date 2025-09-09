@@ -2265,6 +2265,49 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
     </div>
   </div>
 </div>
+
+
+<!-- Kolom header akan disisipkan otomatis via JS.
+     Ini hanya overlay untuk set tanggal + info THMS. -->
+
+<!-- ===========================
+     Overlay Total Mur (Range)
+     =========================== -->
+<div id="murRangeOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1200; justify-content:center; align-items:center;">
+  <div style="background:#fff; padding:20px; border-radius:12px; width:min(520px,94%); box-shadow:0 12px 36px rgba(0,0,0,.18)">
+    <h3 style="margin:0 0 10px;">Target Hafalan Minimal Semester</h3>
+
+    <style>
+      #murRangeOverlay .juz-list{
+        margin:8px 0 12px;
+        padding-left:1.25rem;
+        list-style:disc;
+      }
+      #murRangeOverlay .juz-list li{ margin:4px 0; line-height:1.55; }
+      #murRangeOverlay .juz-list li::marker{ color:#3b82f6; font-size:1.1em; }
+      #murRangeOverlay .juz-list strong{ font-variant-numeric:tabular-nums; }
+    </style>
+
+    <ul class="juz-list">
+      <li>Semester 1: <strong>8</strong> Juz</li>
+      <li>Semester 2: <strong>5</strong> Juz</li>
+      <li>Semester 3: <strong>5</strong> Juz</li>
+      <li>Semester 4: <strong>5</strong> Juz</li>
+      <li>Semester 5: <strong>5</strong> Juz</li>
+      <li>Semester 6: <strong>2</strong> Juz</li>
+    </ul>
+
+    <hr style="border:none; border-top:1px solid #eee; margin:8px 0 12px;">
+
+    <label>Dari: <input type="date" id="murRangeDari"></label><br><br>
+    <label>Sampai: <input type="date" id="murRangeSampai"></label><br><br>
+
+    <div id="murRangeStatus" style="font-size:12px; color:#6b7280; margin-bottom:10px;"></div>
+
+    <button id="btnHitungTotalMur" type="button">Hitung Total MUR</button>
+    <button type="button" onclick="document.getElementById('murRangeOverlay').style.display='none'">Close</button>
+  </div>
+</div>	
   
  <script>
   // === Deklarasi elemen ===
@@ -6450,7 +6493,263 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 </script>
 
 
+<script>
+(function(){
+  // ===== util kecil (aman, tidak bentrok)
+  const $  = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+  const normKeyMur = v => String(v ?? "").trim();
+  const parseNumMur = v => {
+    if (typeof window.parseNum === "function") return window.parseNum(v);
+    let s = String(v ?? "").trim();
+    if (!s) return 0;
+    s = s.replace(/[^0-9.,-]/g,"");
+    const comma = s.lastIndexOf(","), dot = s.lastIndexOf(".");
+    if (comma>-1 && dot>-1) { if (comma>dot){ s=s.replace(/\./g,"").replace(",","."); } else { s=s.replace(/,/g,""); } }
+    else if (comma>-1) { s=s.replace(/\./g,"").replace(",","."); }
+    else { s=s.replace(/,/g,""); }
+    const n = parseFloat(s); return Number.isFinite(n)?n:0;
+  };
 
+  function kelasNow(){ try{ return normKeyMur(window.kelasSelect?.value || $('#kelasSelect')?.value); }catch{return ""} }
+  function getNamaFromCell(cell){
+    if (!cell) return ""; const first = cell.childNodes && cell.childNodes[0];
+    const txt = (first && first.textContent) ? first.textContent : cell.textContent;
+    return String(txt).trim();
+  }
+
+  // ===== pakai ensureSemesterMap/getSemesterForKey jika sudah ada; bila tidak, sediakan fallback
+  const ensureSemesterMap = window.ensureSemesterMap || (async function(kelas){
+    if (window.semesterMap && Object.keys(window.semesterMap).length) return;
+    try{
+      const r = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+      const santri = await r.json();
+      window.semesterMap = {};
+      (santri||[]).forEach(s=>{
+        const k = normKeyMur(s?.nis) || normKeyMur(s?.id);
+        if (k) window.semesterMap[k] = String(s?.semester ?? "1");
+      });
+    }catch(e){ window.semesterMap ??={}; }
+  });
+
+  function getSemesterForKeyLocal(key, row, fallback){
+    if (typeof window.getSemesterForKey === "function") return window.getSemesterForKey(key, row, fallback);
+    const mapVal = window?.semesterMap ? window.semesterMap[key] : null;
+    if (mapVal != null && mapVal !== "") return Number(mapVal);
+    const selVal = row?.querySelector?.(".semester")?.value;
+    if (selVal != null && selVal !== "") return Number(selVal);
+    if (fallback != null && fallback !== "") return Number(fallback);
+    return 1;
+  }
+
+  // ===== batas THMS per semester
+  const BATAS = { 1:8, 2:13, 3:18, 4:23, 5:28, 6:30 };
+
+  // ===== sisip header & kolom
+  function ensureMurRangeColumn(){
+    const table = $('#santri-table'); if (!table) return;
+
+    // header
+    const thRow = table.tHead?.rows?.[0];
+    if (thRow && !thRow.querySelector('#murRangeHeader')){
+      const th = document.createElement('th');
+      th.id = 'murRangeHeader';
+      th.style.cursor = 'pointer';
+      th.style.textDecoration = 'underline';
+      th.textContent = 'Total Mur (Range)';
+      const murTh = thRow.querySelector('.mur-header'); // sisip setelah kolom Murajaah (jika ada)
+      if (murTh && murTh.nextSibling) thRow.insertBefore(th, murTh.nextSibling); else thRow.appendChild(th);
+      th.addEventListener('click', bukaOverlayTotalMurRange);
+    }
+
+    // body rows → tambah cell penampung
+    const rows = table.tBodies?.[0]?.rows || [];
+    [...rows].forEach(tr=>{
+      if (tr.querySelector('.total-mur-range')) return;
+      const td = document.createElement('td');
+      td.className = 'total-mur-range';
+      td.innerHTML = `0.00&nbsp;juz <span class="mur-range-badge" style="color:#999; font-size:12px">0%</span> <small class="mur-range-count" style="color:#6b7280">(0)</small>`;
+      const murCell = tr.querySelector('.murajaah-cell');
+      if (murCell && murCell.nextSibling) tr.insertBefore(td, murCell.nextSibling);
+      else tr.appendChild(td);
+    });
+  }
+
+  // ===== buka overlay (default tanggal + guard)
+  function bukaOverlayTotalMurRange(){
+    const el = $('#murRangeOverlay'); if (!el) return;
+    const today = new Date(); const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,"0");
+    const dd = String(today.getDate()).padStart(2,"0");
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    const dari = $('#murRangeDari'); const sampai = $('#murRangeSampai');
+    if (dari){ dari.max = todayStr; if (!dari.value || dari.value > todayStr) dari.value = todayStr; }
+    if (sampai){ sampai.removeAttribute('max'); if (!sampai.value) sampai.value = todayStr; }
+
+    // coba restore otomatis dari server setting terkahir
+    const kelas = kelasNow();
+    if (kelas) {
+      fetch(`/.netlify/functions/getAutoUpdateAllJuzMur?t=${Date.now()}`).then(r=>r.json()).then(arr=>{
+        const item = (arr||[]).find(x=>x.kelas===kelas);
+        if (item){
+          if (dari)   dari.value   = item.fromDate || dari.value;
+          if (sampai) sampai.value = item.toDate   || sampai.value;
+        }
+      }).catch(()=>{});
+    }
+
+    $('#murRangeStatus').textContent = '';
+    el.style.display = 'flex';
+  }
+
+  // ===== hitung dari server & terapkan ke tabel
+  async function hitungTotalMurRangeFromTable(){
+    const kelas  = kelasNow();
+    const dari   = $('#murRangeDari')?.value;
+    const sampai = $('#murRangeSampai')?.value;
+
+    if (!kelas){ alert("Mohon pilih kelas."); return; }
+    if (!dari) { alert("Mohon pilih tanggal Dari."); return; }
+    if (!sampai){ alert("Mohon pilih tanggal Sampai."); return; }
+
+    $('#murRangeStatus').textContent = "⏳ Menghitung…";
+
+    try{
+      await ensureSemesterMap(kelas);
+
+      // Ambil data absensi rentang
+      const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
+      if (!res.ok) throw new Error("Gagal ambil data absensi.");
+      const payload = await res.json();
+      const allData = Array.isArray(payload) ? payload : (payload?.list || []);
+
+      const rows = [...($('#santri-table')?.tBodies?.[0]?.rows || [])];
+
+      // peta nama → key (fallback kalau arsip tanpa NIS/ID)
+      const nameToKey = new Map();
+      rows.forEach(row=>{
+        const key = normKeyMur(row.dataset?.nis || row.dataset?.id || row.dataset?.key);
+        const nm  = getNamaFromCell(row.children?.[1]);
+        if (key && nm) nameToKey.set(nm.toLowerCase(), key);
+      });
+
+      // rekap per key: sum juzmurajaah + count entri (yang >0)
+      const rekap = Object.create(null); // key → { sum, count, semester? }
+      (allData||[]).forEach(item=>{
+        let id  = normKeyMur(item?.id);
+        let nis = normKeyMur(item?.nis);
+        let key = normKeyMur(nis || id);
+        if (!key){
+          const nm = normKeyMur(item?.nama).toLowerCase();
+          if (nm && nameToKey.has(nm)) key = nameToKey.get(nm);
+        }
+        if (!key) return;
+        const val = parseNumMur(item?.juzmurajaah);
+        if (!rekap[key]) rekap[key] = { sum:0, count:0, semester:item?.semester ?? null, id:item?.id||"", nis:item?.nis||"", nama:item?.nama||"" };
+        rekap[key].sum += val;
+        if (val > 0) rekap[key].count += 1;
+      });
+
+      // tampilkan di kolom + siapkan meta untuk save setting range
+      const meta = [];
+      rows.forEach(row=>{
+        const key  = normKeyMur(row.dataset?.key || row.dataset?.nis || row.dataset?.id);
+        const cell = row.querySelector('.total-mur-range');
+        if (!cell) return;
+
+        const rec = key ? rekap[key] : null;
+        const totalNum = rec ? Number(rec.sum || 0) : 0;
+        const semester = getSemesterForKeyLocal(key, row, rec?.semester);
+        const target   = BATAS[semester] || 0;
+        const totalStr = totalNum.toFixed(2);
+
+        let label = "0%", warna = "red";
+        if (totalNum >= 30){ label="KHATAM"; warna="purple"; }
+        else {
+          let persen = target>0 ? Math.floor((totalNum/target)*100) : 0;
+          if (persen>100) persen=100;
+          if (persen>=100){ label="TUNTAS"; warna="green"; } else { label = `${persen}%`; warna="red"; }
+        }
+
+        cell.innerHTML = `${totalStr}&nbsp;juz <span class="mur-range-badge" style="color:${warna}; font-size:12px">${label}</span> <small class="mur-range-count" style="color:#6b7280">(${rec?.count||0})</small>`;
+        // simpan dataset (optional)
+        cell.dataset.murRangeTotal = totalStr;
+        cell.dataset.murRangeCount = String(rec?.count || 0);
+
+        meta.push({ key, id:rec?.id||"", nis:rec?.nis||"", totalMur:Number(totalStr) });
+      });
+
+      // Simpan meta range (opsional, aman bila fungsi tidak ada)
+      try{
+        await fetch('/.netlify/functions/aksesAutoUpdateAllJuzMur', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ fromDate:dari, toDate:sampai, kelas, data: meta })
+        });
+      }catch(_){}
+
+      $('#murRangeStatus').textContent = "✅ Selesai. Tutup overlay untuk melihat hasil.";
+    }catch(err){
+      console.error(err);
+      $('#murRangeStatus').textContent = "❌ " + (err?.message || err);
+      alert("❌ Terjadi kesalahan: " + (err?.message || err));
+    }
+  }
+
+  // tombol “Hitung Total MUR”
+  $('#btnHitungTotalMur')?.addEventListener('click', hitungTotalMurRangeFromTable);
+
+  // ===== otomatis restore setelah tabel dirender
+  async function hitungTotalMurRangeOtomatis(){
+    const kelas = kelasNow(); if (!kelas) return;
+
+    // tunggu baris ada
+    const rows = $('#santri-table')?.tBodies?.[0]?.rows || [];
+    if (!rows.length){ setTimeout(hitungTotalMurRangeOtomatis, 200); return; }
+
+    // coba ambil tanggal default dari server
+    const dariEl = $('#murRangeDari'), sampaiEl = $('#murRangeSampai');
+    try{
+      const res = await fetch(`/.netlify/functions/getAutoUpdateAllJuzMur?t=${Date.now()}`);
+      const all = await res.json();
+      const item = (all||[]).find(x=>x.kelas===kelas);
+      if (item){
+        if (dariEl)   dariEl.value   = item.fromDate || dariEl.value || "";
+        if (sampaiEl) sampaiEl.value = item.toDate   || sampaiEl.value || "";
+      }
+    }catch(e){}
+
+    const dari = dariEl?.value, sampai = sampaiEl?.value;
+    if (dari && sampai){
+      await hitungTotalMurRangeFromTable(); // langsung isi kolom berdasarkan setting terakhir
+    }
+  }
+
+  // ===== hook ke siklus render yang ada
+  function afterTableRenderedMurRange(){
+    ensureMurRangeColumn();
+  }
+
+  // dipanggil otomatis saat halaman siap & sesudah tabel di-refresh
+  const _origLoad = window.loadSantriData;
+  window.loadSantriData = async function(...args){
+    if (typeof _origLoad === 'function') await _origLoad.apply(this, args);
+    setTimeout(afterTableRenderedMurRange, 30);
+    setTimeout(hitungTotalMurRangeOtomatis, 80);
+  };
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=>{
+      afterTableRenderedMurRange();
+      setTimeout(hitungTotalMurRangeOtomatis, 120);
+    });
+  } else {
+    afterTableRenderedMurRange();
+    setTimeout(hitungTotalMurRangeOtomatis, 80);
+  }
+})();
+</script>
 
 
 <script>
