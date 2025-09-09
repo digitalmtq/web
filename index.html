@@ -3235,7 +3235,7 @@ async function loadSantriData() {
           <!-- ============ ABSENSI FLEX via MODAL BUTTON ============ -->
           <td class="abs-flex-cell">
 		    <div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
-            <button type="button" class="btn-absensi-flex" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Input</button>
+            <button type="button" class="btn-absensi-flex" style="margin-top:6px; padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Input</button>
           </td>
           <!-- ======================================================= -->
 
@@ -6418,7 +6418,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       td.innerHTML=`
         <div class="mur-val" style="font-weight:600">0.00 juz</div>
         <div class="mur-label" style="font-size:11px; color:#6b7280;"></div>
-        <button type="button" class="btn-mur" style="margin-top:6px; padding:4px 8px;">Input Data Murajaah</button>`;
+        <button type="button" class="btn-mur" style="margin-top:6px; padding:4px 8px;">Input</button>`;
       tr.appendChild(td);
       td.querySelector('.btn-mur').addEventListener('click',()=>openModalForRow(tr));
     });
