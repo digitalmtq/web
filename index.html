@@ -3596,58 +3596,102 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     kelasSelect.addEventListener("change", loadSantriData);
     tanggalInput.addEventListener("change", loadSantriData);
 
-    // ===== Save Data =====
+
+// ===== Save Data =====
 async function simpanDataMutabaah(saveBtn) {
-  const kelas = kelasSelect.value;
-  const tanggalUtama = tanggalInput.value;
+  const kelas = String(kelasSelect?.value || '').trim();
+  const tanggalUtamaRaw = String(tanggalInput?.value || '').trim(); // tanggal di kolom 1
   const rows = santriTableBody.querySelectorAll("tr");
 
+  // sanitizer tanggal utk API (hapus suffix ":1", dst)
+  const sanitizeTanggalForApi = (t) => String(t || '').split(':')[0];
+
+  if (!kelas) {
+    alert('Pilih kelas terlebih dahulu sebelum menyimpan.');
+    return;
+  }
+
+  // ===== Helper: parse "nilai-ringkas" di sel =====
   function parseNilaiStr(nilaiStr) {
     if (!nilaiStr) return { nilai: null, predikatText: null, predikatHuruf: null };
+
     const parts = nilaiStr.trim().split(/\s+/).filter(Boolean);
     let numIdx = parts.findIndex(p => {
       const v = p.replace(',', '.');
       return /^-?\d+(\.\d+)?$/.test(v) || !Number.isNaN(parseFloat(v));
     });
-    if (numIdx === -1) numIdx = parts.findIndex(p => !Number.isNaN(parseFloat(p.replace(',', '.'))));
+    if (numIdx === -1) {
+      numIdx = parts.findIndex(p => !Number.isNaN(parseFloat(p.replace(',', '.'))));
+    }
+
     let nilai = null;
     if (numIdx !== -1) nilai = parseFloat(parts[numIdx].replace(',', '.'));
-    const rest = parts.filter((_, i) => i !== numIdx).map(p => p.replace(/[^\p{L}\p{N}\-]/gu, '')).filter(Boolean);
+
+    const rest = parts
+      .filter((_, i) => i !== numIdx)
+      .map(p => p.replace(/[^\p{L}\p{N}\-]/gu, ''))
+      .filter(Boolean);
+
     const gradeIdx = rest.findIndex(p => /^[A-E]$/i.test(p));
     const predikatHuruf = gradeIdx !== -1 ? rest[gradeIdx].toUpperCase() : null;
     const textParts = rest.filter((_, i) => i !== gradeIdx && rest[i] !== '-');
     const predikatText = textParts.length ? textParts.join(' ') : null;
+
     return { nilai, predikatText, predikatHuruf };
   }
+
+  // Ambil nama murni dari cell nama (tanpa subTanggal <div>)
   function getNamaFromCell(cell) {
     if (!cell) return "";
     const first = cell.childNodes && cell.childNodes[0];
     const txt = (first && first.textContent) ? first.textContent : cell.textContent;
     return String(txt).trim();
   }
+
+  // Ambil ID baris (id numerik atau NIS string)
   function getRowId(row) {
     const raw = row.children[0]?.textContent?.trim() || "";
     const asNum = parseInt(raw, 10);
     return Number.isNaN(asNum) ? raw : asNum;
   }
+
+  // ===== NEW: bangun absensi6 (opsional kompat lama) dari items+target =====
   function buildAbsensi6(items, target) {
     const t = Math.max(1, Math.min(6, Number(target)||1));
-    const chosen = (items||[]).filter(it => it.checked).map(it => String(it.key).toLowerCase().replace(/\d+$/,""));
-    const out = []; for (let i=0;i<t;i++) out.push(chosen[i] || ""); return out;
+    const chosen = (items||[])
+      .filter(it => it.checked)
+      .map(it => String(it.key).toLowerCase().replace(/\d+$/,""));
+    const out = [];
+    for (let i=0;i<t;i++) out.push(chosen[i] || "");
+    return out;
   }
+
+  // ===== NEW: buat daftar "Hadir1, Hadir2, ..." dari items+target =====
   function buildAbsensiExpanded(items, target) {
     const t = Math.max(1, Math.min(6, Number(target)||1));
     const perStatus = Number(window.ABS_FLEX_CFG?.perStatus ?? 2);
     const stOrder = Array.isArray(window.ABS_FLEX_CFG?.statuses) && window.ABS_FLEX_CFG.statuses.length
-      ? window.ABS_FLEX_CFG.statuses : ["hadir","izin","sakit","alpha"];
+      ? window.ABS_FLEX_CFG.statuses
+      : ["hadir","izin","sakit","alpha"];
+
     const checkedSet = new Set((items||[]).filter(it=>it.checked).map(it=>String(it.key).toLowerCase()));
     const title = s => s.charAt(0).toUpperCase() + s.slice(1);
-    const result = []; let seq = 1;
-    for (const st of stOrder) for (let i=1; i<=perStatus; i++) {
-      const key = `${st}${i}`; if (checkedSet.has(key) && seq <= t) { result.push(`${title(st)}${i}`); seq++; }
+
+    const result = [];
+    let seq = 1;
+    for (const st of stOrder) {
+      for (let i=1; i<=perStatus; i++) {
+        const key = `${st}${i}`;
+        if (checkedSet.has(key) && seq <= t) {
+          result.push(`${title(st)}${i}`);
+          seq++;
+        }
+      }
     }
     return result;
   }
+
+  // ===== NEW: ambil nilai Absensi Flex dari sel (kalau ada) =====
   function getAbsensiFlexFromRow(row, existing = {}) {
     const cell = row.querySelector(".abs-flex-cell");
     if (!cell) {
@@ -3655,11 +3699,13 @@ async function simpanDataMutabaah(saveBtn) {
       const target = Number(existing.absensiTarget) || 0;
       const expanded = buildAbsensiExpanded(items, target);
       return {
-        absensiItems: items, absensiTarget: target,
+        absensiItems: items,
+        absensiTarget: target,
         absensiChecked: Number(existing.absensiChecked) || 0,
         absensiPercent: Number(existing.absensiPercent) || 0,
         absensi6: Array.isArray(existing.absensi6) ? existing.absensi6 : [],
-        absensiExpanded: expanded, absensiExpandedStr: expanded.join(", ")
+        absensiExpanded: expanded,
+        absensiExpandedStr: expanded.join(", ")
       };
     }
     const absensiItems   = Array.isArray(cell._absensiItems)   ? cell._absensiItems   : [];
@@ -3669,34 +3715,40 @@ async function simpanDataMutabaah(saveBtn) {
     const absensi6       = buildAbsensi6(absensiItems, absensiTarget);
     const absensiExpanded= buildAbsensiExpanded(absensiItems, absensiTarget);
     const absensiExpandedStr = absensiExpanded.join(", ");
+
     return { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensi6, absensiExpanded, absensiExpandedStr };
   }
 
-  // UI lock
+  // ===== UI lock =====
   saveBtn.disabled = true;
   const originalText = saveBtn.textContent;
   saveBtn.textContent = "⏳ Menyimpan...";
 
-  // pastikan modal aktif disinkronkan ke <td>
-  try { if (window.murajaah?.syncActive) await window.murajaah.syncActive(); } catch {}
+  // minta overlay Murajaah (kalau ada) sinkronkan nilai terakhir ke <td>
+  try { if (window.murajaah && typeof window.murajaah.syncActive === 'function') { await window.murajaah.syncActive(); } } catch {}
 
   try {
-    // kelompok baris per tanggal baris
+    // ===== 1) Kelompokkan baris per TANGGAL API (disanitasi) =====
     const groupByTanggal = new Map();
     rows.forEach((row) => {
-      const tglBaris = (row.dataset?.tanggal && row.dataset.tanggal.trim()) ? row.dataset.tanggal.trim() : tanggalUtama;
-      if (!groupByTanggal.has(tglBaris)) groupByTanggal.set(tglBaris, []);
-      groupByTanggal.get(tglBaris).push(row);
+      const raw = (row.dataset?.tanggal && row.dataset.tanggal.trim()) ? row.dataset.tanggal.trim() : tanggalUtamaRaw;
+      const tglApi = sanitizeTanggalForApi(raw);
+      if (!tglApi) return;
+      if (!groupByTanggal.has(tglApi)) groupByTanggal.set(tglApi, []);
+      groupByTanggal.get(tglApi).push(row);
     });
 
     const hasilKirim = [];
 
-    for (const [tanggal, rowsTanggal] of groupByTanggal.entries()) {
+    for (const [tanggalApi, rowsTanggal] of groupByTanggal.entries()) {
+      // GET data lama dari server utk tanggal ini
       let dataLama = [];
       try {
-        const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
+        const resLama = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggalApi)}`);
         if (resLama.ok) dataLama = await resLama.json();
-      } catch (e) { console.warn(`Tidak bisa ambil data lama untuk ${tanggal}`, e); }
+      } catch (e) {
+        console.warn(`Tidak bisa ambil data lama untuk ${tanggalApi}`, e);
+      }
       const dataMerged = Array.isArray(dataLama) ? [...dataLama] : [];
 
       rowsTanggal.forEach((row) => {
@@ -3709,10 +3761,17 @@ async function simpanDataMutabaah(saveBtn) {
         const jenjang  = (window.jenjangMap?.[keySem])  ?? existing.jenjang  ?? "";
         const keterangan= (window.keteranganMap?.[keySem])  ?? existing.keterangan ?? "";
 
+        // ======== ABSENSI FLEX ========
         const flex = getAbsensiFlexFromRow(row, existing);
-        const { absensiItems, absensiTarget, absensiChecked, absensiPercent, absensi6,
-                absensiExpanded, absensiExpandedStr } = flex;
+        const absensiItems     = flex.absensiItems;
+        const absensiTarget    = flex.absensiTarget;
+        const absensiChecked   = flex.absensiChecked;
+        const absensiPercent   = flex.absensiPercent;
+        const absensi6         = flex.absensi6;
+        const absensiExpanded  = flex.absensiExpanded;
+        const absensiExpandedStr = flex.absensiExpandedStr;
 
+        // ======== Field lain (kalau ada di layout) ========
         const surahDari = row.querySelector(".surah-dari")?.value ?? "";
         const ayatDari  = row.querySelector(".ayat-dari")?.value ?? "";
         const surahSampai = row.querySelector(".surah-sampai")?.value ?? "";
@@ -3725,72 +3784,116 @@ async function simpanDataMutabaah(saveBtn) {
         const nilaiCell = row.querySelector(".lihat-quran-btn")?.parentElement;
         const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
         const parsed = parseNilaiStr(nilaiStr);
+
         const adaNilaiBaru = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai));
-        let buttonCell = existing.buttonCell;
+        let buttonCell;
         if (adaNilaiBaru) {
           const predikatText = (parsed.predikatText && parsed.predikatText !== '-') ? parsed.predikatText : (existing.buttonCell?.predikatText ?? "-");
           const predikatHuruf = (parsed.predikatHuruf && parsed.predikatHuruf !== '-') ? parsed.predikatHuruf : (existing.buttonCell?.predikatHuruf ?? "-");
           buttonCell = { nilai: parsed.nilai, predikatText, predikatHuruf };
+        } else if (existing.buttonCell) {
+          buttonCell = existing.buttonCell;
         }
 
-        // Murajaah dari <td>
+        const marks = row.markData || existing.marks || { audio: [] };
+
+        // --- ambil Murajaah dari <td> baris ---
         const murCell = row.querySelector('.murajaah-cell');
-        const parseNumSafeLocal = (v) => {
+
+        const parseNumSafeForMur = (v) => {
           if (typeof parseNum === 'function') return parseNum(v);
           const s = String(v ?? '').replace(/[^0-9.,-]/g,'').replace(',', '.');
           const n = parseFloat(s);
           return Number.isFinite(n) ? n : 0;
         };
+
         let juzMur = 0, murFrom = "", murTo = "", murPages = "", murPageFrom = "", murPageTo = "", nis = "";
         if (murCell) {
-          juzMur = parseNumSafeLocal(murCell.dataset.murtotal || "0");
+          // total setara juz (desimal)
+          juzMur = parseNumSafeForMur(murCell.dataset.murtotal || "0");
+
+          // range Surah:Ayat + Page
           const sF = murCell.dataset.sf || "", aF = murCell.dataset.af || "";
           const sT = murCell.dataset.st || "", aT = murCell.dataset.at || "";
           const pF = murCell.dataset.pf || "", pT = murCell.dataset.pt || "";
+
           if (sF && aF) murFrom  = `${sF}:${aF}`;
           if (sT && aT) murTo    = `${sT}:${aT}`;
           if (pF && pT) murPages = `${pF}-${pT}`;
           if (pF) murPageFrom = String(pF);
           if (pT) murPageTo   = String(pT);
         }
+
         nis = String(row.dataset?.nis || existing.nis || "").trim();
 
+        // ======== SUSUN RECORD BARU ========
         const base = {
           ...existing,
-          id, nis, nama, jenjang, semester,
-          absensi: absensiExpandedStr,
-          absensiItems, absensiTarget, absensiChecked, absensiPercent, absensi6, absensiExpanded, absensiExpandedStr,
+          id,
+          nis,               // simpan nis bila ada
+          nama,
+          jenjang,
+          semester,
+
+          // Absensi (langsung expanded string)
+          absensi: absensiExpandedStr,     // ← "Hadir1, Hadir2, Izin3..."
+          absensiItems,
+          absensiTarget,
+          absensiChecked,
+          absensiPercent,
+          absensi6,
+          absensiExpanded,
+          absensiExpandedStr,
+
+          // Bidang lain
           dari: `${surahDari}:${ayatDari}`,
           sampai: `${surahSampai}:${ayatSampai}`,
-          totalJuz, halaman, totalHalaman, juzTerbaca, keterangan,
-          marks: row.markData || existing.marks || { audio: [] },
-          // MURAJAAH
-          juzmurajaah: Number((+juzMur || 0).toFixed(2)),
-          murFrom, murTo, murPages, murPageFrom, murPageTo
+          totalJuz,
+          halaman,
+          totalHalaman,
+          juzTerbaca,
+          keterangan,
+          marks,
+
+          // === MURAJAAH ===
+          juzmurajaah: Number((+juzMur || 0).toFixed(2)), // angka 2 desimal
+          murFrom,                    // "sF:aF"
+          murTo,                      // "sT:aT"
+          murPages,                   // "pFrom-pTo"
+          murPageFrom,                // optional terpisah
+          murPageTo                   // optional terpisah
         };
+
         const newData = buttonCell ? { ...base, buttonCell } : base;
 
         const idx = dataMerged.findIndex(d => String(d.id) === String(id));
         if (idx !== -1) dataMerged[idx] = newData; else dataMerged.push(newData);
       });
 
+      // POST simpan data untuk tanggal API ini
       const res = await fetch("/.netlify/functions/saveData", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tanggal, kelas, data: dataMerged })
+        body: JSON.stringify({ tanggal: tanggalApi, kelas, data: dataMerged })
       });
+
       const result = await res.json().catch(() => ({}));
-      hasilKirim.push({ tanggal, ok: !!result?.success, result });
+      hasilKirim.push({ tanggal: tanggalApi, ok: !!result?.success, result });
     }
 
     const gagal = hasilKirim.filter(h => !h.ok);
-    if (gagal.length === 0) { saveBtn.textContent = "✅ Tersimpan"; }
-    else {
+    if (gagal.length === 0) {
+      saveBtn.textContent = "✅ Tersimpan";
+    } else {
       const daftarGagal = gagal.map(g => g.tanggal).join(", ");
       alert(`❌ Sebagian tanggal gagal disimpan: ${daftarGagal}`);
       saveBtn.textContent = "❌ Gagal Sebagian";
     }
-    setTimeout(() => { saveBtn.textContent = originalText; saveBtn.disabled = false; }, 1800);
+
+    setTimeout(() => {
+      saveBtn.textContent = originalText;
+      saveBtn.disabled = false;
+    }, 1800);
 
   } catch (err) {
     console.error(err);
@@ -3800,17 +3903,23 @@ async function simpanDataMutabaah(saveBtn) {
   }
 }
 
-// Listener tombol
+// expose global (dipakai overlay)
+window.simpanDataMutabaah = simpanDataMutabaah;
+
+// === Listener tombol save utama & modal ===
 document.getElementById("save-btn")?.addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
 document.getElementById("save-btn-modal")?.addEventListener("click", function () {
   simpanDataMutabaah(this);
 });
+
+// === Tambahan: tombol Save Data di overlay Murajaah ===
 document.getElementById("mur-save")?.addEventListener("click", async function () {
   try {
-    if (window.murajaah?.syncActive) await window.murajaah.syncActive();
-    else {
+    if (window.murajaah && typeof window.murajaah.syncActive === 'function') {
+      await window.murajaah.syncActive();
+    } else {
       const last = document.getElementById("mur-ayahTo");
       if (last) last.dispatchEvent(new Event("change", {bubbles:true}));
       await new Promise(r=>setTimeout(r, 0));
@@ -6192,50 +6301,44 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 	 
 </script>
 
+
+
+
+
+
 <script>
 (function(){
   // ========= Konfigurasi & state global kecil =========
   const MAP_URL = 'https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json';
   const LAST_PAGE = 604;
-  const SKIP = (p) => (p === 21 || (p >= 602 && p <= 604));
+  const SKIP = (p) => (p === 21 || (p >= 602 && p <= 604)); // halaman yg di-exclude
   const $  = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
 
-  let ayahPageMap = {};
-  let pageAyahCount = {};
-  let surahMaxAyah = {};
-  let currentRowEl = null;
+  let ayahPageMap = {};              // "s:a" -> page
+  let pageAyahCount = {};            // page -> jumlah ayat di page
+  let surahMaxAyah = {};             // s -> max ayat (dibangun dari map)
+  let currentRowEl = null;           // baris yang sedang diedit
   let dataReady = false;
 
-  // ========= Util =========
+  // ========= Util kecil =========
   const makeOpts = (n)=> Array.from({length:n}, (_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
-  function parseNumSafe(v){
+  function parseNumSafeLocal(v){
     if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
     const s = String(v ?? '').replace(/[^0-9.,-]/g,'').replace(/\.(?=.*\.)/g,'').replace(',', '.');
     const n = parseFloat(s);
     return Number.isFinite(n) ? n : 0;
   }
-  function getKelas(){ try { return (window.kelasSelect?.value||'').trim(); } catch { return ''; } }
-  function getTanggalUtama(){ try { return (window.tanggalInput?.value||'').trim(); } catch { return ''; } }
+  function getKelas(){ try { return String(window.kelasSelect?.value||'').trim(); } catch { return ''; } }
+  function getTanggalUtama(){ try { return String(window.tanggalInput?.value||'').trim(); } catch { return ''; } }
   function getRowKey(row){ return String(row?.dataset?.nis || row?.dataset?.id || row?.dataset?.key || '').trim(); }
-
-  function getTanggalBaris(row){
-    const t1 = String(row?.dataset?.tanggal || '').trim();
-    if (t1) return t1;
-    const t2 = String(getTanggalUtama() || '').trim();
-    if (t2) return t2;
-    const t3 = row?.querySelector?.(".subTanggal")?.textContent?.trim();
-    if (t3) return t3;
-    return '';
-  }
-
-  // storage key → per kelas + tanggal baris + NIS/ID
+  function getTanggalBaris(row){ return String(row?.dataset?.tanggal || '').trim(); }
+  function sanitizeTanggalForApi(t){ return String(t || '').split(':')[0]; } // buang ":1" dst
   function storageKey(row){
-    return ['mur', getKelas(), getTanggalBaris(row), getRowKey(row)]
-      .filter(Boolean).join('|');
+    return ['mur', getKelas(), sanitizeTanggalForApi(getTanggalBaris(row) || getTanggalUtama()), getRowKey(row)].filter(Boolean).join('|');
   }
 
-  // ========= Map & indeks =========
+  // ========= Load map & bangun indeks =========
   async function ensureMap(){
     if (dataReady) return;
     const res = await fetch(MAP_URL);
@@ -6245,36 +6348,44 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     surahMaxAyah  = {};
     for (const [key, page] of Object.entries(ayahPageMap)){
       if (!page) continue;
+
+      // hitung jumlah ayat per halaman
       pageAyahCount[page] = (pageAyahCount[page] || 0) + 1;
+
+      // ambil max ayat per surah
       const [sStr, aStr] = key.split(':');
       const s = Number(sStr), a = Number(aStr);
       if (s && a) {
         if (!surahMaxAyah[s] || a > surahMaxAyah[s]) surahMaxAyah[s] = a;
       }
     }
+
+    // fallback untuk surah yang tidak kebaca (harusnya tidak kejadian)
     for (let s=1; s<=114; s++){
       if (!surahMaxAyah[s]) surahMaxAyah[s] = (s===1?7:(s===9?129:286));
     }
+
     dataReady = true;
   }
 
-  // ========= Hitung =========
+  // ========= Hitung total juz dari rentang ayat =========
   function computeTotalJuz(sF, aF, sT, aT){
     let total = 0;
     for (let s=Number(sF); s<=Number(sT); s++){
       const startA = (s===Number(sF)) ? Number(aF) : 1;
-      const endA   = (s===Number(sT)) ? Number(aT) : surahMaxAyah[s];
+      const endA   = (s===Number(sT)) ? Number(aT) : surahMaxAyah[s]; // max asli surah
       for (let a=startA; a<=endA; a++){
         const p = ayahPageMap[`${s}:${a}`];
         if (!p || SKIP(p)) continue;
         const perPageAyat = pageAyahCount[p] || 1;
-        total += (0.05 / perPageAyat); // 1 halaman ~ 1/20 juz
+        // 1 halaman ~ 1/20 juz → dibagi rata per ayat di halaman tsb
+        total += (0.05 / perPageAyat);
       }
     }
     return total;
   }
 
-  // ========= Konversi =========
+  // ========= Konversi bantu =========
   function ayahRangeToPages(sF,aF,sT,aT){
     let minP = Infinity, maxP = -Infinity, touched = false;
     for (let s=Number(sF); s<=Number(sT); s++){
@@ -6291,7 +6402,9 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     return touched ? { pFrom:minP, pTo:maxP } : null;
   }
   function pagesToAyahRange(pFrom,pTo){
-    const first = [], last  = [];
+    // cari ayat pertama di pFrom & ayat terakhir di pTo
+    const first = [];
+    const last  = [];
     for (const [key, page] of Object.entries(ayahPageMap)){
       if (page===Number(pFrom)) first.push(key);
       if (page===Number(pTo))   last.push(key);
@@ -6302,7 +6415,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     return { sFrom:sF, aFrom:aF, sTo:sT, aTo:aT };
   }
 
-  // ========= Dropdown =========
+  // ========= Isi dropdown =========
   function fillPageSelects(){
     $('#mur-pageFrom').innerHTML = makeOpts(LAST_PAGE);
     $('#mur-pageTo').innerHTML   = makeOpts(LAST_PAGE);
@@ -6328,37 +6441,135 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       return `<option value="${no}">${no} — ${name}</option>`;
     }).join('');
   }
+
+  // → helper: isi dropdown AYAT berdasarkan surah terpilih
   function fillAyahForSurah(sel, surahId, {keep=false, preset=null} = {}){
     const el = (typeof sel==='string') ? $(sel) : sel;
     if (!el) return;
     const max = Math.max(1, Number(surahMaxAyah[Number(surahId)] || 1));
     const prev = keep ? Number(el.value) : null;
     el.innerHTML = makeOpts(max);
-    if (preset!=null) el.value = String(Math.min(Number(preset), max));
-    else if (keep && prev) el.value = String(Math.min(prev, max));
-    else el.value = "1";
+    if (preset!=null) {
+      el.value = String(Math.min(Number(preset), max));
+    } else if (keep && prev) {
+      el.value = String(Math.min(prev, max));
+    } else {
+      el.value = "1";
+    }
   }
 
-  // ========= Render & sinkron baris aktif =========
+  // ========= Terapkan nilai dari record server ke cell baris =========
+  function applyMurFromRecord(row, rec){
+    const cell  = row.querySelector('.murajaah-cell');
+    if (!cell) return;
+
+    const total = parseNumSafeLocal(rec?.juzmurajaah || 0);
+    cell.querySelector('.mur-val')?.replaceChildren(document.createTextNode(`${total.toFixed(2)} juz`));
+
+    // parse rentang
+    let sF='', aF='', sT='', aT='', pF='', pT='';
+    if (rec?.murFrom && rec.murFrom.includes(':')) { [sF,aF] = rec.murFrom.split(':'); }
+    if (rec?.murTo   && rec.murTo.includes(':'))   { [sT,aT] = rec.murTo.split(':'); }
+    if (rec?.murPages && rec.murPages.includes('-')) { [pF,pT] = rec.murPages.split('-'); }
+    if (rec?.murPageFrom) pF = String(rec.murPageFrom);
+    if (rec?.murPageTo)   pT = String(rec.murPageTo);
+
+    cell.dataset.murtotal = String(total.toFixed(2));
+    if (sF) cell.dataset.sf = String(sF);
+    if (aF) cell.dataset.af = String(aF);
+    if (sT) cell.dataset.st = String(sT);
+    if (aT) cell.dataset.at = String(aT);
+    if (pF) cell.dataset.pf = String(pF);
+    if (pT) cell.dataset.pt = String(pT);
+  }
+
+  // ========= Ambil dari server & sinkronkan ke tabel (per tanggal) =========
+  async function refreshFromServerForRows(){
+    const table = document.getElementById('santri-table');
+    if (!table) return;
+    const rows = table.tBodies?.[0]?.rows || [];
+    if (!rows.length) return;
+
+    const kelas = getKelas();
+    if (!kelas) {
+      console.warn('kelas kosong; lewati refresh Murajaah.');
+      return;
+    }
+
+    // kelompokkan per tanggal API (disanitasi)
+    const byDate = new Map();
+    [...rows].forEach(row=>{
+      const rawTgl = getTanggalBaris(row) || getTanggalUtama();
+      const tgl = sanitizeTanggalForApi(rawTgl);
+      if (!tgl) return;
+      if (!byDate.has(tgl)) byDate.set(tgl, []);
+      byDate.get(tgl).push(row);
+    });
+
+    for (const [tanggal, list] of byDate.entries()){
+      try {
+        const res = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
+        if (!res.ok) continue;
+        const arr = await res.json();
+        if (!Array.isArray(arr)) continue;
+
+        const byNis = new Map(), byId = new Map();
+        for (const r of arr){
+          const nis = String(r?.nis ?? '').trim(); if (nis) byNis.set(nis, r);
+          const id  = String(r?.id  ?? '').trim(); if (id)  byId.set(id,  r);
+        }
+
+        list.forEach(row=>{
+          const nis = String(row.dataset?.nis || '').trim();
+          const idText = (row.children?.[0]?.textContent || '').trim();
+          const rec = (nis && byNis.get(nis)) || byId.get(idText) || null;
+          if (rec && (rec.juzmurajaah != null)) {
+            applyMurFromRecord(row, rec);
+          } else {
+            // fallback: localStorage
+            try {
+              const raw = localStorage.getItem(storageKey(row));
+              if (!raw) return;
+              const obj = JSON.parse(raw);
+              const cell = row.querySelector('.murajaah-cell');
+              if (!cell) return;
+              const val = Number(obj.total||0).toFixed(2);
+              cell.querySelector('.mur-val').textContent = `${val} juz`;
+              cell.dataset.murtotal = String(val);
+              cell.dataset.sf = obj.sF; cell.dataset.af = obj.aF;
+              cell.dataset.st = obj.sT; cell.dataset.at = obj.aT;
+              cell.dataset.pf = obj.pF || ''; cell.dataset.pt = obj.pT || '';
+            } catch {}
+          }
+        });
+      } catch(e) {
+        console.warn('Gagal refresh murajaah untuk', tanggal, e);
+      }
+    }
+  }
+
+  // ========= Render info & hitung =========
   function renderAndCompute(){
     const sF = +$('#mur-surahFrom').value || 1;
     const aF = +$('#mur-ayahFrom').value || 1;
     const sT = +$('#mur-surahTo').value   || sF;
     const aT = +$('#mur-ayahTo').value    || aF;
 
+    // sinkron page dari Surah/Ayat
     const pages = ayahRangeToPages(sF,aF,sT,aT);
     if (pages){
       $('#mur-pageFrom').value = String(pages.pFrom);
       $('#mur-pageTo').value   = String(pages.pTo);
-      $('#mur-pagesHint') && ($('#mur-pagesHint').textContent = `Halaman: ${pages.pFrom}—${pages.pTo}`);
+      if ($('#mur-pagesHint')) $('#mur-pagesHint').textContent = `Halaman: ${pages.pFrom}—${pages.pTo}`;
     } else {
-      $('#mur-pagesHint') && ($('#mur-pagesHint').textContent = '');
+      if ($('#mur-pagesHint')) $('#mur-pagesHint').textContent = '';
     }
-    $('#mur-infoRange') && ($('#mur-infoRange').textContent = `Rentang Surah ${sF}:${aF} → ${sT}:${aT}`);
+    if ($('#mur-infoRange')) $('#mur-infoRange').textContent = `Rentang Surah ${sF}:${aF} → ${sT}:${aT}`;
 
     const total = computeTotalJuz(sF,aF,sT,aT);
-    $('#mur-totalJuz') && ($('#mur-totalJuz').textContent = total.toFixed(2));
+    if ($('#mur-totalJuz')) $('#mur-totalJuz').textContent = total.toFixed(2);
 
+    // sinkronkan ke <td> baris saat ini
     if (currentRowEl){
       const cell  = currentRowEl.querySelector('.murajaah-cell');
       const label = cell.querySelector('.mur-label');
@@ -6373,7 +6584,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       cell.dataset.pf = String(pr.pFrom || '');
       cell.dataset.pt = String(pr.pTo   || '');
 
-      // cache lokal (fallback)
+      // persist per santri+tanggal (lokal; server diserahkan ke Save)
       try {
         const key = storageKey(currentRowEl);
         const obj = { total: Number(total.toFixed(2)), sF,aF,sT,aT, pF:pr.pFrom||'', pT:pr.pTo||'' };
@@ -6386,15 +6597,28 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   function bindModalEvents(){
     $('#mur-close')?.addEventListener('click', ()=> { $('#murModal').style.display='none'; });
 
-    $('#mur-save')?.addEventListener('click', async ()=>{
+    // === tombol Save Data di modal ===
+    $('#mur-save')?.addEventListener('click', async () => {
+      const statusEl = $('#mur-save-status');
       try {
-        await window.murajaah.syncActive();
-        const s = $('#mur-save-status'); if (s) s.textContent = '✔ Tersinkron. Klik "Save Data" untuk kirim ke server.';
-      } catch(e){
-        const s = $('#mur-save-status'); if (s) s.textContent = '❌ Gagal sinkron: ' + (e?.message||e);
+        // pastikan state terbaru sudah disinkronkan ke cell & localStorage
+        renderAndCompute();
+
+        // panggil Save global bila ada
+        if (typeof window.simpanDataMutabaah === 'function') {
+          statusEl && (statusEl.textContent = '');
+          await window.simpanDataMutabaah($('#mur-save'));
+          statusEl && (statusEl.textContent = '✔ Data dikirim ke server.');
+        } else {
+          statusEl && (statusEl.textContent = '✔ Disimpan lokal. Gunakan tombol Save utama untuk kirim ke server.');
+        }
+      } catch (e) {
+        console.error(e);
+        statusEl && (statusEl.textContent = '❌ Gagal menyimpan: ' + (e?.message || e));
       }
     });
 
+    // page -> ayat (batas ayat HARUS pakai surahMaxAyah)
     function onPageChange(){
       let pF = +$('#mur-pageFrom').value || 1;
       let pT = +$('#mur-pageTo').value   || pF;
@@ -6403,6 +6627,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       if (r){
         $('#mur-surahFrom').value = String(r.sFrom);
         fillAyahForSurah('#mur-ayahFrom', r.sFrom, {keep:false, preset:r.aFrom});
+
         $('#mur-surahTo').value   = String(r.sTo);
         fillAyahForSurah('#mur-ayahTo',   r.sTo,   {keep:false, preset:r.aTo});
       }
@@ -6411,24 +6636,33 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     $('#mur-pageFrom')?.addEventListener('change', onPageChange);
     $('#mur-pageTo')  ?.addEventListener('change', onPageChange);
 
+    // surah change → refill ayat pakai jumlah ayat SURAH sebenarnya + guard
     function onSurahChanged(which){
       const sF = +$('#mur-surahFrom').value || 1;
       const sT = +$('#mur-surahTo').value   || sF;
-      if (which==='from') fillAyahForSurah('#mur-ayahFrom', sF, {keep:true});
-      else fillAyahForSurah('#mur-ayahTo', sT, {keep:true});
 
+      if (which==='from'){
+        fillAyahForSurah('#mur-ayahFrom', sF, {keep:true});
+      } else {
+        fillAyahForSurah('#mur-ayahTo', sT, {keep:true});
+      }
+
+      // guard: (sT>=sF; aT>=aF bila surah sama)
       let aF = +$('#mur-ayahFrom').value || 1;
       let aT = +$('#mur-ayahTo').value   || 1;
-      if (sT<sF || (sT===sF && aT<aF)){
-        $('#mur-surahTo').value = String(sF);
-        fillAyahForSurah('#mur-ayahTo', sF, {keep:true});
+      let _sF = sF, _sT = sT;
+      if (_sT<_sF || (_sT===_sF && aT<aF)){
+        $('#mur-surahTo').value = String(_sF);
+        fillAyahForSurah('#mur-ayahTo', _sF, {keep:true});
         if (+$('#mur-ayahTo').value < aF) $('#mur-ayahTo').value = String(aF);
       }
+
       renderAndCompute();
     }
     $('#mur-surahFrom')?.addEventListener('change', ()=>onSurahChanged('from'));
     $('#mur-surahTo')  ?.addEventListener('change',   ()=>onSurahChanged('to'));
 
+    // ayat change → guard & auto-sync halaman
     function onAyatChanged(){
       const sF=+$('#mur-surahFrom').value, aF=+$('#mur-ayahFrom').value;
       let sT=+$('#mur-surahTo').value, aT=+$('#mur-ayahTo').value;
@@ -6443,120 +6677,12 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     $('#mur-ayahTo')  ?.addEventListener('change',   onAyatChanged);
   }
 
-  // ========= Terapkan data server ke satu baris =========
-  function applyMurFromRecord(row, rec){
-    const cell = row.querySelector('.murajaah-cell');
-    if (!cell) return;
-
-    // baca dari record server
-    const j = parseNumSafe(rec?.juzmurajaah || 0);
-    let sF=1,aF=1,sT=1,aT=1,pF='',pT='';
-    if (rec?.murFrom && String(rec.murFrom).includes(':')){
-      const [ss,aa] = String(rec.murFrom).split(':').map(x=>parseInt(x,10));
-      if (Number.isFinite(ss)&&Number.isFinite(aa)) { sF=ss; aF=aa; }
-    }
-    if (rec?.murTo && String(rec.murTo).includes(':')){
-      const [ss,aa] = String(rec.murTo).split(':').map(x=>parseInt(x,10));
-      if (Number.isFinite(ss)&&Number.isFinite(aa)) { sT=ss; aT=aa; }
-    }
-    if (rec?.murPages && String(rec.murPages).includes('-')){
-      const [pp,qq] = String(rec.murPages).split('-').map(x=>parseInt(x,10));
-      if (Number.isFinite(pp)) pF = String(pp);
-      if (Number.isFinite(qq)) pT = String(qq);
-    } else {
-      if (rec?.murPageFrom) pF = String(rec.murPageFrom);
-      if (rec?.murPageTo)   pT = String(rec.murPageTo);
-    }
-
-    // tampilkan
-    cell.querySelector('.mur-val').textContent = `${j.toFixed(2)} juz`;
-    cell.dataset.murtotal = String(j.toFixed(2));
-    cell.dataset.sf = String(sF); cell.dataset.af = String(aF);
-    cell.dataset.st = String(sT); cell.dataset.at = String(aT);
-    cell.dataset.pf = String(pF || '');
-    cell.dataset.pt = String(pT || '');
-
-    // simpan juga sebagai cache lokal per-tanggal-baris
-    try {
-      const key = storageKey(row);
-      localStorage.setItem(key, JSON.stringify({
-        total: Number(j.toFixed(2)), sF, aF, sT, aT, pF: pF || '', pT: pT || ''
-      }));
-    } catch {}
-  }
-
-  // ========= Refresh dari server untuk semua baris yang tampil =========
-  async function refreshFromServerForRows(){
-    const table = document.getElementById('santri-table');
-    if (!table) return;
-    const rows = table.tBodies?.[0]?.rows || [];
-    if (!rows.length) return;
-
-    const kelas = getKelas();
-    // group by tanggal baris
-    const byDate = new Map();
-    [...rows].forEach(row=>{
-      const tgl = getTanggalBaris(row) || getTanggalUtama();
-      if (!byDate.has(tgl)) byDate.set(tgl, []);
-      byDate.get(tgl).push(row);
-    });
-
-    for (const [tanggal, list] of byDate.entries()){
-      try {
-        const res = await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
-        if (!res.ok) continue;
-        const arr = await res.json();
-        if (!Array.isArray(arr)) continue;
-
-        // index server: by nis OR id
-        const byNis = new Map();
-        const byId  = new Map();
-        for (const r of arr){
-          const nis = String(r?.nis ?? '').trim();
-          if (nis) byNis.set(nis, r);
-          const id  = String(r?.id ?? '').trim();
-          if (id) byId.set(id, r);
-        }
-
-        // apply ke tiap row
-        list.forEach(row=>{
-          const nis = String(row.dataset?.nis || '').trim();
-          const idText = row.children?.[0]?.textContent?.trim() || '';
-          const rec = (nis && byNis.get(nis))
-                   || byId.get(idText)
-                   || null;
-          if (rec && (rec.juzmurajaah != null)) {
-            applyMurFromRecord(row, rec);
-          } else {
-            // fallback: tampilkan cache lokal jika ada
-            try {
-              const raw = localStorage.getItem(storageKey(row));
-              if (raw){
-                const obj = JSON.parse(raw);
-                const cell = row.querySelector('.murajaah-cell');
-                if (cell && obj){
-                  const val = Number(obj.total||0).toFixed(2);
-                  cell.querySelector('.mur-val').textContent = `${val} juz`;
-                  cell.dataset.murtotal = String(val);
-                  cell.dataset.sf = obj.sF; cell.dataset.af = obj.aF;
-                  cell.dataset.st = obj.sT; cell.dataset.at = obj.aT;
-                  cell.dataset.pf = obj.pF || ''; cell.dataset.pt = obj.pT || '';
-                }
-              }
-            } catch {}
-          }
-        });
-      } catch(e) {
-        console.warn('Gagal refresh murajaah untuk', tanggal, e);
-      }
-    }
-  }
-
-  // ========= Modal open =========
+  // ========= Modal open untuk baris tertentu =========
   async function openModalForRow(row){
     currentRowEl = row;
     $('#murModal').style.display = 'flex';
 
+    // init dropdown (sekali & wajib sudah punya surahMaxAyah)
     if (!dataReady){
       await ensureMap();
       fillPageSelects();
@@ -6564,34 +6690,36 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       fillSurahSelect('#mur-surahTo');
     }
 
-    // Ambil dari dataset (hasil refresh server) → fallback localStorage
+    // restore dari localStorage/dataset jika ada
     let sF=1,aF=1,sT=1,aT=1;
+    try {
+      const key = storageKey(row);
+      const raw = localStorage.getItem(key);
+      if (raw){
+        const obj = JSON.parse(raw);
+        sF=obj.sF||sF; aF=obj.aF||aF; sT=obj.sT||sT; aT=obj.aT||aT;
+      }
+    } catch {}
     const cell = row.querySelector('.murajaah-cell');
     if (cell?.dataset?.sf) { sF = +cell.dataset.sf || sF; }
     if (cell?.dataset?.af) { aF = +cell.dataset.af || aF; }
     if (cell?.dataset?.st) { sT = +cell.dataset.st || sT; }
     if (cell?.dataset?.at) { aT = +cell.dataset.at || aT; }
-    if (!(cell?.dataset?.sf)) {
-      try {
-        const raw = localStorage.getItem(storageKey(row));
-        if (raw){
-          const obj = JSON.parse(raw);
-          sF=obj.sF||sF; aF=obj.aF||aF; sT=obj.sT||sT; aT=obj.aT||aT;
-        }
-      } catch {}
-    }
 
+    // set Surah, lalu isi pilihan Ayat sesuai surah aslinya
     $('#mur-surahFrom').value = String(sF);
     fillAyahForSurah('#mur-ayahFrom', sF, {keep:false, preset:aF});
+
     $('#mur-surahTo').value   = String(sT);
     fillAyahForSurah('#mur-ayahTo',   sT, {keep:false, preset:aT});
 
+    // bersihkan status simpan
     const statusEl = $('#mur-save-status'); if (statusEl) statusEl.textContent = '';
 
-    renderAndCompute();
+    renderAndCompute(); // ini juga akan isi pageFrom/pageTo otomatis
   }
 
-  // ========= Suntik kolom & tombol =========
+  // ========= Suntik kolom & tombol ke tabel =========
   function ensureMurColumn(){
     const table = document.getElementById('santri-table');
     if (!table) return;
@@ -6608,7 +6736,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     // body rows
     const rows = table.tBodies?.[0]?.rows || [];
     [...rows].forEach(tr=>{
-      if (tr.querySelector('.murajaah-cell')) return;
+      if (tr.querySelector('.murajaah-cell')) return; // sudah ada
       const td = document.createElement('td');
       td.className = 'murajaah-cell';
       td.innerHTML = `
@@ -6617,6 +6745,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         <button type="button" class="btn-mur" style="margin-top:6px; padding:4px 8px;">Input Data Murajaah</button>
       `;
       tr.appendChild(td);
+
       td.querySelector('.btn-mur').addEventListener('click', ()=> openModalForRow(tr));
     });
   }
@@ -6624,12 +6753,14 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   // ========= Hook sesudah tabel render =========
   async function afterTableRendered(){
     ensureMurColumn();
+    await refreshFromServerForRows(); // ← ambil dari server lebih dulu
 
-    // 1) tampilkan cache jika ada (cepat)
+    // lalu refresh tampilan dari localStorage untuk yang belum ada di server (fallback)
     const rows = document.getElementById('santri-table')?.tBodies?.[0]?.rows || [];
     [...rows].forEach(tr=>{
       const cell = tr.querySelector('.murajaah-cell');
       if (!cell) return;
+      if (cell.dataset?.murtotal) return; // sudah terisi dari server
       try {
         const raw = localStorage.getItem(storageKey(tr));
         if (!raw) return;
@@ -6642,25 +6773,17 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         cell.dataset.pf = obj.pF || ''; cell.dataset.pt = obj.pT || '';
       } catch {}
     });
-
-    // 2) override dengan data server (source of truth)
-    await refreshFromServerForRows();
   }
 
-  // ========= Ekspor =========
+  // ========= Ekspor kecil agar bisa dipanggil ulang selesai render =========
+  //   - afterTableRendered: panggil setelah table di-render
+  //   - syncActive: paksa tulis nilai modal ke cell & localStorage
   window.murajaah = {
     afterTableRendered,
-    open: openModalForRow,
-    syncActive: async function(){
-      renderAndCompute();
-      await Promise.resolve();
-      return true;
-    },
-    // opsional: bisa dipanggil manual kalau perlu
-    refreshFromServer: refreshFromServerForRows
+    syncActive: () => { renderAndCompute(); }
   };
 
-  // ========= Init =========
+  // ========= Init sekali =========
   bindModalEvents();
   if (document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', afterTableRendered);
@@ -6668,7 +6791,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     afterTableRendered();
   }
 
-  // hook ke loadSantriData
+  // kalau app kamu punya loadSantriData sendiri, hook ringan:
   const _origLoad = window.loadSantriData;
   window.loadSantriData = async function(...args){
     if (typeof _origLoad === 'function') await _origLoad.apply(this, args);
@@ -6676,6 +6799,8 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   };
 })();
 </script>
+
+		
 
 
 
