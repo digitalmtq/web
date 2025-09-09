@@ -3791,10 +3791,12 @@ async function simpanDataMutabaah(saveBtn) {
         const nilaiStr = nilaiCell?.querySelector("div:nth-child(1)")?.innerText?.trim() || "";
         const parsed = parseNilaiStr(nilaiStr);
 
-		// di dalam loop rowsTanggal.forEach(row => { ... })
-		const totalJuzMurCell = row.querySelector('.total-all-juz-murajaah');
-		// contoh isi: "0.70 juz <span ...>..."
-		const totalJuzMur = window.parseNum(totalJuzMurCell?.textContent ?? "");
+		const murCell   = row.querySelector(".total-all-juz-murajaah");
+// contoh innerText: "0.70 juz TUNTAS"
+const juzmurajaah = (typeof parseNum === 'function')
+  ? parseNum(murCell?.textContent ?? "")
+  : parseFloat(String(murCell?.textContent ?? "").replace(",", "."))
+      || 0;
 
         const adaNilaiBaru = (typeof parsed.nilai === "number" && !Number.isNaN(parsed.nilai));
         let buttonCell;
@@ -7581,7 +7583,140 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
+<script>
+// =============== MURAJAAH: DROP-IN FIX =================
 
+// 1) Pastikan data master siap
+async function murEnsureDataReady() {
+  // surahList
+  if (!Array.isArray(window.surahList) || !window.surahList.length) {
+    try {
+      const r = await fetch("/.netlify/functions/getAyat");
+      if (r.ok) window.surahList = await r.json();
+    } catch (e) { console.warn("[Mur] getAyat gagal:", e); }
+  }
+  // pagesMap
+  if (!window.pagesMap || !Object.keys(window.pagesMap).length) {
+    try {
+      const r = await fetch("/.netlify/functions/getPagesMap");
+      if (r.ok) window.pagesMap = await r.json();
+    } catch (e) {
+      console.warn("[Mur] getPagesMap gagal, fallback raw GitHub:", e);
+      try {
+        const raw = await fetch("https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json");
+        if (raw.ok) window.pagesMap = await raw.json();
+      } catch (ee) { console.warn("[Mur] raw GitHub gagal:", ee); }
+    }
+  }
+  // jumlahAyatPerHalaman (kalau belum ada → bangun dari pagesMap)
+  if (!window.jumlahAyatPerHalaman) {
+    const map = window.pagesMap || {};
+    const j = {};
+    for (const [key, p] of Object.entries(map)) {
+      if (!p) continue;
+      j[p] = (j[p] || 0) + 1;
+    }
+    window.jumlahAyatPerHalaman = j;
+  }
+}
+
+// 2) Hitung total setara juz dari rentang Surah/Ayat
+function __murComputeTotalJuz(sF, aF, sT, aT) {
+  try {
+    if (!Array.isArray(window.surahList) || !window.pagesMap) return 0;
+  } catch { return 0; }
+
+  const SKIP = (h) => (h === 21 || (h >= 602 && h <= 604)); // halaman yang di-exclude
+  let total = 0;
+
+  for (let s = Number(sF); s <= Number(sT); s++) {
+    const surah = (window.surahList || []).find(x => Number(x.id) === Number(s));
+    const maxAyat = surah ? Number(surah.jumlah_ayat) : 0;
+    if (!maxAyat) continue;
+
+    const aStart = (s === Number(sF)) ? Number(aF) : 1;
+    const aEnd   = (s === Number(sT)) ? Number(aT) : maxAyat;
+
+    for (let a = aStart; a <= aEnd; a++) {
+      const page = window.pagesMap?.[`${s}:${a}`];
+      if (!page || SKIP(page)) continue;
+      const ayatPerPage = Number(window.jumlahAyatPerHalaman?.[page]) || 1;
+      total += (0.05 / ayatPerPage); // 1 halaman = 0.05 juz
+    }
+  }
+  return total;
+}
+
+// 3) Ambil semua baris tabel secara aman (tanpa tergantung variabel global)
+function murGetAllRows() {
+  const body =
+    window.santriTableBody ||
+    document.getElementById("santriTableBody") ||
+    document.querySelector("#santriTable tbody") ||
+    document.querySelector("table tbody");
+  return [...(body?.querySelectorAll("tr") || [])];
+}
+
+// 4) Handler tombol "Hitung Murajaah"
+async function hitungTotalAllJuzMurajaahFromTable() {
+  // baca rentang dari overlay
+  const sF = Number(document.getElementById("mur-surahFrom")?.value || 1);
+  const aF = Number(document.getElementById("mur-ayahFrom")?.value || 1);
+  const sT = Number(document.getElementById("mur-surahTo")?.value   || sF);
+  const aT = Number(document.getElementById("mur-ayahTo")?.value    || aF);
+
+  if (!sF || !aF || !sT || !aT) { alert("Rentang Surah/Ayat belum lengkap."); return; }
+
+  // pastikan data siap
+  await murEnsureDataReady();
+
+  // hitung
+  const totalMurNum = __murComputeTotalJuz(sF, aF, sT, aT);
+  const totalMurStr = totalMurNum.toFixed(2);
+
+  // batas per semester (untuk label)
+  const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+
+  const rows = murGetAllRows();
+  if (!rows.length) console.warn("[Mur] Tidak menemukan baris santri. Pastikan tbody tabel ada.");
+
+  rows.forEach(row => {
+    const cell = row.querySelector(".total-all-juz-murajaah");
+    if (!cell) return;
+
+    // tentukan semester (pakai fungsi kamu kalau ada)
+    const key = (row.dataset?.key || row.dataset?.nis || row.dataset?.id || "").trim();
+    const semester = (typeof getSemesterForKey === "function")
+      ? getSemesterForKey(key, row, null)
+      : Number(row.querySelector(".semester")?.value || 1);
+
+    const target = batasSemester[semester] || 0;
+
+    let label, warna;
+    if (totalMurNum >= 30) { label = "KHATAM"; warna = "green"; }
+    else {
+      let persen = target > 0 ? Math.floor((totalMurNum / target) * 100) : 0;
+      if (persen > 100) persen = 100;
+      label = (persen >= 100) ? "TUNTAS" : `${persen}%`;
+      warna = (persen >= 100) ? "green" : "red";
+    }
+
+    // tampilkan + simpan rentang ke dataset (dipakai saat Save Data)
+    cell.innerHTML = `${totalMurStr}&nbsp;juz <span style="color:${warna}; font-size:12px;">${label}</span>`;
+    cell.dataset.murSurahFrom = sF;
+    cell.dataset.murAyahFrom  = aF;
+    cell.dataset.murSurahTo   = sT;
+    cell.dataset.murAyahTo    = aT;
+    cell.dataset.murMode      = 'manual';
+  });
+
+  alert('✅ Total Juz Murajaah dihitung. Klik "Save Data" untuk menyimpan ke server (field: juzmurajaah).');
+}
+
+// 5) Wiring tombol
+document.getElementById("btnHitungTotalJuzMur")
+  ?.addEventListener("click", hitungTotalAllJuzMurajaahFromTable);
+</script>
 
 </body>
 </html>
