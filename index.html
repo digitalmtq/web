@@ -337,7 +337,9 @@ button.lihat-quran-btn:hover::after {
     .toggle-btn:hover {
       background: #495057;
     }
-    /* Overlay Loading */
+
+
+	  /* Overlay Loading */
 #overlay {
   position: fixed;
   display: none;              /* default: sembunyi; ubah ke display:flex saat ditampilkan */
@@ -346,35 +348,33 @@ button.lihat-quran-btn:hover::after {
   background: rgba(0,0,0,0.4);
   z-index: 1000;
 
-  /* centering ketika ditampilkan (display:flex) */
+  /* centering saat ditampilkan (display:flex) */
   align-items: center;
   justify-content: center;
 }
 
+/* Wadah GIF: dibuat bulat & compact */
 #overlay span {
   background: #fff;
-  padding: 15px 25px;
-  border-radius: 8px;
+  padding: 12px;                /* simetris agar tidak jadi balok */
+  border-radius: 9999px;        /* super-rounded = bulat */
   font-size: 12px;
   color: #333;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 
-  /* isi span tetap center */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  max-width: 90vw;         /* jaga supaya kotak tidak melebar di layar kecil */
+  display: inline-grid;         /* center isi dengan mudah */
+  place-items: center;
 }
 
-/* GIF tampil 50% dari lebar kotak putih, responsif */
+/* GIF responsif & rapi */
 #overlay img {
-  width: 50%;
-  max-width: 50vw;         /* pembatas ekstra: tidak lebih dari 50% layar */
-  height: auto;
   display: block;
+  width: clamp(72px, 12vw, 160px);  /* nyaman di desktop & HP */
+  height: auto;
+  margin: 0;
 }
 
+/* ====== Aturan lain tetap seperti semula ====== */
 @media (max-width: 768px) {
   .dashboard-header {
     flex-direction: column;
@@ -393,6 +393,7 @@ button.lihat-quran-btn:hover::after {
   }
 }
 
+	  
 	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
 @media (max-width: 600px) {
   .login-actions {
@@ -418,8 +419,10 @@ button.lihat-quran-btn:hover::after {
 </head>
 <body>
 
-<div id="overlay" style="display:flex"><span>
-<img src="https://raw.githubusercontent.com/digitalmtq/web/main/Stopwatch.gif"></span>
+<div id="overlay" style="display:flex">
+  <span>
+    <img src="https://raw.githubusercontent.com/digitalmtq/web/main/Stopwatch.gif">
+  </span>
 </div>
 
 
