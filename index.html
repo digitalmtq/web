@@ -3693,7 +3693,16 @@ function jenjangLabel(code) {
   let pdfSantriBtn = document.getElementById('download-pdf-santri'); // HANYA pemicu modal
   const santriSelect = document.getElementById('pdf-santri-select');
 
-  xlsBtn.textContent = 'Download Excel All Kelas';
+  if (!xlsBtn) {
+    const wrap = document.querySelector('.pdf-rekap-controls');
+    if (wrap) {
+      xlsBtn = document.createElement('button');
+      xlsBtn.id = 'download-xls-rekap';
+      xlsBtn.className = 'rekap-btn';
+      xlsBtn.textContent = 'Download Excel Rekap';
+      wrap.appendChild(xlsBtn);
+    }
+  }
 
   pdfBtn?.classList.add('rekap-btn');
   pdfBtn?.addEventListener('click', pdfRekapDownload);
@@ -4960,65 +4969,22 @@ async function pdfAllKelasDownload(){
   }
   window._pdfSantriDownload = pdfSantriDownload;
 
-  // ================= Excel (.xlsx) — ALL KELAS (menggantikan versi lama) =================
-async function xlsRekapDownload(){
-  setBtnLoading(xlsBtn, true, 'Membuat Excel…');
-  try {
-    await ensureXLSX();
+  // ================= Excel (.xlsx) =================
+  async function xlsRekapDownload(){
+    setBtnLoading(xlsBtn, true, 'Membuat Excel…');
+    try {
+      await ensureXLSX();
+      const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
-    const startDate = document.querySelector('#pdf-start-date')?.value;
-    const endDate   = document.querySelector('#pdf-end-date')?.value;
-    if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai & akhir.');
-
-    // Ambil semua key kelas (pakai helper yang sudah ada)
-    const kelasKeys = _getAllKelasKeys();
-    if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
-
-    // Workbook baru
-    const wb = XLSX.utils.book_new();
-
-    // Header kolom (urutan FIX: SP diletakkan setelah “Hadir %”)
-    const header = [
-      "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
-      "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","Murajaah","THMS","Nilai Rata2","Predikat"
-    ];
-
-    // Sheet ringkasan (Meta)
-    const metaRows = [
-      ["Rekap Absensi & Setoran (All Kelas)",""],
-      ["Periode", `${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`],
-      ["Total Kelas (memiliki data)", ""],
-      [],
-      ["Ringkasan per Kelas",""],
-      ["Kelas/Kelompok","KBM (hari)","Total Santri","H","A","S","I","Total Page","Total Juz"]
-    ];
-    let kelasDenganData = 0;
-
-    // Loop setiap kelas → buat sheet per kelas
-    for (const kelasKey of kelasKeys){
-      let data = null;
-      try {
-        // Pakai helper yang sudah ada di kode kamu
-        data = await collectRekapDataForClass(kelasKey, startDate, endDate);
-      } catch (e) {
-        console.warn('Gagal ambil data kelas', kelasKey, e);
-        data = null;
-      }
-
-      if (!data) {
-        // Catatan di meta bahwa kelas ini kosong (opsional)
-        metaRows.push([_kelasKelompokLineFor(kelasKey).line, "(tidak ada data)"]);
-        continue;
-      }
-      kelasDenganData++;
-
-      const { kelasLine, kbmDays, rows, totals } = data;
-
-      // Mapping baris data (URUTAN SAMA DENGAN header)
+      const header = [
+  "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
+  "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","Murajaah","THMS","Nilai Rata2","Predikat"
+];
       const body = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+
         const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
         const personalDays = Number(r.daysCount || 0);
@@ -5026,73 +4992,58 @@ async function xlsRekapDownload(){
         const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
 
         return [
-          idx+1,                               // No
-          r.nis || r.id || '',                 // NIS
-          r.nama || '',                        // Nama
-          (r.semester ?? ''),                  // SM
-          jenjangLabel(r.jenjang ?? ''),       // KLS
-          r.hadir,                             // H
-          r.alpha,                             // A
-          r.sakit,                             // S
-          r.izin,                              // I
-          hadirPct,                            // Hadir %
-          (r.keterangan ?? ''),                // SP
-          setoranText,                         // Setoran
-          juzText,                             // Juz
-          Number(r.totalJuz.toFixed(2)),       // Total Juz
-          fmtMurRange(r.murTotalJuz || 0, r.murCount || 0), // Murajaah
-          statusJuz.label,                     // THMS
-          (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),  // Nilai Rata2
-          pred.huruf                           // Predikat
+          idx+1,
+          r.nis || r.id || '',
+          r.nama || '',
+          (r.semester ?? ''),
+          jenjangLabel(r.jenjang ?? ''),
+          (r.keterangan ?? ''),   // SP
+          r.hadir, r.alpha, r.sakit, r.izin,
+          hadirPct,
+          setoranText,
+          juzText,
+          Number(r.totalJuz.toFixed(2)),
+		  fmtMurRange(r.murTotalJuz || 0, r.murCount || 0), // << baru
+          statusJuz.label,
+          (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
+          pred.huruf
         ];
       });
 
-      // Buat sheet untuk kelas ini
-      const aoa = [header, ...body];
-      const ws  = XLSX.utils.aoa_to_sheet(aoa);
-      ws['!cols'] = autoFitColumns(aoa);
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+      ws['!cols'] = autoFitColumns([header, ...body]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
 
-      // Pastikan nama sheet aman & <= 31 char
-      const safeName = (kelasLine || 'Kelas')
-        .replace(/[\\/?*\[\]:]/g,'')
-        .slice(0,31) || `Kelas_${kelasKey}`;
-      XLSX.utils.book_append_sheet(wb, ws, safeName);
+      const meta = [
+        ["Rekap Absensi & Setoran", ""],
+        ["Kelas / Kelompok", kelasLine],
+        ["Periode", `${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`],
+        ["KBM (hari)", kbmDays],
+        ["Total Santri", rows.length],
+        [],
+        ["Ringkasan", ""],
+        ["Hadir", totals.totH],
+        ["Alpha", totals.totA],
+        ["Sakit", totals.totS],
+        ["Izin",  totals.totI],
+        ["Total Page", Math.round(totals.totPages)],
+        ["Total Juz", Number(totals.totJuz.toFixed(2))]
+      ];
+      const wsMeta = XLSX.utils.aoa_to_sheet(meta);
+      wsMeta['!cols'] = [{wch:24},{wch:40}];
+      XLSX.utils.book_append_sheet(wb, wsMeta, 'Meta');
 
-      // Tambahkan ringkasan kelas ke sheet Meta
-      metaRows.push([
-        kelasLine,
-        kbmDays,
-        rows.length,
-        totals.totH,
-        totals.totA,
-        totals.totS,
-        totals.totI,
-        Math.round(totals.totPages),
-        Number(totals.totJuz.toFixed(2))
-      ]);
+      const fileName = `Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengunduh Excel: ' + (err.message || err));
+    } finally {
+      setBtnLoading(xlsBtn, false);
     }
-
-    // Lengkapi angka total kelas yang punya data
-    metaRows[2][1] = kelasDenganData;
-
-    // Sheet Meta
-    const wsMeta = XLSX.utils.aoa_to_sheet(metaRows);
-    wsMeta['!cols'] = [
-      {wch:36},{wch:18},{wch:14},{wch:8},{wch:8},{wch:8},{wch:8},{wch:12},{wch:12}
-    ];
-    XLSX.utils.book_append_sheet(wb, wsMeta, 'Meta');
-
-    // Simpan file
-    const fileName = `Rekap_AllKelas_${startDate}_sd_${endDate}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-
-  } catch (err) {
-    console.error(err);
-    alert('Gagal mengunduh Excel All Kelas: ' + (err.message || err));
-  } finally {
-    setBtnLoading(xlsBtn, false);
   }
-}
 
   // ===== Util =====
 
