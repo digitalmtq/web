@@ -340,18 +340,24 @@ button.lihat-quran-btn:hover::after {
 
 	  
 /* Overlay Loading */
-  #overlay {
+#overlay {
   position: fixed;
-  display: none;              /* default: sembunyi */
   top: 0; left: 0;
   width: 100%; height: 100%;
   background: rgba(0,0,0,0.4);
   z-index: 1000;
 
-  /* agar konten tepat di tengah layar */
-  display: flex;
+  /* DEFAULT: sembunyi (jangan ditimpa lagi) */
+  display: none;
+
+  /* centering saat AKTIF (lihat aturan .is-active di bawah) */
   align-items: center;
   justify-content: center;
+}
+
+/* TAMPILKAN overlay dengan menambah class .is-active */
+#overlay.is-active {
+  display: flex;
 }
 
 /* kotak putih dengan ukuran bisa diatur */
@@ -372,26 +378,15 @@ button.lihat-quran-btn:hover::after {
 #overlay img {
   width: 48px;                  /* atur lebar GIF */
   height: 54px;                 /* atur tinggi GIF */
-  object-fit: contain;           /* jaga proporsi GIF */
+  object-fit: contain;          /* jaga proporsi GIF */
   display: block;
 }
 
 @media (max-width: 768px) {
-  .dashboard-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-  .actions {
-    flex-direction: column;
-  }
-  .password-group {
-    flex-direction: row;
-  }
+  .dashboard-header { flex-direction: column; align-items: stretch; }
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+  .actions { flex-direction: column; }
+  .password-group { flex-direction: row; }
 }
 
 	  
