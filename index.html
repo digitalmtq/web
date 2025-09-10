@@ -6592,7 +6592,6 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
   function getSemesterForKeyLocal(key, row, fallback){
     if (typeof window.getSemesterForKey === "function") return window.getSemesterForKey(key, row, fallback);
-    // dataset.semester sebagai fallback cepat bila ada
     const ds = row?.dataset?.semester;
     if (ds) return Number(ds);
     const mapVal = window?.semesterMap ? window.semesterMap[key] : null;
@@ -6635,7 +6634,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   // ===== persist range (server + local) =====
   async function saveRangeServer(kelas, fromDate, toDate, count){
     try{
-      await fetch('/.netlify/functions/aksesAutoUpdateAllJuzMur', {
+      const res = await fetch('/.netlify/functions/aksesAutoUpdateAllJuzMur', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -6643,7 +6642,12 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
           data: [{ meta:true, count: Number(count||0) }]
         })
       });
-    }catch(e){ /* diamkan */ }
+      // 409 = sudah ada → anggap sukses (idempotent)
+      if (!res.ok && res.status !== 409) {
+        const txt = await res.text().catch(()=>"(no body)");
+        throw new Error(`Save failed: ${res.status} ${txt}`);
+      }
+    }catch(e){ /* diamkan supaya tidak ganggu flow */ }
   }
   function saveRangeLocal(kelas, fromDate, toDate){
     try{ localStorage.setItem(LS_KEY(kelas), JSON.stringify({ fromDate, toDate, t: Date.now() })); }catch{}
@@ -6692,8 +6696,11 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     el.style.display = 'flex';
   }
 
-  // ===== hitung dari server → tampilkan → simpan tanggal =====
-  async function hitungTotalMurRangeFromTable(){
+  /**
+   * Hitung & render total MUR untuk rentang tanggal.
+   * @param {boolean} saveToServer - true bila dipicu user (klik tombol) → simpan tanggal. false bila auto-run saat refresh.
+   */
+  async function hitungTotalMurRangeFromTable(saveToServer = false){
     const ok = await waitForKelasAndTable();
     if (!ok){ alert("Kelas/tabel belum siap."); return; }
 
@@ -6769,12 +6776,15 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         cell.dataset.murRangeCount = String(rec?.count || 0);
       });
 
-      // === simpan tanggal ke server + local agar otomatis terpakai saat refresh
-      const totalKeys = Object.keys(rekap).length;
-      await saveRangeServer(kelas, dari, sampai, totalKeys);
-      saveRangeLocal(kelas, dari, sampai);
-
-      $('#murRangeStatus').textContent = "✅ Disimpan. Rentang ini akan otomatis terpakai saat refresh.";
+      // === simpan tanggal hanya saat manual (klik tombol)
+      if (saveToServer){
+        const totalKeys = Object.keys(rekap).length;
+        await saveRangeServer(kelas, dari, sampai, totalKeys); // 409 → diabaikan
+        saveRangeLocal(kelas, dari, sampai);
+        $('#murRangeStatus').textContent = "✅ Disimpan. Rentang ini akan otomatis terpakai saat refresh.";
+      } else {
+        $('#murRangeStatus').textContent = "✓ Diterapkan dari pengaturan sebelumnya.";
+      }
     }catch(err){
       console.error(err);
       $('#murRangeStatus').textContent = "❌ " + (err?.message || err);
@@ -6782,26 +6792,23 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     }
   }
 
-  // tombol overlay
-  $('#btnHitungTotalMur')?.addEventListener('click', hitungTotalMurRangeFromTable);
+  // tombol overlay (manual → simpan)
+  $('#btnHitungTotalMur')?.addEventListener('click', ()=>hitungTotalMurRangeFromTable(true));
 
-  // ===== auto-restore & auto-run saat halaman/tabel siap =====
+  // ===== auto-restore & auto-run saat halaman/tabel siap (tanpa simpan) =====
   let autoRanForKelas = ""; // guard agar tidak dobel
   async function autoApplyMurRangeIfAvailable(){
     const kelas = kelasNow(); const table = getSantriTable();
     if (!kelas || !table) { setTimeout(autoApplyMurRangeIfAvailable, 120); return; }
     if (autoRanForKelas === kelas) return;
-    // tunggu baris tabel ada
     const rows = table.tBodies?.[0]?.rows || [];
     if (!rows.length){ setTimeout(autoApplyMurRangeIfAvailable, 120); return; }
 
     const { fromDate, toDate } = await getRangeForKelas(kelas);
     if (fromDate && toDate){
-      // isi input overlay (kalau ada)
       if ($('#murRangeDari'))   $('#murRangeDari').value   = fromDate;
       if ($('#murRangeSampai')) $('#murRangeSampai').value = toDate;
-      // langsung jalankan hitung
-      await hitungTotalMurRangeFromTable();
+      await hitungTotalMurRangeFromTable(false); // ← tidak menyimpan, jadi tidak akan 409
       autoRanForKelas = kelas;
     }
   }
@@ -6827,13 +6834,12 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   const prevRefresh = window.refreshMurFromServer;
   window.refreshMurFromServer = async function(...args){
     const ok = await waitForKelasAndTable(3500);
-    if (!ok) return; // diam—hindari warning saat belum siap
+    if (!ok) return;
     if (typeof prevRefresh === 'function'){
       try { return await prevRefresh.apply(this, args); } catch(e){ /* diam */ }
     }
-    // fallback: pakai refresh milik modul ini
     if (window.murajaahRange?.refresh){
-      try { return await window.murajaahRange.refresh(); } catch(e){}
+      try { return await window.murajaahRange.refresh(false); } catch(e){}
     }
   };
 
@@ -6843,9 +6849,9 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     setTimeout(()=>{ try { window.refreshMurFromServer?.(); } catch(e){} }, 100);
   };
 
-  // expose minimal API (opsional)
+  // expose minimal API
   window.murajaahRange = {
-    refresh: hitungTotalMurRangeFromTable,
+    refresh: (save=false)=>hitungTotalMurRangeFromTable(save),
     open: bukaOverlayTotalMurRange
   };
 })();
