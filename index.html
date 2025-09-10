@@ -337,44 +337,44 @@ button.lihat-quran-btn:hover::after {
     .toggle-btn:hover {
       background: #495057;
     }
-
-
+    
 	  /* Overlay Loading */
 #overlay {
   position: fixed;
-  display: none;              /* default: sembunyi; ubah ke display:flex saat ditampilkan */
+  display: none;              /* default: sembunyi */
   top: 0; left: 0;
   width: 100%; height: 100%;
   background: rgba(0,0,0,0.4);
   z-index: 1000;
 
-  /* centering saat ditampilkan (display:flex) */
+  /* agar konten tepat di tengah layar */
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Wadah GIF: dibuat bulat & compact */
+/* kotak putih mengikuti GIF, berbentuk persegi */
 #overlay span {
   background: #fff;
-  padding: 12px;                /* simetris agar tidak jadi balok */
-  border-radius: 9999px;        /* super-rounded = bulat */
-  font-size: 12px;
+  padding: 0;                        /* buang padding supaya tidak jadi balok */
+  border-radius: 8px;
+  font-size: 0;                      /* hilangkan space font default */
   color: #333;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 
-  display: inline-grid;         /* center isi dengan mudah */
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* GIF responsif & rapi */
+/* GIF responsif, kotak otomatis sama sisi */
 #overlay img {
+  width: 120px;                      /* atur ukuran GIF (contoh 120px) */
+  height: 120px;                     /* samakan agar persegi */
+  object-fit: contain;               /* pastikan GIF tidak ketarik */
   display: block;
-  width: clamp(72px, 12vw, 160px);  /* nyaman di desktop & HP */
-  height: auto;
-  margin: 0;
 }
 
-/* ====== Aturan lain tetap seperti semula ====== */
 @media (max-width: 768px) {
   .dashboard-header {
     flex-direction: column;
@@ -393,7 +393,6 @@ button.lihat-quran-btn:hover::after {
   }
 }
 
-	  
 	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
 @media (max-width: 600px) {
   .login-actions {
@@ -418,13 +417,10 @@ button.lihat-quran-btn:hover::after {
   </style>
 </head>
 <body>
-
+	
 <div id="overlay" style="display:flex">
-  <span>
-    <img src="https://raw.githubusercontent.com/digitalmtq/web/main/Stopwatch.gif">
-  </span>
-</div>
-
+<span><img src="https://raw.githubusercontent.com/digitalmtq/web/main/Stopwatch.gif">
+</span></div>
 
 <div class="container"> 
   <!-- Halaman Login -->
