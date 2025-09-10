@@ -4980,34 +4980,38 @@ async function pdfAllKelasDownload(){
   "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","Murajaah","THMS","Nilai Rata2","Predikat"
 ];
       const body = rows.map((r, idx) => {
-        const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-        const pred      = PDF_predikatFromScore(nilaiAvg);
-        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+  const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+  const pred      = PDF_predikatFromScore(nilaiAvg);
+  const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
 
-        const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
-        const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
-        const personalDays = Number(r.daysCount || 0);
-        const hadirDays    = Number(r.hadirDays || 0);
-        const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
+  const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
+  const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
+  const personalDays = Number(r.daysCount || 0);
+  const hadirDays    = Number(r.hadirDays || 0);
+  const hadirPct     = personalDays > 0 ? Math.round((hadirDays / personalDays) * 100) : 0;
 
-        return [
-          idx+1,
-          r.nis || r.id || '',
-          r.nama || '',
-          (r.semester ?? ''),
-          jenjangLabel(r.jenjang ?? ''),
-          (r.keterangan ?? ''),   // SP
-          r.hadir, r.alpha, r.sakit, r.izin,
-          hadirPct,
-          setoranText,
-          juzText,
-          Number(r.totalJuz.toFixed(2)),
-		  fmtMurRange(r.murTotalJuz || 0, r.murCount || 0), // << baru
-          statusJuz.label,
-          (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
-          pred.huruf
-        ];
-      });
+  return [
+    idx+1,                             // No
+    r.nis || r.id || '',               // NIS
+    r.nama || '',                      // Nama
+    (r.semester ?? ''),                // SM
+    jenjangLabel(r.jenjang ?? ''),     // KLS
+    r.hadir,                           // H
+    r.alpha,                           // A
+    r.sakit,                           // S
+    r.izin,                            // I
+    hadirPct,                          // Hadir %
+    (r.keterangan ?? ''),              // SP   <<-- dipindah ke posisi yang benar
+    setoranText,                       // Setoran
+    juzText,                           // Juz
+    Number(r.totalJuz.toFixed(2)),     // Total Juz
+    fmtMurRange(r.murTotalJuz || 0, r.murCount || 0), // Murajaah
+    statusJuz.label,                   // THMS
+    (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),  // Nilai Rata2
+    pred.huruf                         // Predikat
+  ];
+});
+
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
