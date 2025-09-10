@@ -3856,6 +3856,7 @@ document.getElementById('mur-save')?.addEventListener('click', function(){ simpa
 
 
 // ============================
+// ============================
 // Download PDF/Excel Rekap (slot-based attendance)
 // ============================
 (function(){
@@ -3915,54 +3916,6 @@ document.getElementById('mur-save')?.addEventListener('click', function(){ simpa
     const letter = String.fromCharCode(65 + idx);
     return `${group}${letter}`;
   }
-
-	// --- Mur Range (ambil dari tabel DOM) ---
-function parseMurRangeCell(cell){
-  const out = { totalText:'0.00 juz', totalNum:0, count:0, label:'' };
-  if (!cell) return out;
-
-  // Prioritas ke data-attribute yang kita set saat hitung
-  const totalAttr = cell.dataset?.murRangeTotal;
-  if (totalAttr != null) {
-    const num = parseFloat(String(totalAttr).replace(',','.')) || 0;
-    out.totalNum = num;
-    out.totalText = num.toFixed(2) + ' juz';
-  } else {
-    const mNum = (cell.textContent||'').match(/[\d.,]+/);
-    if (mNum) {
-      out.totalText = mNum[0] + ' juz';
-      out.totalNum = parseFloat(mNum[0].replace(',','.')) || 0;
-    }
-  }
-
-  const cntAttr = cell.dataset?.murRangeCount;
-  if (cntAttr != null) out.count = Number(cntAttr)||0;
-  else {
-    const mCount = (cell.textContent||'').match(/\((\d+)\)/);
-    if (mCount) out.count = Number(mCount[1]);
-  }
-
-  const badge = cell.querySelector?.('.mur-range-badge');
-  out.label = badge ? (badge.textContent||'').trim() : '';
-  return out;
-}
-function buildMurRangeMap(){
-  const table =
-    document.getElementById('santri-table') ||
-    document.getElementById('santriTable') ||
-    document.querySelector('table[data-role="santri-table"]') ||
-    document.querySelector('table.santri-table');
-  const map = new Map();
-  const rows = [...(table?.tBodies?.[0]?.rows || [])];
-  for (const tr of rows){
-    const key = (tr.dataset?.nis || tr.dataset?.id || tr.dataset?.key || '').trim();
-    if (!key) continue;
-    const cell = tr.querySelector('.total-mur-range');
-    const parsed = parseMurRangeCell(cell);
-    map.set(key, parsed);
-  }
-  return map;
-}
 
   // ====== Helper slot absensi (BARU) ======
   function _slotMetricsFromRecord(rec){
@@ -4079,48 +4032,47 @@ function buildMurRangeMap(){
   pdfBtn?.addEventListener('click', pdfRekapDownload);
   xlsBtn?.addEventListener('click', xlsRekapDownload);
 
-// -- Guard: pastikan drawTableHeader tersedia secara global --
-if (typeof window.drawTableHeader !== 'function') {
-  window.drawTableHeader = function drawTableHeader(doc, cols, x, y, rowH, fontSize, theme, padX){
-    const totalW = (typeof window.sumWidth === 'function')
-      ? window.sumWidth(cols)
-      : cols.reduce((s,c)=>s + (Number(c.w)||0), 0);
+  // -- Guard: pastikan drawTableHeader tersedia secara global --
+  if (typeof window.drawTableHeader !== 'function') {
+    window.drawTableHeader = function drawTableHeader(doc, cols, x, y, rowH, fontSize, theme, padX){
+      const totalW = (typeof window.sumWidth === 'function')
+        ? window.sumWidth(cols)
+        : cols.reduce((s,c)=>s + (Number(c.w)||0), 0);
 
-    doc.setFillColor(...theme.tableHeadFill);
-    doc.setDrawColor(...theme.border);
-    doc.rect(x, y, totalW, rowH, 'FD');
+      doc.setFillColor(...theme.tableHeadFill);
+      doc.setDrawColor(...theme.border);
+      doc.rect(x, y, totalW, rowH, 'FD');
 
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(fontSize);
-    doc.setTextColor(255,255,255);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(fontSize);
+      doc.setTextColor(255,255,255);
 
-    let cx = x;
-    const lh = fontSize * 0.3528 * 1.18;
+      let cx = x;
+      const lh = fontSize * 0.3528 * 1.18;
 
-    for (const col of cols){
-      const lines = doc.splitTextToSize(String(col.title||''), Math.max(1, col.w - 2*padX));
-      const textH = lines.length * lh;
-      const yy = y + (rowH - textH)/2 + lh*0.82;
+      for (const col of cols){
+        const lines = doc.splitTextToSize(String(col.title||''), Math.max(1, col.w - 2*padX));
+        const textH = lines.length * lh;
+        const yy = y + (rowH - textH)/2 + lh*0.82;
 
-      const tx = (col.align==='right')  ? (cx + col.w - padX)
-               : (col.align==='center') ? (cx + col.w/2)
-               : (cx + padX);
+        const tx = (col.align==='right')  ? (cx + col.w - padX)
+                 : (col.align==='center') ? (cx + col.w/2)
+                 : (cx + padX);
 
-      const opt = (col.align==='right')  ? {align:'right'}
-               : (col.align==='center') ? {align:'center'}
-               : {};
+        const opt = (col.align==='right')  ? {align:'right'}
+                 : (col.align==='center') ? {align:'center'}
+                 : {};
 
-      for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
+        for (let i=0;i<lines.length;i++) doc.text(String(lines[i]), tx, yy + i*lh, opt);
 
-      doc.rect(cx, y, col.w, rowH);
-      cx += col.w;
-    }
+        doc.rect(cx, y, col.w, rowH);
+        cx += col.w;
+      }
 
-    doc.setTextColor(31,41,55);
-    doc.setFont('helvetica','normal');
-  };
-}
-
+      doc.setTextColor(31,41,55);
+      doc.setFont('helvetica','normal');
+    };
+  }
 
   if (!allKelasBtn) {
     const wrap = document.querySelector('.pdf-rekap-controls');
@@ -4148,6 +4100,76 @@ if (typeof window.drawTableHeader !== 'function') {
       document.head.appendChild(sc);
     });
   }
+
+  // =========================
+  // [BARU] Mur Range DOM → Map
+  // =========================
+  function _normKey(v){ return String(v ?? '').trim(); }
+
+  function _getSantriTable(){
+    return document.getElementById('santri-table')
+        || document.getElementById('santriTable')
+        || document.querySelector('table[data-role="santri-table"]')
+        || document.querySelector('table.santri-table')
+        || null;
+  }
+
+  /**
+   * Ambil {total, count, label} dari sel .total-mur-range
+   * - total: number (juz)
+   * - count: number (berapa entri/kehadiran ber-MUR dalam rentang)
+   * - label: string ("12%", "TUNTAS", "KHATAM", atau "")
+   */
+  function parseMurRangeCell(cell){
+    if (!cell) return { total:0, count:0, label:'' };
+
+    // coba dari dataset (akurat)
+    let total = Number.parseFloat(cell.dataset?.murRangeTotal);
+    let count = Number.parseInt(cell.dataset?.murRangeCount, 10);
+
+    // fallback dari teks
+    const rawText = (cell.textContent || '').trim();
+    if (!Number.isFinite(total)){
+      const m = rawText.match(/(\d+(?:\.\d+)?)\s*juz/i);
+      total = m ? parseFloat(m[1]) : 0;
+    }
+    if (!Number.isFinite(count)){
+      const m2 = rawText.match(/\((\d+)\)\s*$/);
+      count = m2 ? parseInt(m2[1],10) : 0;
+    }
+
+    // label dari badge (lebih bersih)
+    const badge = cell.querySelector('.mur-range-badge');
+    const label = (badge?.textContent || '').trim();
+
+    return { total: Number.isFinite(total)? total : 0, count: Number.isFinite(count)? count : 0, label };
+  }
+
+  /**
+   * Bangun Map<key, {total, count, label}>
+   * - key = data-nis | data-id | data-key
+   * - membaca dari tabel santri saat ini
+   */
+  function buildMurRangeMap(){
+    const tbl = _getSantriTable();
+    const map = new Map();
+    if (!tbl) return map;
+
+    const rows = tbl.tBodies?.[0]?.rows || [];
+    for (const tr of rows){
+      const key = _normKey(tr.dataset?.nis || tr.dataset?.id || tr.dataset?.key || '');
+      if (!key) continue;
+      const cell = tr.querySelector('.total-mur-range');
+      if (!cell) continue;
+      map.set(key, parseMurRangeCell(cell));
+    }
+    return map;
+  }
+
+  // expose supaya bisa dipakai Blok 2 & 3
+  window.parseMurRangeCell = window.parseMurRangeCell || parseMurRangeCell;
+  window.buildMurRangeMap  = window.buildMurRangeMap  || buildMurRangeMap;
+  // =========================
 
   // ====== Ambil & Agregasi Data (Rekap Kelas) ======
   async function collectRekapData(){
@@ -4421,24 +4443,16 @@ if (typeof window.drawTableHeader !== 'function') {
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
-		{ key:'murTotal', title:'MUR', w:22, minW:20, maxW:30, align:'left'  },
         { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
       ];
       const contentW = pageW - margin.left - margin.right;
-	  const murMap = buildMurRangeMap();
 
       const tableData = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
-	    const murTotal = r.totalJuz.toFixed(2) + ' juz';
-		const murLabel = statusJuz.label;
-		const mur = murMap.get(r.nis || r.id || '') || null;
-		const murTotal = mur ? mur.totalText : (r.totalJuz.toFixed(2) + ' juz'); // fallback ke totalJuz
-		const murCount = mur ? String(mur.count) : '';                             // kalau tak ada, kosongkan
-		const murLabel = mur ? mur.label : statusJuz.label;                        // fallback label THMS
         const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
 
@@ -4462,9 +4476,6 @@ if (typeof window.drawTableHeader !== 'function') {
           setoran: setoranText,
           juz: juzText,
           totJuz: r.totalJuz.toFixed(2),
-		  murTotal: murTotal,
-		  murCount: murCount,
-		  murLabel: murLabel,
           persen: statusJuz.label,
           nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
           pred: pred.huruf
@@ -4688,7 +4699,7 @@ if (typeof window.drawTableHeader !== 'function') {
 
     // helper index
     const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-    const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
+       const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
     const keyName = v => String(v || "").trim().toLowerCase();
     const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
     const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
@@ -4856,7 +4867,6 @@ if (typeof window.drawTableHeader !== 'function') {
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
-		{ key:'murTotal', title:'Murajaah', w:22, minW:20, maxW:30, align:'left'  },
         { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
@@ -4878,7 +4888,6 @@ if (typeof window.drawTableHeader !== 'function') {
         if (!data) continue;
 
         const { kelasLine, kbmDays, rows } = data;
-		const murMap = buildMurRangeMap();
 
         const tableData = rows.map((r, idx) => {
           const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
@@ -4906,9 +4915,6 @@ if (typeof window.drawTableHeader !== 'function') {
             setoran: setoranText,
             juz: juzText,
             totJuz: r.totalJuz.toFixed(2),
-			murTotal: murTotal,
-			murCount: murCount,
-			murLabel: murLabel,
             persen: statusJuz.label,
             nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
             pred: pred.huruf
@@ -5050,263 +5056,297 @@ if (typeof window.drawTableHeader !== 'function') {
       setBtnLoading(btn, false);
     }
   }
+})();
 
-  // ================= Excel (.xlsx) =================
-  async function xlsRekapDownload(){
-    setBtnLoading(xlsBtn, true, 'Membuat Excel…');
-    try {
-      await ensureXLSX();
-      const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
-      const header = [
-        "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
-        "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","THMS","Nilai Rata2","Predikat"
-      ];
-      const body = rows.map((r, idx) => {
-        const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
-        const pred      = PDF_predikatFromScore(nilaiAvg);
-        const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+// ================= Excel (.xlsx) =================
+async function xlsRekapDownload(){
+  setBtnLoading(xlsBtn, true, 'Membuat Excel…');
+  try {
+    await ensureXLSX();
+    const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
-        const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
-        const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
-
-        const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
-        const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
-        const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
-        const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
-        const targetSlots= Number(r.targetSlots ?? 0);
-        const hadirPct   = targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0;
-
-        return [
-          idx+1,
-          r.nis || r.id || '',
-          r.nama || '',
-          (r.semester ?? ''),
-          jenjangLabel(r.jenjang ?? ''),
-          hadirSlots, alphaSlots, sakitSlots, izinSlots,
-          hadirPct,
-          (r.keterangan ?? ''),
-          setoranText,
-          juzText,
-          Number(r.totalJuz.toFixed(2)),
-          statusJuz.label,
-          (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
-          pred.huruf
-        ];
-      });
-
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
-      ws['!cols'] = autoFitColumns([header, ...body]);
-      XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
-
-      const meta = [
-        ["Rekap Absensi & Setoran", ""],
-        ["Kelas / Kelompok", kelasLine],
-        ["Periode", `${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`],
-        ["KBM (hari)", kbmDays],
-        ["Total Santri", rows.length],
-        [],
-        ["Ringkasan", ""],
-        ["Hadir (slot)", totals.totH],
-        ["Alpha (slot)", totals.totA],
-        ["Sakit (slot)", totals.totS],
-        ["Izin (slot)",  totals.totI],
-        ["Total Page", Math.round(totals.totPages)],
-        ["Total Juz", Number(totals.totJuz.toFixed(2))]
-      ];
-      const wsMeta = XLSX.utils.aoa_to_sheet(meta);
-      wsMeta['!cols'] = [{wch:24},{wch:40}];
-      XLSX.utils.book_append_sheet(wb, wsMeta, 'Meta');
-
-      const fileName = `Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.xlsx`;
-      XLSX.writeFile(wb, fileName);
-
-    } catch (err) {
-      console.error(err);
-      alert('Gagal mengunduh Excel: ' + (err.message || err));
-    } finally {
-      setBtnLoading(xlsBtn, false);
-    }
-  }
-
-  // ===== Util umum (widths) =====
-  function sumWidth(cols){ return cols.reduce((s,c)=>s + (Number(c.w)||0), 0); }
-  function autoFitColumns(aoa){
-    const colCount = Math.max(...aoa.map(r => r.length));
-    const cols = Array.from({length: colCount}, (_,i) => {
-      const maxLen = Math.max(...aoa.map(row => {
-        const v = row[i];
-        if (v == null) return 0;
-        const s = (typeof v === 'string') ? v : String(v);
-        return s.length;
-      }), 0);
-      return { wch: Math.min(60, Math.max(6, Math.ceil(maxLen * 1.1) + 2)) };
-    });
-    return cols;
-  }
-  function fitColumnsFlex(doc, cols, tableData, fontSize, contentW, padX){
-    const keys = cols.map(c => c.key);
-    const weights = keys.map((k,i) => {
-      const headLen = String(cols[i].title || '').length;
-      let maxLen = headLen;
-      const sampleLimit = Math.min(300, tableData.length);
-      for (let r=0; r<sampleLimit; r++){
-        const s = String(tableData[r][k] ?? '');
-        if (s.length > maxLen) maxLen = s.length;
+    // --- [BARU] Ambil peta Mur (Range) dari DOM; fallback aman ---
+    const murMap = (typeof window.buildMurRangeMap === 'function') ? window.buildMurRangeMap() : new Map();
+    const getMurFor = (r) => {
+      const k1 = (r?.nis != null) ? String(r.nis).trim() : '';
+      const k2 = (r?.id  != null) ? String(r.id).trim()  : '';
+      const m  = murMap.get(k1) || murMap.get(k2);
+      return m && (Number.isFinite(m.total) || Number.isFinite(m.count) || (m.label||'').trim())
+        ? m
+        : null;
+    };
+    const fmtMurCell = (m) => {
+      if (!m) return '';
+      const parts = [];
+      if (Number.isFinite(m.total)) {
+        const t = Math.round(m.total * 100) / 100; // 2 desimal tanpa string "0.00" berlebih
+        parts.push(`${t} juz`);
       }
-      if (['nama','setoran','juz'].includes(k)) maxLen *= 1.25;
-      return maxLen;
-    });
+      if (Number.isFinite(m.count) && m.count > 0) parts.push(`(${m.count})`);
+      if ((m.label||'').trim()) parts.push(m.label.trim());
+      return parts.join(' ').trim();
+    };
 
-    const minSum = cols.reduce((a,c)=>a+(c.minW||c.w||8),0);
-    const maxSum = cols.reduce((a,c)=>a+(c.maxW||c.w||8),0);
-    const target = Math.max(minSum, Math.min(maxSum, contentW));
-    const sumWgt = weights.reduce((a,b)=>a+b,0) || 1;
-
-    let widths = cols.map((c,i)=>{
-      const minW = c.minW ?? c.w ?? 8;
-      const maxW = c.maxW ?? (minW+20);
-      const frac = weights[i] / sumWgt;
-      const raw  = minW + (target - minSum) * frac;
-      return Math.max(minW, Math.min(maxW, raw));
-    });
-
-    let used = widths.reduce((a,b)=>a+b,0);
-    let diff = target - used;
-    const step = diff >= 0 ? 0.1 : -0.1;
-    let guard = 0;
-    while (Math.abs(diff) > 0.09 && guard++ < 200){
-      for (let i=0; i<cols.length && Math.abs(diff)>0.09; i++){
-        const minW = cols[i].minW ?? cols[i].w ?? 8;
-        const maxW = cols[i].maxW ?? (minW+20);
-        const canGrow = diff>0 && widths[i] + step <= maxW;
-        const canShrink = diff<0 && widths[i] + step >= minW;
-        if (canGrow || canShrink){ widths[i] += step; diff -= step; }
-      }
-    }
-
-    widths = widths.map(w => Math.round(w*10)/10);
-    const sumRounded = widths.reduce((a,b)=>a+b,0);
-    const fix = Math.round((target - sumRounded)*10)/10;
-    widths[widths.length-1] += fix;
-
-    for (let i=0;i<cols.length;i++) cols[i].w = widths[i];
-  }
-
-  // ======= Parser & Aggregator util (lengkap) =======
-  function PDF_normKey(v){ return String(v ?? '').trim(); }
-  function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
-  function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
-  function PDF_parseSA(sa){ const m=String(sa||'').trim().match(/^(\d+)\s*:\s*(\d+)$/); return m?{s:+m[1], a:+m[2]}:null; }
-  function PDF_compareSA(x,y){ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; }
-  function PDF_normStatus(s){
-    s = String(s||'').trim().toLowerCase();
-    if (['hadir','h'].includes(s)) return 'hadir';
-    if (['alpha','alfa','alpa','a'].includes(s)) return 'alpha';
-    if (['sakit','skt','s'].includes(s)) return 'sakit';
-    if (['izin','ijin','izn','i'].includes(s)) return 'izin';
-    return 'lainnya';
-  }
-  function PDF_predikatFromScore(nilai){
-    const map = [
-      { max: 59,  text: 'ROSIB',         huruf: 'D' },
-      { max: 69,  text: 'MAQBUL',        huruf: 'C' },
-      { max: 79,  text: 'JAYYID',        huruf: 'B' },
-      { max: 89,  text: 'JAYYID JIDDAN', huruf: 'A' },
-      { max: 100, text: 'MUMTAZ',        huruf: 'A+' }
+    const header = [
+      "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
+      "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","THMS","Nilai Rata2","Predikat",
+      // [BARU] kolom gabungan Mur (Range)
+      "Total Mur (Range)"
     ];
-    return map.find(p => nilai <= p.max) || map[map.length-1];
+
+    const body = rows.map((r, idx) => {
+      const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
+      const pred      = PDF_predikatFromScore(nilaiAvg);
+      const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+
+      const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
+      const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
+
+      const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
+      const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
+      const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
+      const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
+      const targetSlots= Number(r.targetSlots ?? 0);
+      const hadirPct   = targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0;
+
+      // [BARU] isi Mur (Range) dari DOM (jika ada)
+      const mur = getMurFor(r);
+      const murText = fmtMurCell(mur);
+
+      return [
+        idx+1,
+        r.nis || r.id || '',
+        r.nama || '',
+        (r.semester ?? ''),
+        jenjangLabel(r.jenjang ?? ''),
+        hadirSlots, alphaSlots, sakitSlots, izinSlots,
+        hadirPct,
+        (r.keterangan ?? ''),
+        setoranText,
+        juzText,
+        Number(r.totalJuz.toFixed(2)),
+        statusJuz.label,
+        (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
+        pred.huruf,
+        // [BARU]
+        murText
+      ];
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+    ws['!cols'] = autoFitColumns([header, ...body]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
+
+    const meta = [
+      ["Rekap Absensi & Setoran", ""],
+      ["Kelas / Kelompok", kelasLine],
+      ["Periode", `${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`],
+      ["KBM (hari)", kbmDays],
+      ["Total Santri", rows.length],
+      [],
+      ["Ringkasan", ""],
+      ["Hadir (slot)", totals.totH],
+      ["Alpha (slot)", totals.totA],
+      ["Sakit (slot)", totals.totS],
+      ["Izin (slot)",  totals.totI],
+      ["Total Page", Math.round(totals.totPages)],
+      ["Total Juz", Number(totals.totJuz.toFixed(2))]
+      // (opsional) bisa ditambah ringkasan Mur kalau ingin, tapi tidak diwajibkan
+    ];
+    const wsMeta = XLSX.utils.aoa_to_sheet(meta);
+    wsMeta['!cols'] = [{wch:24},{wch:40}];
+    XLSX.utils.book_append_sheet(wb, wsMeta, 'Meta');
+
+    const fileName = `Rekap_${kelas || 'kelas'}_${startDate}_sd_${endDate}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+  } catch (err) {
+    console.error(err);
+    alert('Gagal mengunduh Excel: ' + (err.message || err));
+  } finally {
+    setBtnLoading(xlsBtn, false);
   }
-  function PDF_parseJuzTerbacaField(val){
-    const out = new Set();
-    if (val == null) return out;
-    if (Array.isArray(val)) {
-      val.forEach(v => {
-        if (typeof v === 'number' && Number.isFinite(v)) out.add(v);
-        else if (typeof v === 'string') PDF_parseJuzTerbacaField(v).forEach(n => out.add(n));
-      });
-      return out;
+}
+
+// ===== Util umum (widths) =====
+function sumWidth(cols){ return cols.reduce((s,c)=>s + (Number(c.w)||0), 0); }
+function autoFitColumns(aoa){
+  const colCount = Math.max(...aoa.map(r => r.length));
+  const cols = Array.from({length: colCount}, (_,i) => {
+    const maxLen = Math.max(...aoa.map(row => {
+      const v = row[i];
+      if (v == null) return 0;
+      const s = (typeof v === 'string') ? v : String(v);
+      return s.length;
+    }), 0);
+    return { wch: Math.min(60, Math.max(6, Math.ceil(maxLen * 1.1) + 2)) };
+  });
+  return cols;
+}
+function fitColumnsFlex(doc, cols, tableData, fontSize, contentW, padX){
+  const keys = cols.map(c => c.key);
+  const weights = keys.map((k,i) => {
+    const headLen = String(cols[i].title || '').length;
+    let maxLen = headLen;
+    const sampleLimit = Math.min(300, tableData.length);
+    for (let r=0; r<sampleLimit; r++){
+      const s = String(tableData[r][k] ?? '');
+      if (s.length > maxLen) maxLen = s.length;
     }
-    if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
-    let str = String(val);
-    str = str.replace(/[–—−]/g, '-');
-    str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
-    str = str.replace(/juz\s*:?/gi, 'juz ');
-    const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
-    let m;
-    while ((m = re.exec(str)) !== null) {
-      let a = parseInt(m[1], 10);
-      let b = m[2] ? parseInt(m[2], 10) : a;
-      if (a > b) [a, b] = [b, a];
-      a = Math.max(1, Math.min(30, a));
-      b = Math.max(1, Math.min(30, b));
-      for (let x = a; x <= b; x++) out.add(x);
+    if (['nama','setoran','juz'].includes(k)) maxLen *= 1.25;
+    return maxLen;
+  });
+
+  const minSum = cols.reduce((a,c)=>a+(c.minW||c.w||8),0);
+  const maxSum = cols.reduce((a,c)=>a+(c.maxW||c.w||8),0);
+  const target = Math.max(minSum, Math.min(maxSum, contentW));
+  const sumWgt = weights.reduce((a,b)=>a+b,0) || 1;
+
+  let widths = cols.map((c,i)=>{
+    const minW = c.minW ?? c.w ?? 8;
+    const maxW = c.maxW ?? (minW+20);
+    const frac = weights[i] / sumWgt;
+    const raw  = minW + (target - minSum) * frac;
+    return Math.max(minW, Math.min(maxW, raw));
+  });
+
+  let used = widths.reduce((a,b)=>a+b,0);
+  let diff = target - used;
+  const step = diff >= 0 ? 0.1 : -0.1;
+  let guard = 0;
+  while (Math.abs(diff) > 0.09 && guard++ < 200){
+    for (let i=0; i<cols.length && Math.abs(diff)>0.09; i++){
+      const minW = cols[i].minW ?? cols[i].w ?? 8;
+      const maxW = cols[i].maxW ?? (minW+20);
+      const canGrow = diff>0 && widths[i] + step <= maxW;
+      const canShrink = diff<0 && widths[i] + step >= minW;
+      if (canGrow || canShrink){ widths[i] += step; diff -= step; }
     }
+  }
+
+  widths = widths.map(w => Math.round(w*10)/10);
+  const sumRounded = widths.reduce((a,b)=>a+b,0);
+  const fix = Math.round((target - sumRounded)*10)/10;
+  widths[widths.length-1] += fix;
+
+  for (let i=0;i<cols.length;i++) cols[i].w = widths[i];
+}
+
+// ======= Parser & Aggregator util (lengkap) =======
+function PDF_normKey(v){ return String(v ?? '').trim(); }
+function PDF_num2(v){ if (v===0 || v==='0') return 0; const n=parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n)?n:null; }
+function PDF_parseRange(r){ const m=String(r||'').trim().match(/^(\d+)\s*-\s*(\d+)$/); if(!m) return null; let a=+m[1], b=+m[2]; if(!Number.isFinite(a)||!Number.isFinite(b)) return null; return a<=b?[a,b]:[b,a]; }
+function PDF_parseSA(sa){ const m=String(sa||'').trim().match(/^(\d+)\s*:\s*(\d+)$/); return m?{s:+m[1], a:+m[2]}:null; }
+function PDF_compareSA(x,y){ if(!x||!y) return 0; return x.s!==y.s?x.s-y.s:x.a-y.a; }
+function PDF_normStatus(s){
+  s = String(s||'').trim().toLowerCase();
+  if (['hadir','h'].includes(s)) return 'hadir';
+  if (['alpha','alfa','alpa','a'].includes(s)) return 'alpha';
+  if (['sakit','skt','s'].includes(s)) return 'sakit';
+  if (['izin','ijin','izn','i'].includes(s)) return 'izin';
+  return 'lainnya';
+}
+function PDF_predikatFromScore(nilai){
+  const map = [
+    { max: 59,  text: 'ROSIB',         huruf: 'D' },
+    { max: 69,  text: 'MAQBUL',        huruf: 'C' },
+    { max: 79,  text: 'JAYYID',        huruf: 'B' },
+    { max: 89,  text: 'JAYYID JIDDAN', huruf: 'A' },
+    { max: 100, text: 'MUMTAZ',        huruf: 'A+' }
+  ];
+  return map.find(p => nilai <= p.max) || map[map.length-1];
+}
+function PDF_parseJuzTerbacaField(val){
+  const out = new Set();
+  if (val == null) return out;
+  if (Array.isArray(val)) {
+    val.forEach(v => {
+      if (typeof v === 'number' && Number.isFinite(v)) out.add(v);
+      else if (typeof v === 'string') PDF_parseJuzTerbacaField(v).forEach(n => out.add(n));
+    });
     return out;
   }
-  function PDF_fmtSASegment(seg){ return `${seg.from.s}:${seg.from.a}-${seg.to.s}:${seg.to.a}`; }
-  function PDF_dedupSASegments(arr){
-    const seen = new Set(), out = [];
-    for (const seg of (arr||[])) {
-      if (!seg?.from || !seg?.to) continue;
-      const norm = (PDF_compareSA(seg.from, seg.to) <= 0) ? seg : {from: seg.to, to: seg.from};
-      const key = `${norm.from.s}:${norm.from.a}-${norm.to.s}:${norm.to.a}`;
-      if (!seen.has(key)) { seen.add(key); out.push(norm); }
-    }
-    return out;
+  if (typeof val === 'number' && Number.isFinite(val)) { out.add(val); return out; }
+  let str = String(val);
+  str = str.replace(/[–—−]/g, '-');
+  str = str.replace(/\s*(s\.?d\.?|sd|sampai|to)\s*/gi, '-');
+  str = str.replace(/juz\s*:?/gi, 'juz ');
+  const re = /(?:juz\s*)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?/gi;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    let a = parseInt(m[1], 10);
+    let b = m[2] ? parseInt(m[2], 10) : a;
+    if (a > b) [a, b] = [b, a];
+    a = Math.max(1, Math.min(30, a));
+    b = Math.max(1, Math.min(30, b));
+    for (let x = a; x <= b; x++) out.add(x);
   }
-  function PDF_sortSASegments(list){
-    return [...(list||[])].sort((A,B)=>{
-      const c1 = PDF_compareSA(A?.from, B?.from);
-      if (c1 !== 0) return c1;
-      return PDF_compareSA(A?.to, B?.to);
-    });
+  return out;
+}
+function PDF_fmtSASegment(seg){ return `${seg.from.s}:${seg.from.a}-${seg.to.s}:${seg.to.a}`; }
+function PDF_dedupSASegments(arr){
+  const seen = new Set(), out = [];
+  for (const seg of (arr||[])) {
+    if (!seg?.from || !seg?.to) continue;
+    const norm = (PDF_compareSA(seg.from, seg.to) <= 0) ? seg : {from: seg.to, to: seg.from};
+    const key = `${norm.from.s}:${norm.from.a}-${norm.to.s}:${norm.to.a}`;
+    if (!seen.has(key)) { seen.add(key); out.push(norm); }
   }
-  function PDF_joinSAsegments(arr){
-    const list = PDF_sortSASegments(PDF_dedupSASegments(arr));
-    if (!list.length) return '-';
-    return list.map(PDF_fmtSASegment).join(', ');
+  return out;
+}
+function PDF_sortSASegments(list){
+  return [...(list||[])].sort((A,B)=>{
+    const c1 = PDF_compareSA(A?.from, B?.from);
+    if (c1 !== 0) return c1;
+    return PDF_compareSA(A?.to, B?.to);
+  });
+}
+function PDF_joinSAsegments(arr){
+  const list = PDF_sortSASegments(PDF_dedupSASegments(arr));
+  if (!list.length) return '-';
+  return list.map(PDF_fmtSASegment).join(', ');
+}
+function PDF_sortRangeSegments(list){
+  return [...(list||[])].sort((a,b)=>{
+    const a0 = Number(a?.[0]), a1 = Number(a?.[1]);
+    const b0 = Number(b?.[0]), b1 = Number(b?.[1]);
+    if (a0 !== b0) return a0 - b0;
+    return a1 - b1;
+  });
+}
+function PDF_joinRangeSegments(arr, collapseSingle=false){
+  if (!arr || !arr.length) return '-';
+  const seen = new Set(), tmp = [];
+  for (const seg of arr){
+    if (!Array.isArray(seg) || seg.length<2) continue;
+    let a = Number(seg[0]), b = Number(seg[1]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    if (a > b) [a,b] = [b,a];
+    const key = `${a}-${b}`;
+    if (!seen.has(key)) { seen.add(key); tmp.push([a,b]); }
   }
-  function PDF_sortRangeSegments(list){
-    return [...(list||[])].sort((a,b)=>{
-      const a0 = Number(a?.[0]), a1 = Number(a?.[1]);
-      const b0 = Number(b?.[0]), b1 = Number(b?.[1]);
-      if (a0 !== b0) return a0 - b0;
-      return a1 - b1;
-    });
-  }
-  function PDF_joinRangeSegments(arr, collapseSingle=false){
-    if (!arr || !arr.length) return '-';
-    const seen = new Set(), tmp = [];
-    for (const seg of arr){
-      if (!Array.isArray(seg) || seg.length<2) continue;
-      let a = Number(seg[0]), b = Number(seg[1]);
-      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-      if (a > b) [a,b] = [b,a];
-      const key = `${a}-${b}`;
-      if (!seen.has(key)) { seen.add(key); tmp.push([a,b]); }
-    }
-    const out = PDF_sortRangeSegments(tmp).map(([a,b]) => (collapseSingle && a===b) ? `${a}` : `${a}-${b}`);
-    return out.length ? out.join(', ') : '-';
-  }
-  function PDF_percentCapaian(totalJuzNum, semester){
-    const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
-    const total = Number(totalJuzNum);
-    const sem   = Number(semester);
-    if (!Number.isFinite(total)) return 0;
-    if (total >= 30) return 100;
-    const batas = batasSemester[sem] || 0;
-    if (batas <= 0) return 0;
-    let p = Math.floor((total / batas) * 100);
-    return Math.max(0, Math.min(100, p));
-  }
-  function PDF_totalAllJuzStatus(totalJuzNum, semester){
-    const p = PDF_percentCapaian(totalJuzNum, semester);
-    if (Number(totalJuzNum) >= 30) return { label:'KHATAM', percent:100 };
-    if (p >= 100) return { label:'TUNTAS', percent:p };
-    return { label: `${p}%`, percent:p };
-  }
+  const out = PDF_sortRangeSegments(tmp).map(([a,b]) => (collapseSingle && a===b) ? `${a}` : `${a}-${b}`);
+  return out.length ? out.join(', ') : '-';
+}
+function PDF_percentCapaian(totalJuzNum, semester){
+  const batasSemester = { 1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30 };
+  const total = Number(totalJuzNum);
+  const sem   = Number(semester);
+  if (!Number.isFinite(total)) return 0;
+  if (total >= 30) return 100;
+  const batas = batasSemester[sem] || 0;
+  if (batas <= 0) return 0;
+  let p = Math.floor((total / batas) * 100);
+  return Math.max(0, Math.min(100, p));
+}
+function PDF_totalAllJuzStatus(totalJuzNum, semester){
+  const p = PDF_percentCapaian(totalJuzNum, semester);
+  if (Number(totalJuzNum) >= 30) return { label:'KHATAM', percent:100 };
+  if (p >= 100) return { label:'TUNTAS', percent:p };
+  return { label: `${p}%`, percent:p };
+}
 
 // --- expose things used by pdfSantriDownload (which lives outside the IIFE) ---
 window.setBtnLoading = setBtnLoading;
@@ -5395,139 +5435,138 @@ if (indBtn && !indBtn.dataset.listenerAttached) {
 }
 
 
-	
-  // === Aggregator utama per santri (base; tidak slot) ===
-  function PDF_buildRekapPerKey(items){
-    const map = Object.create(null);
-    for (const it of (items||[])) {
-      const id  = PDF_normKey(it?.id);
-      const nis = PDF_normKey(it?.nis);
-      const key = PDF_normKey(nis || id);
-      if (!key) continue;
 
-      if (!map[key]) map[key] = {
-        id:id||'', nis:nis||'', nama: it?.nama || '',
-        hadir:0, alpha:0, sakit:0, izin:0, lainnya:0,
-        dariMin:null, sampaiMax:null,
-        pageStartMin:null, pageEndMax:null,
-        totalPageSum:0,
-        totalJuz:0,
-        _nilaiByDate:Object.create(null),
-        nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
-        juzSet:new Set(),
-        semester: (it?.semester!=null ? Number(it.semester) : null),
-        jenjang: (it?.jenjang ?? null),
-        keterangan: (it?.keterangan ?? null),
-        saSegments: [], pageSegments: [], juzSegments: [],
-        _datesAll: new Set(), _datesHadir: new Set()
-      };
-      const r = map[key];
-      if (!r.nama && it?.nama) r.nama = it.nama;
+// === Aggregator utama per santri (base; tidak slot) ===
+function PDF_buildRekapPerKey(items){
+  const map = Object.create(null);
+  for (const it of (items||[])) {
+    const id  = PDF_normKey(it?.id);
+    const nis = PDF_normKey(it?.nis);
+    const key = PDF_normKey(nis || id);
+    if (!key) continue;
 
-      const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
-      const st  = PDF_normStatus(it?.absensi ?? it?.status);
+    if (!map[key]) map[key] = {
+      id:id||'', nis:nis||'', nama: it?.nama || '',
+      hadir:0, alpha:0, sakit:0, izin:0, lainnya:0,
+      dariMin:null, sampaiMax:null,
+      pageStartMin:null, pageEndMax:null,
+      totalPageSum:0,
+      totalJuz:0,
+      _nilaiByDate:Object.create(null),
+      nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
+      juzSet:new Set(),
+      semester: (it?.semester!=null ? Number(it.semester) : null),
+      jenjang: (it?.jenjang ?? null),
+      keterangan: (it?.keterangan ?? null),
+      saSegments: [], pageSegments: [], juzSegments: [],
+      _datesAll: new Set(), _datesHadir: new Set()
+    };
+    const r = map[key];
+    if (!r.nama && it?.nama) r.nama = it.nama;
 
-      if (st==='hadir') r.hadir++;
-      else if (st==='alpha') r.alpha++;
-      else if (st==='sakit') r.sakit++;
-      else if (st==='izin') r.izin++;
-      else r.lainnya++;
+    const tgl = it?.tanggal ? String(it.tanggal).slice(0,10) : null;
+    const st  = PDF_normStatus(it?.absensi ?? it?.status);
 
-      if (tgl && r.nis && nis && nis === r.nis) {
-        r._datesAll.add(tgl);
-        if (st === 'hadir') r._datesHadir.add(tgl);
-      }
+    if (st==='hadir') r.hadir++;
+    else if (st==='alpha') r.alpha++;
+    else if (st==='sakit') r.sakit++;
+    else if (st==='izin') r.izin++;
+    else r.lainnya++;
 
-      const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
-      const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
-      if (dari && smp) {
-        const seg = (PDF_compareSA(dari, smp) <= 0) ? {from: dari, to: smp} : {from: smp, to: dari};
-        r.saSegments.push(seg);
-      }
-
-      const rng = PDF_parseRange(it?.halaman || it?.page);
-      const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
-      if (tp!=null) r.totalPageSum += tp;
-      else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
-      if (rng){
-        let [a,b] = rng; if (a>b) [a,b]=[b,a];
-        r.pageSegments.push([a,b]);
-        if (Number.isFinite(a) && (r.pageStartMin==null || a<r.pageStartMin)) r.pageStartMin=a;
-        if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
-      }
-
-      const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
-      if (vJ!=null) r.totalJuz += vJ;
-
-      const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
-      const vN = PDF_num2(vNraw);
-      if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
-
-      const jtRaw = it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? it?.juz;
-      const set = PDF_parseJuzTerbacaField(jtRaw);
-      if (set.size) {
-        set.forEach(n=> r.juzSet.add(n));
-        const arr = Array.from(set).sort((a,b)=>a-b);
-        let start = arr[0], prev = arr[0];
-        for (let i=1; i<=arr.length; i++){
-          const curr = arr[i];
-          if (curr === prev + 1) { prev = curr; continue; }
-          r.juzSegments.push([start, prev]);
-        }
-      }
-
-      if (r.semester==null   && it?.semester   !=null) r.semester   = Number(it.semester);
-      if (r.jenjang == null  && it?.jenjang    !=null) r.jenjang    = it.jenjang;
-      if (r.keterangan == null && it?.keterangan !=null) r.keterangan = it.keterangan;
+    if (tgl && r.nis && nis && nis === r.nis) {
+      r._datesAll.add(tgl);
+      if (st === 'hadir') r._datesHadir.add(tgl);
     }
 
-    for (const k in map){
-      const r = map[k];
-      r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
-      for (const t in r._nilaiByDate){
-        const v = r._nilaiByDate[t];
-        r.nilaiSum += v; r.nilaiCount += 1;
-        if (v < r.nilaiMin) r.nilaiMin = v;
-        if (v > r.nilaiMax) r.nilaiMax = v;
-      }
-      if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
-      if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
-
-      r.daysCount  = r._datesAll.size;
-      r.hadirDays  = r._datesHadir.size;
-
-      r.saSegments   = PDF_dedupSASegments(r.saSegments);
-      r.pageSegments = (function dedupRange(list){
-        const seen = new Set(), out=[];
-        for (const seg of (list||[])){
-          if (!Array.isArray(seg) || seg.length<2) continue;
-          let a = Number(seg[0]), b = Number(seg[1]);
-          if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-          if (a>b) [a,b]=[b,a];
-          const key = `${a}-${b}`;
-          if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
-        }
-        return out;
-      })(r.pageSegments);
-      r.juzSegments  = (function dedupRange(list){
-        const seen = new Set(), out=[];
-        for (const seg of (list||[])){
-          if (!Array.isArray(seg) || seg.length<2) continue;
-          let a = Number(seg[0]), b = Number(seg[1]);
-          if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-          if (a>b) [a,b]=[b,a];
-          const key = `${a}-${b}`;
-          if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
-        }
-        return out;
-      })(r.juzSegments);
+    const dari = PDF_parseSA(it?.dari || it?.dariSetoran);
+    const smp  = PDF_parseSA(it?.sampai || it?.sampaiSetoran);
+    if (dari && smp) {
+      const seg = (PDF_compareSA(dari, smp) <= 0) ? {from: dari, to: smp} : {from: smp, to: dari};
+      r.saSegments.push(seg);
     }
-    return map;
+
+    const rng = PDF_parseRange(it?.halaman || it?.page);
+    const tp  = PDF_num2(it?.totalHalaman ?? it?.totalPage);
+    if (tp!=null) r.totalPageSum += tp;
+    else if (rng) r.totalPageSum += Math.max(0, rng[1]-rng[0]+1);
+    if (rng){
+      let [a,b] = rng; if (a>b) [a,b]=[b,a];
+      r.pageSegments.push([a,b]);
+      if (Number.isFinite(a) && (r.pageStartMin==null || a<r.pageStartMin)) r.pageStartMin=a;
+      if (Number.isFinite(b) && (r.pageEndMax==null   || b>r.pageEndMax))   r.pageEndMax=b;
+    }
+
+    const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
+    if (vJ!=null) r.totalJuz += vJ;
+
+    const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
+    const vN = PDF_num2(vNraw);
+    if (tgl && vN!=null) r._nilaiByDate[tgl] = vN;
+
+    const jtRaw = it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? it?.juz;
+    const set = PDF_parseJuzTerbacaField(jtRaw);
+    if (set.size) {
+      set.forEach(n=> r.juzSet.add(n));
+      const arr = Array.from(set).sort((a,b)=>a-b);
+      let start = arr[0], prev = arr[0];
+      for (let i=1; i<=arr.length; i++){
+        const curr = arr[i];
+        if (curr === prev + 1) { prev = curr; continue; }
+        r.juzSegments.push([start, prev]);
+      }
+    }
+
+    if (r.semester==null   && it?.semester   !=null) r.semester   = Number(it.semester);
+    if (r.jenjang == null  && it?.jenjang    !=null) r.jenjang    = it.jenjang;
+    if (r.keterangan == null && it?.keterangan !=null) r.keterangan = it.keterangan;
   }
 
-})(); // end IIFE
-	
-  // ============== PDF per Santri (slot-based) ==============
+  for (const k in map){
+    const r = map[k];
+    r.nilaiSum = 0; r.nilaiCount = 0; r.nilaiMin = Infinity; r.nilaiMax = -Infinity;
+    for (const t in r._nilaiByDate){
+      const v = r._nilaiByDate[t];
+      r.nilaiSum += v; r.nilaiCount += 1;
+      if (v < r.nilaiMin) r.nilaiMin = v;
+      if (v > r.nilaiMax) r.nilaiMax = v;
+    }
+    if (!Number.isFinite(r.nilaiMin)) r.nilaiMin = 0;
+    if (!Number.isFinite(r.nilaiMax)) r.nilaiMax = 0;
+
+    r.daysCount  = r._datesAll.size;
+    r.hadirDays  = r._datesHadir.size;
+
+    r.saSegments   = PDF_dedupSASegments(r.saSegments);
+    r.pageSegments = (function dedupRange(list){
+      const seen = new Set(), out=[];
+      for (const seg of (list||[])){
+        if (!Array.isArray(seg) || seg.length<2) continue;
+        let a = Number(seg[0]), b = Number(seg[1]);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        if (a>b) [a,b]=[b,a];
+        const key = `${a}-${b}`;
+        if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
+      }
+      return out;
+    })(r.pageSegments);
+    r.juzSegments  = (function dedupRange(list){
+      const seen = new Set(), out=[];
+      for (const seg of (list||[])){
+        if (!Array.isArray(seg) || seg.length<2) continue;
+        let a = Number(seg[0]), b = Number(seg[1]);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        if (a>b) [a,b]=[b,a];
+        const key = `${a}-${b}`;
+        if (!seen.has(key)) { seen.add(key); out.push([a,b]); }
+      }
+      return out;
+    })(r.juzSegments);
+  }
+  return map;
+}
+
+
+// ============== PDF per Santri (slot-based) ==============
 async function pdfSantriDownload(){
   // Tentukan tombol pemicu yang benar (OK vs Individual)
   const srcFromOK = document.activeElement && document.activeElement.id === 'okSantriSelect';
@@ -5657,6 +5696,37 @@ async function pdfSantriDownload(){
     // Persentase kehadiran total (slot-based)
     const hadirPctTotal = totalTargetSlots > 0 ? Math.round((totH / totalTargetSlots) * 100) : 0;
 
+    // === [BARU] util Mur (Range) ===
+    function getMurMapSafe(){
+      try { return (typeof window.buildMurRangeMap === 'function') ? window.buildMurRangeMap() : new Map(); }
+      catch(e){ console.warn('buildMurRangeMap() error:', e); return new Map(); }
+    }
+    function fmtMurCell(m){
+      if (!m) return '';
+      const parts = [];
+      if (Number.isFinite(m.total)) parts.push(`${Math.round(m.total*100)/100} juz`);
+      if (Number.isFinite(m.count) && m.count>0) parts.push(`(${m.count})`);
+      if ((m.label||'').trim()) parts.push(m.label.trim());
+      return parts.join(' ').trim();
+    }
+    function fallbackMurFromSegments(segments){
+      const segs = Array.isArray(segments) ? segments : [];
+      if (!segs.length) return '';
+      let total = 0;
+      for (const [a,b] of segs){ const A=Number(a), B=Number(b); if (Number.isFinite(A)&&Number.isFinite(B)) total += Math.max(0, Math.abs(B-A)+1); }
+      const label = PDF_joinRangeSegments(segs, true);
+      const count = segs.length;
+      const parts = [];
+      if (total>0) parts.push(`${total} juz`);
+      if (count>0) parts.push(`(${count})`);
+      if (label) parts.push(label);
+      return parts.join(' ').trim();
+    }
+
+    const murMap = getMurMapSafe();
+    const murFromMap = murMap.get(String(key)) || murMap.get(String(agg?.id||'')) || murMap.get(String(agg?.nis||''));
+    const murTextTotal = murFromMap ? fmtMurCell(murFromMap) : fallbackMurFromSegments(agg?.juzSegments || []);
+
     // ==== Baris harian (slot-based) ====
     const tableRows = dayRows.map((d, idx) => {
       const targetSlots = Number(d.targetSlots || 0);
@@ -5678,6 +5748,8 @@ async function pdfSantriDownload(){
         hadirPct: `${hadirPct}%`,
         setoran: PDF_joinSAsegmentsNama(d.sa),
         juz: PDF_joinRangeSegments(d.juz, true),
+        // [BARU] baris harian dikosongkan agar tidak duplikat dengan "Juz"
+        mur: '',
         totJuz: d.totalJuz ? d.totalJuz.toFixed(2) : '0.00',
         persen: statusJuzHarian.label,
         nilai: nilaiHarian ? nilaiHarian.toFixed(1) : '-',
@@ -5702,6 +5774,8 @@ async function pdfSantriDownload(){
       hadirPct: `${hadirPctTotal}%`,
       setoran: setoranTotal,
       juz: juzTotalTxt,
+      // [BARU] tampilkan Mur (Range) di total
+      mur: murTextTotal,
       totJuz: totJuz.toFixed(2),
       persen: statusJuzTotal.label,
       nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
@@ -5770,21 +5844,22 @@ async function pdfSantriDownload(){
       { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
       { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
       { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
+      // [BARU] kolom Mur (Range)
+      { key:'mur',      title:'Mur (Range)', w:28, minW:20, maxW:40, align:'left' },
       { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
-	  { key:'murTotal', title:'Murajaah', w:22, minW:20, maxW:30, align:'left'  },
       { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
       { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
       { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
     ];
     const contentW = pageW - margin.left - margin.right;
-    fitColumnsFlex(doc, cols, tableRows, fontBody, contentW, cellPadX);
+    fitColumnsFlex(doc, cols, tableRows, 8.5, contentW, cellPadX);
 
     // header & body
     drawHeaderBarS();
     let x0 = margin.left;
-    let y  = margin.top + 30;
+    let y  = margin.top + headerGap;
 
-    drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
+    drawTableHeader(doc, cols, x0, y, headerRowH, 8.5+1, theme, cellPadX);
     y += headerRowH;
 
     let rowIndex = 0;
@@ -5814,8 +5889,8 @@ async function pdfSantriDownload(){
       if (y + rowH > pageH - margin.bottom) {
         doc.addPage('a3', 'landscape');
         drawHeaderBarS();
-        y = margin.top + 30;
-        drawTableHeader(doc, cols, x0, y, headerRowH, fontHead, theme, cellPadX);
+        y = margin.top + headerGap;
+        drawTableHeader(doc, cols, x0, y, headerRowH, 8.5+1, theme, cellPadX);
         y += headerRowH;
         rowIndex = 0;
       }
@@ -5832,7 +5907,7 @@ async function pdfSantriDownload(){
       // cells
       let x = x0;
       doc.setFont('helvetica','normal');
-      doc.setFontSize(fontBody);
+      doc.setFontSize(8.5);
       doc.setTextColor(...theme.text);
       doc.setDrawColor(...theme.border);
 
@@ -5840,7 +5915,7 @@ async function pdfSantriDownload(){
         const col = cols[ci];
         const lines = wraps[ci];
 
-        // highlight THMS
+        // highlight THMS (kecuali baris rekap)
         if (!row._isRekap && col.key === 'persen') {
           const val = String(row[col.key] || '').toUpperCase();
           if (val === 'TUNTAS' || val === 'KHATAM') {
@@ -5890,7 +5965,7 @@ async function pdfSantriDownload(){
     if (y + spaceTop + neededH > pageH - margin.bottom){
       doc.addPage('a3', 'landscape');
       drawHeaderBarS();
-      y = margin.top + 30;
+      y = margin.top + headerGap;
     }
     y += spaceTop;
 
@@ -5926,11 +6001,13 @@ async function pdfSantriDownload(){
     alert('Gagal mengunduh PDF per santri: ' + (err.message || err));
     throw err;
   } finally {
-    const triggerBtn = document.getElementById('okSantriSelect') || pdfSantriBtn;
-    setBtnLoading(triggerBtn, false);
+    // pakai tombol pemicu yang sama + selalu reset busy-flag
+    setBtnLoading(triggerBtn || document.getElementById('okSantriSelect') || pdfSantriBtn, false);
+    window._pdfSantriBusy = false;
   }
 }
 window._pdfSantriDownload = pdfSantriDownload;
+
 
 
 
