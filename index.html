@@ -3943,6 +3943,7 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
+		{ key:'murRange', title:'Mur Range', w:20, minW:18, maxW:26, align:'right' },
         { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' }, // ganti label
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
@@ -3971,6 +3972,7 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
           setoran: setoranText,
           juz: juzText,
           totJuz: r.totalJuz.toFixed(2),
+		  murRange: fmtMurRange(r.murTotalJuz || 0, r.murCount || 0),
           persen: statusJuz.label,
           nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
           pred: pred.huruf
@@ -4361,6 +4363,7 @@ async function pdfAllKelasDownload(){
       { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
       { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
       { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
+	  { key:'murRange',  title:'Mur Range', w:20, minW:18, maxW:26, align:'right' },
       { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
       { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
       { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
@@ -4407,6 +4410,7 @@ async function pdfAllKelasDownload(){
           setoran: setoranText,
           juz: juzText,
           totJuz: r.totalJuz.toFixed(2),
+		  murRange: fmtMurRange(r.murTotalJuz || 0, r.murCount || 0),
           persen: statusJuz.label,
           nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
           pred: pred.huruf
@@ -4590,12 +4594,13 @@ async function pdfAllKelasDownload(){
         const tgl = it.tanggal || '-';
         if (!byDate.has(tgl)) {
           byDate.set(tgl, {
-            tanggal: tgl,
-            cnt: { hadir:0, alpha:0, sakit:0, izin:0, lainnya:0 },
-            sa: [], pages: [], juz: [],
-            totalPage: 0, totalJuz: 0,
-            nilaiSum: 0, nilaiCount: 0
-          });
+  		tanggal: tgl,
+  		cnt: { hadir:0, alpha:0, sakit:0, izin:0, lainnya:0 },
+  		sa: [], pages: [], juz: [],
+  		totalPage: 0, totalJuz: 0,
+  		murJuz: 0,                 // << baru
+  		nilaiSum: 0, nilaiCount: 0
+		});
         }
         const d = byDate.get(tgl);
 
@@ -4613,6 +4618,8 @@ async function pdfAllKelasDownload(){
 
         const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
         if (vJ!=null) d.totalJuz += vJ;
+		const vM = PDF_num2(it?.juzmurajaah ?? it?.murajaah ?? it?.mur_juz);
+		if (vM != null) d.murJuz += vM;
 
         const jtSet = PDF_parseJuzTerbacaField(it?.juzTerbaca ?? it?.juz_terbaca ?? it?.juzTerbacaText ?? it?.juzText ?? it?.juzs ?? null);
         if (jtSet.size) {
@@ -4638,6 +4645,8 @@ async function pdfAllKelasDownload(){
       const totI = agg?.izin  ?? dayRows.reduce((s,d)=>s+d.cnt.izin,0);
       const totPages = Math.round(agg?.totalPageSum ?? dayRows.reduce((s,d)=>s+d.totalPage,0));
       const totJuz   = +(agg?.totalJuz ?? dayRows.reduce((s,d)=>s+d.totalJuz,0)).toFixed(2);
+	  const murCountTotal = dayRows.reduce((s,d)=> s + ((d.murJuz||0) > 0 ? 1 : 0), 0);
+	  const murJuzTotal   = +( (agg?.murTotalJuz ?? dayRows.reduce((s,d)=> s + (d.murJuz||0), 0)).toFixed(2) );
       const nilaiAvg = (agg?.nilaiCount ? agg.nilaiSum/agg.nilaiCount : 0);
       const statusJuzTotal = PDF_totalAllJuzStatus(totJuz, agg?.semester ?? semesterSantri);
 
@@ -4665,6 +4674,7 @@ async function pdfAllKelasDownload(){
           setoran: PDF_joinSAsegmentsNama(d.sa),
           juz: PDF_joinRangeSegments(d.juz, true),
           totJuz: d.totalJuz ? d.totalJuz.toFixed(2) : '0.00',
+		  murRange: fmtMurRange(d.murJuz || 0, (d.murJuz||0) > 0 ? 1 : 0),
           persen: statusJuzHarian.label,
           nilai: nilaiHarian ? nilaiHarian.toFixed(1) : '-',
           pred: predHarian.huruf
@@ -4688,6 +4698,7 @@ async function pdfAllKelasDownload(){
         setoran: setoranTotal,
         juz: juzTotalTxt,
         totJuz: totJuz.toFixed(2),
+		murRange: fmtMurRange(murJuzTotal, murCountTotal),
         persen: statusJuzTotal.label,
         nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
         pred: predTotal.huruf
@@ -4756,6 +4767,7 @@ async function pdfAllKelasDownload(){
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
+		{ key:'murRange',  title:'Mur Range', w:20, minW:18, maxW:26, align:'right' },
         { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' }, // ganti label
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
@@ -4920,9 +4932,9 @@ async function pdfAllKelasDownload(){
       const { kelas, startDate, endDate, kelasLine, kbmDays, rows, totals } = await collectRekapData();
 
       const header = [
-        "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
-        "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","THMS","Nilai Rata2","Predikat" // THMS
-      ];
+  "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
+  "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","Mur Range","THMS","Nilai Rata2","Predikat"
+];
       const body = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
@@ -4946,6 +4958,7 @@ async function pdfAllKelasDownload(){
           setoranText,
           juzText,
           Number(r.totalJuz.toFixed(2)),
+		  fmtMurRange(r.murTotalJuz || 0, r.murCount || 0), // << baru
           statusJuz.label,
           (nilaiAvg ? Number(nilaiAvg.toFixed(1)) : null),
           pred.huruf
@@ -4988,6 +5001,13 @@ async function pdfAllKelasDownload(){
   }
 
   // ===== Util =====
+
+	function fmtMurRange(total, count){
+  const t = Number(total||0);
+  const c = Number(count||0);
+  return `${t.toFixed(2)} (${c})`;
+}
+	
   function sumWidth(cols){ return cols.reduce((s,c)=>s + (Number(c.w)||0), 0); }
   function autoFitColumns(aoa){
     const colCount = Math.max(...aoa.map(r => r.length));
@@ -5180,7 +5200,9 @@ async function pdfAllKelasDownload(){
         dariMin:null, sampaiMax:null,
         pageStartMin:null, pageEndMax:null,
         totalPageSum:0,
-        totalJuz:0,
+		totalJuz:0,            // semua juz (setoran)
+		murTotalJuz: 0,        // << BARU: total juz murajaah (dari 'juzmurajaah')
+		murCount: 0,           // << BARU: jumlah hari yang memiliki murajaah (>0)
         _nilaiByDate:Object.create(null),
         nilaiSum:0, nilaiCount:0, nilaiMin:Infinity, nilaiMax:-Infinity,
         juzSet:new Set(),
@@ -5226,6 +5248,13 @@ async function pdfAllKelasDownload(){
 
       const vJ = PDF_num2(it?.totalJuz ?? it?.juz);
       if (vJ!=null) r.totalJuz += vJ;
+	  // --- Murajaah dari server ('juzmurajaah') ---
+	const vM = PDF_num2(it?.juzmurajaah ?? it?.murajaah ?? it?.mur_juz);
+	if (vM != null) {
+  	r.murTotalJuz += vM;
+  	if (vM > 0) r.murCount += 1;
+	}
+
 
       const vNraw = (it?.buttonCell?.nilai ?? it?.nilai ?? it?.score);
       const vN = PDF_num2(vNraw);
