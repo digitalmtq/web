@@ -38,60 +38,44 @@
   font-size: 12px; /* ini akan kecilkan semua font */
 }
 
-/* Overlay elegan */
+/* Overlay gelap tipis */
   #overlay {
     position: fixed;
     display: none; /* default hidden */
     top: 0; left: 0;
     width: 100%; height: 100%;
-    backdrop-filter: blur(4px);       /* blur background */
-    background: rgba(0,0,0,0.3);      /* semi transparan */
+    background: rgba(0,0,0,0.5);  /* gelap tipis */
     z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* Kotak transparan untuk spinner */
-  .loader-box {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: rgba(255,255,255,0.9);
-    padding: 20px 30px;
-    border-radius: 16px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
-    animation: fadeIn 0.3s ease;
+    justify-content: center;
+    color: #fff;
   }
 
-  /* Spinner elegan */
+  /* Spinner */
   .spinner {
     width: 60px;
     height: 60px;
-    border: 6px solid rgba(0,0,0,0.1);
-    border-top: 6px solid #2563eb; /* biru brand */
+    border: 6px solid rgba(255,255,255,0.2);
+    border-top: 6px solid #ffffff;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-bottom: 12px;
+    margin-bottom: 15px;
   }
 
-  /* Teks kecil */
-  .loader-box p {
+  /* Teks */
+  #overlay p {
     margin: 0;
     font-size: 14px;
-    color: #1f2937;
     font-weight: 500;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.5px;
   }
 
-  /* Animasi */
+  /* Animasi spinner */
   @keyframes spin {
     0%   { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to   { opacity: 1; transform: scale(1); }
   }
 
     button.lihat-quran-btn {
@@ -420,7 +404,7 @@ button.lihat-quran-btn:hover::after {
 <body>
 
 <!-- Overlay Loading -->
-<div id="overlay"><div class="loader-box"><div class="spinner"></div></div></div>
+<div id="overlay"><div class="spinner"></div></div>
 
 <div class="container"> 
   <!-- Halaman Login -->
