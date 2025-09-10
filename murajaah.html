@@ -5282,6 +5282,15 @@ window.PDF_totalAllJuzStatus = PDF_totalAllJuzStatus;
 window.PDF_predikatFromScore = PDF_predikatFromScore;
 window.PDF_spPaintCell = PDF_spPaintCell;
 
+// juga expose fmtMurRange (tak masalah jika sudah ada dari FIX-1)
+if (typeof window.fmtMurRange !== 'function') {
+  window.fmtMurRange = function(total, count){
+    const t = Number(total||0);
+    const c = Number(count||0);
+    return `${t.toFixed(2)} (${c})`;
+  };
+}
+
 // expose DOM refs so pdfSantriDownload bisa akses
 window.pdfSantriBtn = pdfSantriBtn;
 window.santriSelect = santriSelect;
@@ -5485,8 +5494,19 @@ if (indBtn && !indBtn.dataset.listenerAttached) {
     }
     return map;
   }
-
 })(); // end IIFE
+
+	 // === [FIX-1] Global fmtMurRange (agar bisa dipakai di semua blok) ===
+if (typeof window.fmtMurRange !== 'function') {
+  window.fmtMurRange = function(total, count){
+    const t = Number(total||0);
+    const c = Number(count||0);
+    return `${t.toFixed(2)} (${c})`;
+  };
+}
+// alias global (tanpa window.) supaya panggilan lama tetap aman
+var fmtMurRange = window.fmtMurRange;
+// === [END FIX-1] ===
 	
   // ============== PDF per Santri (slot-based) ==============
 async function pdfSantriDownload(){
@@ -5538,15 +5558,19 @@ async function pdfSantriDownload(){
     for (const it of mine) {
       const tgl = it.tanggal || '-';
       if (!byDate.has(tgl)) {
-        byDate.set(tgl, {
-  		tanggal: tgl,
-  		cnt: { hadir:0, alpha:0, sakit:0, izin:0, lainnya:0 },
-  		sa: [], pages: [], juz: [],
-  		totalPage: 0, totalJuz: 0,
-  		murJuz: 0,                 // << baru
-  		nilaiSum: 0, nilaiCount: 0
-		});
-      }
+  byDate.set(tgl, {
+    tanggal: tgl,
+    cnt: { hadir:0, alpha:0, sakit:0, izin:0, lainnya:0 },
+    sa: [], pages: [], juz: [],
+    totalPage: 0, totalJuz: 0,
+    murJuz: 0,
+    nilaiSum: 0, nilaiCount: 0,
+    // --- [FIX-2] inisialisasi slot harian ---
+    targetSlots: 0,
+    checkedSlots: 0
+    // --- [END FIX-2] ---
+  });
+}
       const d = byDate.get(tgl);
 
       // --- ABSENSI SLOT ---
