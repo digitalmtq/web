@@ -6680,15 +6680,15 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     if (kelas){
       try {
         const prev = await getRangeForKelas(kelas);
-        if (prev.fromDate) dari.value = prev.fromDate;
-        if (prev.toDate)   sampai.value = prev.toDate;
+        if (prev.fromDate && dari) dari.value = prev.fromDate;
+        if (prev.toDate   && sampai) sampai.value = prev.toDate;
       } catch {}
     }
     // Boundary
     if (dari){ dari.max = todayStr; if (!dari.value || dari.value > todayStr) dari.value = todayStr; }
     if (sampai){ sampai.removeAttribute('max'); if (!sampai.value) sampai.value = todayStr; }
 
-    $('#murRangeStatus').textContent = '';
+    const st = $('#murRangeStatus'); if (st) st.textContent = '';
     el.style.display = 'flex';
   }
 
@@ -6702,12 +6702,13 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     const dari   = $('#murRangeDari')?.value;
     const sampai = $('#murRangeSampai')?.value;
 
-    if (!kelas){ alert("Mohon pilih kelas."); console.warn("murajaah: kelas kosong"); return; }
-    if (!table){ alert("Tabel santri belum tersedia."); console.warn("murajaah: table tidak ada"); return; }
+    if (!kelas){ alert("Mohon pilih kelas."); return; }
+    if (!table){ alert("Tabel santri belum tersedia."); return; }
     if (!dari){ alert("Mohon pilih tanggal Dari."); return; }
     if (!sampai){ alert("Mohon pilih tanggal Sampai."); return; }
 
-    $('#murRangeStatus').textContent = "⏳ Menghitung…";
+    const statusEl = $('#murRangeStatus');
+    if (statusEl) statusEl.textContent = "⏳ Menghitung…";
 
     try{
       await ensureSemesterMap(kelas);
@@ -6774,10 +6775,10 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       await saveRangeServer(kelas, dari, sampai, totalKeys);
       saveRangeLocal(kelas, dari, sampai);
 
-      $('#murRangeStatus').textContent = "✅ Disimpan. Rentang ini akan otomatis terpakai saat refresh.";
+      if (statusEl) statusEl.textContent = "✅ Disimpan. Rentang ini akan otomatis terpakai saat refresh.";
     }catch(err){
       console.error(err);
-      $('#murRangeStatus').textContent = "❌ " + (err?.message || err);
+      if (statusEl) statusEl.textContent = "❌ " + (err?.message || err);
       alert("❌ Terjadi kesalahan: " + (err?.message || err));
     }
   }
@@ -6797,10 +6798,8 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
     const { fromDate, toDate } = await getRangeForKelas(kelas);
     if (fromDate && toDate){
-      // isi input overlay (kalau ada)
       if ($('#murRangeDari'))   $('#murRangeDari').value   = fromDate;
       if ($('#murRangeSampai')) $('#murRangeSampai').value = toDate;
-      // langsung jalankan hitung
       await hitungTotalMurRangeFromTable();
       autoRanForKelas = kelas;
     }
@@ -6823,13 +6822,46 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     afterTableRenderedMurRange();
   }
 
-  // expose minimal API (opsional)
+  // === Wrap lama agar tidak spam error saat modal ditutup / belum siap
+  (function(){
+    function getTable(){ return getSantriTable(); }
+    function getKelas(){ return kelasNow(); }
+    async function waitReady(ms=3500){
+      const t0=Date.now();
+      while(Date.now()-t0 < ms){
+        const k = getKelas();
+        const rows = getTable()?.tBodies?.[0]?.rows?.length || 0;
+        if (k && rows>0) return true;
+        await new Promise(r=>setTimeout(r,120));
+      }
+      return false;
+    }
+    const prevRefresh = window.refreshMurFromServer;
+    window.refreshMurFromServer = async function(...args){
+      const ok = await waitReady(3500);
+      if (!ok) return;
+      if (typeof prevRefresh === 'function'){
+        try { return await prevRefresh.apply(this, args); } catch(e){}
+      }
+      if (window.murajaahRange?.refresh){
+        try { return await window.murajaahRange.refresh(); } catch(e){}
+      }
+    };
+    const prevClose = window.tutupModal;
+    window.tutupModal = function(id){
+      try { if (typeof prevClose === 'function') prevClose.call(this, id); } catch(e){}
+      setTimeout(()=> { try { window.refreshMurFromServer?.(); } catch(e){} }, 80);
+    };
+  })();
+
+  // expose minimal API
   window.murajaahRange = {
     refresh: hitungTotalMurRangeFromTable,
     open: bukaOverlayTotalMurRange
   };
 })();
 </script>
+
 
 
 
