@@ -6680,15 +6680,15 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     if (kelas){
       try {
         const prev = await getRangeForKelas(kelas);
-        if (prev.fromDate && dari) dari.value = prev.fromDate;
-        if (prev.toDate   && sampai) sampai.value = prev.toDate;
+        if (prev.fromDate) dari.value = prev.fromDate;
+        if (prev.toDate)   sampai.value = prev.toDate;
       } catch {}
     }
     // Boundary
     if (dari){ dari.max = todayStr; if (!dari.value || dari.value > todayStr) dari.value = todayStr; }
     if (sampai){ sampai.removeAttribute('max'); if (!sampai.value) sampai.value = todayStr; }
 
-    const st = $('#murRangeStatus'); if (st) st.textContent = '';
+    $('#murRangeStatus').textContent = '';
     el.style.display = 'flex';
   }
 
@@ -6707,8 +6707,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     if (!dari){ alert("Mohon pilih tanggal Dari."); return; }
     if (!sampai){ alert("Mohon pilih tanggal Sampai."); return; }
 
-    const statusEl = $('#murRangeStatus');
-    if (statusEl) statusEl.textContent = "⏳ Menghitung…";
+    $('#murRangeStatus').textContent = "⏳ Menghitung…";
 
     try{
       await ensureSemesterMap(kelas);
@@ -6775,10 +6774,10 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       await saveRangeServer(kelas, dari, sampai, totalKeys);
       saveRangeLocal(kelas, dari, sampai);
 
-      if (statusEl) statusEl.textContent = "✅ Disimpan. Rentang ini akan otomatis terpakai saat refresh.";
+      $('#murRangeStatus').textContent = "✅ Disimpan. Rentang ini akan otomatis terpakai saat refresh.";
     }catch(err){
       console.error(err);
-      if (statusEl) statusEl.textContent = "❌ " + (err?.message || err);
+      $('#murRangeStatus').textContent = "❌ " + (err?.message || err);
       alert("❌ Terjadi kesalahan: " + (err?.message || err));
     }
   }
@@ -6798,8 +6797,10 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
     const { fromDate, toDate } = await getRangeForKelas(kelas);
     if (fromDate && toDate){
+      // isi input overlay (kalau ada)
       if ($('#murRangeDari'))   $('#murRangeDari').value   = fromDate;
       if ($('#murRangeSampai')) $('#murRangeSampai').value = toDate;
+      // langsung jalankan hitung
       await hitungTotalMurRangeFromTable();
       autoRanForKelas = kelas;
     }
@@ -6822,39 +6823,27 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     afterTableRenderedMurRange();
   }
 
-  // === Wrap lama agar tidak spam error saat modal ditutup / belum siap
-  (function(){
-    function getTable(){ return getSantriTable(); }
-    function getKelas(){ return kelasNow(); }
-    async function waitReady(ms=3500){
-      const t0=Date.now();
-      while(Date.now()-t0 < ms){
-        const k = getKelas();
-        const rows = getTable()?.tBodies?.[0]?.rows?.length || 0;
-        if (k && rows>0) return true;
-        await new Promise(r=>setTimeout(r,120));
-      }
-      return false;
+  // ====== Wrap refresh/tutupModal agar tidak ada log "kelas kosong..." ======
+  const prevRefresh = window.refreshMurFromServer;
+  window.refreshMurFromServer = async function(...args){
+    const ok = await waitForKelasAndTable(3500);
+    if (!ok) return; // diam—hindari warning saat belum siap
+    if (typeof prevRefresh === 'function'){
+      try { return await prevRefresh.apply(this, args); } catch(e){ /* diam */ }
     }
-    const prevRefresh = window.refreshMurFromServer;
-    window.refreshMurFromServer = async function(...args){
-      const ok = await waitReady(3500);
-      if (!ok) return;
-      if (typeof prevRefresh === 'function'){
-        try { return await prevRefresh.apply(this, args); } catch(e){}
-      }
-      if (window.murajaahRange?.refresh){
-        try { return await window.murajaahRange.refresh(); } catch(e){}
-      }
-    };
-    const prevClose = window.tutupModal;
-    window.tutupModal = function(id){
-      try { if (typeof prevClose === 'function') prevClose.call(this, id); } catch(e){}
-      setTimeout(()=> { try { window.refreshMurFromServer?.(); } catch(e){} }, 80);
-    };
-  })();
+    // fallback: pakai refresh milik modul ini
+    if (window.murajaahRange?.refresh){
+      try { return await window.murajaahRange.refresh(); } catch(e){}
+    }
+  };
 
-  // expose minimal API
+  const prevClose = window.tutupModal;
+  window.tutupModal = function(id){
+    try { if (typeof prevClose === 'function') prevClose.call(this, id); } catch(e){}
+    setTimeout(()=>{ try { window.refreshMurFromServer?.(); } catch(e){} }, 100);
+  };
+
+  // expose minimal API (opsional)
   window.murajaahRange = {
     refresh: hitungTotalMurRangeFromTable,
     open: bukaOverlayTotalMurRange
