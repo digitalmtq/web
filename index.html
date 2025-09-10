@@ -6490,7 +6490,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 <script>
 (function(){
-  // ===== util & helpers Murajaah=====
+  // ===== util & helpers Murajaah =====
   const $  = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
   const normKey = v => String(v ?? "").trim();
@@ -6518,27 +6518,60 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
   function kelasNow(){
     if (window.kelasSelect && window.kelasSelect.value) {
-      const v = normKey(window.kelasSelect.value); try{ localStorage.setItem('lastKelas', v);}catch{}; return v;
+      const v = normKey(window.kelasSelect.value);
+      try{ localStorage.setItem('lastKelas', v);}catch{}
+      return v;
     }
     const sel = document.querySelector(
       'select#kelasSelect, select[name="kelas"], select[name="kelasSelect"], '+
       'select.kelas-select, select.kelas, #kelas, .kelasSelect, .kelas'
     );
-    if (sel && sel.value){ const v=normKey(sel.value); try{localStorage.setItem('lastKelas', v);}catch{}; return v; }
-    const ref = document.querySelector('[data-kelas]'); if (ref?.dataset?.kelas){ const v=normKey(ref.dataset.kelas); try{localStorage.setItem('lastKelas', v);}catch{}; return v; }
-    const qs = new URLSearchParams(location.search); const vq = qs.get('kelas') || qs.get('class') || qs.get('kls');
-    if (vq){ const v=normKey(vq); try{localStorage.setItem('lastKelas', v);}catch{}; return v; }
-    try{ const last = localStorage.getItem('lastKelas'); if (last) return normKey(last);}catch{}
+    if (sel && sel.value){
+      const v=normKey(sel.value);
+      try{localStorage.setItem('lastKelas', v);}catch{}
+      return v;
+    }
+    const ref = document.querySelector('[data-kelas]');
+    if (ref?.dataset?.kelas){
+      const v=normKey(ref.dataset.kelas);
+      try{localStorage.setItem('lastKelas', v);}catch{}
+      return v;
+    }
+    const qs = new URLSearchParams(location.search);
+    const vq = qs.get('kelas') || qs.get('class') || qs.get('kls');
+    if (vq){
+      const v=normKey(vq);
+      try{localStorage.setItem('lastKelas', v);}catch{}
+      return v;
+    }
+    try{
+      const last = localStorage.getItem('lastKelas');
+      if (last) return normKey(last);
+    }catch{}
     return '';
   }
-  // track perubahan kelas => simpan lastKelas
+
+  async function waitForKelasAndTable(timeoutMs = 8000) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs) {
+      const k = kelasNow();
+      const rows = getSantriTable()?.tBodies?.[0]?.rows?.length || 0;
+      if (k && rows > 0) return true;
+      await new Promise(r => setTimeout(r, 120));
+    }
+    return false;
+  }
+
+  // track perubahan kelas => simpan lastKelas + rerun auto apply
   (function(){
     const cands = document.querySelectorAll(
       'select#kelasSelect, select[name="kelas"], select[name="kelasSelect"], '+
       'select.kelas-select, select.kelas, #kelas, .kelasSelect, .kelas'
     );
-    cands.forEach(el=> el.addEventListener('change', ()=> {
+    cands.forEach(el=> el.addEventListener('change', ()=>{
       try{ localStorage.setItem('lastKelas', normKey(el.value||"")); }catch{}
+      autoRanForKelas = ""; // supaya auto-apply jalan lagi untuk kelas baru
+      setTimeout(autoApplyMurRangeIfAvailable, 80);
     }));
     const k0 = kelasNow(); if (k0) try{ localStorage.setItem('lastKelas', k0);}catch{}
   })();
@@ -6556,8 +6589,12 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       });
     }catch(e){ window.semesterMap ??={}; }
   });
+
   function getSemesterForKeyLocal(key, row, fallback){
     if (typeof window.getSemesterForKey === "function") return window.getSemesterForKey(key, row, fallback);
+    // dataset.semester sebagai fallback cepat bila ada
+    const ds = row?.dataset?.semester;
+    if (ds) return Number(ds);
     const mapVal = window?.semesterMap ? window.semesterMap[key] : null;
     if (mapVal != null && mapVal !== "") return Number(mapVal);
     const selVal = row?.querySelector?.(".semester")?.value;
@@ -6603,11 +6640,10 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           fromDate, toDate, kelas,
-          // data opsional (hanya metadata ringan supaya kompat):
           data: [{ meta:true, count: Number(count||0) }]
         })
       });
-    }catch(e){ /* diamkan: tetap punya fallback localStorage */ }
+    }catch(e){ /* diamkan */ }
   }
   function saveRangeLocal(kelas, fromDate, toDate){
     try{ localStorage.setItem(LS_KEY(kelas), JSON.stringify({ fromDate, toDate, t: Date.now() })); }catch{}
@@ -6631,21 +6667,36 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   }
 
   // ===== overlay =====
-  function bukaOverlayTotalMurRange(){
+  async function bukaOverlayTotalMurRange(){
     const el = $('#murRangeOverlay'); if (!el) return;
+    const kelas = kelasNow();
     const today = new Date(); const yyyy = today.getFullYear();
     const mm = String(today.getMonth()+1).padStart(2,"0");
     const dd = String(today.getDate()).padStart(2,"0");
     const todayStr = `${yyyy}-${mm}-${dd}`;
     const dari = $('#murRangeDari'); const sampai = $('#murRangeSampai');
+
+    // Prefill dari penyimpanan server/local bila ada
+    if (kelas){
+      try {
+        const prev = await getRangeForKelas(kelas);
+        if (prev.fromDate) dari.value = prev.fromDate;
+        if (prev.toDate)   sampai.value = prev.toDate;
+      } catch {}
+    }
+    // Boundary
     if (dari){ dari.max = todayStr; if (!dari.value || dari.value > todayStr) dari.value = todayStr; }
     if (sampai){ sampai.removeAttribute('max'); if (!sampai.value) sampai.value = todayStr; }
+
     $('#murRangeStatus').textContent = '';
     el.style.display = 'flex';
   }
 
   // ===== hitung dari server → tampilkan → simpan tanggal =====
   async function hitungTotalMurRangeFromTable(){
+    const ok = await waitForKelasAndTable();
+    if (!ok){ alert("Kelas/tabel belum siap."); return; }
+
     const kelas  = kelasNow();
     const table  = getSantriTable();
     const dari   = $('#murRangeDari')?.value;
@@ -6771,8 +6822,15 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   } else {
     afterTableRenderedMurRange();
   }
+
+  // expose minimal API (opsional)
+  window.murajaahRange = {
+    refresh: hitungTotalMurRangeFromTable,
+    open: bukaOverlayTotalMurRange
+  };
 })();
 </script>
+
 
 
 
