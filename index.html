@@ -3916,6 +3916,54 @@ document.getElementById('mur-save')?.addEventListener('click', function(){ simpa
     return `${group}${letter}`;
   }
 
+	// --- Mur Range (ambil dari tabel DOM) ---
+function parseMurRangeCell(cell){
+  const out = { totalText:'0.00 juz', totalNum:0, count:0, label:'' };
+  if (!cell) return out;
+
+  // Prioritas ke data-attribute yang kita set saat hitung
+  const totalAttr = cell.dataset?.murRangeTotal;
+  if (totalAttr != null) {
+    const num = parseFloat(String(totalAttr).replace(',','.')) || 0;
+    out.totalNum = num;
+    out.totalText = num.toFixed(2) + ' juz';
+  } else {
+    const mNum = (cell.textContent||'').match(/[\d.,]+/);
+    if (mNum) {
+      out.totalText = mNum[0] + ' juz';
+      out.totalNum = parseFloat(mNum[0].replace(',','.')) || 0;
+    }
+  }
+
+  const cntAttr = cell.dataset?.murRangeCount;
+  if (cntAttr != null) out.count = Number(cntAttr)||0;
+  else {
+    const mCount = (cell.textContent||'').match(/\((\d+)\)/);
+    if (mCount) out.count = Number(mCount[1]);
+  }
+
+  const badge = cell.querySelector?.('.mur-range-badge');
+  out.label = badge ? (badge.textContent||'').trim() : '';
+  return out;
+}
+function buildMurRangeMap(){
+  const table =
+    document.getElementById('santri-table') ||
+    document.getElementById('santriTable') ||
+    document.querySelector('table[data-role="santri-table"]') ||
+    document.querySelector('table.santri-table');
+  const map = new Map();
+  const rows = [...(table?.tBodies?.[0]?.rows || [])];
+  for (const tr of rows){
+    const key = (tr.dataset?.nis || tr.dataset?.id || tr.dataset?.key || '').trim();
+    if (!key) continue;
+    const cell = tr.querySelector('.total-mur-range');
+    const parsed = parseMurRangeCell(cell);
+    map.set(key, parsed);
+  }
+  return map;
+}
+
   // ====== Helper slot absensi (BARU) ======
   function _slotMetricsFromRecord(rec){
     const items = Array.isArray(rec?.absensiItems) ? rec.absensiItems : [];
@@ -4373,16 +4421,24 @@ if (typeof window.drawTableHeader !== 'function') {
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
+		{ key:'murTotal', title:'MUR', w:22, minW:20, maxW:30, align:'left'  },
         { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
       ];
       const contentW = pageW - margin.left - margin.right;
+	  const murMap = buildMurRangeMap();
 
       const tableData = rows.map((r, idx) => {
         const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
+	    const murTotal = r.totalJuz.toFixed(2) + ' juz';
+		const murLabel = statusJuz.label;
+		const mur = murMap.get(r.nis || r.id || '') || null;
+		const murTotal = mur ? mur.totalText : (r.totalJuz.toFixed(2) + ' juz'); // fallback ke totalJuz
+		const murCount = mur ? String(mur.count) : '';                             // kalau tak ada, kosongkan
+		const murLabel = mur ? mur.label : statusJuz.label;                        // fallback label THMS
         const setoranText = PDF_joinSAsegmentsNama(r.saSegments);
         const juzText     = PDF_joinRangeSegments(r.juzSegments, true);
 
@@ -4406,6 +4462,9 @@ if (typeof window.drawTableHeader !== 'function') {
           setoran: setoranText,
           juz: juzText,
           totJuz: r.totalJuz.toFixed(2),
+		  murTotal: murTotal,
+		  murCount: murCount,
+		  murLabel: murLabel,
           persen: statusJuz.label,
           nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
           pred: pred.huruf
@@ -4797,6 +4856,7 @@ if (typeof window.drawTableHeader !== 'function') {
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
         { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
         { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
+		{ key:'murTotal', title:'Murajaah', w:22, minW:20, maxW:30, align:'left'  },
         { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
         { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
         { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
@@ -4818,6 +4878,7 @@ if (typeof window.drawTableHeader !== 'function') {
         if (!data) continue;
 
         const { kelasLine, kbmDays, rows } = data;
+		const murMap = buildMurRangeMap();
 
         const tableData = rows.map((r, idx) => {
           const nilaiAvg  = r.nilaiCount ? (r.nilaiSum / r.nilaiCount) : 0;
@@ -4845,6 +4906,9 @@ if (typeof window.drawTableHeader !== 'function') {
             setoran: setoranText,
             juz: juzText,
             totJuz: r.totalJuz.toFixed(2),
+			murTotal: murTotal,
+			murCount: murCount,
+			murLabel: murLabel,
             persen: statusJuz.label,
             nilai: nilaiAvg ? nilaiAvg.toFixed(1) : '-',
             pred: pred.huruf
@@ -5707,6 +5771,7 @@ async function pdfSantriDownload(){
       { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
       { key:'juz',      title:'Juz',      w:18, minW:18, maxW:18, align:'left'   },
       { key:'totJuz',   title:'Total',    w:14, minW:14, maxW:22, align:'right'  },
+	  { key:'murTotal', title:'Murajaah', w:22, minW:20, maxW:30, align:'left'  },
       { key:'persen',   title:'THMS',     w:17, minW:17, maxW:18, align:'center' },
       { key:'nilai',    title:'Nilai',    w:14, minW:14, maxW:20, align:'right'  },
       { key:'pred',     title:'Predikat', w:18, minW:18, maxW:18, align:'center' },
@@ -5866,7 +5931,6 @@ async function pdfSantriDownload(){
   }
 }
 window._pdfSantriDownload = pdfSantriDownload;
-
 
 
 
