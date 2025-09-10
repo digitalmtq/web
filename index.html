@@ -3337,7 +3337,8 @@ row.querySelector(".total-halaman").textContent = result.total.toFixed(2);
     kelasSelect.addEventListener("change", loadSantriData);
     tanggalInput.addEventListener("change", loadSantriData);
 
-    // ===== Save Data (ringkas, ikut pola <td> ⇄ server) =====
+
+// ===== Save Data (ringkas, ikut pola <td> ⇄ server) =====
 async function simpanDataMutabaah(saveBtn){
   const table = document.querySelector('#santri-table');
   const rows  = document.querySelectorAll('#santri-table tbody tr');
@@ -3399,6 +3400,10 @@ async function simpanDataMutabaah(saveBtn){
   // UI lock
   if (saveBtn){ saveBtn.disabled=true; saveBtn.dataset._old=saveBtn.textContent; saveBtn.textContent='⏳ Menyimpan...'; }
 
+  // Timeout agar tidak “menggantung”
+  const controller = new AbortController();
+  const cancelTimer = setTimeout(()=>controller.abort(), 15000);
+
   try{
     const hasilKirim=[];
 
@@ -3412,9 +3417,9 @@ async function simpanDataMutabaah(saveBtn){
       // Ambil data lama (untuk merge field lain)
       let dataLama=[];
       try{
-        const r=await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`);
-        if(r.ok) dataLama=await r.json();
-      }catch{}
+        const r=await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`, { signal: controller.signal });
+        if(r.ok){ dataLama=await r.json(); }
+      }catch{ /* biarkan kosong, lanjut dengan [] */ }
 
       const dataMerged = Array.isArray(dataLama)?[...dataLama]:[];
 
@@ -3469,14 +3474,35 @@ async function simpanDataMutabaah(saveBtn){
           murPages = existing.murPages|| "";
         }
 
+        // === ABSENSI (meniru A57.html) ===
+        // 1) coba ambil dari elemen spesifik baris (select/input)
+        //    - <select class="absensi"> / input[name="absensi"] / radio[name="absensi-<id>"]
+        // 2) fallback ke dataset atau existing.absensi
+        let absensi =
+          row.querySelector('.absensi')?.value
+          ?? row.querySelector('select[name="absensi"]')?.value
+          ?? row.querySelector('input[name="absensi"]')?.value
+          ?? row.querySelector(`input[name="absensi-${id}"]:checked`)?.value
+          ?? row.dataset?.absensi
+          ?? existing.absensi
+          ?? "";
+
+        // === MARKS (meniru A57.html) ===
+        // Jika ada markData yang ditempel di DOM baris, gunakan itu; kalau tidak, pertahankan existing.marks
+        const marks = (row.markData && typeof row.markData === 'object')
+          ? row.markData
+          : (existing.marks || { audio: [] });
+
         const base={
           ...existing,
-          id, nis, nama, jenjang, semester, absensi,
+          id, nis, nama, jenjang, semester,
+          absensi,                // <<< penting: ikut dikirim (A57.html)
           dari:`${surahDari}:${ayatDari}`,
           sampai:`${surahSampai}:${ayatSampai}`,
           totalJuz, halaman, totalHalaman, juzTerbaca, keterangan,
           juzmurajaah:Number(juzMur.toFixed(2)),
-          murFrom, murTo, murPages
+          murFrom, murTo, murPages,
+          marks                   // <<< penting: ikut dikirim (A57.html)
         };
         const newData = buttonCell ? { ...base, buttonCell } : base;
 
@@ -3484,12 +3510,30 @@ async function simpanDataMutabaah(saveBtn){
         if(idx!==-1) dataMerged[idx]=newData; else dataMerged.push(newData);
       });
 
-      const res=await fetch('/.netlify/functions/saveData',{
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ tanggal, kelas, data: dataMerged })
-      });
-      const result=await res.json().catch(()=>({}));
-      hasilKirim.push({tanggal, ok:!!result?.success, result});
+      // Kirim ke server (POST)
+      let result = {};
+      try{
+        const res=await fetch('/.netlify/functions/saveData',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Accept':'application/json'
+          },
+          body: JSON.stringify({ tanggal, kelas, data: dataMerged }),
+          signal: controller.signal,
+          credentials: 'same-origin'
+        });
+        const ct = res.headers.get('content-type') || '';
+        const isJSON = ct.includes('application/json');
+        result = isJSON ? await res.json() : { success: res.ok, message: await res.text() };
+        if(!res.ok){
+          throw new Error((result && result.message) || `Gagal (${res.status})`);
+        }
+      }catch(err){
+        hasilKirim.push({ tanggal, ok:false, result:{ success:false, message:String(err.message||err) } });
+        continue; // lanjut tanggal berikutnya
+      }
+      hasilKirim.push({ tanggal, ok: !!result?.success, result });
     }
 
     const gagal=hasilKirim.filter(h=>!h.ok);
@@ -3497,18 +3541,20 @@ async function simpanDataMutabaah(saveBtn){
       if(saveBtn) saveBtn.textContent='✅ Tersimpan';
       // rehydrate agar sinkron lintas browser
       if (window.murajaah && typeof window.murajaah.refreshServer==='function'){
-        await window.murajaah.refreshServer();
+        try{ await window.murajaah.refreshServer(); }catch{}
       }
     }else{
       const daftar=gagal.map(g=>g.tanggal).join(', ');
       alert(`❌ Sebagian tanggal gagal disimpan: ${daftar}`);
       if(saveBtn) saveBtn.textContent='❌ Gagal Sebagian';
+      console.warn('Detail gagal:', gagal);
     }
 
   }catch(e){
     console.error(e);
     alert('⚠️ Error menyimpan data!');
   }finally{
+    clearTimeout(cancelTimer);
     if(saveBtn){
       setTimeout(()=>{
         saveBtn.textContent = saveBtn.dataset._old || 'Save Data';
@@ -3523,6 +3569,7 @@ async function simpanDataMutabaah(saveBtn){
 document.getElementById('save-btn')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('save-btn-modal')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('mur-save')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
+
 
 
 // ============================
