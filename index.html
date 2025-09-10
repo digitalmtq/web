@@ -353,25 +353,25 @@ button.lihat-quran-btn:hover::after {
   justify-content: center;
 }
 
-/* kotak putih mengikuti GIF, berbentuk persegi */
+/* kotak putih dengan ukuran bisa diatur */
 #overlay span {
   background: #fff;
-  width: 128px;                  /* atur lebar kotak */
-  height: 12px;                 /* atur tinggi kotak */
+  width: 200px;                  /* atur lebar kotak */
+  height: 150px;                 /* atur tinggi kotak */
   border-radius: 8px;
   color: #333;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* GIF responsif, kotak otomatis sama sisi */
+/* GIF di dalam kotak */
 #overlay img {
-  width: 128px;                      /* atur ukuran GIF (contoh 120px) */
-  height: 12px;                     /* samakan agar persegi */
-  object-fit: contain;               /* pastikan GIF tidak ketarik */
+  max-width: 80%;                /* supaya tidak melebihi kotak */
+  max-height: 80%;
+  object-fit: contain;           /* jaga proporsi GIF */
   display: block;
 }
 
@@ -392,6 +392,8 @@ button.lihat-quran-btn:hover::after {
     flex-direction: row;
   }
 }
+
+
 
 	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
 @media (max-width: 600px) {
