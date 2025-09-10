@@ -2944,9 +2944,7 @@ async function loadSantriData() {
             </div>
             <button type="button" class="lihat-quran-btn">Lembar Penilaian</button>
           </td>
-          <td class="total-all-juz">
-            <img src="https://raw.githubusercontent.com/digitalmtq/web/main/meeting.gif" style="width:70px;height:18px;">
-          </td>
+          <td class="total-all-juz">0</td>
         `;
 
         // DATASET stabil (dipakai proses lain)
@@ -2967,7 +2965,7 @@ async function loadSantriData() {
         // ganti gif jika total-all-juz = 0 (opsional, logika lama dipertahankan)
         const totalAllJuzTd = row.querySelector("td.total-all-juz");
         if (totalAllJuzTd && totalAllJuzTd.textContent.trim() === "0") {
-          totalAllJuzTd.innerHTML = `<img src="https://raw.githubusercontent.com/dickymiswardi/mtq/main/spheres.gif" style="width:70px;height:18px;">`;
+          totalAllJuzTd.innerHTML = `0`;
         }
 
         // Set dropdown surah/ayat
