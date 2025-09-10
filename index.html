@@ -337,43 +337,68 @@ button.lihat-quran-btn:hover::after {
     .toggle-btn:hover {
       background: #495057;
     }
+	  
     /* Overlay Loading */
-    #overlay {
-      position: fixed;
-      display: none;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.4);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-    #overlay span {
-      background: #fff;
-      padding: 15px 25px;
-      border-radius: 8px;
-      font-size: 12px;
-      color: #333;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-    @media (max-width: 768px) {
-      .dashboard-header {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-      }
-      .actions {
-        flex-direction: column;
-      }
-      .password-group {
-        flex-direction: row;
-      }
-    }
+#overlay {
+  position: fixed;
+  display: none;              /* default sembunyi */
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+#overlay span {
+  background: #fff;
+  padding: 15px 25px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #333;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
 
+/* ========== Tambahan supaya overlay bisa di-center dan toggle tanpa JS ========== */
+#overlay {
+  display: flex;                 /* override display:none */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s ease;
+}
+#overlay.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+#overlay span {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 90vw;
+}
+#overlay img {
+  width: 50%;    /* GIF jadi 50% dari wadah putih */
+  height: auto;
+  display: block;
+}
+
+/* Responsive rules TETAP ada */
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .actions {
+    flex-direction: column;
+  }
+  .password-group {
+    flex-direction: row;
+  }
+}
 	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
 @media (max-width: 600px) {
   .login-actions {
