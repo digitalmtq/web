@@ -356,9 +356,9 @@ button.lihat-quran-btn:hover::after {
 /* kotak putih mengikuti GIF, berbentuk persegi */
 #overlay span {
   background: #fff;
-  padding: 1;                    /* buang padding supaya tidak jadi balok */
+  width: 128px;                  /* atur lebar kotak */
+  height: 12px;                 /* atur tinggi kotak */
   border-radius: 8px;
-  font-size: 0;                      /* hilangkan space font default */
   color: #333;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 
@@ -369,8 +369,8 @@ button.lihat-quran-btn:hover::after {
 
 /* GIF responsif, kotak otomatis sama sisi */
 #overlay img {
-  width: 256px;                      /* atur ukuran GIF (contoh 120px) */
-  height: 24px;                     /* samakan agar persegi */
+  width: 128px;                      /* atur ukuran GIF (contoh 120px) */
+  height: 12px;                     /* samakan agar persegi */
   object-fit: contain;               /* pastikan GIF tidak ketarik */
   display: block;
 }
