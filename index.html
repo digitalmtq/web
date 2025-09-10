@@ -38,31 +38,60 @@
   font-size: 12px; /* ini akan kecilkan semua font */
 }
 
-	  /* Overlay putih transparan menutupi layar */
-  #loaderOverlay {
+/* Overlay elegan */
+  #overlay {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(255,255,255,0.8);
-    display: none; /* default tersembunyi */
-    justify-content: center;
+    display: none; /* default hidden */
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    backdrop-filter: blur(4px);       /* blur background */
+    background: rgba(0,0,0,0.3);      /* semi transparan */
+    z-index: 1000;
+    display: flex;
     align-items: center;
-    z-index: 9999;
+    justify-content: center;
   }
 
-  /* Spinner bulat */
-  .loader-spinner {
-    border: 8px solid #f3f3f3;      /* lingkaran dasar */
-    border-top: 8px solid #4cafef;  /* warna animasi */
-    border-radius: 50%;
+  /* Kotak transparan untuk spinner */
+  .loader-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255,255,255,0.9);
+    padding: 20px 30px;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    animation: fadeIn 0.3s ease;
+  }
+
+  /* Spinner elegan */
+  .spinner {
     width: 60px;
     height: 60px;
+    border: 6px solid rgba(0,0,0,0.1);
+    border-top: 6px solid #2563eb; /* biru brand */
+    border-radius: 50%;
     animation: spin 1s linear infinite;
+    margin-bottom: 12px;
   }
 
-  /* Animasi berputar */
+  /* Teks kecil */
+  .loader-box p {
+    margin: 0;
+    font-size: 14px;
+    color: #1f2937;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  /* Animasi */
   @keyframes spin {
     0%   { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
   }
 
     button.lihat-quran-btn {
@@ -364,42 +393,6 @@ button.lihat-quran-btn:hover::after {
     .toggle-btn:hover {
       background: #495057;
     }
-    /* Overlay Loading */
-    #overlay {
-      position: fixed;
-      display: none;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.4);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-    #overlay span {
-      background: #fff;
-      padding: 15px 25px;
-      border-radius: 8px;
-      font-size: 12px;
-      color: #333;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-    @media (max-width: 768px) {
-      .dashboard-header {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-      }
-      .actions {
-        flex-direction: column;
-      }
-      .password-group {
-        flex-direction: row;
-      }
-    }
 
 	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
 @media (max-width: 600px) {
@@ -425,9 +418,9 @@ button.lihat-quran-btn:hover::after {
   </style>
 </head>
 <body>
-	
-<!-- 🔥 Loader Overlay -->
-<div id="loaderOverlay"><div class="loader-spinner"></div></div>
+
+<!-- Overlay Loading -->
+<div id="overlay"><div class="loader-box"><div class="spinner"></div></div></div>
 
 <div class="container"> 
   <!-- Halaman Login -->
@@ -7700,19 +7693,7 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
-<script>
-  // Fungsi tampilkan & sembunyikan overlay
-  function showLoader() {
-    document.getElementById("loaderOverlay").style.display = "flex";
-  }
-  function hideLoader() {
-    document.getElementById("loaderOverlay").style.display = "none";
-  }
 
-  // Contoh: tampil 2 detik lalu hilang
-  // showLoader();
-  // setTimeout(hideLoader, 2000);
-</script>
 
 </body>
 </html>
