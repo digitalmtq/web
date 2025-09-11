@@ -1849,9 +1849,9 @@ function hitungNilai() {
     for (let idx in markData[ayat]) {
       const mark = markData[ayat][idx]; if (!mark) continue;
       adaMark = true;
-      if (mark === "green") { totalMinus += 0.5; hijau++; }
-      else if (mark === "yellow") { totalMinus += 1; kuning++; }
-      else if (mark === "red") { totalMinus += 2; merah++; }
+      if (mark === "green") { totalMinus += 0.25; hijau++; }
+      else if (mark === "yellow") { totalMinus += 0.5; kuning++; }
+      else if (mark === "red") { totalMinus += 1; merah++; }
     }
   }
   let nilai = adaMark ? Math.max(0, 100 - totalMinus) : 0;
