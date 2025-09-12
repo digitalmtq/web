@@ -4997,9 +4997,9 @@ async function pdfAllKelasDownload(){
           r.nama || '',
           (r.semester ?? ''),
           jenjangLabel(r.jenjang ?? ''),
-          (r.keterangan ?? ''),   // SP
           r.hadir, r.alpha, r.sakit, r.izin,
-          hadirPct,
+		  hadirPct,
+		  (r.keterangan ?? ''),   // SP (BENAR: setelah Hadir %)
           setoranText,
           juzText,
           Number(r.totalJuz.toFixed(2)),
