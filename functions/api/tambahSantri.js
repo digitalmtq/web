@@ -1,7 +1,7 @@
 // functions/api/tambahSantri.js
 // Endpoint: POST /api/tambahSantri
 
-const DEFAULT_REPO   = "mrdickymiswardi/server";
+const DEFAULT_REPO   = "digitalmtq/server";
 const DEFAULT_BRANCH = "main";
 
 const enc = new TextEncoder();
