@@ -2,7 +2,7 @@
 // Endpoint: POST /api/saveData
 // Body: { tanggal, kelas, data: [...] }
 
-const DEFAULT_REPO   = "mrdickymiswardi/server";
+const DEFAULT_REPO   = "digitalmtq/server";
 const DEFAULT_BRANCH = "main";
 
 const enc = new TextEncoder();
