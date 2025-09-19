@@ -1,7 +1,7 @@
 // functions/api/getAbsensi.js
 // Endpoint: GET /api/getAbsensi?kelas=KELAS&tanggal=YYYY-MM-DD
 
-const DEFAULT_REPO   = "mrdickymiswardi/server";
+const DEFAULT_REPO   = "digitalmtq/server";
 const DEFAULT_BRANCH = "main";
 
 const dec = new TextDecoder();
