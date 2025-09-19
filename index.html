@@ -423,7 +423,7 @@ button.lihat-quran-btn:hover::after {
 <div class="container"> 
   <!-- Halaman Login -->
   <div id="login-card" class="card">
-    <h1>Portal Mutaba'ah Tahfidz</h1>
+    <h1>Mutaba'ah Tahfidz Online</h1>
     <form id="login-form">
       <input type="text" id="username" placeholder="Username" required />
       <div class="password-group" style="display: flex; align-items: center;">
@@ -472,8 +472,18 @@ button.lihat-quran-btn:hover::after {
 	<script>
   function toggleChangePassword() {
     const overlay = document.getElementById("change-password-overlay");
-    overlay.style.display = overlay.style.display === "flex" ? "none" : "flex";
-    document.getElementById("change-password-msg").textContent = "";
+    const isOpen = overlay.style.display === "flex";
+    overlay.style.display = isOpen ? "none" : "flex";
+    const msg = document.getElementById("change-password-msg");
+    msg.textContent = "";
+    msg.style.color = ""; // reset warna
+    if (!isOpen) {
+      // optional: bersihkan input saat buka
+      ["change-username","old-password","new-password"].forEach(id=>{
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+    }
   }
 
   async function submitPasswordChange() {
@@ -484,6 +494,7 @@ button.lihat-quran-btn:hover::after {
     const saveBtn = document.getElementById("save-password-btn");
 
     if (!username || !oldPassword || !newPassword) {
+      msgEl.style.color = "red";
       msgEl.textContent = "Semua kolom wajib diisi.";
       return;
     }
@@ -492,40 +503,60 @@ button.lihat-quran-btn:hover::after {
     saveBtn.textContent = "Menyimpan...";
 
     try {
-      const res = await fetch("/.netlify/functions/changePassword", {
+      const res = await fetch("/api/changePassword", {
         method: "POST",
+        headers: { "Content-Type": "application/json" }, // PENTING
         body: JSON.stringify({ username, oldPassword, newPassword })
       });
 
-      const data = await res.json();
+      // Coba parse JSON; kalau gagal, fallback ke text untuk lihat error asli
+      let data = null;
+      const raw = await res.text();
+      try { data = raw ? JSON.parse(raw) : null; } catch { /* bukan JSON */ }
 
       if (res.ok) {
         msgEl.style.color = "green";
-        msgEl.textContent = data.message || "Berhasil mengganti password.";
-        setTimeout(() => {
-          toggleChangePassword(); // tutup overlay
-        }, 1000);
+        msgEl.textContent = (data && data.message) || "Berhasil mengganti password.";
+        setTimeout(() => toggleChangePassword(), 1000);
       } else {
         msgEl.style.color = "red";
-        msgEl.textContent = data.message || "Gagal mengganti password.";
+        // Tampilkan detail bantu-diagnosa (source/step/status dari server kita)
+        const detail =
+          data?.message ||
+          data?.error ||
+          raw ||
+          `Gagal (${res.status} ${res.statusText})`;
+
+        msgEl.textContent = detail;
       }
     } catch (err) {
-      msgEl.textContent = "Terjadi kesalahan.";
+      msgEl.style.color = "red";
+      msgEl.textContent = "Terjadi kesalahan jaringan.";
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Simpan";
     }
-
-    saveBtn.disabled = false;
-    saveBtn.textContent = "Simpan";
   }
 
-    function togglePasswordVisibility() {
+  function togglePasswordVisibility() {
     const oldPass = document.getElementById("old-password");
     const newPass = document.getElementById("new-password");
-
     const type = oldPass.type === "password" ? "text" : "password";
     oldPass.type = type;
     newPass.type = type;
   }
+
+  // Opsional: submit dengan Enter di field password baru
+  document.addEventListener("DOMContentLoaded", () => {
+    const np = document.getElementById("new-password");
+    if (np) {
+      np.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submitPasswordChange();
+      });
+    }
+  });
 </script>
+
 
 <!-- Daftar Admin -->
 <!-- Modal Validasi Admin -->
@@ -579,7 +610,7 @@ async function cekPasswordAdminDaftar() {
   }
 
   try {
-    const res = await fetch("/.netlify/functions/cek-admin", {
+    const res = await fetch("/api/cek-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
@@ -620,7 +651,7 @@ async function buatAdminBaru() {
   if (!konfirmasi) return;
 
   try {
-    const res = await fetch("/.netlify/functions/daftar-user", {
+    const res = await fetch("/api/daftar-user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, role: "admin" }),
@@ -695,7 +726,7 @@ async function cekPasswordAdmin() {
     return;
   }
 
-  const response = await fetch('/.netlify/functions/cek-admin', {
+  const response = await fetch('/api/cek-admin', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ password })
@@ -771,7 +802,7 @@ async function ambilDaftarKelas() {
   container.innerHTML = "🔄 Memuat daftar kelas...";
 
   try {
-    const res = await fetch("/.netlify/functions/ambil-kelas");
+    const res = await fetch("/api/ambil-kelas");
     const kelasList = await res.json();
 
     if (!Array.isArray(kelasList) || kelasList.length === 0) {
@@ -820,7 +851,7 @@ async function buatAkunBaru() {
   };
 
   try {
-    const res = await fetch('/.netlify/functions/daftar-khusus', {
+    const res = await fetch('/api/daftar-khusus', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -887,7 +918,7 @@ async function verifikasiAdminTambahKelas() {
   const status = document.getElementById("statusPasswordTambahKelas");
   status.textContent = "⏳ Mengecek...";
 
-  const res = await fetch("/.netlify/functions/cek-admin", {
+  const res = await fetch("/api/cek-admin", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password: passInput })
@@ -911,7 +942,7 @@ async function tampilkanFormTambahKelasBaru() {
   status.textContent = "";
 
   try {
-    const res = await fetch("/.netlify/functions/ambil-kelas");
+    const res = await fetch("/api/ambil-kelas");
     const kelas = await res.json();
     list.innerHTML = "";
     kelas.forEach(nama => {
@@ -936,7 +967,7 @@ async function submitTambahKelasBaru() {
   }
 
   status.textContent = "⏳ Mengirim permintaan...";
-  const res = await fetch("/.netlify/functions/buat-kelas-baru", {
+  const res = await fetch("/api/buat-kelas-baru", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ namaFile: `kelas_${nomor}.json` })
@@ -999,7 +1030,7 @@ const _fetchJson = async (url, opt) => {
 };
 
 let adminPasswordGlobalNIS = "";
-let usedNisSet = new Set(); // diisi dari /.netlify/functions/getUsersNis
+let usedNisSet = new Set(); // diisi dari /api/getUsersNis
 
 // Tampilkan modal validasi admin
 function munculkanValidasiAdminNIS() {
@@ -1017,7 +1048,7 @@ async function cekPasswordAdminNIS() {
   }
 
   try {
-    const res = await fetch('/.netlify/functions/cekAdminWali', {
+    const res = await fetch('/api/cekAdminWali', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ password })
@@ -1046,7 +1077,7 @@ async function bukaFormDaftarNIS() {
 
   // 1) Ambil daftar NIS yang SUDAH terdaftar agar bisa disembunyikan
   try {
-    const { usedNis = [] } = await _fetchJson('/.netlify/functions/getUsersNis');
+    const { usedNis = [] } = await _fetchJson('/api/getUsersNis');
     usedNisSet = new Set(usedNis.map(_norm));
   } catch (e) {
     // Kalau gagal, biarkan set kosong, UI tetap jalan
@@ -1072,7 +1103,7 @@ async function ambilDaftarKelasNIS() {
   const container = document.getElementById("kelasCheckboxContainerNIS");
   container.innerHTML = "🔄 Memuat daftar kelas...";
   try {
-    const res = await fetch("/.netlify/functions/ambil-kelas");
+    const res = await fetch("/api/ambil-kelas");
     const kelasList = await res.json();
     container.innerHTML = "";
 
@@ -1104,7 +1135,7 @@ async function ambilDaftarNIS(/*kelasDiklik*/) {
   try {
     // Ambil NIS tiap kelas secara paralel
     const settled = await Promise.allSettled(
-      kelasDipilih.map(k => fetch(`/.netlify/functions/ambil-kelas-nis?kelas=${encodeURIComponent(k)}`).then(r => r.json()))
+      kelasDipilih.map(k => fetch(`/api/ambil-kelas-nis?kelas=${encodeURIComponent(k)}`).then(r => r.json()))
     );
 
     // Gabung unik per NIS dan FILTER yang sudah terdaftar
@@ -1170,7 +1201,7 @@ async function buatUserNIS() {
   }
 
   try {
-    const res = await fetch('/.netlify/functions/daftarNisWali', {
+    const res = await fetch('/api/daftarNisWali', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ username, password, kelas, nis, adminPassword: adminPasswordGlobalNIS })
@@ -1198,7 +1229,7 @@ async function buatUserNIS() {
   
     <!-- Dashboard -->
     <div id="dashboard-card" class="card" style="display: none;">
-      <h1>Mutaba'ah Hafalan Santri</h1>
+      <h1>Mudah, Simpel dan Akurat</h1>
       <h2>Ahlan, <span id="namaUser"></span>!</h2>
 
      
@@ -1551,51 +1582,17 @@ function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
     <!-- ⬇️ BARU: Jenjang -->
     <label>Jenjang:</label><br>
     <select id="inputJenjang" style="width:90%; margin-bottom:10px;">
-  <!-- placeholder kosong agar bisa reset ke "" -->
   <option value=""></option>
-
-  <!-- A1–A4 = ILA–ILD (label custom dipertahankan) -->
-  <option value="A1">ILA</option>
-  <option value="A2">ILB</option>
-  <option value="A3">ILC</option>
-  <option value="A4">ILD</option>
-
-  <!-- A5–A14 = 1A–1J -->
-  <option value="A5">1A</option>
-  <option value="A6">1B</option>
-  <option value="A7">1C</option>
-  <option value="A8">1D</option>
-  <option value="A9">1E</option>
-  <option value="A10">1F</option>
-  <option value="A11">1G</option>
-  <option value="A12">1H</option>
-  <option value="A13">1I</option>
-  <option value="A14">1J</option>
-
-  <!-- A15–A24 = 2A–2J -->
-  <option value="A15">2A</option>
-  <option value="A16">2B</option>
-  <option value="A17">2C</option>
-  <option value="A18">2D</option>
-  <option value="A19">2E</option>
-  <option value="A20">2F</option>
-  <option value="A21">2G</option>
-  <option value="A22">2H</option>
-  <option value="A23">2I</option>
-  <option value="A24">2J</option>
-
-  <!-- A25–A34 = 3A–3J -->
-  <option value="A25">3A</option>
-  <option value="A26">3B</option>
-  <option value="A27">3C</option>
-  <option value="A28">3D</option>
-  <option value="A29">3E</option>
-  <option value="A30">3F</option>
-  <option value="A31">3G</option>
-  <option value="A32">3H</option>
-  <option value="A33">3I</option>
-  <option value="A34">3J</option>
-</select>
+  <option value="A1">1 SD</option>
+  <option value="A2">2 SD</option>
+  <option value="A3">3 SD</option>
+  <option value="A4">4 SD</option>
+  <option value="A5">5 SD</option>
+  <option value="A6">6 SD</option>
+  <option value="A7">1 SMP</option>
+  <option value="A8">2 SMP</option>
+  <option value="A9">3 SMP</option>
+  </select>
 
     <div style="margin-top:10px; display:flex; justify-content:space-between; gap:8px;">
       <button id="btnSimpanSantri" onclick="simpanSantriBaru()">Simpan</button>
@@ -1791,7 +1788,7 @@ function getKelasTanggalAktif() {
 /* ========= AMBIL MARKS + AUDIO (SERVER) ========= */
 async function ambilMarksDariNetlify(id, kelas, tanggal) {
   try {
-    const res = await fetch(`/.netlify/functions/getMarksAudio?id=${id}&kelas=${kelas}&tanggal=${tanggal}`);
+    const res = await fetch(`/api/getMarksAudio?id=${id}&kelas=${kelas}&tanggal=${tanggal}`);
     if (!res.ok) throw new Error('Gagal ambil marks dari server');
     const data = await res.json();
     return data.marks || {};
@@ -1818,7 +1815,7 @@ function tampilkanAudioDiModalRekam(marks) {
       const li = document.createElement('li');
       li.innerHTML = `
         <audio controls preload="metadata" style="width:100%;">
-          <source src="/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
+          <source src="/api/getAudio?file=${encodeURIComponent(filename)}" type="${getMimeType(filename)}">
           Browser Anda tidak mendukung audio.
         </audio>`;
       recordListEl.appendChild(li);
@@ -2176,7 +2173,7 @@ async function handleRecordedBlobMP3(blob){
     const base64 = await blobToDataURL(blob);
 
     // 1) Upload audio ke repo
-    const up = await fetch('/.netlify/functions/upload-audio', {
+    const up = await fetch('/api/upload-audio', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ fileName: filename, base64 }) // folder default: "audio"
@@ -2186,7 +2183,7 @@ async function handleRecordedBlobMP3(blob){
     uploaded = true;
 
     // 2) Append ke marks.audio
-    await fetch('/.netlify/functions/appendAudioToMarks', {
+    await fetch('/api/appendAudioToMarks', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ id: currentIdSiswa, ...getKelasTanggalAktif(), filename })
@@ -2197,7 +2194,7 @@ async function handleRecordedBlobMP3(blob){
 
   // 3) Tampilkan rekaman BARU di modal rekaman (bukan overlay Qur'an)
   const url = uploaded
-    ? `/.netlify/functions/getAudio?file=${encodeURIComponent(filename)}`
+    ? `/api/getAudio?file=${encodeURIComponent(filename)}`
     : URL.createObjectURL(blob);
 
   const li = document.createElement('li');
@@ -2245,14 +2242,12 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
     </style>
 
     <!-- Bullet list cakep -->
-    <ul class="juz-list">
-      <li>Semester 1: <strong>8</strong> Juz</li>
+    <ul class="juz-list"><li>Semester 1: <strong>8</strong> Juz</li>
       <li>Semester 2: <strong>5</strong> Juz</li>
       <li>Semester 3: <strong>5</strong> Juz</li>
       <li>Semester 4: <strong>5</strong> Juz</li>
       <li>Semester 5: <strong>5</strong> Juz</li>
-      <li>Semester 6: <strong>2</strong> Juz</li>
-    </ul>
+      <li>Semester 6: <strong>2</strong> Juz</li></ul>
 
     <hr style="border:none; border-top:1px solid #eee; margin:8px 0 12px;">
 
@@ -2332,14 +2327,12 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
       #murRangeOverlay .juz-list strong{ font-variant-numeric:tabular-nums; }
     </style>
 
-    <ul class="juz-list">
-      <li>Semester 1: <strong>8</strong> Juz</li>
+    <ul class="juz-list"><li>Semester 1: <strong>8</strong> Juz</li>
       <li>Semester 2: <strong>5</strong> Juz</li>
       <li>Semester 3: <strong>5</strong> Juz</li>
       <li>Semester 4: <strong>5</strong> Juz</li>
       <li>Semester 5: <strong>5</strong> Juz</li>
-      <li>Semester 6: <strong>2</strong> Juz</li>
-    </ul>
+      <li>Semester 6: <strong>2</strong> Juz</li></ul>
 
     <hr style="border:none; border-top:1px solid #eee; margin:8px 0 12px;">
 
@@ -2348,7 +2341,7 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 
     <div id="murRangeStatus" style="font-size:12px; color:#6b7280; margin-bottom:10px;"></div>
 
-    <button id="btnHitungTotalMur" type="button">Hitung Total MUR</button>
+    <button id="btnHitungTotalMur" type="button">Setting Tanggal Murajaah</button>
     <button type="button" onclick="document.getElementById('murRangeOverlay').style.display='none'">Close</button>
   </div>
 </div>
@@ -2384,39 +2377,11 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 
   // === Fungsi atur dropdown kelas ===
 function aturDropdownKelas(user) {
-  const semuaKelas = [
-    "kelas_012526","kelas_022526","kelas_032526","kelas_042526","kelas_052526","kelas_062526",
-    "kelas_072526","kelas_082526","kelas_092526","kelas_102526","kelas_112526","kelas_122526",
-    "kelas_132526","kelas_142526","kelas_152526","kelas_162526","kelas_172526","kelas_182526",
-    "kelas_192526","kelas_202526","kelas_212526","kelas_222526","kelas_232526","kelas_242526"
-  ];
+  const semuaKelas = [  "kelas_01","kelas_012526","kelas_02"];
 
-  const namaKelasCustom = {
-    kelas_012526: "Ust. Tukimin",
-    kelas_022526: "Ust. Dicky Miswardi",
-    kelas_032526: "Ust. Jundullah BA",
-    kelas_042526: "Ust. Abdullah.",
-    kelas_052526: "Ust. Ro'uuf Noor Huda Su'udin",
-    kelas_062526: "Ust. Salahuddin Santoaji Priatmojo",
-    kelas_072526: "Ust. Hammam Ahmed Saleh Al Naqeb",
-    kelas_082526: "Ust. Alif Rafiqul",
-    kelas_092526: "Ust. Ali Wardana",
-    kelas_102526: "Ust. Mullah Muhammad Umar",
-    kelas_112526: "Ust. Akhsani Taqwim",
-    kelas_122526: "Ust. Ikhsan Nur Khamid",
-    kelas_132526: "Ust. Abdul Haq",
-    kelas_142526: "Ust. Abdullah Al Guspari",
-    kelas_152526: "Ust. Abdullah Rafi",
-    kelas_162526: "Ust. Fajrul Ihsan",
-    kelas_172526: "Ust. Idris",
-    kelas_182526: "Ust. Muhammad athayya mumtaz",
-    kelas_192526: "Ust. M. Hanan Azizi",
-    kelas_202526: "Ust. Muhammad Rama Miayasin",
-    kelas_212526: "Ust. Nur Afiq",
-    kelas_222526: "Ust. Raditya Baswara Raharjo",
-    kelas_232526: "Ust. Rafie Zahran Kurniawan",
-    kelas_242526: "Ust. Shidiq Hasan Khan"
-  };
+  const namaKelasCustom = {  kelas_01: "Ust. Dicky Miswardi, B.A.",
+  kelas_012526: "Ust. Moro, B.A.",
+  kelas_02: "Ust. Obie Zarobie, B.A."};
 
   kelasSelect.innerHTML = "";
 
@@ -2450,7 +2415,7 @@ function aturDropdownKelas(user) {
     overlay.style.display = "flex";
 
     try {
-      const res = await fetch("/.netlify/functions/getUsers");
+      const res = await fetch("/api/getUsers");
       const users = await res.json();
       const user = users.find(u => u.username === username && u.password === password);
 
@@ -2480,7 +2445,7 @@ function aturDropdownKelas(user) {
     if (!kelas) return; // jaga-jaga
 
     try {
-      const res = await fetch(`/.netlify/functions/getSantri?kelas=${kelas}`);
+      const res = await fetch(`/api/getSantri?kelas=${kelas}`);
       if (!res.ok) throw new Error("Gagal memuat data santri");
       const data = await res.json();
       console.log("Data santri:", data);
@@ -2494,10 +2459,10 @@ function aturDropdownKelas(user) {
   // === Saat halaman dibuka ===
   window.addEventListener("DOMContentLoaded", async () => {
     try {
-      const resSurah = await fetch("/.netlify/functions/getAyat");
+      const resSurah = await fetch("/api/getAyat");
       surahList = await resSurah.json();
 
-      const resPages = await fetch("/.netlify/functions/getPagesMap");
+      const resPages = await fetch("/api/getPagesMap");
       pagesMap = await resPages.json();
     } catch (err) {
       console.error("Gagal load surah/pagesMap:", err);
@@ -2596,7 +2561,7 @@ async function loadSantriData() {
   overlay.style.display = "flex";
 
   // ===== NEW: Konfigurasi & util jenjang (future-proof) =====
-  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 34); // ubah ke 100 / 300 / 1000 sesuai kebutuhan
+  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 9); // ubah ke 100 / 300 / 1000 sesuai kebutuhan
 
   const parseJenjang = (v) => {
     const m = /^A(\d+)$/.exec(String(v || "").trim());
@@ -2689,6 +2654,7 @@ async function loadSantriData() {
     const targets = [
       document.getElementById("save-btn-modal"),
       document.getElementById("save-btn"),
+	  document.getElementById("editBtnIndex"),
 	  document.getElementById("mur-save"),
       document.getElementById("btnHitungTotalJuz"),
       document.querySelector("button[onclick='bukaModalSantri()']"),
@@ -2719,7 +2685,7 @@ async function loadSantriData() {
 
   try {
     // Roster santri (MASTER)
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+    const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     let santriData = await resSantri.json();
 
     // Bangun peta master
@@ -2747,13 +2713,13 @@ async function loadSantriData() {
 
     if (endFilter && endFilter !== tanggal) {
       const resAbsensiRange = await fetch(
-        `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(endFilter)}&t=${Date.now()}`
+        `/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(endFilter)}&t=${Date.now()}`
       );
       absensiRaw = await resAbsensiRange.json();
       if (!Array.isArray(absensiRaw)) absensiRaw = [];
     } else {
       const resAbsensi = await fetch(
-        `/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`
+        `/api/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`
       );
       let d = await resAbsensi.json();
       absensiRaw = Array.isArray(d) ? d : (d?.list || []);
@@ -2790,7 +2756,7 @@ async function loadSantriData() {
 
     // Ambil user login & filter akses santri (tetap)
     const username = localStorage.getItem("username");
-    const users = await fetch(`/.netlify/functions/getUsers?t=${Date.now()}`).then(r => r.json());
+    const users = await fetch(`/api/getUsers?t=${Date.now()}`).then(r => r.json());
     const user  = users.find(u => u.username === username);
 
     if (user) {
@@ -2901,58 +2867,26 @@ async function loadSantriData() {
           <td class="col-nama">${santri.nama ?? ""}${subTanggal}</td>
           <td>
   <select class="jenjang">
-    <!-- A1–A4 = ILA–ILD -->
-    <option value="A1"  ${jenNow === 'A1'  ? 'selected' : ''}>ILA</option>
-    <option value="A2"  ${jenNow === 'A2'  ? 'selected' : ''}>ILB</option>
-    <option value="A3"  ${jenNow === 'A3'  ? 'selected' : ''}>ILC</option>
-    <option value="A4"  ${jenNow === 'A4'  ? 'selected' : ''}>ILD</option>
-
-    <!-- A5–A14 = 1A–1J -->
-    <option value="A5"  ${jenNow === 'A5'  ? 'selected' : ''}>1A</option>
-    <option value="A6"  ${jenNow === 'A6'  ? 'selected' : ''}>1B</option>
-    <option value="A7"  ${jenNow === 'A7'  ? 'selected' : ''}>1C</option>
-    <option value="A8"  ${jenNow === 'A8'  ? 'selected' : ''}>1D</option>
-    <option value="A9"  ${jenNow === 'A9'  ? 'selected' : ''}>1E</option>
-    <option value="A10" ${jenNow === 'A10' ? 'selected' : ''}>1F</option>
-    <option value="A11" ${jenNow === 'A11' ? 'selected' : ''}>1G</option>
-    <option value="A12" ${jenNow === 'A12' ? 'selected' : ''}>1H</option>
-    <option value="A13" ${jenNow === 'A13' ? 'selected' : ''}>1I</option>
-    <option value="A14" ${jenNow === 'A14' ? 'selected' : ''}>1J</option>
-
-    <!-- A15–A24 = 2A–2J -->
-    <option value="A15" ${jenNow === 'A15' ? 'selected' : ''}>2A</option>
-    <option value="A16" ${jenNow === 'A16' ? 'selected' : ''}>2B</option>
-    <option value="A17" ${jenNow === 'A17' ? 'selected' : ''}>2C</option>
-    <option value="A18" ${jenNow === 'A18' ? 'selected' : ''}>2D</option>
-    <option value="A19" ${jenNow === 'A19' ? 'selected' : ''}>2E</option>
-    <option value="A20" ${jenNow === 'A20' ? 'selected' : ''}>2F</option>
-    <option value="A21" ${jenNow === 'A21' ? 'selected' : ''}>2G</option>
-    <option value="A22" ${jenNow === 'A22' ? 'selected' : ''}>2H</option>
-    <option value="A23" ${jenNow === 'A23' ? 'selected' : ''}>2I</option>
-    <option value="A24" ${jenNow === 'A24' ? 'selected' : ''}>2J</option>
-
-    <!-- A25–A34 = 3A–3J -->
-    <option value="A25" ${jenNow === 'A25' ? 'selected' : ''}>3A</option>
-    <option value="A26" ${jenNow === 'A26' ? 'selected' : ''}>3B</option>
-    <option value="A27" ${jenNow === 'A27' ? 'selected' : ''}>3C</option>
-    <option value="A28" ${jenNow === 'A28' ? 'selected' : ''}>3D</option>
-    <option value="A29" ${jenNow === 'A29' ? 'selected' : ''}>3E</option>
-    <option value="A30" ${jenNow === 'A30' ? 'selected' : ''}>3F</option>
-    <option value="A31" ${jenNow === 'A31' ? 'selected' : ''}>3G</option>
-    <option value="A32" ${jenNow === 'A32' ? 'selected' : ''}>3H</option>
-    <option value="A33" ${jenNow === 'A33' ? 'selected' : ''}>3I</option>
-    <option value="A34" ${jenNow === 'A34' ? 'selected' : ''}>3J</option>
+    <option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>1 SD</option>
+    <option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>2 SD</option>
+    <option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>3 SD</option>
+    <option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>4 SD</option>
+    <option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>5 SD</option>
+    <option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>6 SD</option>
+    <option value="A7" ${jenNow === 'A7' ? 'selected' : ''}>1 SMP</option>
+    <option value="A8" ${jenNow === 'A8' ? 'selected' : ''}>2 SMP</option>
+    <option value="A9" ${jenNow === 'A9' ? 'selected' : ''}>3 SMP</option>
   </select>
 </td>
           <td>
             <select class="semester">
-              <option value="1" ${semNow == 1 || semNow == "1" ? 'selected' : ''}>1</option>
-              <option value="2" ${semNow == 2 || semNow == "2" ? 'selected' : ''}>2</option>
-              <option value="3" ${semNow == 3 || semNow == "3" ? 'selected' : ''}>3</option>
-              <option value="4" ${semNow == 4 || semNow == "4" ? 'selected' : ''}>4</option>
-              <option value="5" ${semNow == 5 || semNow == "5" ? 'selected' : ''}>5</option>
-              <option value="6" ${semNow == 6 || semNow == "6" ? 'selected' : ''}>6</option>
-            </select>
+    <option value="1" ${String(semNow) === '1' ? 'selected' : ''}>1</option>
+    <option value="2" ${String(semNow) === '2' ? 'selected' : ''}>2</option>
+    <option value="3" ${String(semNow) === '3' ? 'selected' : ''}>3</option>
+    <option value="4" ${String(semNow) === '4' ? 'selected' : ''}>4</option>
+    <option value="5" ${String(semNow) === '5' ? 'selected' : ''}>5</option>
+    <option value="6" ${String(semNow) === '6' ? 'selected' : ''}>6</option>
+  </select>
           </td>
           <td>
             <select class="absensi">
@@ -2964,10 +2898,10 @@ async function loadSantriData() {
           </td>
           <td>
             <select class="keterangan">
-              <option value=""   ${!ketNow ? 'selected' : ''}></option>
-              <option value="SP1" ${ketNow === 'SP1' ? 'selected' : ''}>SP1</option>
-              <option value="SP2" ${ketNow === 'SP2' ? 'selected' : ''}>SP2</option>
-            </select>
+    <option value="" ${!ketNow ? 'selected' : ''}></option>
+    <option value="SP1" ${ketNow === 'SP1' ? 'selected' : ''}>SP1</option>
+    <option value="SP2" ${ketNow === 'SP2' ? 'selected' : ''}>SP2</option>
+  </select>
           </td>
           <td>
             <select class="surah-dari">${surahOptions}</select>
@@ -2991,7 +2925,7 @@ async function loadSantriData() {
           </td>
           <td class="total-all-juz">0</td>
         `;
-		  
+
         // DATASET stabil (dipakai proses lain)
         const dsId  = keyId(sid);
         const dsNis = keyNis(snis);
@@ -3062,7 +2996,7 @@ async function loadSantriData() {
             jenSel.disabled = true;
             jenSel.style.opacity = "0.6";
             try {
-              const res = await fetch(`/.netlify/functions/updateJenjangKelas?kelas=${encodeURIComponent(kelas)}`, {
+              const res = await fetch(`/api/updateJenjangKelas?kelas=${encodeURIComponent(kelas)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key, jenjang: newJ })
@@ -3105,7 +3039,7 @@ async function loadSantriData() {
             ketSel.disabled = true;
             ketSel.style.opacity = "0.6";
             try {
-              const res = await fetch(`/.netlify/functions/updateKeteranganKelas?kelas=${encodeURIComponent(kelas)}`, {
+              const res = await fetch(`/api/updateKeteranganKelas?kelas=${encodeURIComponent(kelas)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key, keterangan: newK })
@@ -3148,7 +3082,7 @@ async function loadSantriData() {
             semSel.disabled = true;
             semSel.style.opacity = "0.6";
             try {
-              const res = await fetch(`/.netlify/functions/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
+              const res = await fetch(`/api/updateSemesterKelas?kelas=${encodeURIComponent(kelas)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key, semester: newSem })
@@ -3417,7 +3351,7 @@ async function simpanDataMutabaah(saveBtn){
       // Ambil data lama (untuk merge field lain)
       let dataLama=[];
       try{
-        const r=await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`, { signal: controller.signal });
+        const r=await fetch(`/api/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`, { signal: controller.signal });
         if(r.ok){ dataLama=await r.json(); }
       }catch{ /* biarkan kosong, lanjut dengan [] */ }
 
@@ -3513,7 +3447,7 @@ async function simpanDataMutabaah(saveBtn){
       // Kirim ke server (POST)
       let result = {};
       try{
-        const res=await fetch('/.netlify/functions/saveData',{
+        const res=await fetch('/api/saveData',{
           method:'POST',
           headers:{
             'Content-Type':'application/json',
@@ -3637,32 +3571,9 @@ function jenjangLabel(code) {
   // === Helper Kelas/Kelompok ===
   function buildKelasKelompokLine(kelas, kelasEl) {
     const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
-    const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {
-  kelas_012526: "Kelompok Ust. Tukimin",
-  kelas_022526: "Kelompok Ust. Dicky Miswardi",
-  kelas_032526: "Kelompok Ust. Jundullah BA",
-  kelas_042526: "Kelompok Ust. Abdullah.",
-  kelas_052526: "Kelompok Ust. Ro'uuf Noor Huda Su'udin",
-  kelas_062526: "Kelompok Ust. Salahuddin Santoaji Priatmojo",
-  kelas_072526: "Kelompok Ust. Hammam Ahmed Saleh Al Naqeb",
-  kelas_082526: "Kelompok Ust. Alif Rafiqul",
-  kelas_092526: "Kelompok Ust. Ali Wardana",
-  kelas_102526: "Kelompok Ust. Mullah Muhammad Umar",
-  kelas_112526: "Kelompok Ust. Akhsani Taqwim",
-  kelas_122526: "Kelompok Ust. Ikhsan Nur Khamid",
-  kelas_132526: "Kelompok Ust. Abdul Haq",
-  kelas_142526: "Kelompok Ust. Abdullah Al Guspari",
-  kelas_152526: "Kelompok Ust. Abdullah Rafi",
-  kelas_162526: "Kelompok Ust. Fajrul Ihsan",
-  kelas_172526: "Kelompok Ust. Idris",
-  kelas_182526: "Kelompok Ust. Muhammad athayya mumtaz",
-  kelas_192526: "Kelompok Ust. M. Hanan Azizi",
-  kelas_202526: "Kelompok Ust. Muhammad Rama Miayasin",
-  kelas_212526: "Kelompok Ust. Nur Afiq",
-  kelas_222526: "Kelompok Ust. Raditya Baswara Raharjo",
-  kelas_232526: "Kelompok Ust. Rafie Zahran Kurniawan",
-  kelas_242526: "Kelompok Ust. Shidiq Hasan Khan"
-};
+    const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {  kelas_01: "Kelompok Ust. Dicky Miswardi, B.A.",
+  kelas_012526: "Kelompok Ust. Moro, B.A.",
+  kelas_02: "Kelompok Ust. Obie Zarobie, B.A."};
     let kelompok = custom[kelas] || "";
     if (!kelompok) {
       const optText = kelasEl?.options?.[kelasEl.selectedIndex]?.text?.trim() || "";
@@ -3747,14 +3658,14 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
     const { line: kelasLine } = buildKelasKelompokLine(kelas, kelasEl);
 
     // 1) ABSENSI
-    const absUrl = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
+    const absUrl = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
     const resAbs = await fetch(absUrl);
     if (!resAbs.ok) throw new Error('Gagal mengambil data absensi.');
     let allData = await resAbs.json();
     if (!Array.isArray(allData) || allData.length === 0) throw new Error('Tidak ada data pada rentang tanggal tersebut.');
 
     // 2) ROSTER
-    const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+    const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     const santriData = await resSantri.json().catch(()=>[]) || [];
 
     // helper index
@@ -3848,7 +3759,7 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
         sel.innerHTML = `<option value="">— Pilih santri (ada data) —</option>` +
           arr.map(x => `<option value="${x.key}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis ? x.nis : x.id} — ${x.nama}</option>`).join('');
       } else {
-        const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+        const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
         const data = await resSantri.json().catch(()=>[]) || [];
         const arr = (data||[]).map(s => ({ key: (s.nis||s.id||'').toString(), nama: s.nama||'-', nis: s.nis||'', id: s.id||'' }))
                               .filter(x => x.key).sort((a,b)=>a.nama.localeCompare(b.nama,'id'));
@@ -4160,7 +4071,7 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
 
       const headY = y + 8;
       doc.text('Mengetahui,', leftX, headY);
-      doc.text('Pengampu Kelas,', rightX, headY);
+      doc.text('Musyrif Tahfizh,', rightX, headY);
 
       const lineY = headY + 24;
       doc.setDrawColor(...theme.border);
@@ -4237,14 +4148,14 @@ async function collectRekapDataForClass(kelasKey, startDate, endDate){
   const { line: kelasLine } = _kelasKelompokLineFor(kelasKey);
 
   // 1) ABSENSI
-  const absUrl = `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
+  const absUrl = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&t=${Date.now()}`;
   const resAbs = await fetch(absUrl);
   if (!resAbs.ok) throw new Error('Gagal mengambil data absensi.');
   let allData = await resAbs.json();
   if (!Array.isArray(allData) || allData.length === 0) return null; // SKIP kelas tanpa data
 
   // 2) ROSTER
-  const resSantri = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`);
+  const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`);
   const santriData = await resSantri.json().catch(()=>[]) || [];
 
   // helper index (local copy)
@@ -4579,11 +4490,11 @@ async function pdfAllKelasDownload(){
     const rightX = margin.left + colW + colGap;
 
     doc.setFont('helvetica','normal'); doc.setFontSize(11);
-    doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+    doc.text(`Jakarta, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
 
     const headY = y + 8;
     doc.text('Mengetahui,', leftX, headY);
-    doc.text('Pengampu Kelas,', rightX, headY);
+    doc.text('Musyrif Tahfizh,', rightX, headY);
 
     const lineY = headY + 24;
     doc.setDrawColor(...theme.border);
@@ -4938,11 +4849,11 @@ async function pdfAllKelasDownload(){
       const rightX = margin.left + colW + colGap;
 
       doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+      doc.text(`Jakarta, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
 
       const headY = y + 8;
       doc.text('Mengetahui,', leftX, headY);
-      doc.text('Pengampu Kelas,', rightX, headY);
+      doc.text('Muhaffizh,', rightX, headY);
 
       const lineY = headY + 24;
       doc.setDrawColor(...theme.border);
@@ -5444,7 +5355,7 @@ function getNamaFromCell(cell) {
 async function ensureSemesterMap(kelas) {
   if (window.semesterMap && Object.keys(window.semesterMap).length) return;
   try {
-    const res = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+    const res = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
     const santri = await res.json();
     window.semesterMap = {};
     (santri || []).forEach(s => {
@@ -5495,7 +5406,7 @@ async function hitungTotalAllJuzFromTable() {
 
     // Ambil data absensi rentang (anti-cache)
     const res = await fetch(
-      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`
+      `/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`
     );
     if (!res.ok) throw new Error("Gagal ambil data absensi.");
     const payload = await res.json();
@@ -5578,7 +5489,7 @@ async function hitungTotalAllJuzFromTable() {
     });
 
     // Simpan hasil rekap ke backend
-    const saveRes = await fetch('/.netlify/functions/aksesAutoUpdateAllJuz', {
+    const saveRes = await fetch('/api/aksesAutoUpdateAllJuz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fromDate: dari, toDate: sampai, kelas, data: dataToSave }),
@@ -5642,7 +5553,7 @@ async function hitungTotalAllJuzOtomatis() {
   const rangeDari = document.getElementById("rangeDari");
   const rangeSampai = document.getElementById("rangeSampai");
   try {
-    const res = await fetch(`/.netlify/functions/getAutoUpdateAllJuz?t=${Date.now()}`);
+    const res = await fetch(`/api/getAutoUpdateAllJuz?t=${Date.now()}`);
     const allData = await res.json();
     const kelasData = (allData || []).find(item => item.kelas === kelas);
     if (kelasData) {
@@ -5662,7 +5573,7 @@ async function hitungTotalAllJuzOtomatis() {
     await ensureSemesterMap(kelas);
 
     const resAbs = await fetch(
-      `/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`
+      `/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`
     );
     if (!resAbs.ok) throw new Error("Gagal ambil data absensi.");
     const payload = await resAbs.json();
@@ -5986,7 +5897,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
     for (const tgl of tanggalSet){
       try{
-        const res=await fetch(`/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(k)}&tanggal=${encodeURIComponent(tgl)}`);
+        const res=await fetch(`/api/getAbsensi?kelas=${encodeURIComponent(k)}&tanggal=${encodeURIComponent(tgl)}`);
         if(!res.ok) continue;
         const arr=await res.json().catch(()=>[])||[];
         const byId=new Map(), byNis=new Map();
@@ -6098,7 +6009,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   const ensureSemesterMap = window.ensureSemesterMap || (async function(kelas){
     if (window.semesterMap && Object.keys(window.semesterMap).length) return;
     try{
-      const r = await fetch(`/.netlify/functions/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+      const r = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
       const santri = await r.json();
       window.semesterMap = {};
       (santri||[]).forEach(s=>{
@@ -6149,7 +6060,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   // ===== persist range (server + local) =====
   async function saveRangeServer(kelas, fromDate, toDate, count){
     try{
-      await fetch('/.netlify/functions/aksesAutoUpdateAllJuzMur', {
+      await fetch('/api/aksesAutoUpdateAllJuzMur', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -6166,7 +6077,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   async function getRangeForKelas(kelas){
     // 1) server
     try{
-      const r = await fetch('/.netlify/functions/getAutoUpdateAllJuzMur?t='+Date.now());
+      const r = await fetch('/api/getAutoUpdateAllJuzMur?t='+Date.now());
       if (r.ok){
         const arr = await r.json();
         const it  = (arr||[]).find(x=>x.kelas===kelas);
@@ -6212,7 +6123,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     try{
       await ensureSemesterMap(kelas);
 
-      const res = await fetch(`/.netlify/functions/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
+      const res = await fetch(`/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(dari)}&end=${encodeURIComponent(sampai)}&t=${Date.now()}`);
       if (!res.ok) throw new Error("Gagal ambil data absensi.");
       const payload = await res.json();
       const allData = Array.isArray(payload) ? payload : (payload?.list || []);
@@ -6330,7 +6241,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 <script>
   // ====== KONFIG (opsional dari window.*) ======
-  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 34);             // 34 default; 0 = tanpa batas atas
+  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 9);             // 34 default; 0 = tanpa batas atas
   const JENJANG_SAFETY_CAP = Number(window.JENJANG_SAFETY_CAP ?? 1000); // darurat bila tanpa batas
 
   // ====== Helper jenjang dinamis ======
@@ -6424,7 +6335,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     if (btn) { btn.disabled = true; btn.textContent = "Menyimpan…"; btn.style.opacity = "0.6"; btn.style.cursor = "not-allowed"; }
 
     try {
-      const res = await fetch("/.netlify/functions/tambahSantri", {
+      const res = await fetch("/api/tambahSantri", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nama, nis, semester, jenjang, kelas })
@@ -6469,7 +6380,7 @@ btnHapusSantri.addEventListener("click", async () => {
 
   const kelas = kelasSelect.value; // Ambil kelas dari select
   try {
-    const res = await fetch(`/.netlify/functions/ambilSantri?kelas=${kelas}`);
+    const res = await fetch(`/api/ambilSantri?kelas=${kelas}`);
     const santriData = await res.json();
 
     if (!Array.isArray(santriData)) {
@@ -6507,7 +6418,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
   for (let c of checked) {
     const identifier = c.value;
     try {
-      const res = await fetch(`/.netlify/functions/hapusSantri`, {
+      const res = await fetch(`/api/hapusSantri`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kelas, identifier })
@@ -6543,7 +6454,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
   async function ensureAbsensiAda(kelas, tanggal) {
     try {
-      const url = `/.netlify/functions/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`;
+      const url = `/api/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`;
       const r = await fetch(url);
       return (r.status === 200 || r.status === 404);
     } catch { return false; }
@@ -6576,7 +6487,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
     // 1) load santri
     try {
-      const r = await fetch(`/.netlify/functions/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}&t=${Date.now()}`);
+      const r = await fetch(`/api/ambilSantri?kelas=${encodeURIComponent(kelasAsal)}&t=${Date.now()}`);
       const data = await r.json();
       elSantriSel.innerHTML = (Array.isArray(data) ? data : []).map(s => {
         const id   = s.id   ?? '';
@@ -6595,7 +6506,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
     // 2) load kelas tujuan
     try {
-      const rK = await fetch(`/.netlify/functions/ambilKelas?t=${Date.now()}`);
+      const rK = await fetch(`/api/ambilKelas?t=${Date.now()}`);
       const kelasList = await rK.json();
       elKelasWrap.innerHTML = (Array.isArray(kelasList) ? kelasList : [])
         .map(normKelas)
@@ -6640,7 +6551,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
     try {
       // 1) Pindah ROSTER (dapat idMap untuk remap absensi)
-      const { res: r1, out: o1 } = await postJSON('/.netlify/functions/pindahRosterKelas', {
+      const { res: r1, out: o1 } = await postJSON('/api/pindahRosterKelas', {
         kelasAsal, kelasTujuan, identifiers
       });
       if (!r1.ok || !o1.success) {
@@ -6655,19 +6566,19 @@ btnHapusTerpilih.addEventListener("click", async () => {
       // 2) Pindah ABSENSI
       let r2, o2 = {};
       if (startDate) {
-        r2 = await fetch('/.netlify/functions/pindahKelasMulaiTanggal', {
+        r2 = await fetch('/api/pindahKelasMulaiTanggal', {
           method: 'POST', headers: {'Content-Type':'application/json'},
           body: JSON.stringify({ ...payloadCommon, startDate })
         });
         if (r2.status === 404) {
           // fallback: semua tanggal
-          r2 = await fetch('/.netlify/functions/pindahKelasSemuaTanggal', {
+          r2 = await fetch('/api/pindahKelasSemuaTanggal', {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify(payloadCommon)
           });
         }
       } else {
-        r2 = await fetch('/.netlify/functions/pindahKelasSemuaTanggal', {
+        r2 = await fetch('/api/pindahKelasSemuaTanggal', {
           method: 'POST', headers: {'Content-Type':'application/json'},
           body: JSON.stringify(payloadCommon)
         });
@@ -7162,6 +7073,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 		
+
 <!-- ===== Modal Editor Parsial — Single Block ===== -->
 <style>
   #editBtnIndex{
@@ -7813,6 +7725,7 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 <!-- ===== /Modal Editor Parsial — Single Block ===== -->
 
-		
+
+
 </body>
 </html>
