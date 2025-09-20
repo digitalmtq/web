@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/digitalmtq/web/refs/heads/main/logo.png" />
 
   <!-- Open Graph Meta Tags (untuk WhatsApp, FB, Telegram) -->
-  <meta property="og:title" content="Portal Mutaba'ah Tahfidz" />
+  <meta property="og:title" content="Mutaba'ah Digital MTQ Al-Irsyad" />
   <meta property="og:description" content="Mudah, simpel, akurat. Sesuai halaman Mushaf Madinah. Dilengkapi laporan otomatis." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://digitalmtq.netlify.app/" />
@@ -389,7 +389,50 @@ button.lihat-quran-btn:hover::after {
   .password-group { flex-direction: row; }
 }
 
-	  
+	  /* Header Login: Logo + Judul sejajar */
+.login-header {
+  display: flex;
+  align-items: center;       /* vertikal tengah */
+  justify-content: center;   /* center di dalam card */
+  gap: 10px;                 /* jarak antara logo dan teks */
+  margin-bottom: 16px;
+  flex-wrap: wrap;           /* kalau layar kecil, bisa turun ke bawah */
+}
+
+.login-header img {
+  height: 7em;             /* ikuti tinggi teks */
+  width: auto;
+}
+
+.login-header h1 {
+  font-size: 1.2rem;         /* ukuran teks, bisa kamu sesuaikan */
+  margin: 0;
+  text-align: center;
+}
+
+	  .judul {
+  display: flex;
+  flex-direction: column; /* otomatis jadi 2 baris */
+  align-items: center;    /* rata tengah */
+  margin: 0;
+  padding: 0;
+  line-height: 1.1;       /* rapatkan antar baris */
+}
+
+.judul-atas {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+}
+
+.judul-bawah {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+}
+
 	  /* === OVERRIDE: samakan mobile dengan desktop untuk area tombol login === */
 @media (max-width: 600px) {
   .login-actions {
@@ -414,7 +457,7 @@ button.lihat-quran-btn:hover::after {
   </style>
 </head>
 <body>
-
+	
 <!-- HAPUS inline style="display:flex" agar tidak muncul saat awal load -->
 <div id="overlay"><span>
 <img src="https://raw.githubusercontent.com/digitalmtq/web/main/Stopwatch.gif"></span>
@@ -423,25 +466,35 @@ button.lihat-quran-btn:hover::after {
 <div class="container"> 
   <!-- Halaman Login -->
   <div id="login-card" class="card">
-    <h1>Mutaba'ah Tahfidz Online</h1>
+    
+    <!-- Header Login (Logo + Judul) -->
+    <div class="login-header">
+    <img src="https://raw.githubusercontent.com/digitalmtq/web/main/mtq.png" alt="Logo Mutaba'ah Tahfizh" />
+	<br>
+   <h1 class="judul">
+  <span class="judul-atas">Mutaba'ah Tahfizh</span>
+  <span class="judul-bawah">MTQ Al-Irsyad</span>
+</h1>
+    </div>
+
+    <!-- Form Login -->
     <form id="login-form">
       <input type="text" id="username" placeholder="Username" required />
+      
       <div class="password-group" style="display: flex; align-items: center;">
-   <div class="password-wrapper">
-    <input type="password" id="password" placeholder="Password" required />
-    <span id="toggle-password" class="toggle-password">👁</span>
-  </div>
-  <button type="submit">Masuk</button>
-</div>
-
-
+        <div class="password-wrapper">
+          <input type="password" id="password" placeholder="Password" required />
+          <span id="toggle-password" class="toggle-password">👁</span>
+        </div>
+        <button type="submit">Masuk</button>
+      </div>
 
       <div class="login-actions">
         <button type="button" onclick="toggleChangePassword()">Ganti Password</button>
         <button type="button" onclick="munculkanModalDaftarAdmin()">Daftar Admin</button>
         <button type="button" onclick="munculkanValidasiAdmin()">Daftar User Kelas</button>
-		<button type="button" onclick="bukaModalTambahKelas()">Tambah Kelas</button>
-		<button type="button" onclick="munculkanValidasiAdminNIS()">Daftar User NIS</button>
+        <button type="button" onclick="bukaModalTambahKelas()">Tambah Kelas</button>
+        <button type="button" onclick="munculkanValidasiAdminNIS()">Daftar User NIS</button>
       </div>
     </form>
 
@@ -1497,9 +1550,10 @@ async function buatUserNIS() {
 
 
 
-	<!-- Modal Sederhana -->
+	<!-- Modal Pindah Kelas -->
 <div id="modalPindahKelas" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center;z-index:9999;">
-  <div style="background:#fff;padding:16px;border-radius:10px;max-width:520px;width:92%;">
+  <!-- [PERUBAHAN] tambahkan max-height & overflow agar isi modal bisa scroll -->
+  <div style="background:#fff;padding:16px;border-radius:10px;max-width:520px;width:92%;max-height:80%;overflow:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <h3 style="margin:0;">Pindah Kelas</h3>
       <button id="closePindah" title="Tutup">✕</button>
@@ -1512,9 +1566,8 @@ async function buatUserNIS() {
       <label><b>Pilih Kelas Tujuan:</b></label>
       <div id="listKelasTujuan" style="margin-top:6px;"></div>
     </div>
-
-    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-      <button id="doPindah" style="padding:8px 12px;">Pindahkan</button>
+  <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+      <button id="doPindah" style="padding:8px 16px;">Pindahkan</button>
       <span id="statusPindah" style="font-size:.95rem;"></span>
     </div>
   </div>
@@ -6578,18 +6631,31 @@ btnHapusTerpilih.addEventListener("click", async () => {
   }
 
   let elStart = document.getElementById('startDateMove');
-  function ensureStartDateInput() {
-    if (!elStart) {
-      const holder = document.createElement('div');
-      holder.style.margin = '8px 0';
-      holder.innerHTML = `
-        <label><b>Mulai dari tanggal (opsional):</b></label><br/>
-        <input type="date" id="startDateMove" style="width:100%;max-width:260px;">
-      `;
-      elDo.parentElement.insertBefore(holder, elDo);
-      elStart = holder.querySelector('#startDateMove');
-    }
+function ensureStartDateInput() {
+  if (!elStart) {
+    const holder = document.createElement('div');
+
+    // blok tanggal yang tidak melebar & punya jarak ke tombol
+    holder.style.display = 'inline-flex';
+    holder.style.flexDirection = 'column'; // label di atas input
+    holder.style.flex = '0 0 auto';        // JANGAN width:100%
+    holder.style.margin = '0 12px 0 0';    // jarak ke tombol
+
+    holder.innerHTML = `
+      <label style="margin-bottom:4px;"><b>Mulai dari tanggal (opsional):</b></label>
+      <input type="date" id="startDateMove" style="width:260px;max-width:100%;">
+    `;
+
+    const row = elDo.parentElement; // div flex yang berisi tombol & status
+    // pastikan properti baris sudah di-set (kalau belum diubah di HTML)
+    row.style.gap = '12px';
+    row.style.alignItems = 'flex-end';
+    row.style.flexWrap = 'wrap';
+
+    row.insertBefore(holder, elDo);
+    elStart = holder.querySelector('#startDateMove');
   }
+}
 
   elBtnOpen.addEventListener('click', openModal);
   elClose.addEventListener('click', () => elModal.style.display = 'none');
@@ -6625,12 +6691,17 @@ btnHapusTerpilih.addEventListener("click", async () => {
     try {
       const rK = await fetch(`/api/ambilKelas?t=${Date.now()}`);
       const kelasList = await rK.json();
-      elKelasWrap.innerHTML = (Array.isArray(kelasList) ? kelasList : [])
+
+      // [PERUBAHAN] ganti isi wrapper menjadi <select size=8> agar scroll otomatis
+      elKelasWrap.innerHTML = '<select id="selectKelasTujuan" size="8" style="width:100%;margin:6px 0;"></select>';
+      const selTujuan = document.getElementById('selectKelasTujuan');
+
+      const opts = (Array.isArray(kelasList) ? kelasList : [])
         .map(normKelas)
         .filter(k => k !== kelasAsal)
-        .map(k => `<label style="display:block;margin:4px 0;">
-            <input type="radio" name="kelasTujuan" value="${k}"> ${k}
-          </label>`).join('');
+        .map(k => `<option value="${k}">${k}</option>`)
+        .join('');
+      selTujuan.innerHTML = opts || '<option disabled>(tidak ada kelas tujuan)</option>';
     } catch {
       elKelasWrap.innerHTML = '<em>Gagal memuat daftar kelas.</em>';
     }
@@ -6649,7 +6720,11 @@ btnHapusTerpilih.addEventListener("click", async () => {
 
   elDo.addEventListener('click', async () => {
     const kelasAsal   = normKelas(kelasSelect.value);
-    const kelasTujuan = normKelas(document.querySelector('input[name="kelasTujuan"]:checked')?.value || '');
+
+    // [PERUBAHAN] ambil pilihan dari <select id="selectKelasTujuan">
+    const selTujuanEl = document.getElementById('selectKelasTujuan');
+    const kelasTujuan = normKelas(selTujuanEl?.value || '');
+
     const selected    = Array.from(elSantriSel.selectedOptions);
 
     if (!selected.length) { alert('Pilih minimal satu santri.'); return; }
@@ -6667,7 +6742,7 @@ btnHapusTerpilih.addEventListener("click", async () => {
     elStatus.textContent = startDate ? `Memproses mulai ${startDate}…` : 'Memproses semua tanggal…';
 
     try {
-      // 1) Pindah ROSTER (dapat idMap untuk remap absensi)
+      // 1) Pindah ROSTER
       const { res: r1, out: o1 } = await postJSON('/api/pindahRosterKelas', {
         kelasAsal, kelasTujuan, identifiers
       });
@@ -6688,7 +6763,6 @@ btnHapusTerpilih.addEventListener("click", async () => {
           body: JSON.stringify({ ...payloadCommon, startDate })
         });
         if (r2.status === 404) {
-          // fallback: semua tanggal
           r2 = await fetch('/api/pindahKelasSemuaTanggal', {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify(payloadCommon)
@@ -6708,11 +6782,9 @@ btnHapusTerpilih.addEventListener("click", async () => {
         return;
       }
 
-      // sukses
       elStatus.style.color = 'green';
       elStatus.textContent = `Selesai. Roster & absensi (${o2.totalMoved ?? 'n/a'} entri) dipindahkan${startDate ? ' sejak ' + startDate : ''}.`;
 
-      // Sinkronkan UI
       if (window.tanggalFilterAkhir) {
         tanggalFilterAkhir.value = "";
         try { localStorage.removeItem("tanggalFilterAkhirTerakhir"); } catch(_){}
@@ -6735,7 +6807,6 @@ btnHapusTerpilih.addEventListener("click", async () => {
   });
 })();
 </script>
-
   
 
   <script>
@@ -6764,7 +6835,6 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
   // proses login
 });
 </script>
-
 
 
 <script>
