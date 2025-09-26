@@ -471,10 +471,8 @@ button.lihat-quran-btn:hover::after {
     <div class="login-header">
     <img src="https://raw.githubusercontent.com/digitalmtq/web/main/mtqlogo.png" alt="Logo Mutaba'ah Tahfizh" />
 	<br>
-   <h1 class="judul">
-  <span class="judul-atas">Mutaba'ah Tahfizh</span>
-  <span class="judul-bawah">MTQ Al-Irsyad</span>
-</h1>
+   <h1 class="judul">&lt;span class="judul-atas"&gt;Mutaba'ah Tahfizh&lt;/span&gt;
+  &lt;span class="judul-bawah"&gt;MTQ Al-Irsyad&lt;/span&gt;</h1>
     </div>
 
     <!-- Form Login -->
@@ -1653,16 +1651,11 @@ function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
     <!-- ⬇️ BARU: Jenjang -->
     <label>Jenjang:</label><br>
     <select id="inputJenjang" style="width:90%; margin-bottom:10px;">
-  <!-- placeholder kosong agar bisa reset ke "" -->
   <option value=""></option>
-
-  <!-- A1–A4 = ILA–ILD (label custom dipertahankan) -->
   <option value="A1">ILA</option>
   <option value="A2">ILB</option>
   <option value="A3">ILC</option>
   <option value="A4">ILD</option>
-
-  <!-- A5–A14 = 1A–1J -->
   <option value="A5">1A</option>
   <option value="A6">1B</option>
   <option value="A7">1C</option>
@@ -1673,8 +1666,6 @@ function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
   <option value="A12">1H</option>
   <option value="A13">1I</option>
   <option value="A14">1J</option>
-
-  <!-- A15–A24 = 2A–2J -->
   <option value="A15">2A</option>
   <option value="A16">2B</option>
   <option value="A17">2C</option>
@@ -1685,8 +1676,6 @@ function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
   <option value="A22">2H</option>
   <option value="A23">2I</option>
   <option value="A24">2J</option>
-
-  <!-- A25–A34 = 3A–3J -->
   <option value="A25">3A</option>
   <option value="A26">3B</option>
   <option value="A27">3C</option>
@@ -1697,7 +1686,7 @@ function extendSemesterOptions(selectEl, max = SEMESTER_MAX) {
   <option value="A32">3H</option>
   <option value="A33">3I</option>
   <option value="A34">3J</option>
-</select>
+  </select>
 
     <div style="margin-top:10px; display:flex; justify-content:space-between; gap:8px;">
       <button id="btnSimpanSantri" onclick="simpanSantriBaru()">Simpan</button>
@@ -2482,39 +2471,35 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 
   // === Fungsi atur dropdown kelas ===
 function aturDropdownKelas(user) {
-  const semuaKelas = [
-    "kelas_012526","kelas_022526","kelas_032526","kelas_042526","kelas_052526","kelas_062526",
+  const semuaKelas = [  "kelas_012526","kelas_022526","kelas_032526","kelas_042526","kelas_052526","kelas_062526",
     "kelas_072526","kelas_082526","kelas_092526","kelas_102526","kelas_112526","kelas_122526",
     "kelas_132526","kelas_142526","kelas_152526","kelas_162526","kelas_172526","kelas_182526",
-    "kelas_192526","kelas_202526","kelas_212526","kelas_222526","kelas_232526","kelas_242526"
-  ];
+    "kelas_192526","kelas_202526","kelas_212526","kelas_222526","kelas_232526","kelas_242526"];
 
-  const namaKelasCustom = {
-    kelas_012526: "Ust. Tukimin",
-    kelas_022526: "Ust. Dicky Miswardi",
-    kelas_032526: "Ust. Jundullah BA",
-    kelas_042526: "Ust. Abdullah.",
-    kelas_052526: "Ust. Ro'uuf Noor Huda Su'udin",
-    kelas_062526: "Ust. Salahuddin Santoaji Priatmojo",
-    kelas_072526: "Ust. Hammam Ahmed Saleh Al Naqeb",
-    kelas_082526: "Ust. Alif Rafiqul",
-    kelas_092526: "Ust. Ali Wardana",
-    kelas_102526: "Ust. Mullah Muhammad Umar",
-    kelas_112526: "Ust. Akhsani Taqwim",
-    kelas_122526: "Ust. Ikhsan Nur Khamid",
-    kelas_132526: "Ust. Abdul Haq",
-    kelas_142526: "Ust. Abdullah Al Guspari",
-    kelas_152526: "Ust. Abdullah Rafi",
-    kelas_162526: "Ust. Fajrul Ihsan",
-    kelas_172526: "Ust. Idris",
-    kelas_182526: "Ust. Muhammad athayya mumtaz",
-    kelas_192526: "Ust. M. Hanan Azizi",
-    kelas_202526: "Ust. Muhammad Rama Miayasin",
-    kelas_212526: "Ust. Nur Afiq",
-    kelas_222526: "Ust. Raditya Baswara Raharjo",
-    kelas_232526: "Ust. Rafie Zahran Kurniawan",
-    kelas_242526: "Ust. Shidiq Hasan Khan"
-  };
+  const namaKelasCustom = {  kelas_012526: "Ust. Tukimin",
+  kelas_022526: "Ust. Dicky Miswardi",
+  kelas_032526: "Ust. Jundullah BA",
+  kelas_042526: "Ust. Abdullah.",
+  kelas_052526: "Ust. Ro'uuf Noor Huda Su'udin",
+  kelas_062526: "Ust. Salahuddin Santoaji Priatmojo",
+  kelas_072526: "Ust. Hammam Ahmed Saleh Al Naqeb",
+  kelas_082526: "Ust. Alif Rafiqul",
+  kelas_092526: "Ust. Ali Wardana",
+  kelas_102526: "Ust. Mullah Muhammad Umar",
+  kelas_112526: "Ust. Akhsani Taqwim",
+  kelas_122526: "Ust. Ikhsan Nur Khamid",
+  kelas_132526: "Ust. Abdul Haq",
+  kelas_142526: "Ust. Abdullah Al Guspari",
+  kelas_152526: "Ust. Abdullah Rafi",
+  kelas_162526: "Ust. Fajrul Ihsan",
+  kelas_172526: "Ust. Idris",
+  kelas_182526: "Ust. Muhammad athayya mumtaz",
+  kelas_192526: "Ust. M. Hanan Azizi",
+  kelas_202526: "Ust. Muhammad Rama Miayasin",
+  kelas_212526: "Ust. Nur Afiq",
+  kelas_222526: "Ust. Raditya Baswara Raharjo",
+  kelas_232526: "Ust. Rafie Zahran Kurniawan",
+  kelas_242526: "Ust. Shidiq Hasan Khan"};
 
   kelasSelect.innerHTML = "";
 
@@ -3000,25 +2985,20 @@ async function loadSantriData() {
           <td class="col-nama">${santri.nama ?? ""}${subTanggal}</td>
           <td>
   <select class="jenjang">
-    <!-- A1–A4 = ILA–ILD -->
-    <option value="A1"  ${jenNow === 'A1'  ? 'selected' : ''}>ILA</option>
-    <option value="A2"  ${jenNow === 'A2'  ? 'selected' : ''}>ILB</option>
-    <option value="A3"  ${jenNow === 'A3'  ? 'selected' : ''}>ILC</option>
-    <option value="A4"  ${jenNow === 'A4'  ? 'selected' : ''}>ILD</option>
-
-    <!-- A5–A14 = 1A–1J -->
-    <option value="A5"  ${jenNow === 'A5'  ? 'selected' : ''}>1A</option>
-    <option value="A6"  ${jenNow === 'A6'  ? 'selected' : ''}>1B</option>
-    <option value="A7"  ${jenNow === 'A7'  ? 'selected' : ''}>1C</option>
-    <option value="A8"  ${jenNow === 'A8'  ? 'selected' : ''}>1D</option>
-    <option value="A9"  ${jenNow === 'A9'  ? 'selected' : ''}>1E</option>
+    <option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>ILA</option>
+    <option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>ILB</option>
+    <option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>ILC</option>
+    <option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>ILD</option>
+    <option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>1A</option>
+    <option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>1B</option>
+    <option value="A7" ${jenNow === 'A7' ? 'selected' : ''}>1C</option>
+    <option value="A8" ${jenNow === 'A8' ? 'selected' : ''}>1D</option>
+    <option value="A9" ${jenNow === 'A9' ? 'selected' : ''}>1E</option>
     <option value="A10" ${jenNow === 'A10' ? 'selected' : ''}>1F</option>
     <option value="A11" ${jenNow === 'A11' ? 'selected' : ''}>1G</option>
     <option value="A12" ${jenNow === 'A12' ? 'selected' : ''}>1H</option>
     <option value="A13" ${jenNow === 'A13' ? 'selected' : ''}>1I</option>
     <option value="A14" ${jenNow === 'A14' ? 'selected' : ''}>1J</option>
-
-    <!-- A15–A24 = 2A–2J -->
     <option value="A15" ${jenNow === 'A15' ? 'selected' : ''}>2A</option>
     <option value="A16" ${jenNow === 'A16' ? 'selected' : ''}>2B</option>
     <option value="A17" ${jenNow === 'A17' ? 'selected' : ''}>2C</option>
@@ -3029,8 +3009,6 @@ async function loadSantriData() {
     <option value="A22" ${jenNow === 'A22' ? 'selected' : ''}>2H</option>
     <option value="A23" ${jenNow === 'A23' ? 'selected' : ''}>2I</option>
     <option value="A24" ${jenNow === 'A24' ? 'selected' : ''}>2J</option>
-
-    <!-- A25–A34 = 3A–3J -->
     <option value="A25" ${jenNow === 'A25' ? 'selected' : ''}>3A</option>
     <option value="A26" ${jenNow === 'A26' ? 'selected' : ''}>3B</option>
     <option value="A27" ${jenNow === 'A27' ? 'selected' : ''}>3C</option>
@@ -3736,8 +3714,7 @@ function jenjangLabel(code) {
   // === Helper Kelas/Kelompok ===
   function buildKelasKelompokLine(kelas, kelasEl) {
     const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
-    const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {
-  kelas_012526: "Kelompok Ust. Tukimin",
+    const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {  kelas_012526: "Kelompok Ust. Tukimin",
   kelas_022526: "Kelompok Ust. Dicky Miswardi",
   kelas_032526: "Kelompok Ust. Jundullah BA",
   kelas_042526: "Kelompok Ust. Abdullah.",
@@ -3760,8 +3737,7 @@ function jenjangLabel(code) {
   kelas_212526: "Kelompok Ust. Nur Afiq",
   kelas_222526: "Kelompok Ust. Raditya Baswara Raharjo",
   kelas_232526: "Kelompok Ust. Rafie Zahran Kurniawan",
-  kelas_242526: "Kelompok Ust. Shidiq Hasan Khan"
-};
+  kelas_242526: "Kelompok Ust. Shidiq Hasan Khan"};
     let kelompok = custom[kelas] || "";
     if (!kelompok) {
       const optText = kelasEl?.options?.[kelasEl.selectedIndex]?.text?.trim() || "";
@@ -4255,7 +4231,7 @@ allKelasBtn?.addEventListener('click', pdfAllKelasDownload);
       const rightX = margin.left + colW + colGap;
 
       doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Mataram, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
 
       const headY = y + 8;
       doc.text('Mengetahui,', leftX, headY);
@@ -4678,7 +4654,7 @@ async function pdfAllKelasDownload(){
     const rightX = margin.left + colW + colGap;
 
     doc.setFont('helvetica','normal'); doc.setFontSize(11);
-    doc.text(`Jakarta, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+    doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
 
     const headY = y + 8;
     doc.text('Mengetahui,', leftX, headY);
@@ -5037,7 +5013,7 @@ async function pdfAllKelasDownload(){
       const rightX = margin.left + colW + colGap;
 
       doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(`Jakarta, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
+      doc.text(`Tengaran, ${ttdDate}`, margin.left + totalW, y, { align:'right' });
 
       const headY = y + 8;
       doc.text('Mengetahui,', leftX, headY);
