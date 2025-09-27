@@ -8,7 +8,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-const OWNER_REPO = "dickypagesdev/server";
+const OWNER_REPO = "digitalmtq/server";
 const FILE_PATH = "getPagesMap.json";
 const BRANCH = "main";
 
