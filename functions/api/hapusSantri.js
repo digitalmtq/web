@@ -9,7 +9,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-const OWNER_REPO = "dickypagesdev/server";
+const OWNER_REPO = "digitalmtq/server";
 const BRANCH = "main";
 
 const ghHeaders = (token) => ({
