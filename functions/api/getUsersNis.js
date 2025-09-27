@@ -1,7 +1,7 @@
 // functions/api/getUsersNis.js
 // Endpoint: GET /api/getUsersNis
 
-const DEFAULT_REPO = "dickypagesdev/server";
+const DEFAULT_REPO = "digitalmtq/server";
 const USERS_PATH   = "user.json";
 
 const dec = new TextDecoder();
