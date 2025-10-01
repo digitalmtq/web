@@ -3027,7 +3027,61 @@ logoutBtn.addEventListener("click", () => {
 
 
 // === Load Santri Data ===
-// ==== Konfigurasi ringan (opsional) ====
+
+
+// === MODE "HILANGKAN TOTAL" ===
+window.HIDE_CHOOSED_AYAT ??= true;   // true = opsi ayat yg sudah dipakai disembunyikan
+window.HIDE_EXHAUSTED_SURAH ??= true; // true = surah disembunyikan jika semua ayatnya habis
+
+function __getSurahMeta(sid){
+  const s = surahList.find(x => String(x.id) === String(sid));
+  return s ? { total: Number(s.jumlah_ayat)||0, nama: s.nama } : { total: 0, nama: "" };
+}
+
+function __isSurahExhausted(kelas, nis, surahId){
+  const usedBucket = (window.__ayatIndex?.[kelas]?.[nis]) || {};
+  const usedSet = usedBucket[String(surahId)];
+  if (!(usedSet instanceof Set)) return false;
+  const { total } = __getSurahMeta(surahId);
+  if (!total) return false;
+  // jumlah ayat unik yg sudah pernah dipakai
+  return usedSet.size >= total;
+}
+
+// repaint semua dropdown ayat utk satu NIS (agar hilangnya seketika)
+function __repaintAyatForNis(kelas, nis){
+  document.querySelectorAll(`#santri-table tbody tr[data-kelas="${kelas}"][data-nis="${nis}"]`).forEach(row=>{
+    const sd = row.querySelector('.surah-dari');
+    const ss = row.querySelector('.surah-sampai');
+    const ad = row.querySelector('.ayat-dari');
+    const as = row.querySelector('.ayat-sampai');
+    if (ad) window.fillAyatOptionsMarked(ad, sd?.value||"", ad.value||"");
+    if (as) window.fillAyatOptionsMarked(as, ss?.value||"", as.value||"");
+  });
+}
+
+// langsung update indeks global saat user memilih ayat (tanpa nunggu Save)
+function __addUsedAyatLive(kelas, nis, kind, surahId, ayat, tanggalLike){
+  if (!kelas || !nis || !surahId || !ayat) return;
+  window.__ayatIndex  ??= {};
+  window.__ayatLatest ??= {};
+  window.__ayatIndex[kelas]  ??= {};
+  window.__ayatLatest[kelas] ??= {};
+  const ib = window.__ayatIndex[kelas];
+  const lb = window.__ayatLatest[kelas];
+
+  ib[nis] ??= {};
+  ib[nis][String(surahId)] ??= new Set();
+  ib[nis][String(surahId)].add(Number(ayat));
+
+  lb[nis] ??= {};
+  const cand = { surah: String(surahId), ayat: Number(ayat), tanggal: String(tanggalLike||new Date().toISOString().slice(0,10)) };
+  const prev = lb[nis][kind];
+  if (!prev || String(cand.tanggal).localeCompare(String(prev.tanggal)) > 0){
+    lb[nis][kind] = cand;
+  }
+}
+	 
 window.ABS_HISTORY_LOOKBACK_DAYS ??= 180; // riwayat mundur 180 hari
 window.DISABLE_CHOOSED_AYAT      ??= true; // aktifkan disable ayat yang sudah dipilih
 
@@ -3173,19 +3227,28 @@ async function loadSantriData() {
 
   // generator opsi surah dengan tanda ✓ (pernah) / ★ (terakhir)
   function makeSurahOptions(kelasKey, nis, kind, selectedId="") {
-    const u    = (getIndexBucket(kelasKey)?.[nis]) || {};
-    const last = (getLatestBucket(kelasKey)?.[nis]?.[kind]);
-    let html = `<option value="">— Surah —</option>`;
-    for (const s of surahList) {
-      const sid    = String(s.id);
-      const hasAny = !!u[sid];
-      const isLast = last && last.surah === sid;
-      const mark   = isLast ? "★ " : (hasAny ? "✓ " : "");
-      const sel    = selectedId && selectedId == sid ? ' selected' : '';
-      html += `<option value="${sid}"${sel}>${mark}${s.nama}</option>`;
+  const u    = (window.__ayatIndex?.[kelasKey]?.[nis]) || {};
+  const last = (window.__ayatLatest?.[kelasKey]?.[nis]?.[kind]);
+  const hideExhausted = !!window.HIDE_EXHAUSTED_SURAH;
+
+  let html = `<option value="">— Surah —</option>`;
+  for (const s of surahList) {
+    const sid = String(s.id);
+    const isSelected = selectedId && selectedId == sid;
+
+    // sembunyikan surah jika semua ayat sudah terpakai (kecuali yang sedang terpilih)
+    if (hideExhausted && !isSelected && __isSurahExhausted(kelasKey, nis, sid)) {
+      continue;
     }
-    return html;
+
+    const hasAny = !!u[sid];
+    const isLast = last && last.surah === sid;
+    const mark   = isLast ? "★ " : (hasAny ? "✓ " : "");
+    const sel    = isSelected ? ' selected' : '';
+    html += `<option value="${sid}"${sel}>${mark}${s.nama}</option>`;
   }
+  return html;
+}
   // expose untuk dipakai ulang setelah SAVE
   window.__makeSurahOptions = makeSurahOptions;
 
@@ -3510,36 +3573,101 @@ async function loadSantriData() {
         }
 
         // events: regenerate label dengan ✓/★ setiap ganti SURAH
-        surahDari.addEventListener("change", () => {
-          surahDari.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", 'dari', surahDari.value);
-          fillAyatOptionsMarked(ayatDari, surahDari.value || "", "");
-          if (surahDari.value) {
-            surahSampai.value = surahDari.value;
-            surahSampai.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", 'sampai', surahSampai.value);
-            fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", "");
-            ayatSampai.value = ayatDari.value || "";
-          } else {
-            surahSampai.value = "";
-            surahSampai.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", 'sampai', "");
-            fillAyatOptionsMarked(ayatSampai, "", "");
-          }
-          updateTotalJuz(row);
-        });
+surahDari.addEventListener("change", () => {
+  // Render ulang opsi SURAH (hormati mode hide exhausted)
+  surahDari.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", "dari", surahDari.value);
 
-        surahSampai.addEventListener("change", () => {
-          surahSampai.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", 'sampai', surahSampai.value);
-          fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", "");
-          updateTotalJuz(row);
-        });
+  // Reset / isi ulang AYAT untuk SURAH baru (selectedAyat dikosongkan)
+  fillAyatOptionsMarked(ayatDari, surahDari.value || "", "");
 
-        ayatDari.addEventListener("change", () => {
-          ayatSampai.value = ayatDari.value || "";
-          updateTotalJuz(row);
-        });
+  if (surahDari.value) {
+    // Sinkronkan SURAH SAMPAI
+    surahSampai.value = surahDari.value;
+    surahSampai.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", "sampai", surahSampai.value);
 
-        ayatSampai.addEventListener("change", () => {
-          updateTotalJuz(row);
-        });
+    // Isi ulang AYAT SAMPAI (kosongkan dulu, lalu cermin jika ayatDari ada)
+    fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", "");
+    ayatSampai.value = ayatDari.value || "";
+  } else {
+    // Kosongkan sisi SAMPAI jika SURAH DARI dikosongkan
+    surahSampai.value = "";
+    surahSampai.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", "sampai", "");
+    fillAyatOptionsMarked(ayatSampai, "", "");
+  }
+
+  // Jika helper repaint tersedia, rapikan dropdown ayat di semua baris NIS ini
+  if (typeof window.__repaintAyatForNis === "function") {
+    window.__repaintAyatForNis(kelas, dsNis || dsId || "");
+  }
+
+  updateTotalJuz(row);
+});
+
+surahSampai.addEventListener("change", () => {
+  // Render ulang opsi SURAH SAMPAI (hormati mode hide exhausted)
+  surahSampai.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", "sampai", surahSampai.value);
+
+  // Isi ulang AYAT SAMPAI (selectedAyat dikosongkan)
+  fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", "");
+
+  // Rapikan semua dropdown ayat utk NIS terkait bila helper ada
+  if (typeof window.__repaintAyatForNis === "function") {
+    window.__repaintAyatForNis(kelas, dsNis || dsId || "");
+  }
+
+  updateTotalJuz(row);
+});
+
+ayatDari.addEventListener("change", () => {
+  // Cerminkan ke AYAT SAMPAI
+  ayatSampai.value = ayatDari.value || "";
+
+  // Live-index: tandai ayat ini "sudah dipakai" → lenyap di dropdown lain
+  if (surahDari.value && ayatDari.value && typeof window.__addUsedAyatLive === "function") {
+    window.__addUsedAyatLive(
+      kelas,
+      dsNis || dsId || "",
+      "dari",
+      surahDari.value,
+      ayatDari.value,
+      row.dataset?.tanggal
+    );
+  }
+
+  // Setelah ada ayat baru, mungkin surah jadi “habis” → refresh opsi SURAH
+  surahDari.innerHTML   = makeSurahOptions(kelas, dsNis || dsId || "", "dari",   surahDari.value);
+  surahSampai.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", "sampai", surahSampai.value);
+
+  // Repaint semua dropdown AYAT untuk NIS yang sama (agar efek hilang total langsung terasa)
+  if (typeof window.__repaintAyatForNis === "function") {
+    window.__repaintAyatForNis(kelas, dsNis || dsId || "");
+  }
+
+  updateTotalJuz(row);
+});
+
+// (Opsional tapi direkomendasikan) live-index juga saat ganti ayatSampai
+// agar catatan 'sampai' ikut mempengaruhi hide/label di baris lain
+ayatSampai.addEventListener("change", () => {
+  if (surahSampai.value && ayatSampai.value && typeof window.__addUsedAyatLive === "function") {
+    window.__addUsedAyatLive(
+      kelas,
+      dsNis || dsId || "",
+      "sampai",
+      surahSampai.value,
+      ayatSampai.value,
+      row.dataset?.tanggal
+    );
+  }
+  surahDari.innerHTML   = makeSurahOptions(kelas, dsNis || dsId || "", "dari",   surahDari.value);
+  surahSampai.innerHTML = makeSurahOptions(kelas, dsNis || dsId || "", "sampai", surahSampai.value);
+
+  if (typeof window.__repaintAyatForNis === "function") {
+    window.__repaintAyatForNis(kelas, dsNis || dsId || "");
+  }
+
+  updateTotalJuz(row);
+});
 
         // Jenjang ensure + handlers (simpan ke server — tetap)
         const jenSel = row.querySelector(".jenjang");
@@ -3648,6 +3776,14 @@ async function loadSantriData() {
           });
         }
 
+	 // Repaint awal agar hide mode langsung konsisten setelah prefetch riwayat
+document.querySelectorAll('#santri-table tbody tr').forEach(row=>{
+  const kelasRow = row.dataset?.kelas || "";
+  const nisRow   = row.dataset?.nis   || "";
+  __repaintAyatForNis(kelasRow, nisRow);
+});
+
+
         // ABSENSI FLEX (tetap)
         (function initAbsensiFlexModalForRow(){
           const cell = row.querySelector(".abs-flex-cell");
@@ -3711,18 +3847,14 @@ function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
   const kind   = selectEl.dataset?.kind  || "";   // 'dari' | 'sampai'
   const kelas  = selectEl.dataset?.kelas || "";
 
-  // bucket global
-  const usedBucket   = (window.__ayatIndex  && window.__ayatIndex[kelas])  ? window.__ayatIndex[kelas]  : {};
-  const latestBucket = (window.__ayatLatest && window.__ayatLatest[kelas]) ? window.__ayatLatest[kelas] : {};
-
+  const usedBucket   = (window.__ayatIndex?.[kelas])  ? window.__ayatIndex[kelas]  : {};
+  const latestBucket = (window.__ayatLatest?.[kelas]) ? window.__ayatLatest[kelas] : {};
   const usedSet =
     (usedBucket[nis] && usedBucket[nis][String(surahId)] instanceof Set)
       ? usedBucket[nis][String(surahId)]
       : new Set();
-
   const latestObj = (latestBucket[nis] && latestBucket[nis][kind]) ? latestBucket[nis][kind] : null;
 
-  // Jika surah belum dipilih → hanya opsi kosong
   if (!surahId) {
     selectEl.innerHTML = `<option value="">— Ayat —</option>`;
     selectEl.value = "";
@@ -3736,41 +3868,39 @@ function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
     return;
   }
 
-  const willDisable = !!window.DISABLE_CHOOSED_AYAT;
+  const hideUsed = !!window.HIDE_CHOOSED_AYAT;
   const frag = document.createDocumentFragment();
 
-  // Opsi kosong di paling atas
+  // Opsi kosong
   const blank = document.createElement("option");
   blank.value = "";
   blank.textContent = "— Ayat —";
   frag.appendChild(blank);
 
   for (let i = 1; i <= surah.jumlah_ayat; i++) {
-    const isUsed   = usedSet.has(i) || usedSet.has(String(i));
-    const isLatest = !!(latestObj
-                     && String(latestObj.surah) === String(surahId)
-                     && Number(latestObj.ayat) === i);
+    const wasUsed   = usedSet.has(i) || usedSet.has(String(i));
+    const isLatest  = !!(latestObj
+                      && String(latestObj.surah) === String(surahId)
+                      && Number(latestObj.ayat) === i);
 
-    // Label: "✓ 12 ★" bila keduanya benar
+    // jika hideUsed aktif → sembunyikan ayat yang sudah dipakai, kecuali yg sedang terpilih
+    if (hideUsed && wasUsed && String(selectedAyat||"") !== String(i)) {
+      continue;
+    }
+
+    // Label info (✓/★) tetap ditampilkan untuk ayat yang tersisa
     let label = String(i);
-    if (isUsed)   label = `✓ ${label}`;
-    if (isLatest) label = `${label} ★`;
+    if (wasUsed)   label = `✓ ${label}`;
+    if (isLatest)  label = `${label} ★`;
 
     const opt = document.createElement("option");
     opt.value = String(i);
     opt.textContent = label;
-
-    // Disable yang sudah pernah dipakai (lintas tanggal), kecuali ayat yang sedang dipilih
-    if (willDisable && isUsed && String(selectedAyat||"") !== String(i)) {
-      opt.disabled = true;
-    }
-
     frag.appendChild(opt);
   }
 
   selectEl.innerHTML = "";
   selectEl.appendChild(frag);
-  // pastikan selected tetap bisa dipilih meski disabled untuk yang lain
   if (selectedAyat) selectEl.value = String(selectedAyat);
 }
 
