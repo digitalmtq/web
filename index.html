@@ -3027,6 +3027,10 @@ logoutBtn.addEventListener("click", () => {
 
 
 // === Load Santri Data ===
+// ==== Konfigurasi ringan (opsional) ====
+window.ABS_HISTORY_LOOKBACK_DAYS ??= 180; // riwayat mundur 180 hari
+window.DISABLE_CHOOSED_AYAT      ??= true; // aktifkan disable ayat yang sudah dipilih
+
 async function loadSantriData() {
   const kelas   = kelasSelect.value;
   const tanggal = tanggalInput.value; // tanggal awal (kolom pertama)
@@ -3077,16 +3081,12 @@ async function loadSantriData() {
   window.keteranganMap ??= {};
 
   // ===== index riwayat tilawah PER KELAS -> PER NIS -> PER SURAH =====
-  // __ayatIndex[kelas][nis][surahId] = Set(ayat)                 → penanda ✓
-  // __ayatLatest[kelas][nis] = { dari:{surah,ayat,tanggal}, ...} → penanda ★
-  // __ayatUsedByDate[kelas][nis][surahId][ayat] = Set(tanggal)   → DISABLE di tanggal lain
-  window.__ayatIndex       ??= {};
-  window.__ayatLatest      ??= {};
-  window.__ayatUsedByDate  ??= {};
-
+  // __ayatIndex[kelas][nis][surahId] = Set(ayat)
+  // __ayatLatest[kelas][nis] = { dari:{surah,ayat,tanggal}, sampai:{...} }
+  window.__ayatIndex  ??= {};
+  window.__ayatLatest ??= {};
   function getIndexBucket(k){ window.__ayatIndex[k] ??= {}; return window.__ayatIndex[k]; }
   function getLatestBucket(k){ window.__ayatLatest[k] ??= {}; return window.__ayatLatest[k]; }
-  function getUsedByDateBucket(k){ window.__ayatUsedByDate[k] ??= {}; return window.__ayatUsedByDate[k]; }
 
   // Helpers kecil (tetap dengan konsep lama)
   const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
@@ -3113,6 +3113,7 @@ async function loadSantriData() {
       document.getElementById("save-btn-modal"),
       document.getElementById("save-btn"),
       document.getElementById("mur-save"),
+      document.getElementById("btnHitungTotalJuz"),
       document.querySelector("button[onclick='bukaModalSantri()']"),
       document.getElementById("btnHapusSantri"),
       document.getElementById("btnPindahKelas"),
@@ -3139,67 +3140,36 @@ async function loadSantriData() {
     });
   }
 
-  // === bangun index dari list absensi (baca 'dari' / 'sampai') + USED BY DATE
-  // === bangun index dari list absensi (baca rentang 'dari'..'sampai') + USED BY DATE untuk SELURUH AYAT DALAM RENTANG
-function buildAyatIndexFromList(kelasKey, absList) {
-  const usedBucket   = getIndexBucket(kelasKey);    // ✓
-  const latestBucket = getLatestBucket(kelasKey);   // ★
-  const usedByDate   = getUsedByDateBucket(kelasKey); // disable
+  // === bangun index dari list absensi (hanya baca 'dari' / 'sampai')
+  function buildAyatIndexFromList(kelasKey, absList) {
+    // Penting: reset bucket kelas ini agar fresh tiap load (menghindari duplikasi/stale)
+    window.__ayatIndex[kelasKey]  = {};
+    window.__ayatLatest[kelasKey] = {};
 
-  // helper: iterasi semua (surah, ayat) di antara rentang
-  function* iterAyatRange(sFrom, aFrom, sTo, aTo) {
-    const fromS = Number(sFrom), toS = Number(sTo);
-    for (let s = fromS; s <= toS; s++) {
-      const surah = surahList.find(x => Number(x.id) === s);
-      if (!surah) continue;
-      const startA = (s === fromS) ? Number(aFrom) : 1;
-      const endA   = (s === toS)   ? Number(aTo)   : Number(surah.jumlah_ayat);
-      for (let a = startA; a <= endA; a++) yield [String(s), Number(a)];
-    }
-  }
+    const usedBucket   = getIndexBucket(kelasKey);
+    const latestBucket = getLatestBucket(kelasKey);
 
-  function pushRange(nis, dariStr, sampaiStr, tanggal) {
-    if (!nis || !dariStr || !sampaiStr) return;
-    const m1 = /^(\d+):(\d+)$/.exec(String(dariStr).trim());
-    const m2 = /^(\d+):(\d+)$/.exec(String(sampaiStr).trim());
-    if (!m1 || !m2) return;
-    const [ , sFrom, aFrom ] = m1;
-    const [ , sTo,   aTo   ] = m2;
-
-    // tandai seluruh ayat dalam rentang
-    for (const [s, a] of iterAyatRange(sFrom, aFrom, sTo, aTo)) {
-      // ✓ pernah
+    const push = (nis, kind, surahAyat, tanggal) => {
+      if (!nis || !surahAyat || !/^\d+:\d+$/.test(surahAyat)) return;
+      const [s,a] = surahAyat.split(":").map(Number);
       usedBucket[nis] ??= {};
-      usedBucket[nis][s] ??= new Set();
-      usedBucket[nis][s].add(a);
+      usedBucket[nis][String(s)] ??= new Set();
+      usedBucket[nis][String(s)].add(a);
 
-      // used-by-date untuk disable
-      usedByDate[nis] ??= {};
-      usedByDate[nis][s] ??= {};
-      usedByDate[nis][s][String(a)] ??= new Set();
-      usedByDate[nis][s][String(a)].add(String(tanggal || ""));
-    }
-
-    // ★ terakhir tetap pakai ujung rentang
-    latestBucket[nis] ??= {};
-    const setLastIfNewer = (kind, s, a) => {
+      latestBucket[nis] ??= {};
       const prev = latestBucket[nis][kind];
-      const cand = { surah: String(s), ayat: Number(a), tanggal: String(tanggal||"") };
-      if (!prev || String(cand.tanggal).localeCompare(String(prev.tanggal)) > 0) {
-        latestBucket[nis][kind] = cand;
+      if (!prev || String(tanggal).localeCompare(String(prev.tanggal)) > 0) {
+        latestBucket[nis][kind] = { surah: String(s), ayat: Number(a), tanggal: String(tanggal||"") };
       }
     };
-    setLastIfNewer('dari',   sFrom, aFrom);
-    setLastIfNewer('sampai', sTo,   aTo);
+
+    (absList||[]).forEach(r => {
+      const nis = keyNis(r?.nis) || keyId(r?.id) || "";
+      const tgl = r?.tanggal || "";
+      if (r?.dari)   push(nis, 'dari',   String(r.dari),   tgl);
+      if (r?.sampai) push(nis, 'sampai', String(r.sampai), tgl);
+    });
   }
-
-  (absList||[]).forEach(r => {
-    const nis = keyNis(r?.nis) || keyId(r?.id) || "";
-    const tgl = r?.tanggal || "";
-    if (r?.dari && r?.sampai) pushRange(nis, String(r.dari), String(r.sampai), tgl);
-  });
-}
-
 
   // generator opsi surah dengan tanda ✓ (pernah) / ★ (terakhir)
   function makeSurahOptions(kelasKey, nis, kind, selectedId="") {
@@ -3216,6 +3186,7 @@ function buildAyatIndexFromList(kelasKey, absList) {
     }
     return html;
   }
+  // expose untuk dipakai ulang setelah SAVE
   window.__makeSurahOptions = makeSurahOptions;
 
   // AYAT dropdown bertanda ✓/★ — jika modul Tahap 2 belum terpasang, fallback aman
@@ -3224,10 +3195,39 @@ function buildAyatIndexFromList(kelasKey, absList) {
       window.fillAyatOptionsMarked(selectEl, surahId, selectedAyat);
       return;
     }
+    // Fallback minimal (tanpa penandaan): hanya kosongkan + set value
     if (!selectEl) return;
     selectEl.innerHTML = `<option value="">— Ayat —</option>`;
     if (selectedAyat) selectEl.value = String(selectedAyat);
   }
+
+  // ======== PREFETCH RIWAYAT RINGAN untuk tanda ✓/★/disable ========
+  // Tentukan rentang riwayat (lookback X hari sampai end yang relevan)
+  function fmt(d){ return d.toISOString().slice(0,10); }
+  function addDays(dateStr, delta){
+    const d = new Date(dateStr+"T00:00:00");
+    d.setDate(d.getDate()+delta);
+    return fmt(d);
+  }
+  const LOOKBACK = Number(window.ABS_HISTORY_LOOKBACK_DAYS ?? 180);
+  // dukung #tanggalFilterAkhir atau window.tanggalFilterAkhir
+  const endEl = (typeof tanggalFilterAkhir !== 'undefined' && tanggalFilterAkhir) ? tanggalFilterAkhir : window.tanggalFilterAkhir;
+  const endFilter = endEl ? endEl.value : "";
+  const endForIndex = endFilter && endFilter !== tanggal ? endFilter : tanggal;
+  const startForIndex = addDays(endForIndex, -Math.max(1, LOOKBACK));
+
+  let historyList = [];
+  try{
+    const urlIdx = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startForIndex)}&end=${encodeURIComponent(endForIndex)}&t=${Date.now()}`;
+    const resIdx = await fetch(urlIdx, { credentials:'include' });
+    const dIdx   = await resIdx.json().catch(()=>({}));
+    historyList  = Array.isArray(dIdx) ? dIdx : (dIdx?.list || []);
+    if (!Array.isArray(historyList)) historyList = [];
+  }catch(e){
+    console.warn("Prefetch riwayat gagal (abaikan, fitur lain aman):", e);
+  }
+  // Bangun indeks global dari riwayat → ini kunci agar tanda tetap muncul walau lompat tanggal
+  buildAyatIndexFromList(kelas, historyList);
 
   try {
     // Roster santri (MASTER)
@@ -3252,11 +3252,8 @@ function buildAyatIndexFromList(kelasKey, absList) {
     const rosterByNis  = byNisMap(santriData, s => s);
     const rosterByName = byNameMap(santriData, s => s);
 
-    // Ambil absensi (single / range)
+    // Ambil absensi (single / range) — khusus untuk RENDER tabel (ringan)
     let absensiRaw = [];
-    const endEl = (typeof tanggalFilterAkhir !== 'undefined' && tanggalFilterAkhir) ? tanggalFilterAkhir : window.tanggalFilterAkhir;
-    const endFilter = endEl ? endEl.value : "";
-
     if (endFilter && endFilter !== tanggal) {
       const resAbsensiRange = await fetch(`/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(endFilter)}&t=${Date.now()}`, { credentials:'include' });
       let d = await resAbsensiRange.json().catch(()=>({}));
@@ -3268,7 +3265,7 @@ function buildAyatIndexFromList(kelasKey, absList) {
       absensiRaw = Array.isArray(d) ? d : (d?.list || []);
     }
 
-    // Normalisasi absensi (lengkapi id/nis/nama dari roster)
+    // Normalisasi absensi (lengkapi id/nis/nama dari roster) — konsep lama dipertahankan
     let absensiData = absensiRaw.map((r) => {
       let id   = keyId(r?.id ?? "");
       let nis  = keyNis(r?.nis ?? "");
@@ -3291,8 +3288,7 @@ function buildAyatIndexFromList(kelasKey, absList) {
       return { ...r, id, nis, nama, semester: semesterFix, jenjang: jenjangFix, keterangan: ketFix };
     });
 
-    // === bangun / merge index tanda ✓/★ & used-by-date untuk kelas ini
-    buildAyatIndexFromList(kelas, absensiData);
+    // (CATATAN: buildAyatIndexFromList SUDAH dilakukan dari riwayat — di atas)
 
     // Ambil user login & filter akses santri (tetap)
     const username = localStorage.getItem("username");
@@ -3448,11 +3444,11 @@ function buildAyatIndexFromList(kelasKey, absList) {
           </td>
           <td>
             <select class="surah-dari">${surahOptionsDari}</select>
-            <select class="ayat-dari"  data-kind="dari"   data-kelas="${kelas}" data-nis="${snis||sid||''}" data-tanggal="${rowDate}"><option value="">— Ayat —</option></select>
+            <select class="ayat-dari"  data-kind="dari"   data-kelas="${kelas}" data-nis="${snis||sid||''}"><option value="">— Ayat —</option></select>
           </td>
           <td>
             <select class="surah-sampai">${surahOptionsSampai}</select>
-            <select class="ayat-sampai" data-kind="sampai" data-kelas="${kelas}" data-nis="${snis||sid||''}" data-tanggal="${rowDate}"><option value="">— Ayat —</option></select>
+            <select class="ayat-sampai" data-kind="sampai" data-kelas="${kelas}" data-nis="${snis||sid||''}"><option value="">— Ayat —</option></select>
           </td>
           <td class="halaman-terbaca">${dataAbsensi?.halaman ?? '-'}</td>
           <td class="total-halaman">${dataAbsensi?.totalHalaman ?? '-'}</td>
@@ -3476,7 +3472,7 @@ function buildAyatIndexFromList(kelasKey, absList) {
         row.dataset.nis       = dsNis;
         row.dataset.key       = (dsNis || dsId || "");
         row.dataset.tanggal   = rowDate;
-        row.dataset.kelas     = kelas;   // scoping penting untuk index ✓/★ & disable
+        row.dataset.kelas     = kelas;   // scoping penting untuk index ✓/★
         row.dataset.jenjang   = jenNow || "";
         row.dataset.keterangan= ketNow || "";
 
@@ -3502,13 +3498,10 @@ function buildAyatIndexFromList(kelasKey, absList) {
         if (sampaiArr[0]) surahSampai.value = sampaiArr[0];
 
         fillAyatOptionsMarked(ayatDari,   surahDari.value || "",   dariArr[1]   || "");
-		fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", sampaiArr[1] || "");
+        fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", sampaiArr[1] || "");
 
-		// Pasang guard (sekali)
-		attachMobileSelectGuard(ayatDari,   () => updateTotalJuz(row));
-		attachMobileSelectGuard(ayatSampai, () => updateTotalJuz(row));
-
-
+        // tampilkan total-juz jika server kirim (tilawahTotalJuz),
+        // kalau tidak, hitung saat user ubah dropdown
         if (dataAbsensi?.tilawahTotalJuz) {
           const tj = Number(dataAbsensi.tilawahTotalJuz);
           if (!Number.isNaN(tj)) row.querySelector(".total-juz").textContent = tj.toFixed(2);
@@ -3548,7 +3541,7 @@ function buildAyatIndexFromList(kelasKey, absList) {
           updateTotalJuz(row);
         });
 
-        // Jenjang ensure + handlers (tetap)
+        // Jenjang ensure + handlers (simpan ke server — tetap)
         const jenSel = row.querySelector(".jenjang");
         ensureJenjangOptions(jenSel, JENJANG_MAX, jenNow);
         if (jenSel) {
@@ -3619,7 +3612,7 @@ function buildAyatIndexFromList(kelasKey, absList) {
           });
         }
 
-        // Semester (tetap)
+        // Semester (tetap, fungsi isValidSemester/SEMESTER_MAX assumed global)
         const semSel = row.querySelector(".semester");
         if (semSel) {
           semSel.addEventListener("change", async () => {
@@ -3705,20 +3698,22 @@ function buildAyatIndexFromList(kelasKey, absList) {
   overlay.style.display = "none";
 }
 
+// Listener tetap
+kelasSelect.addEventListener("change", loadSantriData);
+tanggalInput.addEventListener("change", loadSantriData);
 
-// ====== Dropdown Ayat (REVISI): default kosong + penanda per KELAS+NIS + DISABLE di tanggal lain ======
+
+// ====== Dropdown Ayat (REVISI): default kosong + penanda per KELAS+NIS + DISABLE ======
 function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
   if (!selectEl) return;
 
-  const nis     = selectEl.dataset?.nis      || "";
-  const kind    = selectEl.dataset?.kind     || "";   // 'dari' | 'sampai'
-  const kelas   = selectEl.dataset?.kelas    || "";
-  const curDate = selectEl.dataset?.tanggal  || "";   // tanggal baris ini
+  const nis    = selectEl.dataset?.nis   || "";
+  const kind   = selectEl.dataset?.kind  || "";   // 'dari' | 'sampai'
+  const kelas  = selectEl.dataset?.kelas || "";
 
   // bucket global
-  const usedBucket   = (window.__ayatIndex       && window.__ayatIndex[kelas])       ? window.__ayatIndex[kelas]       : {};
-  const latestBucket = (window.__ayatLatest      && window.__ayatLatest[kelas])      ? window.__ayatLatest[kelas]      : {};
-  const usedByDate   = (window.__ayatUsedByDate  && window.__ayatUsedByDate[kelas])  ? window.__ayatUsedByDate[kelas]  : {};
+  const usedBucket   = (window.__ayatIndex  && window.__ayatIndex[kelas])  ? window.__ayatIndex[kelas]  : {};
+  const latestBucket = (window.__ayatLatest && window.__ayatLatest[kelas]) ? window.__ayatLatest[kelas] : {};
 
   const usedSet =
     (usedBucket[nis] && usedBucket[nis][String(surahId)] instanceof Set)
@@ -3741,6 +3736,7 @@ function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
     return;
   }
 
+  const willDisable = !!window.DISABLE_CHOOSED_AYAT;
   const frag = document.createDocumentFragment();
 
   // Opsi kosong di paling atas
@@ -3748,9 +3744,6 @@ function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
   blank.value = "";
   blank.textContent = "— Ayat —";
   frag.appendChild(blank);
-
-  // kumpulan tanggal yang pernah memakai ayat i untuk NIS & Surah ini
-  const byDateForSurah = (usedByDate[nis] && usedByDate[nis][String(surahId)]) ? usedByDate[nis][String(surahId)] : null;
 
   for (let i = 1; i <= surah.jumlah_ayat; i++) {
     const isUsed   = usedSet.has(i) || usedSet.has(String(i));
@@ -3767,25 +3760,18 @@ function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
     opt.value = String(i);
     opt.textContent = label;
 
-    // === DISABLE jika ayat ini pernah dipakai di tanggal LAIN (bukan tanggal baris ini)
-    // kecuali jika ini adalah ayat yang sedang terpilih saat ini → tetap enabled
-    let shouldDisable = false;
-    if (byDateForSurah && byDateForSurah[String(i)] instanceof Set) {
-      const usedDates = byDateForSurah[String(i)];
-      // jika set berisi tanggal lain selain curDate → disable
-      for (const d of usedDates) {
-        if (String(d || "") !== String(curDate || "")) { shouldDisable = true; break; }
-      }
+    // Disable yang sudah pernah dipakai (lintas tanggal), kecuali ayat yang sedang dipilih
+    if (willDisable && isUsed && String(selectedAyat||"") !== String(i)) {
+      opt.disabled = true;
     }
-    if (selectedAyat && Number(selectedAyat) === i) shouldDisable = false;
-    opt.disabled = !!shouldDisable;
 
     frag.appendChild(opt);
   }
 
   selectEl.innerHTML = "";
   selectEl.appendChild(frag);
-  selectEl.value = selectedAyat ? String(selectedAyat) : "";
+  // pastikan selected tetap bisa dipilih meski disabled untuk yang lain
+  if (selectedAyat) selectEl.value = String(selectedAyat);
 }
 
 // (Opsional) wrapper agar kompatibel dengan pemanggilan lama:
@@ -3915,92 +3901,6 @@ function updateTotalJuz(row) {
   row.querySelector(".juz-terbaca").textContent     = juzTerbacaFormatted;
   row.querySelector(".total-juz").textContent       = totalJuz.toFixed(2);
 }
-
-// Listener tetap
-kelasSelect.addEventListener("change", loadSantriData);
-tanggalInput.addEventListener("change", loadSantriData);
-
-// ===== Mobile-safe guard untuk select ayat =====
-function __isBlockedOption(opt){
-  return !!(opt && (opt.disabled || opt.dataset.block === "1" || opt.dataset.disabled === "1"));
-}
-
-function attachMobileSelectGuard(selectEl, onValidChange){
-  if (!selectEl) return;
-
-  const rememberPrev = () => { selectEl.dataset.prevValue = selectEl.value || ""; };
-  selectEl.addEventListener('focus',      rememberPrev, {passive:true});
-  selectEl.addEventListener('mousedown',  rememberPrev, {passive:true});
-  selectEl.addEventListener('touchstart', rememberPrev, {passive:true});
-
-  // Interceptor utama
-  selectEl.addEventListener('change', (e)=>{
-    const opt = selectEl.options[selectEl.selectedIndex];
-    if (__isBlockedOption(opt)) {
-      // Revert ke nilai sebelumnya agar benar2 tak bisa dipilih
-      const prev = selectEl.dataset.prevValue || "";
-      selectEl.value = prev;
-      // (opsional) beri feedback ringan
-      try {
-        if (window.toast) toast("Ayat tersebut sudah dipakai di tanggal lain.", {type:"warning"});
-        else console.warn("Ayat diblokir karena sudah dipakai di tanggal lain.");
-      }catch(_){}
-      // jangan teruskan
-      return;
-    }
-    // Jika valid dan caller ingin reaksi lanjutan:
-    if (typeof onValidChange === 'function') onValidChange(e);
-  });
-}
-
-// ===== Global Mobile Guard untuk dropdown ayat (tanpa ubah call sites) =====
-(function(){
-  // select yang kita jaga: kelas .ayat-dari / .ayat-sampai
-  function isAyatSelect(el){
-    return el && el.tagName === 'SELECT' &&
-      (el.classList?.contains('ayat-dari') || el.classList?.contains('ayat-sampai'));
-  }
-  function isBlockedOption(opt){
-    // Browser mobile kadang mengizinkan "disabled" dipilih di UI,
-    // tapi flag-nya tetap ter-set → kita cek di sini.
-    return !!(opt && (opt.disabled || opt.getAttribute('disabled') !== null || opt.dataset.block === '1'));
-  }
-
-  // Simpan nilai sebelumnya per select
-  const prevVal = new WeakMap();
-  function remember(el){ try{ prevVal.set(el, el.value || ''); }catch(_){} }
-
-  // Saat user mulai interaksi, catat nilai awal
-  document.addEventListener('focusin', (e)=>{
-    const el = e.target;
-    if (isAyatSelect(el)) remember(el);
-  }, true);
-  ['mousedown','touchstart'].forEach(evt=>{
-    document.addEventListener(evt, (e)=>{
-      const el = e.target && e.target.closest ? e.target.closest('select') : null;
-      if (isAyatSelect(el)) remember(el);
-    }, {passive:true});
-  });
-
-  // Interceptor utama: cegat pilihan opsi yang diblok & revert
-  document.addEventListener('change', (e)=>{
-    const el = e.target;
-    if (!isAyatSelect(el)) return;
-    const opt = el.options[el.selectedIndex];
-    if (isBlockedOption(opt)) {
-      const back = prevVal.get(el) || '';
-      el.value = back; // revert ke nilai sebelum perubahan
-      try {
-        // (opsional) kasih info lembut; aman kalau nggak ada toast
-        if (window.toast) toast('Ayat tersebut sudah dipakai di tanggal lain.', {type:'warning'});
-      } catch(_){}
-      // hentikan efek lanjutan; handler lama kamu tetap aman
-      return;
-    }
-    // Biarkan handler existing kamu (mis. updateTotalJuz) jalan seperti biasa
-  }, true);
-})();
-
 
 
 
@@ -4220,8 +4120,7 @@ async function simpanDataMutabaah(saveBtn){
 
           // tilawah harian disimpan ke key terpisah (bukan totalJuz)
           tilawahTotalJuz: Number(parseNum(tilawahTotalJuz).toFixed(2)),
-          totalJuz:        Number(parseNum(tilawahTotalJuz).toFixed(2)), // mirror utk kompatibilitas
-
+          totalJuz: Number(parseNum(tilawahTotalJuz).toFixed(2)), // mirror utk kompatibilitas pembaca lama
           halaman, totalHalaman, juzTerbaca, keterangan,
 
           // ==== NEW: simpan Murajaah tiga sesi (+ legacy fields) ====
@@ -4270,7 +4169,7 @@ async function simpanDataMutabaah(saveBtn){
           murPredText3:  mur.sessions[2]?.predikatText  ?? existing?.murPredText3  ?? "",
           murPredHuruf3: mur.sessions[2]?.predikatHuruf ?? existing?.murPredHuruf3 ?? "",
 
-          // total murajaah
+          // total murajaah (kalau ada input, pakai sum baru; kalau tidak, pertahankan existing)
           juzmurajaah: (mur.total!=null ? mur.total : Number(parseNum(existing?.juzmurajaah||0).toFixed?.(2) ?? 0)),
 
           // marks tetap
@@ -4293,76 +4192,74 @@ async function simpanDataMutabaah(saveBtn){
       let result={}; try { result = await res.json(); } catch { result = {}; }
       hasilKirim.push({tanggal, ok:!!result?.success, result});
 
-      // ===== perbarui indeks tanda ✓/★ & USED-BY-DATE (per KELAS) utk dropdown tilawah =====
-      // ===== perbarui indeks ✓/★ & USED-BY-DATE (per KELAS) utk dropdown tilawah — SELURUH AYAT DALAM RENTANG
-(function updateAyatIndexFromRows(){
-  window.__ayatIndex       ??= {};
-  window.__ayatLatest      ??= {};
-  window.__ayatUsedByDate  ??= {};
-  window.__ayatIndex[kelas]       ??= {};
-  window.__ayatLatest[kelas]      ??= {};
-  window.__ayatUsedByDate[kelas]  ??= {};
+      // ===== perbarui indeks tanda ✓/★ (merge cepat utk sesi aktif) =====
+      (function updateAyatIndexFromRows(){
+        window.__ayatIndex  ??= {};
+        window.__ayatLatest ??= {};
+        window.__ayatIndex[kelas]  ??= {};
+        window.__ayatLatest[kelas] ??= {};
+        rowsTanggal.forEach(row=>{
+          const nis = String(row.dataset?.nis||row.dataset?.id||"").trim();
+          if (!nis) return;
+          const surD = (row.querySelector(".surah-dari")?.value||"").trim();
+          const ayD  = Number((row.querySelector(".ayat-dari")?.value||"").trim());
+          const surS = (row.querySelector(".surah-sampai")?.value||"").trim();
+          const ayS  = Number((row.querySelector(".ayat-sampai")?.value||"").trim());
 
-  // helper: iterasi semua (surah, ayat) di rentang
-  function* iterAyatRange(sFrom, aFrom, sTo, aTo) {
-    const fromS = Number(sFrom), toS = Number(sTo);
-    for (let s = fromS; s <= toS; s++) {
-      const surah = surahList.find(x => Number(x.id) === s);
-      if (!surah) continue;
-      const startA = (s === fromS) ? Number(aFrom) : 1;
-      const endA   = (s === toS)   ? Number(aTo)   : Number(surah.jumlah_ayat);
-      for (let a = startA; a <= endA; a++) yield [String(s), Number(a)];
-    }
-  }
+          const push = (kind, s, a) => {
+            if (!s || !a) return;
+            window.__ayatIndex[kelas][nis] ??= {};
+            window.__ayatIndex[kelas][nis][s] ??= new Set();
+            window.__ayatIndex[kelas][nis][s].add(a);
 
-  rowsTanggal.forEach(row=>{
-    const nis = String(row.dataset?.nis||row.dataset?.id||"").trim();
-    if (!nis) return;
-    const sD = (row.querySelector(".surah-dari")?.value||"").trim();
-    const aD = (row.querySelector(".ayat-dari")?.value||"").trim();
-    const sS = (row.querySelector(".surah-sampai")?.value||"").trim();
-    const aS = (row.querySelector(".ayat-sampai")?.value||"").trim();
-    if (!sD || !aD || !sS || !aS) return;
-
-    for (const [s, a] of iterAyatRange(sD, aD, sS, aS)) {
-      // ✓ pernah
-      window.__ayatIndex[kelas][nis] ??= {};
-      window.__ayatIndex[kelas][nis][s] ??= new Set();
-      window.__ayatIndex[kelas][nis][s].add(a);
-
-      // used-by-date (disable)
-      window.__ayatUsedByDate[kelas][nis] ??= {};
-      window.__ayatUsedByDate[kelas][nis][s] ??= {};
-      window.__ayatUsedByDate[kelas][nis][s][String(a)] ??= new Set();
-      window.__ayatUsedByDate[kelas][nis][s][String(a)].add(String(tanggal));
-    }
-
-    // ★ terakhir tetap di ujung rentang
-    const setLast = (kind, s, a) => {
-      const prev = window.__ayatLatest[kelas][nis]?.[kind];
-      const cand = { surah: String(s), ayat: Number(a), tanggal: String(tanggal) };
-      if (!prev || String(cand.tanggal).localeCompare(String(prev.tanggal)) > 0) {
-        window.__ayatLatest[kelas][nis] ??= {};
-        window.__ayatLatest[kelas][nis][kind] = cand;
-      }
-    };
-    setLast('dari',   sD, aD);
-    setLast('sampai', sS, aS);
-  });
-})();
+            const prev = window.__ayatLatest[kelas][nis]?.[kind];
+            const cand = { surah: String(s), ayat: Number(a), tanggal: String(tanggal) };
+            if (!prev || String(cand.tanggal).localeCompare(String(prev.tanggal)) > 0) {
+              window.__ayatLatest[kelas][nis] ??= {};
+              window.__ayatLatest[kelas][nis][kind] = cand;
+            }
+          };
+          push('dari',   surD, ayD);
+          push('sampai', surS, ayS);
+        });
+      })();
     }
 
     const gagal=hasilKirim.filter(h=>!h.ok);
     if(!gagal.length){
       if(saveBtn) saveBtn.textContent='✅ Tersimpan';
+
+      // ===== Prefetch ulang riwayat ringan agar indeks konsisten pasca-simpan =====
+      try{
+        const LOOKBACK = Number(window.ABS_HISTORY_LOOKBACK_DAYS ?? 180);
+        function fmt(d){ return d.toISOString().slice(0,10); }
+        function addDays(dateStr, delta){
+          const d = new Date(dateStr+"T00:00:00");
+          d.setDate(d.getDate()+delta);
+          return fmt(d);
+        }
+        const endEl = (typeof tanggalFilterAkhir !== 'undefined' && tanggalFilterAkhir) ? tanggalFilterAkhir : window.tanggalFilterAkhir;
+        const endFilter = endEl ? endEl.value : "";
+        const endForIndex = endFilter && endFilter !== tanggalUtama ? endFilter : tanggalUtama;
+        const startForIndex = addDays(endForIndex, -Math.max(1, LOOKBACK));
+
+        const urlIdx = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(startForIndex)}&end=${encodeURIComponent(endForIndex)}&t=${Date.now()}`;
+        const resIdx = await fetch(urlIdx,{credentials:'include'});
+        const dIdx   = await resIdx.json().catch(()=>({}));
+        const historyList = Array.isArray(dIdx) ? dIdx : (dIdx?.list || []);
+        buildAyatIndexFromList(kelas, Array.isArray(historyList)?historyList:[]);
+      }catch(e){
+        console.warn("Refresh indeks pasca-simpan gagal (aman diabaikan):", e);
+      }
+
+      // biarkan script Murajaah menarik ulang datanya sendiri
       if (window.murajaah && typeof window.murajaah.refreshServer==='function'){
         await window.murajaah.refreshServer();
       }
-      // segarkan tanda ✓/★ + disable pada dropdown tilawah yg sedang tampil
+      // segarkan tanda ✓/★ pada dropdown tilawah yg sedang tampil
       document.querySelectorAll('#santri-table tbody tr').forEach(row=>{
         const kelasRow = row.dataset?.kelas || resolveKelas() || "";
         const key      = String(row.dataset?.nis||row.dataset?.id||"").trim();
-        const tglRow   = String(row.dataset?.tanggal||"");
         const sd = row.querySelector('.surah-dari');
         const ss = row.querySelector('.surah-sampai');
         const ad = row.querySelector('.ayat-dari');
@@ -4380,8 +4277,8 @@ async function simpanDataMutabaah(saveBtn){
             ? window.__makeSurahOptions(kelasRow, key, 'sampai', cur)
             : ss.innerHTML;
         }
-        if (ad) { ad.dataset.kelas = kelasRow; ad.dataset.nis = key; ad.dataset.tanggal = tglRow; window.fillAyatOptionsMarked(ad, sd?.value||"", ad.value||""); }
-        if (as) { as.dataset.kelas = kelasRow; as.dataset.nis = key; as.dataset.tanggal = tglRow; window.fillAyatOptionsMarked(as, ss?.value||"", as.value||""); }
+        if (ad) window.fillAyatOptionsMarked(ad, sd?.value||"", ad.value||"");
+        if (as) window.fillAyatOptionsMarked(as, ss?.value||"", as.value||"");
       });
     }else{
       const daftar=gagal.map(g=>g.tanggal).join(', ');
@@ -4408,9 +4305,10 @@ document.getElementById('save-btn')?.addEventListener('click', function(){ simpa
 document.getElementById('save-btn-modal')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('mur-save')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 
+	 
 
 
-
+// ============================
 // Download PDF/Excel Rekap (slot-based attendance)
 // ============================
 (function(){
