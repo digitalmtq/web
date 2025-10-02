@@ -7780,7 +7780,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     renderSession(idx);
     const tEl = sel(`#mur${idx}-totalJuz`);
     const cur = parseFloat(tEl?.textContent||"0")||0;
-    const enforced = Math.max(0.01, cur);
+    const enforced = Math.max(0.00, cur);
     if (tEl) tEl.textContent = enforced.toFixed(2);
 
     murState[idx] = {
