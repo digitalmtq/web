@@ -3026,6 +3026,116 @@ logoutBtn.addEventListener("click", () => {
 })();
 
 
+// === Load data santri ===
+async function loadDataSantri() {
+  const kelas = kelasSelect.value;
+  if (!kelas) return; // jaga-jaga
+
+  try {
+    const res = await fetch(`/api/getSantri?kelas=${kelas}`);
+    if (!res.ok) throw new Error("Gagal memuat data santri");
+    const data = await res.json();
+    console.log("Data santri:", data);
+    // TODO: render ke tabel (render sebenarnya dilakukan di loadSantriData)
+  } catch (err) {
+    console.error(err);
+    alert("Gagal memuat data santri / absensi!");
+  }
+}
+
+// === Saat halaman dibuka ===
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const resSurah = await fetch("/api/getAyat");
+    surahList = await resSurah.json();
+
+    const resPages = await fetch("/api/getPagesMap");
+    pagesMap = await resPages.json();
+  } catch (err) {
+    console.error("Gagal load surah/pagesMap:", err);
+  }
+
+  // pastikan modal absensi tersedia
+  ensureAbsensiModal();
+
+  const isLoggedIn = localStorage.getItem("isLoggedIn");
+  if (isLoggedIn) {
+    const storedKelas = JSON.parse(localStorage.getItem("kelasDiizinkan") || "[]");
+    const storedUsername = localStorage.getItem("username") || "";
+    namaUserSpan.textContent = storedUsername;
+
+    aturDropdownKelas({ kelas: storedKelas });
+    showDashboard();
+    loadDataSantri();
+  }
+});
+
+// === Event ganti kelas ===
+kelasSelect.addEventListener("change", () => {
+  try { localStorage.setItem(KELAS_KEY, kelasSelect.value); } catch {}
+  loadDataSantri();
+});
+
+// === Header total juz click ===
+totalAllJuzHeader.addEventListener("click", bukaOverlayTotalAllJuz);
+
+function showDashboard() {
+  loginCard.style.display = "none";
+  dashboardCard.style.display = "block";
+
+  const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+  if (tanggalFilterAkhir) tanggalFilterAkhir.max = today;
+
+  const savedTanggalAkhirFilter = localStorage.getItem("tanggalFilterAkhirTerakhir") || "";
+  if (tanggalFilterAkhir) {
+    tanggalFilterAkhir.value = savedTanggalAkhirFilter;
+    tanggalFilterAkhir.addEventListener("change", () => {
+      localStorage.setItem("tanggalFilterAkhirTerakhir", tanggalFilterAkhir.value);
+      loadSantriData();
+    });
+  }
+
+  if (tanggalInput)   tanggalInput.max = today;
+  if (startDateInput) startDateInput.max = today;
+  if (endDateInput)   endDateInput.max = today;
+
+  const savedTanggal = localStorage.getItem("tanggalTerakhir");
+  const savedEnd     = localStorage.getItem("endDateTerakhir");
+
+  if (tanggalInput) {
+    tanggalInput.value = savedTanggal || today;
+    tanggalInput.addEventListener("change", () => {
+      localStorage.setItem("tanggalTerakhir", tanggalInput.value);
+      if (tanggalFilterAkhir) {
+        tanggalFilterAkhir.value = "";
+        localStorage.removeItem("tanggalFilterAkhirTerakhir");
+      }
+      loadSantriData();
+    });
+  }
+
+  if (endDateInput) {
+    endDateInput.value = savedEnd || today;
+    endDateInput.addEventListener("change", () => {
+      localStorage.setItem("endDateTerakhir", endDateInput.value);
+      loadSantriData();
+    });
+  }
+
+  loadSantriData();
+}
+
+logoutBtn.addEventListener("click", () => {
+  overlay.style.display = "flex";
+  setTimeout(() => {
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("username");
+    loginCard.style.display = "block";
+    dashboardCard.style.display = "none";
+    overlay.style.display = "none";
+  }, 500);
+});
+
 // === Load Santri Data ===
 async function loadSantriData() {
   const kelas   = kelasSelect.value;
@@ -3469,23 +3579,23 @@ async function loadSantriData() {
           <td class="col-nama">${santri.nama ?? ""}${subTanggal}</td>
           <td>
             <select class="jenjang">
-    <option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>1 PDF</option>
-    <option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>2 PDF</option>
-    <option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>3 PDF</option>
-    <option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>1 MA</option>
-    <option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>2 MA</option>
-    <option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>3 MA</option>
-  </select>
+              <option value="A1" ${jenNow === 'A1' ? 'selected' : ''}>1 PDF</option>
+              <option value="A2" ${jenNow === 'A2' ? 'selected' : ''}>2 PDF</option>
+              <option value="A3" ${jenNow === 'A3' ? 'selected' : ''}>3 PDF</option>
+              <option value="A4" ${jenNow === 'A4' ? 'selected' : ''}>1 MA</option>
+              <option value="A5" ${jenNow === 'A5' ? 'selected' : ''}>2 MA</option>
+              <option value="A6" ${jenNow === 'A6' ? 'selected' : ''}>3 MA</option>
+            </select>
           </td>
           <td>
             <select class="semester">
-    <option value="1" ${String(semNow) === '1' ? 'selected' : ''}>1</option>
-    <option value="2" ${String(semNow) === '2' ? 'selected' : ''}>2</option>
-    <option value="3" ${String(semNow) === '3' ? 'selected' : ''}>3</option>
-    <option value="4" ${String(semNow) === '4' ? 'selected' : ''}>4</option>
-    <option value="5" ${String(semNow) === '5' ? 'selected' : ''}>5</option>
-    <option value="6" ${String(semNow) === '6' ? 'selected' : ''}>6</option>
-  </select>
+              <option value="1" ${String(semNow) === '1' ? 'selected' : ''}>1</option>
+              <option value="2" ${String(semNow) === '2' ? 'selected' : ''}>2</option>
+              <option value="3" ${String(semNow) === '3' ? 'selected' : ''}>3</option>
+              <option value="4" ${String(semNow) === '4' ? 'selected' : ''}>4</option>
+              <option value="5" ${String(semNow) === '5' ? 'selected' : ''}>5</option>
+              <option value="6" ${String(semNow) === '6' ? 'selected' : ''}>6</option>
+            </select>
           </td>
 
           <!-- ABSENSI FLEX -->
@@ -3496,10 +3606,10 @@ async function loadSantriData() {
 
           <td>
             <select class="keterangan">
-    <option value="" ${!ketNow ? 'selected' : ''}></option>
-    <option value="SP1" ${ketNow === 'SP1' ? 'selected' : ''}>SP1</option>
-    <option value="SP2" ${ketNow === 'SP2' ? 'selected' : ''}>SP2</option>
-  </select>
+              <option value="" ${!ketNow ? 'selected' : ''}></option>
+              <option value="SP1" ${ketNow === 'SP1' ? 'selected' : ''}>SP1</option>
+              <option value="SP2" ${ketNow === 'SP2' ? 'selected' : ''}>SP2</option>
+            </select>
           </td>
           <td>
             <select class="surah-dari">${surahOptionsDari}</select>
