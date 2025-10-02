@@ -7036,47 +7036,15 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     return PREDIKATS.find(p=>s<=p.max) || PREDIKATS[PREDIKATS.length-1];
   }
 
-  // ------ Peta awal Juz (surah:ayat) Mushaf Madinah ------
+  // ------ Peta awal Juz ------
   const JUZ_STARTS = [
-    [ 1,  1], // 1
-    [ 2,142], // 2
-    [ 2,253], // 3
-    [ 3, 93], // 4
-    [ 4, 24], // 5
-    [ 4,148], // 6
-    [ 5, 82], // 7
-    [ 6,111], // 8
-    [ 7, 88], // 9
-    [ 8, 41], // 10
-    [ 9, 93], // 11
-    [11,  6], // 12
-    [12, 53], // 13
-    [15,  1], // 14
-    [17,  1], // 15
-    [18, 75], // 16
-    [21,  1], // 17
-    [23,  1], // 18
-    [25, 21], // 19
-    [27, 56], // 20
-    [29, 46], // 21
-    [33, 31], // 22
-    [36, 28], // 23
-    [39, 32], // 24
-    [41, 47], // 25
-    [46,  1], // 26
-    [51, 31], // 27
-    [58,  1], // 28
-    [67,  1], // 29
-    [78,  1]  // 30
+    [ 1,  1],[ 2,142],[ 2,253],[ 3, 93],[ 4, 24],
+    [ 4,148],[ 5, 82],[ 6,111],[ 7, 88],[ 8, 41],
+    [ 9, 93],[11,  6],[12, 53],[15,  1],[17,  1],
+    [18, 75],[21,  1],[23,  1],[25, 21],[27, 56],
+    [29, 46],[33, 31],[36, 28],[39, 32],[41, 47],
+    [46,  1],[51, 31],[58,  1],[67,  1],[78,  1]
   ];
-
-  // Awal halaman tiap Juz (20 halaman/juz). Jadi Juz 13 = 242–261, dst.
-  const HALAMAN_AWAL_JUZ = [
-     1,  22,  42,  62,  82, 102, 122, 142, 162, 182,
-   202, 222, 242, 262, 282, 302, 322, 342, 362, 382,
-   402, 422, 442, 462, 482, 502, 522, 542, 562, 582
-  ];
-
   function getJuzRange(j){
     j=+j; if(!(j>=1&&j<=30)) return null;
     const [sF,aF]=JUZ_STARTS[j-1];
@@ -7087,12 +7055,6 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       if(aT<1){ sT=ns-1; aT=1; }
     }
     return {sFrom:sF,aFrom:aF,sTo:sT,aTo:aT};
-  }
-  function getJuzPageRange(j){
-    j=+j; if(!(j>=1&&j<=30)) return null;
-    const pFrom = HALAMAN_AWAL_JUZ[j-1];
-    const pTo   = (j<30 ? HALAMAN_AWAL_JUZ[j]-1 : 604);
-    return { pFrom, pTo };
   }
   function juzOfAyah(s,a){
     let j=1;
@@ -7124,6 +7086,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     }
     for(let s=1;s<=114;s++) if(!surahMaxAyah[s]) surahMaxAyah[s]=(s===1?7:(s===9?129:286));
     dataReady=true;
+    // expose flag buat patch reset
     window.dataReady = true;
   }
 
@@ -7368,15 +7331,6 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     let jt = +($(`#mur${idx}-juzTo`).value)||jf;
     if(!jf){ return; }
     if(jt<jf){ jt=jf; $(`#mur${idx}-juzTo`).value=String(jf); }
-
-    // set pageFrom/pageTo sesuai peta halaman Juz
-    const rPF=getJuzPageRange(jf);
-    const rPT=getJuzPageRange(jt);
-    if(rPF && rPT){
-      $(`#mur${idx}-pageFrom`).value=String(rPF.pFrom);
-      $(`#mur${idx}-pageTo`).value  =String(rPT.pTo);
-    }
-
     const rF=getJuzRange(jf), rT=getJuzRange(jt);
     if(!rF||!rT) return;
     $(`#mur${idx}-surahFrom`).value=String(rF.sFrom);
@@ -7551,10 +7505,10 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       if (kind==='pages')  return pickNonEmpty(rec[`murPages${i}`],  rec.murSessions?.[i-1]?.pages,  i===1?rec.murPages:undefined);
       if (kind==='juz')    return pickNonEmpty(rec[`juzmur${i}`],    rec[`juzSesi${i}`],             rec.murSessions?.[i-1]?.juz);
       if (kind==='jFrom')  return pickNonEmpty(rec[`jFrom${i}`],     rec.murSessions?.[i-1]?.jFrom);
-      if (kind==='jTo`)    return pickNonEmpty(rec[`jTo${i}`],       rec.murSessions?.[i-1]?.jTo);
-      if (kind==='score`)  return pickNonEmpty(rec[`murScore${i}`],  rec.murSessions?.[i-1]?.score);
-      if (kind==='pText`)  return pickNonEmpty(rec[`murPredText${i}`],  rec.murSessions?.[i-1]?.predikatText);
-      if (kind==='pHuruf`) return pickNonEmpty(rec[`murPredHuruf${i}`], rec.murSessions?.[i-1]?.predikatHuruf);
+      if (kind==='jTo')    return pickNonEmpty(rec[`jTo${i}`],       rec.murSessions?.[i-1]?.jTo);
+      if (kind==='score')  return pickNonEmpty(rec[`murScore${i}`],  rec.murSessions?.[i-1]?.score);
+      if (kind==='pText')  return pickNonEmpty(rec[`murPredText${i}`],  rec.murSessions?.[i-1]?.predikatText);
+      if (kind==='pHuruf') return pickNonEmpty(rec[`murPredHuruf${i}`], rec.murSessions?.[i-1]?.predikatHuruf);
     };
     const splitSA = (s)=>{ if(!s) return []; const a=String(s).split(':'); return [Number(a[0])||null, Number(a[1])||null]; };
     const applyPages = (i, str)=>{ if(!str) return; const [pf,pt]=String(str).split('-'); $(`#mur${i}-pageFrom`).value=pf||''; $(`#mur${i}-pageTo`).value=pt||''; };
@@ -7799,7 +7753,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
   function afterTableRendered(){ ensureMurColumn(); refreshMurFromServer(); }
 
-  // ============ PATCH: Reset aman server (Al-Fatihah 1→1, nilai 0.00) ============
+  // ============ PATCH: Reset aman server (Al-Fatihah 1→1, 0.01 juz) ============
   async function serverSafeReset(idx){
     try{ if (!window.dataReady) await ensureMap(); }catch(_){}
     const sF=1,aF=1,sT=1,aT=1;
@@ -7823,15 +7777,18 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       }
     }catch(_){}
 
-    // force nilai 0.00 sesuai permintaan
-    if (sel(`#mur${idx}-totalJuz`)) sel(`#mur${idx}-totalJuz`).textContent = '0.00';
+    renderSession(idx);
+    const tEl = sel(`#mur${idx}-totalJuz`);
+    const cur = parseFloat(tEl?.textContent||"0")||0;
+    const enforced = Math.max(0.01, cur);
+    if (tEl) tEl.textContent = enforced.toFixed(2);
 
     murState[idx] = {
       ...(murState[idx]||{}),
       sF,aF,sT,aT,
       jFrom: juzOfAyah(sF,aF),
       jTo:   juzOfAyah(sT,aT),
-      total: 0,
+      total: enforced,
       pFrom: sel(`#mur${idx}-pageFrom`)?.value || "",
       pTo:   sel(`#mur${idx}-pageTo`)?.value   || "",
     };
@@ -7847,7 +7804,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         const pt = sel(`#mur${idx}-pageTo`)?.value   || "";
         if (pf) cell.dataset[`pf${idx}`]=pf; else delete cell.dataset[`pf${idx}`];
         if (pt) cell.dataset[`pt${idx}`]=pt; else delete cell.dataset[`pt${idx}`];
-        cell.dataset[`juz${idx}`] = '0.00';
+        cell.dataset[`juz${idx}`] = enforced.toFixed(2);
       }
     }
 
@@ -7869,7 +7826,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         if (typeof window.murajaah?.refreshServer === 'function'){
           await window.murajaah.refreshServer();
         }
-        if (statusEl){ statusEl.textContent='✅ Reset tersimpan: Al-Fatihah 1→1 (0.00)'; setTimeout(()=>statusEl.textContent='',1500); }
+        if (statusEl){ statusEl.textContent='✅ Reset tersimpan: Al-Fatihah 1→1 (0.01)'; setTimeout(()=>statusEl.textContent='',1500); }
       } else {
         if (statusEl){ statusEl.textContent='ℹ️ Sudah di-set lokal (fungsi simpan tidak ada).'; setTimeout(()=>statusEl.textContent='',1500); }
       }
@@ -7924,7 +7881,6 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   })();
 })();
 </script>
-
 
 <script>
 (function(){
