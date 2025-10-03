@@ -7013,6 +7013,9 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
 
 <script>
+// ============================
+// D. MURAJAAH 3 SESI
+// ============================	
 // ---------- Murajaah (3 sesi, Juz Range + Nilai per sesi) ----------
 (function(){
   const MAP_URL='https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json';
@@ -7189,19 +7192,44 @@ function juzOfAyah(s,a){
   const murState = {1:{},2:{},3:{}};
 
   function setPredikatUI(idx){
-    const sc = Math.max(0, Math.min(100, parseInt($(`#mur${idx}-score`).value||'0',10)||0));
-    const p = getPredikat(sc);
-    $(`#mur${idx}-predikatBadge`).textContent = `${p.text} (${p.huruf})`;
-    murState[idx].score = sc; murState[idx].pText = p.text; murState[idx].pHuruf = p.huruf;
-    if(currentRowEl){
-      const cell=currentRowEl.querySelector('.murajaah-cell');
-      if(cell){
-        cell.dataset[`score${idx}`]=String(sc);
-        cell.dataset[`ptext${idx}`]=p.text;
-        cell.dataset[`phuruf${idx}`]=p.huruf;
+  const inp = $(`#mur${idx}-score`);
+  if (!inp) return;
+  const raw = String(inp.value ?? '');
+
+  // Jika kosong: jangan set 0, jangan tulis ke dataset
+  if (raw.trim() === '') {
+    $(`#mur${idx}-predikatBadge`).textContent = '–';
+    murState[idx].score  = null;
+    murState[idx].pText  = '';
+    murState[idx].pHuruf = '';
+    if (currentRowEl){
+      const cell = currentRowEl.querySelector('.murajaah-cell');
+      if (cell){
+        delete cell.dataset[`score${idx}`];
+        delete cell.dataset[`ptext${idx}`];
+        delete cell.dataset[`phuruf${idx}`];
       }
     }
+    return; // selesai, tidak lanjut hitung predikat
   }
+
+  // Kalau ada angka, baru hitung & simpan
+  const sc = Math.max(0, Math.min(100, parseInt(raw, 10) || 0));
+  const p  = getPredikat(sc);
+  $(`#mur${idx}-predikatBadge`).textContent = `${p.text} (${p.huruf})`;
+  murState[idx].score  = sc;
+  murState[idx].pText  = p.text;
+  murState[idx].pHuruf = p.huruf;
+
+  if (currentRowEl){
+    const cell=currentRowEl.querySelector('.murajaah-cell');
+    if (cell){
+      cell.dataset[`score${idx}`] = String(sc);
+      cell.dataset[`ptext${idx}`] = p.text;
+      cell.dataset[`phuruf${idx}`]= p.huruf;
+    }
+  }
+}
 
   // === Reset satu sesi ke PRISTINE (lokal) ===
   function resetSession(idx){
@@ -7597,25 +7625,22 @@ if (jF===30 && jT===30){
         $(`#mur${i}-juzFrom`).value = jf!==undefined ? String(jf) : '';
         $(`#mur${i}-juzTo`).value   = jt!==undefined ? String(jt) : '';
 
-        const sc = pickNonEmpty(ds[`score${i}`], fromRec(i,'score'));
-        $(`#mur${i}-score`).value = sc!==undefined ? String(sc) : '';
+        // JANGAN PREFILL SCORE SAAT MODAL DIBUKA
+$(`#mur${i}-score`).value = '';          // paksa kosong
+$(`#mur${i}-predikatBadge`).textContent = '–';
+murState[i].score  = null;
+murState[i].pText  = '';
+murState[i].pHuruf = '';
 
-        murState[i].touched = true;
-        setPredikatUI(i);
-        renderSession(i);
+// tetap render agar total/page/juz sinkron, tapi setPredikatUI akan "diam" karena kosong
+renderSession(i);
+
 
         const juzVal = pickNonEmpty(ds[`juz${i}`], fromRec(i,'juz'));
         if (juzVal !== undefined){
           const v = Number(juzVal)||0;
           $(`#mur${i}-totalJuz`).textContent = v.toFixed(2);
           murState[i].total = v;
-        }
-
-        const pText  = pickNonEmpty(ds[`ptext${i}`],  fromRec(i,'pText'));
-        const pHuruf = pickNonEmpty(ds[`phuruf${i}`], fromRec(i,'pHuruf'));
-        if (pText !== undefined || pHuruf !== undefined){
-          $(`#mur${i}-predikatBadge`).textContent =
-            (pText && pHuruf) ? `${pText} (${pHuruf})` : (pText || pHuruf || '–');
         }
       }
     };
@@ -8377,8 +8402,11 @@ if (jF===30 && jT===30){
 
   window.hitungTotalMurRangeFromTable = hitungTotalMurRangeFromTable;
 })();
-</script>
 
+// ============================
+// D. MURAJAAH 3 SESI
+// ============================	
+</script>
 
 
 <script>
