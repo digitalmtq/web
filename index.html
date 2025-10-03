@@ -7017,7 +7017,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 (function(){
   const MAP_URL='https://raw.githubusercontent.com/dickymiswardi/tadabbur/main/ayah_page_map.json';
   const LAST_PAGE=604;
-  const SKIP=(p)=> (p===21 || (p>=602 && p<=604));
+  const SKIP=(p)=> (p===21 || (p>=602 && p<=604)); // 602-604 ditulis saja utk Juz 30, tidak dihitung
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const makeOpts=(n)=>Array.from({length:n},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
@@ -7036,7 +7036,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     return PREDIKATS.find(p=>s<=p.max) || PREDIKATS[PREDIKATS.length-1];
   }
 
-  // ------ Peta awal Juz ------
+  // ------ Peta awal Juz (valid) ------
   const JUZ_STARTS = [
     [ 1,  1],[ 2,142],[ 2,253],[ 3, 93],[ 4, 24],
     [ 4,148],[ 5, 82],[ 6,111],[ 7, 88],[ 8, 41],
@@ -7086,7 +7086,6 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     }
     for(let s=1;s<=114;s++) if(!surahMaxAyah[s]) surahMaxAyah[s]=(s===1?7:(s===9?129:286));
     dataReady=true;
-    // expose flag buat patch reset
     window.dataReady = true;
   }
 
@@ -7274,7 +7273,12 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
             pageFromEl.value=String(pages.pFrom);
             pageToEl.value  =String(pages.pTo);
           }
-          $(`#mur${idx}-pagesHint`).textContent=`Halaman: ${pages.pFrom}—${pages.pTo}`;
+          // default hint berdasar hitungan (skip 21, 602-604)
+          let hintText = `Halaman: ${pages.pFrom}—${pages.pTo}`;
+          // Override KHUSUS Juz 30 (tulisan saja 582—604)
+          const jF=juzOfAyah(sF,aF), jT=juzOfAyah(sT,aT);
+          if (jF===30 && jT===30) hintText = 'Halaman: 582—604';
+          $(`#mur${idx}-pagesHint`).textContent = hintText;
         } else {
           $(`#mur${idx}-pagesHint`).textContent='';
         }
@@ -7404,14 +7408,14 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     const byName= (document.querySelector('select[name="kelas"]')?.value
                 || document.querySelector('input[name="kelas"]')?.value
                 || '');
-    const byData= $('#santri-table')?.dataset?.kelas
+    const byData= getSantriTable()?.dataset?.kelas
                || document.body?.dataset?.kelas
                || '';
     if (String(byWin).trim())  return String(byWin).trim();
     if (String(byId).trim())   return String(byId).trim();
     if (String(byName).trim()) return String(byName).trim();
     if (String(byData).trim()) return String(byData).trim();
-    const row = $('#santri-table tbody tr');
+    const row = getSantriTable()?.tBodies?.[0]?.rows?.[0];
     return String(row?.dataset?.kelas || '').trim();
   }
   function resolveTanggalGlobal(){
@@ -7427,6 +7431,17 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     if (String(byId).trim())   return String(byId).trim();
     if (String(byName).trim()) return String(byName).trim();
     return '';
+  }
+
+  // === helper cari tabel (ROBUS) ===
+  function getSantriTable(){
+    return document.getElementById('santri-table')
+        || document.getElementById('santriTable')
+        || document.querySelector('table[data-role="santri-table"]')
+        || document.querySelector('table.santri-table')
+        || document.querySelector('table#santri')
+        || document.querySelector('table')
+        || null;
   }
 
   // === Modal ===
@@ -7475,7 +7490,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
     async function fetchRowRecord(){
       const kelas = (typeof resolveKelas==='function' ? resolveKelas() : '') ||
-                    String(row.closest('table')?.dataset?.kelas || document.body?.dataset?.kelas || '');
+                    String(getSantriTable()?.dataset?.kelas || document.body?.dataset?.kelas || '');
       const tanggal = String(row.dataset?.tanggal || '') ||
                       (typeof resolveTanggalGlobal==='function' ? resolveTanggalGlobal() : '');
       if (!kelas || !tanggal) return null;
@@ -7515,24 +7530,15 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
     const loadOne = (i) => {
       const fromStr  = pickNonEmpty(
-        (()=>{
-          const sf=getDS(ds,i,`sf${i}`,'sf'), af=getDS(ds,i,`af${i}`,'af');
-          return (sf||af) ? `${sf||''}:${af||''}` : undefined;
-        })(),
+        (()=>{ const sf=getDS(ds,i,`sf${i}`,'sf'), af=getDS(ds,i,`af${i}`,'af'); return (sf||af) ? `${sf||''}:${af||''}` : undefined; })(),
         fromRec(i,'from')
       );
       const toStr    = pickNonEmpty(
-        (()=>{
-          const st=getDS(ds,i,`st${i}`,'st'), at=getDS(ds,i,`at${i}`,'at');
-          return (st||at) ? `${st||''}:${at||''}` : undefined;
-        })(),
+        (()=>{ const st=getDS(ds,i,`st${i}`,'st'), at=getDS(ds,i,`at${i}`,'at'); return (st||at) ? `${st||''}:${at||''}` : undefined; })(),
         fromRec(i,'to')
       );
       const pagesStr = pickNonEmpty(
-        (()=>{
-          const pf=getDS(ds,i,`pf${i}`,'pf'), pt=getDS(ds,i,`pt${i}`,'pt');
-          return (pf||pt) ? `${pf||''}-${pt||''}` : undefined;
-        })(),
+        (()=>{ const pf=getDS(ds,i,`pf${i}`,'pf'), pt=getDS(ds,i,`pt${i}`,'pt'); return (pf||pt) ? `${pf||''}-${pt||''}` : undefined; })(),
         fromRec(i,'pages')
       );
 
@@ -7578,7 +7584,6 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     [1,2,3].forEach(resetOne);
     [1,2,3].forEach(loadOne);
 
-    // pastikan tombol reset tampil saat modal dibuka
     ensureResetButtons();
   }
 
@@ -7605,14 +7610,17 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   }
   function bindSession(idx){ fillAllBases(idx); }
 
+  // === kolom Murajaah (robust & auto) ===
+  function getSantriTableSafe(){ return getSantriTable(); }
   function ensureMurColumn(){
-    const table=$('#santri-table'); if(!table) return;
+    const table = getSantriTableSafe(); if(!table){ setTimeout(ensureMurColumn,100); return; }
     const theadRow=table.tHead?.rows?.[0];
     if(theadRow && !theadRow.querySelector('th.mur-header')){
       const th=document.createElement('th'); th.className='mur-header'; th.textContent='Murajaah'; theadRow.appendChild(th);
     }
-    const rows=table.tBodies?.[0]?.rows||[];
-    [...rows].forEach(tr=>{
+    const tbody = table.tBodies?.[0]; if(!tbody) return;
+    const rows=[...tbody.rows];
+    rows.forEach(tr=>{
       if(tr.querySelector('.murajaah-cell')) return;
       const td=document.createElement('td'); td.className='murajaah-cell';
       td.dataset.murtotal = ""; td.dataset.murlabel = "";
@@ -7623,28 +7631,36 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
       tr.appendChild(td);
       td.querySelector('.btn-mur').addEventListener('click',()=>openModalForRow(tr));
     });
+
+    // awasi perubahan tbody agar tombol tetap muncul bila baris di-render belakangan
+    if (!ensureMurColumn._obs && tbody){
+      const obs = new MutationObserver(muts=>{
+        if (muts.some(m=>m.type==='childList')) ensureMurColumn();
+      });
+      obs.observe(tbody, { childList:true, subtree:false });
+      ensureMurColumn._obs = obs;
+    }
   }
 
   // ---------- Refresh dari server (muat juga skor/predikat jika ada) ----------
   async function refreshMurFromServer(){
-    const $ = (s,r=document)=>r.querySelector(s);
-    const table = $('#santri-table');
+    const table = getSantriTable(); if(!table) return;
     const kelas = (function(){
       return String(
         window.kelasSelect?.value ||
-        $('#kelasSelect')?.value || $('#kelas')?.value ||
+        document.querySelector('#kelasSelect')?.value || document.querySelector('#kelas')?.value ||
         document.querySelector('select[name="kelas"]')?.value ||
         table?.dataset?.kelas || document.body?.dataset?.kelas || ''
       ).trim();
     })();
-    if(!kelas || !table) return;
+    if(!kelas) return;
 
     const rows = [...(table.tBodies?.[0]?.rows||[])];
     const tglSet = new Set(rows.map(r=>String(r.dataset?.tanggal||'').trim()).filter(Boolean));
     if(!tglSet.size){
       const g = String(
         window.tanggalInput?.value ||
-        $('#tanggalInput')?.value || $('#tanggal')?.value || $('#date')?.value ||
+        document.querySelector('#tanggalInput')?.value || document.querySelector('#tanggal')?.value || document.querySelector('#date')?.value ||
         document.querySelector('input[name="tanggal"]')?.value ||
         document.querySelector('input[name="date"]')?.value || ''
       ).trim();
@@ -7971,14 +7987,13 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
   // Multi-strategy penghapusan range di server (agar kompatibel berbagai backend)
   async function tryResetRangeServer(kelas){
     const attempts = [
-      { url: '/api/aksesAutoUpdateAllJuzMur', method:'POST',   body:{ kelas, delete:true } },
+      { url: '/api/aksesAutoUpdateAllJuzMur', method:'POST',   body:{ kelas, delete:true} },
       { url: '/api/aksesAutoUpdateAllJuzMur', method:'DELETE', body:{ kelas } },
       { url: '/api/aksesAutoUpdateAllJuzMur', method:'POST',   body:{ kelas, fromDate:'', toDate:'', data:[] } },
       { url: '/api/aksesAutoUpdateAllJuzMur', method:'POST',   body:{ kelas, fromDate:null, toDate:null, data:[{meta:true, count:0, delete:true}] } },
       { url: '/api/resetAutoUpdateAllJuzMur', method:'POST',   body:{ kelas } },
       { url: '/api/aksesAutoUpdateAllJuzMur?delete=1', method:'POST', body:{ kelas } },
     ];
-
     for (const att of attempts){
       try{
         const r = await fetch(att.url, {
@@ -7990,9 +8005,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
         const okFlag = r.ok || r.status===204 || (j && (j.ok||j.success||j.removed||j.deleted));
         if (okFlag) { console.info('[murRange] reset OK via', att); return true; }
         console.warn('[murRange] reset attempt fail', att, r.status, j||await r.text());
-      }catch(e){
-        console.warn('[murRange] reset attempt error', att, e);
-      }
+      }catch(e){ console.warn('[murRange] reset attempt error', att, e); }
     }
     return false;
   }
@@ -8185,7 +8198,7 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
 
     const fromDate = (dariEl?.value||'').trim();
     const toDate   = (smpEl?.value||'').trim();
-
+	  
     try{
       if (!fromDate && !toDate){
         if (st) st.textContent = '⏳ Menyimpan penghapusan ke server…';
