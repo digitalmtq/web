@@ -7045,17 +7045,15 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     [29, 46],[33, 31],[36, 28],[39, 32],[41, 47],
     [46,  1],[51, 31],[58,  1],[67,  1],[78,  1]
   ];
-  function getJuzRange(j){
-    j=+j; if(!(j>=1&&j<=30)) return null;
-    const [sF,aF]=JUZ_STARTS[j-1];
-    let sT=114, aT=6;
-    if(j<30){
-      const [ns,na]=JUZ_STARTS[j];
-      sT=ns; aT=na-1;
-      if(aT<1){ sT=ns-1; aT=1; }
-    }
-    return {sFrom:sF,aFrom:aF,sTo:sT,aTo:aT};
-  }
+
+if (jF === 30 && jT === 30) {
+  const pf = $(`#mur${idx}-pageFrom`);
+  const pt = $(`#mur${idx}-pageTo`);
+  if (pf && !pf.value) pf.value = '582';
+  if (pt) pt.value = '604';
+  $(`#mur${idx}-pagesHint`).textContent = 'Halaman: 582—604';
+}
+	
   function juzOfAyah(s,a){
     let j=1;
     for(let i=0;i<JUZ_STARTS.length;i++){
