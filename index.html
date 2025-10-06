@@ -4988,6 +4988,49 @@ window.PDF_mergeSASegmentsContinuous = PDF_mergeSASegmentsContinuous;
 window.PDF_joinSAsegmentsNamaMerged  = PDF_joinSAsegmentsNamaMerged;
 
 
+// === Compact Juz ranges: dedup + sort + merge touching/overlapping ===
+function PDF_mergeRanges(arr){
+  // normalisasi -> [a,b] dengan a<=b
+  const tmp = [];
+  const seen = new Set();
+  for (const seg of (arr||[])){
+    if (!Array.isArray(seg) || seg.length < 2) continue;
+    let a = Number(seg[0]), b = Number(seg[1]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    if (a > b) [a,b] = [b,a];
+    const key = `${a}-${b}`;
+    if (!seen.has(key)) { seen.add(key); tmp.push([a,b]); }
+  }
+  if (!tmp.length) return [];
+
+  // sort by start then end
+  tmp.sort((x,y)=> (x[0]-y[0]) || (x[1]-y[1]));
+
+  // merge jika nempel/overlap (start <= curEnd+1)
+  const merged = [];
+  let cur = [...tmp[0]];
+  for (let i=1;i<tmp.length;i++){
+    const [a,b] = tmp[i];
+    if (a <= cur[1] + 1) {
+      if (b > cur[1]) cur[1] = b; // extend
+    } else {
+      merged.push(cur);
+      cur = [a,b];
+    }
+  }
+  merged.push(cur);
+  return merged;
+}
+
+function PDF_joinRangeSegmentsCompact(arr, collapseSingle=true){
+  const merged = PDF_mergeRanges(arr);
+  if (!merged.length) return '-';
+  return merged.map(([a,b]) => (collapseSingle && a===b) ? `${a}` : `${a}-${b}`).join(', ');
+}
+
+// expose global (opsional)
+window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
+
 
 
   // === Pewarnaan sel SP ===
@@ -5095,7 +5138,7 @@ window.PDF_joinSAsegmentsNamaMerged  = PDF_joinSAsegmentsNamaMerged;
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
         const setoranText = PDF_joinSAsegmentsNamaMerged(r.saSegments);
-        const juzText     = PDF_joinJuzSegmentsCompact(r.juzSegments);
+        const juzText     = PDF_joinRangeSegmentsCompact(r.juzSegments, true);
 
         // SLOT-based
         const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
@@ -5550,7 +5593,7 @@ window.PDF_joinSAsegmentsNamaMerged  = PDF_joinSAsegmentsNamaMerged;
           const pred      = PDF_predikatFromScore(nilaiAvg);
           const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
           const setoranText = PDF_joinSAsegmentsNamaMerged(r.saSegments);
-          const juzText     = PDF_joinJuzSegmentsCompact(r.juzSegments);
+          const juzText     = PDF_joinRangeSegmentsCompact(r.juzSegments, true);
 
           const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
           const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
@@ -5769,7 +5812,7 @@ async function xlsRekapDownload(){
         const pred      = PDF_predikatFromScore(nilaiAvg);
         const statusJuz = PDF_totalAllJuzStatus(r.totalJuz, r.semester);
         const setoranText = PDF_joinSAsegmentsNamaMerged(r.saSegments);
-        const juzText     = PDF_joinJuzSegmentsCompact(r.juzSegments);
+        const juzText     = PDF_joinRangeSegmentsCompact(r.juzSegments, true);
 
         const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
         const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
@@ -5788,9 +5831,7 @@ async function xlsRekapDownload(){
           hadirPct,
           (r.keterangan ?? ''),
           setoranText,
-          const juzText     = (window.PDF_joinJuzSegmentsCompact?.(r.juzSegments)) 
-                 || (window.PDF_joinRangeSegments?.(r.juzSegments, true)) 
-                 || '-';
+          juzText,
           Number(r.totalJuz.toFixed(2)),
           fmtMurRange(r.murTotalJuz || 0, r.murCount || 0),
           statusJuz.label,
@@ -6022,44 +6063,6 @@ async function xlsRekapDownload(){
     if (p >= 100) return { label:'TUNTAS', percent:p };
     return { label: `${p}%`, percent:p };
   }
-
-
-// === Compact-merger untuk Juz (gabung angka & rentang, dedup, merge adjacency) ===
-function PDF_mergeAndJoinNumericRanges(input, collapseSingle=true){
-  const S = new Set();
-  for (const it of (input||[])){
-    if (Array.isArray(it) && it.length>=1){
-      let a = Number(it[0]), b = Number(it[1] ?? it[0]);
-      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-      if (a>b) [a,b] = [b,a];
-      a = Math.floor(a); b = Math.floor(b);
-      for (let x=a; x<=b; x++) S.add(x);
-    } else {
-      const n = Number(it);
-      if (Number.isFinite(n)) S.add(Math.floor(n));
-    }
-  }
-  const nums = Array.from(S).sort((a,b)=>a-b);
-  if (!nums.length) return '-';
-
-  const ranges = [];
-  let start = nums[0], prev = nums[0];
-  for (let i=1; i<nums.length; i++){
-    const n = nums[i];
-    if (n === prev + 1){ prev = n; continue; }
-    ranges.push([start, prev]);
-    start = prev = n;
-  }
-  ranges.push([start, prev]);
-
-  return ranges.map(([a,b]) => (collapseSingle && a===b) ? String(a) : `${a}-${b}`).join(', ');
-}
-
-function PDF_joinJuzSegmentsCompact(arr){
-  return PDF_mergeAndJoinNumericRanges(arr, true);
-}
-window.PDF_joinJuzSegmentsCompact = PDF_joinJuzSegmentsCompact; // expose global
-	
 
 // --- expose things used by pdfSantriDownload (which lives outside the IIFE) ---
 window.setBtnLoading = setBtnLoading;
@@ -6469,7 +6472,7 @@ async function pdfSantriDownload(){
         h: d.cnt.hadir, a: d.cnt.alpha, s: d.cnt.sakit, i: d.cnt.izin,
         hadirPct: `${hadirPct}%`,
         setoran: PDF_joinSAsegmentsNamaMerged(d.sa),
-        juz: PDF_joinJuzSegmentsCompact(d.juz),
+        juz: PDF_joinRangeSegmentsCompact(d.juz, true),
         totJuz: d.totalJuz ? d.totalJuz.toFixed(2) : '0.00',
 		murRange: fmtMurRange(d.murJuz || 0, (d.murJuz||0) > 0 ? 1 : 0),
         persen: statusJuzHarian.label,
@@ -6481,7 +6484,7 @@ async function pdfSantriDownload(){
     // ==== Baris REKAP (slot-based) ====
     const predTotal = PDF_predikatFromScore(nilaiAvg);
     const setoranTotal = agg ? PDF_joinSAsegmentsNamaMerged(agg.saSegments) : '-';
-    const juzTotalTxt  = agg ? PDF_joinJuzSegmentsCompact(agg.juzSegments) : '-';
+    const juzTotalTxt  = agg ? PDF_joinRangeSegmentsCompact(agg.juzSegments, true) : '-';
 
     tableRows.push({
       _isRekap: true,
