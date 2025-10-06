@@ -7074,9 +7074,11 @@ kelasSelect?.addEventListener("change", () => loadSantriData());
     { max: 100, text:'MUMTAZ',         huruf: 'A+' },
   ];
   function getPredikat(score){
-    const s = Math.max(0, Math.min(100, Number(score)||0));
-    return PREDIKATS.find(p=>s<=p.max) || PREDIKATS[PREDIKATS.length-1];
-  }
+  const s = Math.max(0, Math.min(100, Number(score)||0));
+  if (s === 0) return null;              // 0 = tidak ada predikat
+  return PREDIKATS.find(p=>s<=p.max) || PREDIKATS[PREDIKATS.length-1];
+}
+
 
  // --- META JUZ: surah/ayat & page (akurasi dari mapping kamu) ---
 const JUZ_META = {
@@ -7264,42 +7266,63 @@ function juzOfAyah(s,a){
   const murState = {1:{},2:{},3:{}};
 
   function setPredikatUI(idx){
-    const inp = $(`#mur${idx}-score`);
-    if (!inp) return;
-    const raw = String(inp.value ?? '');
+  const inp = $(`#mur${idx}-score`);
+  if (!inp) return;
+  const raw = String(inp.value ?? '');
 
-    if (raw.trim() === '') {
-      $(`#mur${idx}-predikatBadge`).textContent = '–';
-      murState[idx].score  = null;
-      murState[idx].pText  = '';
-      murState[idx].pHuruf = '';
-      if (currentRowEl){
-        const cell = currentRowEl.querySelector('.murajaah-cell');
-        if (cell){
-          delete cell.dataset[`score${idx}`];
-          delete cell.dataset[`ptext${idx}`];
-          delete cell.dataset[`phuruf${idx}`];
-        }
-      }
-      return;
-    }
-
-    const sc = Math.max(0, Math.min(100, parseInt(raw, 10) || 0));
-    const p  = getPredikat(sc);
-    $(`#mur${idx}-predikatBadge`).textContent = `${p.text} (${p.huruf})`;
-    murState[idx].score  = sc;
-    murState[idx].pText  = p.text;
-    murState[idx].pHuruf = p.huruf;
-
+  // Kosong → hapus predikat & score dari UI+state+dataset
+  if (raw.trim() === '') {
+    $(`#mur${idx}-predikatBadge`).textContent = '–';
+    murState[idx].score  = null;
+    murState[idx].pText  = '';
+    murState[idx].pHuruf = '';
     if (currentRowEl){
-      const cell=currentRowEl.querySelector('.murajaah-cell');
+      const cell = currentRowEl.querySelector('.murajaah-cell');
       if (cell){
-        cell.dataset[`score${idx}`] = String(sc);
-        cell.dataset[`ptext${idx}`] = p.text;
-        cell.dataset[`phuruf${idx}`]= p.huruf;
+        delete cell.dataset[`score${idx}`];
+        delete cell.dataset[`ptext${idx}`];
+        delete cell.dataset[`phuruf${idx}`];
       }
+    }
+    return;
+  }
+
+  const sc = Math.max(0, Math.min(100, parseInt(raw, 10) || 0));
+
+  // Khusus skor 0 → tidak ada predikat
+  if (sc === 0){
+    $(`#mur${idx}-predikatBadge`).textContent = '–';
+    murState[idx].score  = 0;
+    murState[idx].pText  = '';
+    murState[idx].pHuruf = '';
+    if (currentRowEl){
+      const cell = currentRowEl.querySelector('.murajaah-cell');
+      if (cell){
+        cell.dataset[`score${idx}`] = '0';
+        delete cell.dataset[`ptext${idx}`];
+        delete cell.dataset[`phuruf${idx}`];
+      }
+    }
+    return;
+  }
+
+  // > 0 → pakai predikat normal (ROSIB 1–59, dst.)
+  const p = getPredikat(sc);
+  $(`#mur${idx}-predikatBadge`).textContent = `${p.text} (${p.huruf})`;
+  murState[idx].score  = sc;
+  murState[idx].pText  = p.text;
+  murState[idx].pHuruf = p.huruf;
+
+  if (currentRowEl){
+    const cell = currentRowEl.querySelector('.murajaah-cell');
+    if (cell){
+      cell.dataset[`score${idx}`] = String(sc);
+      cell.dataset[`ptext${idx}`] = p.text;
+      cell.dataset[`phuruf${idx}`]= p.huruf;
     }
   }
+}
+
 
   // === Reset satu sesi ke PRISTINE (lokal) ===
   function resetSession(idx){
@@ -7443,7 +7466,7 @@ function juzOfAyah(s,a){
           cell.dataset[`sf${i}`]=st.sF||''; cell.dataset[`af${i}`]=st.aF||'';
           cell.dataset[`st${i}`]=st.sT||''; cell.dataset[`at${i}`]=st.aT||'';
           cell.dataset[`pf${i}`]=st.pFrom||''; cell.dataset[`pt${i}`]=st.pTo||'';
-          cell.dataset[`jfrom${i}`]=st.jFrom||''; cell.dataset[`jto${i}`]=st.JTo||st.jTo||'';
+          cell.dataset[`jfrom${i}`]=st.jFrom||''; cell.dataset[`jto${i}`] = st.jTo || '';
           cell.dataset[`juz${i}`]=(st.total||0).toFixed(2);
           if(st.score!=null){ cell.dataset[`score${i}`]=String(st.score); cell.dataset[`ptext${i}`]=st.pText||''; cell.dataset[`phuruf${i}`]=st.pHuruf||''; }
         });
@@ -7721,12 +7744,45 @@ function juzOfAyah(s,a){
         $(`#mur${i}-juzFrom`).value = jf!==undefined ? String(jf) : '';
         $(`#mur${i}-juzTo`).value   = jt!==undefined ? String(jt) : '';
 
-        // Jangan prefill nilai
-        $(`#mur${i}-score`).value = '';
-        $(`#mur${i}-predikatBadge`).textContent = '–';
-        murState[i].score  = null;
-        murState[i].pText  = '';
-        murState[i].pHuruf = '';
+        // Prefill nilai dari dataset ATAU record server (kalau ada)
+// Prefill nilai dari dataset ATAU record server (kalau ada, > 0)
+const scFromDs  = ds[`score${i}`];
+const scFromRec = fromRec(i, 'score');
+
+// normalisasi ke number
+const scCand = (scFromDs !== undefined && scFromDs !== '') ? Number(scFromDs)
+             : (scFromRec !== undefined && scFromRec !== '') ? Number(scFromRec)
+             : NaN;
+
+// HANYA prefill jika angka valid DAN > 0
+if (Number.isFinite(scCand) && scCand > 0) {
+  const s = Math.max(0, Math.min(100, Math.floor(scCand)));
+  const p = getPredikat(s);
+  const inp = $(`#mur${i}-score`);
+  if (inp) inp.value = String(s);
+  $(`#mur${i}-predikatBadge`).textContent = `${p.text} (${p.huruf})`;
+
+  murState[i].score  = s;
+  murState[i].pText  = p.text;
+  murState[i].pHuruf = p.huruf;
+
+  if (currentRowEl){
+    const c = currentRowEl.querySelector('.murajaah-cell');
+    if (c){
+      c.dataset[`score${i}`]  = String(s);
+      c.dataset[`ptext${i}`]  = p.text;
+      c.dataset[`phuruf${i}`] = p.huruf;
+    }
+  }
+} else {
+  const inp = $(`#mur${i}-score`);
+  if (inp) inp.value = '';
+  $(`#mur${i}-predikatBadge`).textContent = '–';
+  murState[i].score  = null;
+  murState[i].pText  = '';
+  murState[i].pHuruf = '';
+}
+
 
         renderSession(i);
 
@@ -7890,7 +7946,13 @@ function juzOfAyah(s,a){
           if (ses.jFrom != null && ses.jFrom !== '') cell.dataset[`jfrom${i}`] = String(ses.jFrom); else delete cell.dataset[`jfrom${i}`];
           if (ses.jTo   != null && ses.jTo   !== '') cell.dataset[`jto${i}`]   = String(ses.jTo);   else delete cell.dataset[`jto${i}`];
           cell.dataset[`juz${i}`] = num(ses.juzVal || 0).toFixed(2);
-          if (ses.score  != null) cell.dataset[`score${i}`] = String(ses.score); else delete cell.dataset[`score${i}`];
+
+const sNum = Number(ses.score);
+if (Number.isFinite(sNum) && sNum > 0) {
+  cell.dataset[`score${i}`] = String(Math.floor(sNum));
+} else {
+  delete cell.dataset[`score${i}`];
+}
           if (ses.pText  != null) cell.dataset[`ptext${i}`] = String(ses.pText); else delete cell.dataset[`ptext${i}`];
           if (ses.pHuruf != null) cell.dataset[`phuruf${i}`]= String(ses.pHuruf); else delete cell.dataset[`phuruf${i}`];
         }
@@ -7912,16 +7974,20 @@ function juzOfAyah(s,a){
       $('#murPreviewOverlay').style.display='flex';
     });
     $('#mur-save')?.addEventListener('click', async()=>{
-      try{
-        [1,2,3].forEach(renderSession);
-        if(typeof window.simpanDataMutabaah==='function'){
-          await window.simpanDataMutabaah($('#mur-save'));
-          await refreshMurFromServer();
-          $('#mur-save-status').textContent='✅ Tersimpan';
-          setTimeout(()=>$('#mur-save-status').textContent='',1500);
-        }
-      }catch(e){ console.error(e); $('#mur-save-status').textContent='❌ Gagal simpan'; }
-    });
+  try{
+    // Sinkronkan skor dulu, supaya dataset pasti terisi
+    [1,2,3].forEach(i => setPredikatUI(i));
+    // Render (rekap total & dataset range)
+    [1,2,3].forEach(renderSession);
+
+    if (typeof window.simpanDataMutabaah === 'function'){
+      await window.simpanDataMutabaah($('#mur-save'));
+      await refreshMurFromServer();
+      $('#mur-save-status').textContent='✅ Tersimpan';
+      setTimeout(()=>$('#mur-save-status').textContent='',1500);
+    }
+  }catch(e){ console.error(e); $('#mur-save-status').textContent='❌ Gagal simpan'; }
+});
   }
 
   function afterTableRendered(){ ensureMurColumn(); refreshMurFromServer(); }
@@ -7963,6 +8029,25 @@ function juzOfAyah(s,a){
         cell.dataset[`wipe${idx}`] = '1';
       }
     }
+
+	  // --- setelah kosongkan UI & state, isi skor=0 dan sinkronkan UI+dataset
+const scoreEl = document.querySelector(`#mur${idx}-score`);
+if (scoreEl) {
+  scoreEl.value = '0';
+  // trigger listener 'input' yang sudah ada → setPredikatUI(idx) + render
+  scoreEl.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// agar tersimpan juga ke dataset kalau modal terbuka
+if (window.currentRowEl){
+  const cell = window.currentRowEl.querySelector('.murajaah-cell');
+  if (cell){
+    cell.dataset[`score${idx}`] = '0';
+    // opsional: langsung set label predikat sesuai 0 (ROSIB)
+    cell.dataset[`ptext${idx}`]  = getPredikat(0).text;
+    cell.dataset[`phuruf${idx}`] = getPredikat(0).huruf;
+  }
+}
 
     // Rekap total
     [1,2,3].forEach(renderSession);
@@ -8056,7 +8141,7 @@ function juzOfAyah(s,a){
     else { s=s.replace(/,/g,""); }
     const n = parseFloat(s); return Number.isFinite(n)?n:0;
   };
-  const BATAS = {1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30};
+  const BATAS = {1: 5, 2: 10, 3: 15, 4: 20, 5: 30};
   const LS_KEY = k => `murRange:${k}`;
 
   function getSantriTable(){
@@ -8494,7 +8579,6 @@ function juzOfAyah(s,a){
 // D. MURAJAAH 3 SESI
 // ============================	
 </script>
-
 
 <script>
   // ====== KONFIG (opsional dari window.*) ======
