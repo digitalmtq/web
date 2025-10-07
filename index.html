@@ -859,7 +859,7 @@ async function buatAkunBaru() {
     const result = await res.json();
 
     if (res.status === 200) {
-      successEl.textContent = "✅ Akun berhasil dibuat.";
+      successEl.textContent = "🏅 Akun berhasil dibuat.";
       // Reset form
       document.getElementById("newUsername").value = "";
       document.getElementById("newPassword").value = "";
@@ -992,7 +992,7 @@ async function submitTambahKelasBaru() {
   const result = await res.json();
   if (res.ok) {
     status.style.color = "green";
-    status.textContent = "✅ Kelas berhasil dibuat.";
+    status.textContent = "🏅 Kelas berhasil dibuat.";
     setTimeout(() => tutupModal("modalFormTambahKelas"), 1500);
   } else {
     status.style.color = "red";
@@ -2071,7 +2071,7 @@ document.addEventListener('click', async function (e) {
   	const spans = buatKataKlik(item.surah, item.ayat, item.teks);
   	spans.forEach(span => pageDiv.appendChild(span));
   	// pageDiv.appendChild(document.createElement('br'));   // ❌ hapus baris ini
-  	pageDiv.appendChild(document.createTextNode(' '));       // ✅ spasi antar-ayat
+  	pageDiv.appendChild(document.createTextNode(' '));       // 🏅 spasi antar-ayat
 	});
 
 
@@ -3266,7 +3266,7 @@ async function loadSantriData() {
 
       const hasAny = !!usedSet && usedSet.size > 0;
       const isLast = latestMap && latestMap.surah === sid;
-      const mark   = isLast ? "✅ " : (hasAny ? "✓ " : "");
+      const mark   = isLast ? "🏅 " : (hasAny ? "✓ " : "");
       const sel    = selectedId && selectedId == sid ? ' selected' : '';
       html += `<option value="${sid}"${sel}>${mark}${s.nama}</option>`;
     }
@@ -3274,7 +3274,7 @@ async function loadSantriData() {
   }
   window.__makeSurahOptions = makeSurahOptions;
 
-  // AYAT dropdown bertanda ✓/✅ — fallback aman bila Tahap 2 belum terpasang
+  // AYAT dropdown bertanda ✓/🏅 — fallback aman bila Tahap 2 belum terpasang
   function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
     if (typeof window.fillAyatOptionsMarked === "function") {
       window.fillAyatOptionsMarked(selectEl, surahId, selectedAyat);
@@ -3898,7 +3898,7 @@ function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
 
     let label = iStr;
     if (isUsed)   label = `✓ ${label}`;   // tetap beri tanda, meski ditampilkan
-    if (isLatest) label = `${label} ✅`;
+    if (isLatest) label = `${label} 🏅`;
 
     const opt = document.createElement("option");
     opt.value = iStr;
@@ -4410,7 +4410,7 @@ async function simpanDataMutabaah(saveBtn){
 
     const gagal=hasilKirim.filter(h=>!h.ok);
     if(!gagal.length){
-      if(saveBtn) saveBtn.textContent='✅ Tersimpan';
+      if(saveBtn) saveBtn.textContent='🏅 Tersimpan';
       if (window.murajaah && typeof window.murajaah.refreshServer==='function'){
         await window.murajaah.refreshServer();
       }
@@ -6943,7 +6943,7 @@ async function hitungTotalAllJuzFromTable() {
     });
     if (!saveRes.ok) throw new Error(await saveRes.text().catch(()=>"(no body)"));
 
-    alert("✅ Total All Juz berhasil dihitung dan disimpan.");
+    alert("🏅 Total All Juz berhasil dihitung dan disimpan.");
   } catch (err) {
     console.error(err);
     alert("❌ Terjadi kesalahan: " + err.message);
@@ -8026,7 +8026,7 @@ if (Number.isFinite(sNum) && sNum > 0) {
     if (typeof window.simpanDataMutabaah === 'function'){
       await window.simpanDataMutabaah($('#mur-save'));
       await refreshMurFromServer();
-      $('#mur-save-status').textContent='✅ Tersimpan';
+      $('#mur-save-status').textContent='🏅 Tersimpan';
       setTimeout(()=>$('#mur-save-status').textContent='',1500);
     }
   }catch(e){ console.error(e); $('#mur-save-status').textContent='❌ Gagal simpan'; }
@@ -8111,7 +8111,7 @@ if (window.currentRowEl){
         if (typeof window.murajaah?.refreshServer === 'function'){
           await window.murajaah.refreshServer();
         }
-        if (statusEl){ statusEl.textContent='✅ Reset ke kosong (0.00) & dilindungi dari server'; setTimeout(()=>statusEl.textContent='',1500); }
+        if (statusEl){ statusEl.textContent='🏅 Reset ke kosong (0.00) & dilindungi dari server'; setTimeout(()=>statusEl.textContent='',1500); }
       } else {
         if (statusEl){ statusEl.textContent='ℹ️ Di-reset lokal (tanpa simpan server)'; setTimeout(()=>statusEl.textContent='',1500); }
       }
@@ -8408,7 +8408,7 @@ if (window.currentRowEl){
       await saveRangeServer(kelas, dari, sampai, totalKeys);
       saveRangeLocal(kelas, dari, sampai);
 
-      $('#murRangeStatus') && ($('#murRangeStatus').textContent = "✅ Disimpan. Rentang ini akan otomatis terpakai saat refresh.");
+      $('#murRangeStatus') && ($('#murRangeStatus').textContent = "🏅 Disimpan. Rentang ini akan otomatis terpakai saat refresh.");
     }catch(err){
       console.error(err);
       $('#murRangeStatus') && ($('#murRangeStatus').textContent = "❌ " + (err?.message || err));
@@ -8453,7 +8453,7 @@ if (window.currentRowEl){
     if (kelas) resetRangeLocal(kelas);
 
     if (ok){
-      if (st) st.textContent = '✅ Sudah di-reset (server & lokal). Klik Save untuk memastikan tersimpan kosong.';
+      if (st) st.textContent = '🏅 Sudah di-reset (server & lokal). Klik Save untuk memastikan tersimpan kosong.';
     } else {
       if (st) st.textContent = '❌ Gagal hapus di server. Lihat Console.';
       alert('❌ Gagal reset di server. Cek Network/Console untuk detail.');
@@ -8478,14 +8478,14 @@ if (window.currentRowEl){
         if (kelas) resetRangeLocal(kelas);
         clearRangeBadgesInTable();
         if (!ok) throw new Error('reset server gagal');
-        if (st) st.textContent = '✅ Tersimpan: setelan dihapus (server & lokal).';
+        if (st) st.textContent = '🏅 Tersimpan: setelan dihapus (server & lokal).';
         return;
       }
 
       if (st) st.textContent = '⏳ Menyimpan setelan…';
       await saveRangeServer(kelas, fromDate, toDate, 0);
       try{ localStorage.setItem(LS_KEY(kelas), JSON.stringify({ fromDate, toDate, t: Date.now() })); }catch{}
-      if (st) st.textContent = '✅ Tersimpan.';
+      if (st) st.textContent = '🏅 Tersimpan.';
     }catch(e){
       console.error(e);
       if (st) st.textContent = '❌ Gagal menyimpan.';
@@ -9334,7 +9334,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // ✅ Bersihkan jika "OK" sudah terlanjur tersamarkan saat skrip ini dimuat
+  // 🏅 Bersihkan jika "OK" sudah terlanjur tersamarkan saat skrip ini dimuat
   (function unmaskAllowedNow(){
     ALLOW.forEach(id => {
       const b = document.getElementById(id);
