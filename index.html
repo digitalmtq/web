@@ -4051,6 +4051,13 @@ tanggalInput.addEventListener("change", loadSantriData);
 // ====== SIMPAN DATA MUTABAAH ======
 // ====== SIMPAN DATA MUTABAAH ====== 
 async function simpanDataMutabaah(saveBtn){
+
+try {
+    if (window.currentRowEl && typeof window.renderSession === 'function') {
+      [1,2,3].forEach(i => window.renderSession(i));
+    }
+  } catch(_) {}
+	
   const rows  = document.querySelectorAll('#santri-table tbody tr');
 
   function resolveKelas(){
@@ -7475,11 +7482,12 @@ function juzOfAyah(s,a){
           $(`#mur${idx}-pageTo`).value = '604';
         }
 
-        const jrF=getJuzRange(jF), jrT=getJuzRange(jT);
-        if(jrF && jrT && jrF.sFrom===sF && jrF.aFrom===aF && jrT.sTo===sT && jrT.aTo===aT){
-          const jfEl=$(`#mur${idx}-juzFrom`), jtEl=$(`#mur${idx}-juzTo`);
-          if(jfEl && jtEl){ jfEl.value=String(jF); jtEl.value=String(jT); }
-        }
+        {
+  const jfEl = $(`#mur${idx}-juzFrom`);
+  const jtEl = $(`#mur${idx}-juzTo`);
+  if (jfEl) jfEl.value = String(jF);
+  if (jtEl) jtEl.value = String(jT);
+}
 
         setPredikatUI(idx);
 
