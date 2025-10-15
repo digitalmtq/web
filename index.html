@@ -3082,7 +3082,7 @@ async function loadSantriData() {
   overlay.style.display = "flex";
 
   // ===== util jenjang (tetap) =====
-  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 9);
+  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 32);
 
   const parseJenjang = (v) => {
     const m = /^A(\d+)$/.exec(String(v || "").trim());
