@@ -10784,27 +10784,43 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.textContent = 'Grafik Prosentase';
   wrap.appendChild(btn);
 
-  // ===== Style overlay
+  // ===== Style overlay (sudah di-fix supaya center di tengah layar)
   if (!document.getElementById('thms-ov-style')) {
     const s = document.createElement('style');
     s.id = 'thms-ov-style';
     s.textContent = `
-      .thms-ov{position:fixed;inset:0;z-index:9999;display:none;background:rgba(0,0,0,.5)}
-      .thms-sheet{position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:min(980px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -8px 26px rgba(0,0,0,.2);padding:14px}
-      @media (min-width:900px){.thms-sheet{top:44px;bottom:auto;border-radius:16px}}
-      .thms-handle{width:64px;height:5px;background:#e5e7eb;border-radius:999px;margin:0 auto 8px}
+      /* Overlay: default hidden; saat JS set display:block → paksa flex agar center */
+      .thms-ov{
+        position:fixed; inset:0; z-index:9999;
+        display:none; background:rgba(0,0,0,.5);
+        align-items:center; justify-content:center; padding:16px;
+      }
+      .thms-ov[style*="display: block"]{ display:flex !important; }
+
+      /* Card/modal di tengah (bukan bottom sheet) */
+      .thms-sheet{
+        position:relative;
+        width:min(980px, 94vw); max-height:90vh; overflow:auto;
+        background:#fff; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.25);
+        padding:14px;
+      }
+
+      .thms-handle{width:56px;height:5px;background:#e5e7eb;border-radius:999px;margin:2px auto 8px}
       .thms-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
       .thms-title{font-weight:800;font-size:18px;color:#111827}
       .thms-sub{color:#4b5563;font-size:13px;margin-top:2px}
       .thms-close{border:none;background:#ef4444;color:#fff;font-weight:700;border-radius:10px;padding:.5rem .8rem;cursor:pointer}
+
       .thms-tabs{display:flex;gap:8px;margin-top:10px}
       .thms-tab{padding:.45rem .7rem;border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;color:#374151;font-weight:700;cursor:pointer}
       .thms-tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
+
       .thms-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
       @media (min-width:640px){ .thms-cards{grid-template-columns:repeat(5,1fr)} } /* 5 kartu: Kelompok, Santri, Avg, Tuntas, Khatam */
       .thms-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
       .thms-card .t{font-size:12px;color:#6b7280}
       .thms-card .v{font-weight:800;font-size:18px;color:#111827}
+
       .thms-chart{margin-top:10px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
       .thms-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
       .thms-item{border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
@@ -10856,7 +10872,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const close = ()=> el.style.display='none';
     el.addEventListener('click', e => { if (e.target.id==='thmsOverlay') close(); });
     el.querySelector('#thmsClose').addEventListener('click', close);
-    // swipe-down
+    // swipe-to-close
     let startY=null;
     el.addEventListener('touchstart', (e)=>{ startY = e.touches?.[0]?.clientY ?? null; }, {passive:true});
     el.addEventListener('touchmove', (e)=>{
@@ -10969,7 +10985,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof PDF_totalAllJuzStatus==='function'){
       return PDF_totalAllJuzStatus(Number(r.totalJuz||0), r.semester)?.percent || 0;
     }
-    // fallback sederhana (batas default per semester)
     if (typeof PDF_percentCapaian==='function'){
       return PDF_percentCapaian(Number(r.totalJuz||0), r.semester) || 0;
     }
