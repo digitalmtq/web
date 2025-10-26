@@ -10802,7 +10802,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .thms-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
       .thms-card .t{font-size:12px;color:#6b7280}
       .thms-card .v{font-weight:800;font-size:18px;color:#111827}
-      .thms-chart{margin-top:10px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px;height:260px}
+      .thms-chart{margin-top:10px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
       .thms-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
       .thms-item{border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
       .thms-item .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -10835,7 +10835,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="thms-card"><div class="t">Rata-rata Global</div><div id="thmsCardAvg" class="v">-</div></div>
           <div class="thms-card"><div class="t">Khatam</div><div id="thmsCardKhatam" class="v">-</div></div>
         </div>
-        <div class="thms-chart"><canvas id="thmsChart"></canvas></div>
+        <div class="thms-chart"><canvas id="thmsChart" height="160"></canvas></div>
         <div id="thmsList" class="thms-list"></div>
       </div>
     `;
@@ -10863,77 +10863,118 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- Helper: ambil semua key kelas secara aman (tanpa bergantung pada fungsi lain)
+  // ===== Helper aman ambil daftar kelas (fallback kalau _getAllKelasKeys tidak ada) =====
   function getAllKelasKeysSafe(){
-    // 1) cache global
+    if (typeof _getAllKelasKeys === 'function') {
+      const k = _getAllKelasKeys();
+      if (Array.isArray(k) && k.length) return k;
+    }
     if (Array.isArray(window.ALL_KELAS_KEYS) && window.ALL_KELAS_KEYS.length){
       return [...new Set(window.ALL_KELAS_KEYS.map(String))];
     }
-    // 2) <select id="kelasSelect">
     const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
              ? kelasSelect
              : document.getElementById('kelasSelect');
     let keys = [];
-    if (el && el.options && el.options.length){
-      keys = [...el.options].map(o=>o.value).filter(Boolean);
-    }
-    // 3) map global custom
+    if (el?.options?.length) keys = [...el.options].map(o=>o.value).filter(Boolean);
     if (!keys.length){
       const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM;
-      if (custom && typeof custom === 'object'){
-        keys = Object.keys(custom);
-      }
+      if (custom && typeof custom==='object') keys = Object.keys(custom);
     }
-    // 4) fallback ke yang sedang terpilih
-    if (!keys.length && el && el.value) keys = [el.value];
-
-    // normalisasi & sort
+    if (!keys.length && el?.value) keys = [el.value];
     keys = [...new Set(keys.map(String))].sort((a,b)=>{
       const na = +(String(a).match(/(\d+)/)?.[1]||1e9);
       const nb = +(String(b).match(/(\d+)/)?.[1]||1e9);
       return na-nb || String(a).localeCompare(String(b),'id');
     });
-
-    if (keys.length) window.ALL_KELAS_KEYS = keys; // cache
+    if (keys.length) window.ALL_KELAS_KEYS = keys;
     return keys;
   }
 
-  // Ambil rata-rata THMS per jenjang
+  // ===== Fallback: jika hanya dapat agregat D1, gabungkan dengan roster utk semester & jenjang =====
+  async function fetchAggOnlyRows(kelasKey, startDate, endDate){
+    const url = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&aggregate=1&t=${Date.now()}`;
+    const r1  = await fetch(url).catch(()=>null);
+    const j1  = await r1?.json().catch(()=>null);
+    if (!j1 || !j1.aggregate || !Array.isArray(j1.list)) return [];
+
+    const r2  = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
+    const roster = await r2?.json().catch(()=>[]);
+    const byNis = new Map(), byId = new Map();
+    for (const s of (Array.isArray(roster)? roster : [])){
+      const nis = (s?.nis==null? '' : String(s.nis).trim());
+      const id  = (s?.id==null ? '' : String(s.id).trim());
+      if (nis) byNis.set(nis, s);
+      if (id)  byId.set(id, s);
+    }
+
+    const out = [];
+    for (const it of j1.list){
+      const key = String(it?.key||'').trim();
+      if (!key) continue;
+      const totalJuz = Number(it?.totalJuz || it?.total_juz_num || 0);
+      const s = byNis.get(key) || byId.get(key) || {};
+      out.push({
+        totalJuz,
+        semester: (s?.semester!=null) ? Number(s.semester) : null,
+        jenjang : s?.jenjang ?? null
+      });
+    }
+    return out;
+  }
+
+  // ===== Ambil rata-rata THMS per jenjang =====
   async function computeByJenjang(){
     const startDate = document.querySelector('#pdf-start-date')?.value;
     const endDate   = document.querySelector('#pdf-end-date')?.value;
     if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai & akhir.');
 
-    const kelasKeys =
-      (typeof _getAllKelasKeys==='function' ? _getAllKelasKeys() : []) || getAllKelasKeysSafe();
-
-    const keysFinal = (Array.isArray(kelasKeys) && kelasKeys.length) ? kelasKeys : getAllKelasKeysSafe();
-    if (!keysFinal.length) throw new Error('Tidak menemukan daftar kelas.');
+    const kelasKeys = getAllKelasKeysSafe();
+    if (!Array.isArray(kelasKeys) || !kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
 
     const agg = new Map(); // jenjang -> {sumPct, n, kh, countSantri}
-    for (const k of keysFinal){
-      // fungsi collectRekapDataForClass harus sudah ada di kode Anda
-      const data = await (typeof collectRekapDataForClass==='function'
-        ? collectRekapDataForClass(k, startDate, endDate).catch(()=>null)
-        : Promise.resolve(null));
-      if (!data?.rows?.length) continue;
 
-      for (const r of data.rows){
-        const jl = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
-        const pct = (typeof PDF_percentCapaian==='function') ? PDF_percentCapaian(r.totalJuz, r.semester) : 0;
+    for (const k of kelasKeys){
+      let rowsKelas = [];
+
+      // 1) Jalur utama: pakai data sama dengan PDF All (jika fungsi tersedia)
+      if (typeof collectRekapDataForClass === 'function') {
+        const data = await collectRekapDataForClass(k, startDate, endDate).catch(()=>null);
+        if (data?.rows?.length) {
+          rowsKelas = data.rows.map(r => ({
+            totalJuz: Number(r.totalJuz||0),
+            semester: r.semester,
+            jenjang : r.jenjang
+          }));
+        }
+      }
+
+      // 2) Fallback: agregat D1 + roster
+      if (!rowsKelas.length) {
+        rowsKelas = await fetchAggOnlyRows(k, startDate, endDate).catch(()=>[]);
+      }
+      if (!rowsKelas.length) continue;
+
+      // 3) Hitung persen per-NIS (identik THMS), akumulasi per-jenjang
+      for (const r of rowsKelas){
+        const jl  = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
+        const pct = (typeof PDF_totalAllJuzStatus==='function')
+          ? (PDF_totalAllJuzStatus(r.totalJuz, r.semester)?.percent || 0)
+          : 0;
+
         if (!agg.has(jl)) agg.set(jl, { sumPct:0, n:0, kh:0, countSantri:0 });
         const a = agg.get(jl);
         a.sumPct += Number(pct||0);
         a.n      += 1;
         a.countSantri += 1;
-        if (Number(r.totalJuz) >= 30) a.kh += 1;
+        if (Number(r.totalJuz) >= 30) a.kh += 1; // KHATAM
       }
     }
 
-    // urutan: IL(A-D) lalu 1A..1J, 2A.. dst
+    // Urutan: IL(A-D) → 1A..1J → 2A.. dst
     const sortKey = (j) => {
       const mIL = /^IL([A-D])$/i.exec(j); if (mIL) return `0.${'ABCD'.indexOf(mIL[1].toUpperCase())}`;
-      const m = /^(\d+)\s*([A-Z])$/i.exec(j); if (m) return `${String(m[1]).padStart(3,'0')}.${m[2]}`;
+      const m   = /^(\d+)\s*([A-Z])$/i.exec(j); if (m) return `${String(m[1]).padStart(3,'0')}.${m[2]}`;
       return `999.${j}`;
     };
 
@@ -11022,6 +11063,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener('click', onClick);
 })();
 </script>
+
 		
 </body>
 </html>
