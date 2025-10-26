@@ -10818,7 +10818,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.head.appendChild(s);
   }
 
-  // ===== Overlay DOM (hanya bisa ditutup via tombol)
+  // ===== Overlay DOM (❗tanpa backdrop click, tanpa swipe, tanpa Esc)
   function ensureOverlay(){
     if (document.getElementById('thmsOverlay')) return;
     const el = document.createElement('div');
@@ -10859,20 +10859,17 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(el);
 
     const close = ()=> el.style.display='none';
-    // ❌ HAPUS: close via klik backdrop & swipe — tidak dipasang
-    // ❌ el.addEventListener('click', ...)
-    // ❌ touchstart/touchmove untuk swipe down
-
-    // ✅ Hanya tombol "Tutup"
-    el.querySelector('#thmsClose').addEventListener('click', close);
-
-    // (opsional) cegah Escape menutup jika ada handler global lain
+    // ❌ Tidak ada: el.addEventListener('click', ...) untuk backdrop
+    // ❌ Tidak ada: touchstart/touchmove (swipe)
+    // ❌ Cegah Escape menutup (kalau ada handler global lain)
     document.addEventListener('keydown', (e)=>{
       if (el.style.display==='block' && (e.key==='Escape' || e.key==='Esc')) {
-        e.stopPropagation();
-        e.preventDefault();
+        e.stopPropagation(); e.preventDefault();
       }
     }, true);
+
+    // ✅ Hanya tombol "Tutup" yang bisa menutup
+    el.querySelector('#thmsClose').addEventListener('click', close);
   }
 
   async function ensureChartJS(){
@@ -10885,7 +10882,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ====== Caching helpers (bump version -> V4KEY)
+  // ====== Caching helpers
   const CACHE_NS = 'THMS_GRAPH_V4KEY';
   const CACHE_TTL_MS = 24*60*60*1000; // 24 jam
   function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
@@ -11033,14 +11030,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===== Master jenjang
   async function collectMasterJenjang(kelasKeys){
-    const normSet = new Map(); // keyNorm -> pretty
+    const normSet = new Map(); // keyNorm -> prettyLabel
     const push = (raw)=>{
       const pretty = prettyJenjangLabel(raw);
       const key = normJenjangKey(pretty || raw);
       if (!key) return;
       if (!normSet.has(key)) normSet.set(key, pretty || raw);
     };
-
     if (Array.isArray(window.MASTER_JENJANG) && window.MASTER_JENJANG.length){
       for (const lbl of window.MASTER_JENJANG) push(lbl);
     }
@@ -11052,7 +11048,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const roster = await getRosterForClass(k);
       for (const s of roster){ push(s?.jenjang ?? ''); }
     }
-
     return [...normSet.entries()]
       .map(([key, label]) => ({ key, label: prettyJenjangLabel(label) }))
       .sort((a,b)=> sortKeyJenjang(a.label).localeCompare(sortKeyJenjang(b.label),'id'));
@@ -11200,10 +11195,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ======= Click handler + cache-aware
-  const CACHE_NS = 'THMS_GRAPH_V4KEY';
-  function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
-  function makeBaseKey(start, end, kelasKeys){ return `${CACHE_NS}|${start}|${end}|${fingerprintKeys(kelasKeys)}`; }
-
   async function openOverlay(defaultMode='jenjang'){
     btn.disabled = true; btn.textContent = 'Memuat grafik…';
     try{
@@ -11270,6 +11261,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener('click', ()=>openOverlay('jenjang'));
 })();
 </script>
+
 
 
 
