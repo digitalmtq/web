@@ -10769,7 +10769,7 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 
-<script>
+<script> 
 // === [GRAFIK PROSENTASE THMS — PER JENJANG & PER HALAQOH + CACHING + NORMALISASI JENJANG] ==
 (function grafikTHMS(){
   const wrap = document.querySelector('.pdf-rekap-controls');
@@ -10818,7 +10818,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.head.appendChild(s);
   }
 
-  // ===== Overlay DOM (❗hanya tombol "Tutup")
+  // ===== Overlay DOM (❗hanya tombol Tutup)
   function ensureOverlay(){
     if (document.getElementById('thmsOverlay')) return;
     const el = document.createElement('div');
@@ -10859,6 +10859,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(el);
 
     const close = ()=> el.style.display='none';
+    // cegah backdrop/esc/swipe
     document.addEventListener('keydown', (e)=>{
       if (el.style.display==='block' && (e.key==='Escape' || e.key==='Esc')) {
         e.stopPropagation(); e.preventDefault();
@@ -10923,9 +10924,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===== Normalisasi & sort jenjang
-  const UNASSIGNED_KEY = '__UNASSIGNED__';
-  const UNASSIGNED_LABEL = (window.LABEL_JENJANG_UNSET || 'Tanpa Jenjang');
-
   function normJenjangKey(raw){
     let s = (raw==null ? '' : String(raw)).trim().toUpperCase();
     s = s.replace(/[\.\-\_ ]+/g,'');
@@ -10936,12 +10934,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const r = jenjangLabel(raw ?? '');
       if (r != null && String(r).trim()) return String(r).trim();
     }
-    const v = String(raw ?? '').trim();
-    return v ? v : UNASSIGNED_LABEL;
+    return String(raw ?? '').trim();
   }
   function sortKeyJenjang(label){
     const lbl = String(label||'').trim();
-    if (lbl === UNASSIGNED_LABEL) return '000.-';
     const mIL = /^IL\s*([A-D])$/i.exec(lbl) || /^IL([A-D])$/i.exec(lbl);
     if (mIL) return `0.${'ABCD'.indexOf(mIL[1].toUpperCase())}`;
     const m = /^(\d+)\s*([A-Z])$/i.exec(lbl) || /^(\d+)([A-Z])$/i.exec(lbl);
@@ -11028,58 +11024,48 @@ document.addEventListener("DOMContentLoaded", () => {
     return 0;
   }
 
-  // ===== Master jenjang (kembalikan juga hitungan bersih tanpa "Tanpa Jenjang")
+  // ===== Master jenjang
   async function collectMasterJenjang(kelasKeys){
     const normSet = new Map(); // keyNorm -> prettyLabel
     const push = (raw)=>{
       const pretty = prettyJenjangLabel(raw);
-      let key = normJenjangKey(pretty || raw);
-      if (!key) key = UNASSIGNED_KEY; // bucket khusus bila kosong
-      if (!normSet.has(key)) normSet.set(key, pretty || UNASSIGNED_LABEL);
+      const key = normJenjangKey(pretty || raw);
+      if (!key) return;
+      if (!normSet.has(key)) normSet.set(key, pretty || raw);
     };
-
-    // MASTER_JENJANG (jika ada)
     if (Array.isArray(window.MASTER_JENJANG) && window.MASTER_JENJANG.length){
       for (const lbl of window.MASTER_JENJANG) push(lbl);
     }
-    // opsi select jenjang (jika ada)
     const sel = document.getElementById('jenjang') || document.getElementById('jenjangSelect');
     if (sel?.options?.length){
       for (const o of sel.options) push(o.textContent || o.value);
     }
-    // roster semua kelas
     for (const k of kelasKeys){
       const roster = await getRosterForClass(k);
       for (const s of roster){ push(s?.jenjang ?? ''); }
     }
-
-    const arr = [...normSet.entries()]
+    return [...normSet.entries()]
       .map(([key, label]) => ({ key, label: prettyJenjangLabel(label) }))
       .sort((a,b)=> sortKeyJenjang(a.label).localeCompare(sortKeyJenjang(b.label),'id'));
-
-    // hitung tanpa UNASSIGNED
-    const countWithoutUnset = arr.filter(x => x.key !== UNASSIGNED_KEY).length;
-
-    return { masterArr: arr, masterCountNoUnset: countWithoutUnset };
   }
 
-  // ======= Komputasi: Per Jenjang (rilis semua jenjang; “Tanpa Jenjang” ikut bila ada data)
+  // ======= Komputasi: Per Jenjang (rilis semua jenjang, meski 0)
   async function computeByJenjang(startDate, endDate, kelasKeys){
     const agg = new Map(); // keyNorm -> { label, sumPct, n, kh, tn, countSantri }
-
     for (const k of kelasKeys){
       const rowsKelas = await getRowsForClass(k, startDate, endDate);
+      if (!rowsKelas.length) continue;
       for (const r of rowsKelas){
         const rawLabel = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
         const display  = prettyJenjangLabel(rawLabel);
-        let   key      = normJenjangKey(display);
-        if (!key) { key = UNASSIGNED_KEY; } // santri tanpa jenjang
+        const key      = normJenjangKey(display);
+        if (!key) continue;
 
         const pct = getPercent(r);
         const isKhatam = Number(r.totalJuz||0) >= 30;
         const isTuntas = !isKhatam && pct >= 100;
 
-        if (!agg.has(key)) agg.set(key, { label: (display || UNASSIGNED_LABEL), sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
+        if (!agg.has(key)) agg.set(key, { label: display, sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
         const a = agg.get(key);
         if (display && a.label !== display && prettyJenjangLabel(display).length > prettyJenjangLabel(a.label).length){
           a.label = display;
@@ -11089,31 +11075,28 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Master & hitungan total jenjang yang akurat (tanpa "Tanpa Jenjang")
-    const { masterArr, masterCountNoUnset } = await collectMasterJenjang(kelasKeys);
-
-    // Pastikan baris tampil untuk semua master; “Tanpa Jenjang” hanya jika ada datanya
-    const hasUnassignedData = agg.has(UNASSIGNED_KEY);
-    const finalList = masterArr.filter(m => m.key !== UNASSIGNED_KEY || hasUnassignedData);
-
-    const rows = finalList.map(m => {
+    // bangun dari master agar semua jenjang tampil
+    const master = await collectMasterJenjang(kelasKeys);
+    const rows = master.map(m => {
       const v = agg.get(m.key);
-      if (!v) {
-        return { label: m.label, avg: 0, khatam: 0, tuntas: 0, count: 0 };
+      if (v) {
+        return {
+          label : v.label,
+          avg   : v.n ? (v.sumPct/v.n) : 0,
+          khatam: v.kh,
+          tuntas: v.tn,
+          count : v.countSantri
+        };
       }
-      return {
-        label : v.label,
-        avg   : v.n ? (v.sumPct/v.n) : 0,
-        khatam: v.kh,
-        tuntas: v.tn,
-        count : v.countSantri
-      };
-    }).sort((a,b)=> sortKeyJenjang(a.label).localeCompare(sortKeyJenjang(b.label),'id'));
+      // jenjang tanpa data → nol semua
+      return { label: m.label, avg: 0, khatam: 0, tuntas: 0, count: 0 };
+    });
 
-    return { rows, startDate, endDate, mode: 'jenjang', masterJenjangCount: masterCountNoUnset };
+    const masterJenjangCount = master.length;
+    return { rows, startDate, endDate, mode: 'jenjang', masterJenjangCount, totalGroupTarget: masterJenjangCount };
   }
 
-  // ======= Komputasi: Per Halaqoh (kelas) — selalu rilis semua kelas
+  // ======= Komputasi: Per Halaqoh (kelas) — rilis semua kelas meski 0
   async function computeByKelas(startDate, endDate, kelasKeys){
     const rows = [];
     for (const k of kelasKeys){
@@ -11134,13 +11117,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
     rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
-    return { rows, startDate, endDate, mode: 'kelas' };
+    return { rows, startDate, endDate, mode: 'kelas', totalGroupTarget: kelasKeys.length };
   }
 
-  // ======= Render (kartu dihitung identik antar tab, tapi total jenjang pakai masterCount)
+  // ======= Render
   let _chart = null, _mode = 'jenjang', _lastBaseKey = null;
   function renderView(payload, fromCache=false){
-    const { rows, startDate, endDate, mode, masterJenjangCount } = payload;
+    const { rows, startDate, endDate, mode, masterJenjangCount, totalGroupTarget } = payload;
     const ov = document.getElementById('thmsOverlay');
     ov.style.display = 'block';
 
@@ -11153,17 +11136,16 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('thmsCardKelompokTitle').textContent =
       mode === 'kelas' ? 'Total Halaqoh' : 'Total Jenjang';
 
-    // === Penghitungan kartu (konsisten) ===
-    const totalGroupsShown = rows.length; // jumlah baris yang tampil
     const totalSantri = rows.reduce((s,r)=>s+r.count,0);
     const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
     const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
     const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
 
-    // 👉 Untuk tab Jenjang: gunakan masterJenjangCount (tanpa "Tanpa Jenjang") agar akurat
-    const totalKelompokCard = (mode==='jenjang' && typeof masterJenjangCount==='number')
-      ? masterJenjangCount
-      : totalGroupsShown;
+    const totalKelompokCard = (typeof totalGroupTarget==='number')
+      ? totalGroupTarget
+      : (mode==='jenjang' && typeof masterJenjangCount==='number')
+        ? masterJenjangCount
+        : rows.length;
 
     document.getElementById('thmsCardKelompok').textContent = totalKelompokCard;
     document.getElementById('thmsCardSantri').textContent   = totalSantri;
@@ -11280,11 +11262,6 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener('click', ()=>openOverlay('jenjang'));
 })();
 </script>
-
-
-
-
-
 
 
 
