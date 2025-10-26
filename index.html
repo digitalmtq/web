@@ -10784,43 +10784,27 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.textContent = 'Grafik Prosentase';
   wrap.appendChild(btn);
 
-  // ===== Style overlay (sudah di-fix supaya center di tengah layar)
+  // ===== Style overlay (center di tengah layar)
   if (!document.getElementById('thms-ov-style')) {
     const s = document.createElement('style');
     s.id = 'thms-ov-style';
     s.textContent = `
-      /* Overlay: default hidden; saat JS set display:block → paksa flex agar center */
-      .thms-ov{
-        position:fixed; inset:0; z-index:9999;
-        display:none; background:rgba(0,0,0,.5);
-        align-items:center; justify-content:center; padding:16px;
-      }
-      .thms-ov[style*="display: block"]{ display:flex !important; }
-
-      /* Card/modal di tengah (bukan bottom sheet) */
-      .thms-sheet{
-        position:relative;
-        width:min(980px, 94vw); max-height:90vh; overflow:auto;
-        background:#fff; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.25);
-        padding:14px;
-      }
-
+      .thms-ov{position:fixed;inset:0;z-index:9999;display:none;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:16px}
+      .thms-ov[style*="display: block"]{display:flex !important}
+      .thms-sheet{position:relative;width:min(980px,94vw);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);padding:14px}
       .thms-handle{width:56px;height:5px;background:#e5e7eb;border-radius:999px;margin:2px auto 8px}
       .thms-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
       .thms-title{font-weight:800;font-size:18px;color:#111827}
       .thms-sub{color:#4b5563;font-size:13px;margin-top:2px}
       .thms-close{border:none;background:#ef4444;color:#fff;font-weight:700;border-radius:10px;padding:.5rem .8rem;cursor:pointer}
-
       .thms-tabs{display:flex;gap:8px;margin-top:10px}
       .thms-tab{padding:.45rem .7rem;border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;color:#374151;font-weight:700;cursor:pointer}
       .thms-tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
-
       .thms-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-      @media (min-width:640px){ .thms-cards{grid-template-columns:repeat(5,1fr)} } /* 5 kartu: Kelompok, Santri, Avg, Tuntas, Khatam */
+      @media (min-width:640px){.thms-cards{grid-template-columns:repeat(5,1fr)}}
       .thms-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
       .thms-card .t{font-size:12px;color:#6b7280}
       .thms-card .v{font-weight:800;font-size:18px;color:#111827}
-
       .thms-chart{margin-top:10px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
       .thms-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
       .thms-item{border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
@@ -10849,12 +10833,10 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           <button id="thmsClose" class="thms-close">Tutup</button>
         </div>
-
         <div class="thms-tabs">
           <button id="tabJenjang" class="thms-tab active">Per Jenjang</button>
           <button id="tabKelas"   class="thms-tab">Per Halaqoh (Ustadz)</button>
         </div>
-
         <div class="thms-cards">
           <div class="thms-card"><div class="t">Total Kelompok</div><div id="thmsCardKelompok" class="v">-</div></div>
           <div class="thms-card"><div class="t">Total Santri</div><div id="thmsCardSantri" class="v">-</div></div>
@@ -10862,7 +10844,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="thms-card"><div class="t">Tuntas</div><div id="thmsCardTuntas" class="v">-</div></div>
           <div class="thms-card"><div class="t">Khatam</div><div id="thmsCardKhatam" class="v">-</div></div>
         </div>
-
         <div class="thms-chart"><canvas id="thmsChart" height="160"></canvas></div>
         <div id="thmsList" class="thms-list"></div>
       </div>
@@ -10872,14 +10853,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const close = ()=> el.style.display='none';
     el.addEventListener('click', e => { if (e.target.id==='thmsOverlay') close(); });
     el.querySelector('#thmsClose').addEventListener('click', close);
-    // swipe-to-close
     let startY=null;
     el.addEventListener('touchstart', (e)=>{ startY = e.touches?.[0]?.clientY ?? null; }, {passive:true});
-    el.addEventListener('touchmove', (e)=>{
-      if (startY==null) return;
-      const dy = (e.touches?.[0]?.clientY ?? 0) - startY;
-      if (dy > 70) { startY=null; close(); }
-    }, {passive:true});
+    el.addEventListener('touchmove', (e)=>{ if (startY==null) return; const dy=(e.touches?.[0]?.clientY ?? 0)-startY; if (dy>70){startY=null; close();}}, {passive:true});
   }
 
   async function ensureChartJS(){
@@ -10933,6 +10909,29 @@ document.addEventListener("DOMContentLoaded", () => {
     return kelasKey;
   }
 
+  // ===== Normalizer JENJANG (kunci perbaikan duplikasi)
+  function normalizeJenjang(v){
+    let s = String(v ?? '').trim();
+    if (!s) return null;
+    s = s.replace(/(^|\s)(jenjang|kelas|tingkat)\s*/gi,'$1'); // buang kata bantu umum
+    s = s.replace(/[\.\-_/]+/g,' ');          // ganti pemisah jadi spasi
+    s = s.replace(/\s+/g,' ').trim().toUpperCase();
+
+    // IL + huruf (ILA, IL A, il-a, il.b → ILA)
+    const mIL = /^IL\s*([A-D])$/.exec(s);
+    if (mIL) return 'IL' + mIL[1];
+
+    // angka + huruf (1A, 1 A, 1-A, 01 a → 1A)
+    const m = /^0*(\d+)\s*([A-Z])$/.exec(s);
+    if (m) return `${Number(m[1])}${m[2]}`;
+
+    // hanya IL atau hanya angka → pakai apa adanya setelah rapih
+    if (/^IL$/.test(s)) return 'IL';
+    if (/^\d+$/.test(s)) return String(Number(s));
+
+    return s; // fallback: tetap satu bentuk konsisten uppercase-trim
+  }
+
   // ===== Fallback: agregat D1 + roster
   async function fetchAggOnlyRows(kelasKey, startDate, endDate){
     const url = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&aggregate=1&t=${Date.now()}`;
@@ -10980,7 +10979,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return await fetchAggOnlyRows(kelasKey, startDate, endDate).catch(()=>[]);
   }
 
-  // Quick helper: dapatkan percent & status
+  // Quick helper: dapatkan percent
   function getPercent(r){
     if (typeof PDF_totalAllJuzStatus==='function'){
       return PDF_totalAllJuzStatus(Number(r.totalJuz||0), r.semester)?.percent || 0;
@@ -10999,16 +10998,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const kelasKeys = getAllKelasKeysSafe();
     if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
 
-    const agg = new Map(); // jenjang -> {sumPct, n, kh, tn, countSantri}
+    const agg = new Map(); // jenjangNorm -> {sumPct, n, kh, tn, countSantri, label}
     for (const k of kelasKeys){
       const rowsKelas = await getRowsForClass(k, startDate, endDate);
       if (!rowsKelas.length) continue;
       for (const r of rowsKelas){
-        const jl  = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
-        const pct = getPercent(r);
+        const raw  = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
+        const jl   = normalizeJenjang(raw);
+        if (!jl) continue; // skip kosong
+        const pct  = getPercent(r);
         const isKhatam = Number(r.totalJuz||0) >= 30;
         const isTuntas = !isKhatam && pct >= 100;
-        if (!agg.has(jl)) agg.set(jl, { sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
+        if (!agg.has(jl)) agg.set(jl, { sumPct:0, n:0, kh:0, tn:0, countSantri:0, label: jl });
         const a = agg.get(jl);
         a.sumPct += pct; a.n++; a.countSantri++;
         if (isKhatam) a.kh++; else if (isTuntas) a.tn++;
@@ -11021,9 +11022,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return `999.${j}`;
     };
 
-    const rows = [...agg.entries()]
-      .map(([jenjang, {sumPct,n,kh,tn,countSantri}]) => ({
-        label: jenjang,
+    const rows = [...agg.values()]
+      .map(({sumPct,n,kh,tn,countSantri,label}) => ({
+        label,
         avg: n ? (sumPct/n) : 0,
         khatam: kh,
         tuntas: tn,
@@ -11073,13 +11074,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const ov = document.getElementById('thmsOverlay');
     ov.style.display = 'block';
 
-    // judul + periode
     document.getElementById('thmsTitleMode').textContent =
       mode === 'kelas' ? '— Per Halaqoh (Ustadz)' : '— Per Jenjang';
     const fmt = (window.fmtD_M_YYYY || (x=>x));
     document.getElementById('thmsSub').textContent = `Periode: ${fmt(startDate)} s.d. ${fmt(endDate)}`;
 
-    // cards
     const totalGroups = rows.length;
     const totalSantri = rows.reduce((s,r)=>s+r.count,0);
     const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
@@ -11091,7 +11090,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('thmsCardTuntas').textContent   = totalTuntas;
     document.getElementById('thmsCardKhatam').textContent   = totalKhatam;
 
-    // chart
     const labels = rows.map(r=>r.label);
     const data   = rows.map(r=>Math.round(r.avg));
     const ctx    = document.getElementById('thmsChart').getContext('2d');
@@ -11112,7 +11110,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // list
     const list = document.getElementById('thmsList');
     list.innerHTML = '';
     rows.forEach(r=>{
@@ -11130,7 +11127,6 @@ document.addEventListener("DOMContentLoaded", () => {
       list.appendChild(item);
     });
 
-    // tab state
     _mode = mode;
     document.getElementById('tabJenjang').classList.toggle('active', mode==='jenjang');
     document.getElementById('tabKelas').classList.toggle('active',   mode==='kelas');
@@ -11145,7 +11141,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!data.rows.length) { alert('Tidak ada data pada rentang tanggal tsb.'); return; }
       renderView(data);
 
-      // bind tab actions (once)
       const tabJ = document.getElementById('tabJenjang');
       const tabK = document.getElementById('tabKelas');
       if (!tabJ.dataset.bound){
