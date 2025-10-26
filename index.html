@@ -10770,7 +10770,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 <script>
-// === [GRAFIK PROSENTASE THMS — PER JENJANG & PER HALAQOH + CACHING] ========
+// === [GRAFIK PROSENTASE THMS — PER JENJANG & PER HALAQOH + CACHING + FIX TOTAL JENJANG] ==
 (function grafikTHMS(){
   const wrap = document.querySelector('.pdf-rekap-controls');
   if (!wrap) return console.warn('[THMS] .pdf-rekap-controls tidak ditemukan');
@@ -10845,7 +10845,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
 
         <div class="thms-cards">
-          <div class="thms-card"><div class="t">Total Kelompok</div><div id="thmsCardKelompok" class="v">-</div></div>
+          <div class="thms-card"><div id="thmsCardKelompokTitle" class="t">Total Jenjang</div><div id="thmsCardKelompok" class="v">-</div></div>
           <div class="thms-card"><div class="t">Total Santri</div><div id="thmsCardSantri" class="v">-</div></div>
           <div class="thms-card"><div class="t">Rata-rata Global</div><div id="thmsCardAvg" class="v">-</div></div>
           <div class="thms-card"><div class="t">Tuntas</div><div id="thmsCardTuntas" class="v">-</div></div>
@@ -10882,15 +10882,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ====== Caching helpers
-  const CACHE_NS = 'THMS_GRAPH_V2';
+  const CACHE_NS = 'THMS_GRAPH_V3';
   const CACHE_TTL_MS = 24*60*60*1000; // 24 jam
-
-  function fingerprintKeys(keys){
-    return keys.slice().map(String).sort().join('|');
-  }
-  function makeBaseKey(start, end, kelasKeys){
-    return `${CACHE_NS}|${start}|${end}|${fingerprintKeys(kelasKeys)}`;
-  }
+  function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
+  function makeBaseKey(start, end, kelasKeys){ return `${CACHE_NS}|${start}|${end}|${fingerprintKeys(kelasKeys)}`; }
   function cacheLoad(baseKey, mode){
     try{
       const raw = localStorage.getItem(`${baseKey}|${mode}`);
@@ -10902,9 +10897,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }catch(e){ return null; }
   }
   function cacheSave(baseKey, mode, payload){
-    try{
-      localStorage.setItem(`${baseKey}|${mode}`, JSON.stringify({ t: Date.now(), payload }));
-    }catch(e){ /* storage mungkin penuh, abaikan */ }
+    try{ localStorage.setItem(`${baseKey}|${mode}`, JSON.stringify({ t: Date.now(), payload })); }catch(e){}
   }
 
   // ===== Helper daftar kelas (aman)
@@ -10948,6 +10941,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return kelasKey;
   }
 
+  // ===== Roster (untuk master jenjang)
+  async function getRosterForClass(kelasKey){
+    const r = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
+    const roster = await r?.json().catch(()=>[]);
+    return Array.isArray(roster) ? roster : [];
+  }
+
   // ===== Fallback: agregat D1 + roster
   async function fetchAggOnlyRows(kelasKey, startDate, endDate){
     const url = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&aggregate=1&t=${Date.now()}`;
@@ -10955,10 +10955,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const j1  = await r1?.json().catch(()=>null);
     if (!j1 || !j1.aggregate || !Array.isArray(j1.list)) return [];
 
-    const r2  = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
-    const roster = await r2?.json().catch(()=>[]);
+    const roster = await getRosterForClass(kelasKey);
     const byNis = new Map(), byId = new Map();
-    for (const s of (Array.isArray(roster)? roster : [])){
+    for (const s of roster){
       const nis = (s?.nis==null? '' : String(s.nis).trim());
       const id  = (s?.id==null ? '' : String(s.id).trim());
       if (nis) byNis.set(nis, s);
@@ -11006,6 +11005,27 @@ document.addEventListener("DOMContentLoaded", () => {
     return 0;
   }
 
+  // ===== Kumpulkan master jenjang dari roster (akurasi total jenjang)
+  async function collectMasterJenjang(kelasKeys){
+    const set = new Set();
+    for (const k of kelasKeys){
+      const roster = await getRosterForClass(k);
+      for (const s of roster){
+        const raw = s?.jenjang ?? '';
+        const jl  = (typeof jenjangLabel==='function') ? jenjangLabel(raw) : String(raw);
+        const label = (jl==null ? '' : String(jl).trim());
+        if (label) set.add(label);
+      }
+    }
+    // Urutkan sesuai aturan yang sama
+    const sortKey = (j) => {
+      const mIL = /^IL([A-D])$/i.exec(j); if (mIL) return `0.${'ABCD'.indexOf(mIL[1].toUpperCase())}`;
+      const m   = /^(\d+)\s*([A-Z])$/i.exec(j); if (m) return `${String(m[1]).padStart(3,'0')}.${m[2]}`;
+      return `999.${j}`;
+    };
+    return Array.from(set).sort((a,b)=> sortKey(a).localeCompare(sortKey(b),'id'));
+  }
+
   // ======= Komputasi: Per Jenjang
   async function computeByJenjang(startDate, endDate, kelasKeys){
     const agg = new Map(); // jenjang -> {sumPct, n, kh, tn, countSantri}
@@ -11014,11 +11034,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!rowsKelas.length) continue;
       for (const r of rowsKelas){
         const jl  = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
+        const label = (jl==null ? '' : String(jl).trim());
         const pct = getPercent(r);
         const isKhatam = Number(r.totalJuz||0) >= 30;
         const isTuntas = !isKhatam && pct >= 100;
-        if (!agg.has(jl)) agg.set(jl, { sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
-        const a = agg.get(jl);
+        if (!agg.has(label)) agg.set(label, { sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
+        const a = agg.get(label);
         a.sumPct += pct; a.n++; a.countSantri++;
         if (isKhatam) a.kh++; else if (isTuntas) a.tn++;
       }
@@ -11031,8 +11052,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const rows = [...agg.entries()]
-      .map(([jenjang, {sumPct,n,kh,tn,countSantri}]) => ({
-        label: jenjang,
+      .map(([label, {sumPct,n,kh,tn,countSantri}]) => ({
+        label,
         avg: n ? (sumPct/n) : 0,
         khatam: kh,
         tuntas: tn,
@@ -11040,7 +11061,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }))
       .sort((a,b)=> sortKey(a.label).localeCompare(sortKey(b.label),'id'));
 
-    return { rows, startDate, endDate, mode: 'jenjang' };
+    // Master jenjang untuk total akurat
+    const masterJenjang = await collectMasterJenjang(kelasKeys);
+    const masterJenjangCount = masterJenjang.length;
+
+    return { rows, startDate, endDate, mode: 'jenjang', masterJenjangCount };
   }
 
   // ======= Komputasi: Per Halaqoh (kelas)
@@ -11068,27 +11093,37 @@ document.addEventListener("DOMContentLoaded", () => {
     return { rows, startDate, endDate, mode: 'kelas' };
   }
 
-  // ======= Render (dipakai kedua mode)
+  // ======= Render
   let _chart = null, _mode = 'jenjang', _lastBaseKey = null;
   function renderView(payload, fromCache=false){
-    const { rows, startDate, endDate, mode } = payload;
+    const { rows, startDate, endDate, mode, masterJenjangCount } = payload;
     const ov = document.getElementById('thmsOverlay');
     ov.style.display = 'block';
 
-    // judul + periode
+    // judul + periode + cache flag
     document.getElementById('thmsTitleMode').textContent =
       mode === 'kelas' ? '— Per Halaqoh (Ustadz)' : '— Per Jenjang';
     const fmt = (window.fmtD_M_YYYY || (x=>x));
     document.getElementById('thmsSub').textContent = `Periode: ${fmt(startDate)} s.d. ${fmt(endDate)}`;
     document.getElementById('thmsCacheFlag').style.display = fromCache ? '' : 'none';
 
+    // rubah judul kartu pertama sesuai mode
+    document.getElementById('thmsCardKelompokTitle').textContent =
+      mode === 'kelas' ? 'Total Halaqoh' : 'Total Jenjang';
+
     // cards
-    const totalGroups = rows.length;
+    const totalGroupsShown = rows.length;
     const totalSantri = rows.reduce((s,r)=>s+r.count,0);
     const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
     const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
     const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
-    document.getElementById('thmsCardKelompok').textContent = totalGroups;
+
+    // untuk mode jenjang: pakai MASTER count agar akurat
+    const totalKelompokCard = (mode==='jenjang' && typeof masterJenjangCount==='number')
+      ? masterJenjangCount
+      : totalGroupsShown;
+
+    document.getElementById('thmsCardKelompok').textContent = totalKelompokCard;
     document.getElementById('thmsCardSantri').textContent   = totalSantri;
     document.getElementById('thmsCardAvg').textContent      = `${avgGlobal}%`;
     document.getElementById('thmsCardTuntas').textContent   = totalTuntas;
@@ -11163,7 +11198,7 @@ document.addEventListener("DOMContentLoaded", () => {
         payload = (defaultMode==='kelas')
           ? await computeByKelas(startDate, endDate, kelasKeys)
           : await computeByJenjang(startDate, endDate, kelasKeys);
-        if (!payload.rows.length) { alert('Tidak ada data pada rentang tanggal tsb.'); return; }
+        if (!payload.rows.length && defaultMode!=='jenjang') { alert('Tidak ada data pada rentang tanggal tsb.'); return; }
         cacheSave(baseKey, defaultMode, payload);
         renderView(payload, false);
       }
@@ -11210,6 +11245,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener('click', ()=>openOverlay('jenjang'));
 })();
 </script>
+
 
 
 
