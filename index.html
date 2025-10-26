@@ -10801,7 +10801,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .thms-tab{padding:.45rem .7rem;border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;color:#374151;font-weight:700;cursor:pointer}
       .thms-tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
       .thms-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-      @media (min-width:640px){ .thms-cards{grid-template-columns:repeat(4,1fr)} }
+      @media (min-width:640px){ .thms-cards{grid-template-columns:repeat(5,1fr)} } /* 5 kartu: Kelompok, Santri, Avg, Tuntas, Khatam */
       .thms-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
       .thms-card .t{font-size:12px;color:#6b7280}
       .thms-card .v{font-weight:800;font-size:18px;color:#111827}
@@ -10843,6 +10843,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="thms-card"><div class="t">Total Kelompok</div><div id="thmsCardKelompok" class="v">-</div></div>
           <div class="thms-card"><div class="t">Total Santri</div><div id="thmsCardSantri" class="v">-</div></div>
           <div class="thms-card"><div class="t">Rata-rata Global</div><div id="thmsCardAvg" class="v">-</div></div>
+          <div class="thms-card"><div class="t">Tuntas</div><div id="thmsCardTuntas" class="v">-</div></div>
           <div class="thms-card"><div class="t">Khatam</div><div id="thmsCardKhatam" class="v">-</div></div>
         </div>
 
@@ -10901,7 +10902,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return keys;
   }
 
-  // ===== Label kelas (ustadz) dari select / custom / fallback
+  // ===== Label kelas (ustadz)
   function getKelasLabel(kelasKey){
     const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
              ? kelasSelect
@@ -10950,7 +10951,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===== Ambil rows per kelas (universal + fallback)
   async function getRowsForClass(kelasKey, startDate, endDate){
-    // utama: sama seperti PDF
     if (typeof collectRekapDataForClass === 'function') {
       const data = await collectRekapDataForClass(kelasKey, startDate, endDate).catch(()=>null);
       if (data?.rows?.length) {
@@ -10961,8 +10961,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }));
       }
     }
-    // fallback
     return await fetchAggOnlyRows(kelasKey, startDate, endDate).catch(()=>[]);
+  }
+
+  // Quick helper: dapatkan percent & status
+  function getPercent(r){
+    if (typeof PDF_totalAllJuzStatus==='function'){
+      return PDF_totalAllJuzStatus(Number(r.totalJuz||0), r.semester)?.percent || 0;
+    }
+    // fallback sederhana (batas default per semester)
+    if (typeof PDF_percentCapaian==='function'){
+      return PDF_percentCapaian(Number(r.totalJuz||0), r.semester) || 0;
+    }
+    return 0;
   }
 
   // ======= Komputasi: Per Jenjang
@@ -10973,17 +10984,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const kelasKeys = getAllKelasKeysSafe();
     if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
 
-    const agg = new Map(); // jenjang -> {sumPct, n, kh, countSantri}
+    const agg = new Map(); // jenjang -> {sumPct, n, kh, tn, countSantri}
     for (const k of kelasKeys){
       const rowsKelas = await getRowsForClass(k, startDate, endDate);
       if (!rowsKelas.length) continue;
       for (const r of rowsKelas){
         const jl  = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
-        const pct = (typeof PDF_totalAllJuzStatus==='function')
-          ? (PDF_totalAllJuzStatus(r.totalJuz, r.semester)?.percent || 0) : 0;
-        if (!agg.has(jl)) agg.set(jl, { sumPct:0, n:0, kh:0, countSantri:0 });
+        const pct = getPercent(r);
+        const isKhatam = Number(r.totalJuz||0) >= 30;
+        const isTuntas = !isKhatam && pct >= 100;
+        if (!agg.has(jl)) agg.set(jl, { sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
         const a = agg.get(jl);
-        a.sumPct += pct; a.n++; a.countSantri++; if (r.totalJuz>=30) a.kh++;
+        a.sumPct += pct; a.n++; a.countSantri++;
+        if (isKhatam) a.kh++; else if (isTuntas) a.tn++;
       }
     }
 
@@ -10994,10 +11007,11 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const rows = [...agg.entries()]
-      .map(([jenjang, {sumPct,n,kh,countSantri}]) => ({
+      .map(([jenjang, {sumPct,n,kh,tn,countSantri}]) => ({
         label: jenjang,
         avg: n ? (sumPct/n) : 0,
         khatam: kh,
+        tuntas: tn,
         count: countSantri
       }))
       .sort((a,b)=> sortKey(a.label).localeCompare(sortKey(b.label),'id'));
@@ -11017,21 +11031,22 @@ document.addEventListener("DOMContentLoaded", () => {
     for (const k of kelasKeys){
       const rowsKelas = await getRowsForClass(k, startDate, endDate);
       if (!rowsKelas.length) continue;
-      let sum=0, n=0, kh=0;
+      let sum=0, n=0, kh=0, tn=0;
       for (const r of rowsKelas){
-        const pct = (typeof PDF_totalAllJuzStatus==='function')
-          ? (PDF_totalAllJuzStatus(r.totalJuz, r.semester)?.percent || 0) : 0;
-        sum += pct; n++; if (r.totalJuz>=30) kh++;
+        const pct = getPercent(r);
+        const isKhatam = Number(r.totalJuz||0) >= 30;
+        const isTuntas = !isKhatam && pct >= 100;
+        sum += pct; n++; if (isKhatam) kh++; else if (isTuntas) tn++;
       }
       rows.push({
         label: getKelasLabel(k),
         avg: n? (sum/n) : 0,
         khatam: kh,
+        tuntas: tn,
         count: n
       });
     }
 
-    // urut berdasar angka di key kelas jika ada; jika tidak, alfabetis label
     rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
     return { rows, startDate, endDate, mode: 'kelas' };
   }
@@ -11053,10 +11068,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const totalGroups = rows.length;
     const totalSantri = rows.reduce((s,r)=>s+r.count,0);
     const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
+    const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
     const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
     document.getElementById('thmsCardKelompok').textContent = totalGroups;
     document.getElementById('thmsCardSantri').textContent   = totalSantri;
     document.getElementById('thmsCardAvg').textContent      = `${avgGlobal}%`;
+    document.getElementById('thmsCardTuntas').textContent   = totalTuntas;
     document.getElementById('thmsCardKhatam').textContent   = totalKhatam;
 
     // chart
@@ -11074,7 +11091,7 @@ document.addEventListener("DOMContentLoaded", () => {
           legend:{ display:false },
           tooltip:{ callbacks:{ footer:(items)=>{
             const i = items[0].dataIndex, r = rows[i];
-            return `Santri: ${r.count} | Khatam: ${r.khatam}`;
+            return `Santri: ${r.count} | Tuntas: ${r.tuntas} | Khatam: ${r.khatam}`;
           }}}
         }
       }
@@ -11093,7 +11110,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="pct">${pct}%</div>
         </div>
         <div class="thms-progress"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>
-        <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Khatam: ${r.khatam}</div>
+        <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Tuntas: ${r.tuntas} · Khatam: ${r.khatam}</div>
       `;
       list.appendChild(item);
     });
@@ -11141,6 +11158,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener('click', ()=>openOverlay('jenjang'));
 })();
 </script>
+
 
 		
 </body>
