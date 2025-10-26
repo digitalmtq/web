@@ -11053,7 +11053,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const agg = new Map(); // keyNorm -> { label, sumPct, n, kh, tn, countSantri }
     for (const k of kelasKeys){
       const rowsKelas = await getRowsForClass(k, startDate, endDate);
-      // tetap proses; jika kosong, tidak menambah ke agg
       for (const r of rowsKelas){
         const rawLabel = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
         const display  = prettyJenjangLabel(rawLabel);
@@ -11074,7 +11073,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Master jenjang → jadikan baseline agar semua jenjang tampil
     const master = await collectMasterJenjang(kelasKeys);
     const rows = master.map(m => {
       const v = agg.get(m.key);
@@ -11090,8 +11088,7 @@ document.addEventListener("DOMContentLoaded", () => {
       };
     });
 
-    const masterJenjangCount = master.length;
-    return { rows, startDate, endDate, mode: 'jenjang', masterJenjangCount };
+    return { rows, startDate, endDate, mode: 'jenjang' };
   }
 
   // ======= Komputasi: Per Halaqoh (kelas) — selalu rilis semua kelas
@@ -11118,10 +11115,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return { rows, startDate, endDate, mode: 'kelas' };
   }
 
-  // ======= Render
+  // ======= Render (kartu tab Jenjang kini identik dengan tab Kelas)
   let _chart = null, _mode = 'jenjang', _lastBaseKey = null;
   function renderView(payload, fromCache=false){
-    const { rows, startDate, endDate, mode, masterJenjangCount } = payload;
+    const { rows, startDate, endDate, mode } = payload;
     const ov = document.getElementById('thmsOverlay');
     ov.style.display = 'block';
 
@@ -11134,17 +11131,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('thmsCardKelompokTitle').textContent =
       mode === 'kelas' ? 'Total Halaqoh' : 'Total Jenjang';
 
-    const totalGroupsShown = rows.length; // sudah termasuk yang kosong
+    // === Penghitungan kartu: SAMA untuk kedua mode (mengikuti tab Kelas) ===
+    const totalGroupsShown = rows.length; // jumlah baris yang ditampilkan
     const totalSantri = rows.reduce((s,r)=>s+r.count,0);
     const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
     const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
     const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
 
-    const totalKelompokCard = (mode==='jenjang' && typeof masterJenjangCount==='number')
-      ? masterJenjangCount
-      : totalGroupsShown;
-
-    document.getElementById('thmsCardKelompok').textContent = totalKelompokCard;
+    document.getElementById('thmsCardKelompok').textContent = totalGroupsShown;
     document.getElementById('thmsCardSantri').textContent   = totalSantri;
     document.getElementById('thmsCardAvg').textContent      = `${avgGlobal}%`;
     document.getElementById('thmsCardTuntas').textContent   = totalTuntas;
@@ -11259,6 +11253,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener('click', ()=>openOverlay('jenjang'));
 })();
 </script>
+
 
 
 
