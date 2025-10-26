@@ -10818,14 +10818,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.head.appendChild(s);
   }
 
-  // ===== Overlay DOM (❗tanpa backdrop click, tanpa swipe, tanpa Esc)
+  // ===== Overlay DOM
   function ensureOverlay(){
     if (document.getElementById('thmsOverlay')) return;
     const el = document.createElement('div');
     el.id = 'thmsOverlay';
     el.className = 'thms-ov';
     el.innerHTML = `
-      <div class="thms-sheet" role="dialog" aria-modal="true" aria-labelledby="thmsTitleMain">
+      <div class="thms-sheet">
         <div class="thms-handle"></div>
         <div class="thms-header">
           <div>
@@ -10859,17 +10859,16 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(el);
 
     const close = ()=> el.style.display='none';
-    // ❌ Tidak ada: el.addEventListener('click', ...) untuk backdrop
-    // ❌ Tidak ada: touchstart/touchmove (swipe)
-    // ❌ Cegah Escape menutup (kalau ada handler global lain)
-    document.addEventListener('keydown', (e)=>{
-      if (el.style.display==='block' && (e.key==='Escape' || e.key==='Esc')) {
-        e.stopPropagation(); e.preventDefault();
-      }
-    }, true);
-
-    // ✅ Hanya tombol "Tutup" yang bisa menutup
+    el.addEventListener('click', e => { if (e.target.id==='thmsOverlay') close(); });
     el.querySelector('#thmsClose').addEventListener('click', close);
+    // swipe-to-close
+    let startY=null;
+    el.addEventListener('touchstart', (e)=>{ startY = e.touches?.[0]?.clientY ?? null; }, {passive:true});
+    el.addEventListener('touchmove', (e)=>{
+      if (startY==null) return;
+      const dy = (e.touches?.[0]?.clientY ?? 0) - startY;
+      if (dy > 70) { startY=null; close(); }
+    }, {passive:true});
   }
 
   async function ensureChartJS(){
@@ -10882,7 +10881,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ====== Caching helpers
+  // ====== Caching helpers (bump version -> V4KEY)
   const CACHE_NS = 'THMS_GRAPH_V4KEY';
   const CACHE_TTL_MS = 24*60*60*1000; // 24 jam
   function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
@@ -10929,11 +10928,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===== Normalisasi & sort jenjang
   function normJenjangKey(raw){
+    // ke uppercase, hilangkan spasi & tanda (.,-,_)
     let s = (raw==null ? '' : String(raw)).trim().toUpperCase();
-    s = s.replace(/[\.\-\_ ]+/g,'');
+    s = s.replace(/[\.\-\_ ]+/g,''); // "IL A" / "IL-A" -> "ILA", "1 A" -> "1A"
+    // jika format seperti "IL[A-D]" atau "IL[A]" sudah oke; sisanya biarkan
     return s;
   }
   function prettyJenjangLabel(raw){
+    // pakai jenjangLabel jika ada (untuk tampilan), fallback ke raw
     if (typeof jenjangLabel === 'function'){
       const r = jenjangLabel(raw ?? '');
       if (r != null && String(r).trim()) return String(r).trim();
@@ -11028,29 +11030,40 @@ document.addEventListener("DOMContentLoaded", () => {
     return 0;
   }
 
-  // ===== Master jenjang
+  // ===== Master jenjang (pakai prioritas: window.MASTER_JENJANG → select → roster)
   async function collectMasterJenjang(kelasKeys){
-    const normSet = new Map(); // keyNorm -> prettyLabel
+    const normSet = new Map(); // keyNorm -> prettyLabel (ambil yang “tercantik”)
     const push = (raw)=>{
       const pretty = prettyJenjangLabel(raw);
       const key = normJenjangKey(pretty || raw);
       if (!key) return;
       if (!normSet.has(key)) normSet.set(key, pretty || raw);
     };
+
+    // 1) MASTER_JENJANG (array label)
     if (Array.isArray(window.MASTER_JENJANG) && window.MASTER_JENJANG.length){
       for (const lbl of window.MASTER_JENJANG) push(lbl);
     }
+
+    // 2) Select jenjang (kalau ada)
     const sel = document.getElementById('jenjang') || document.getElementById('jenjangSelect');
     if (sel?.options?.length){
       for (const o of sel.options) push(o.textContent || o.value);
     }
+
+    // 3) Roster semua kelas
     for (const k of kelasKeys){
       const roster = await getRosterForClass(k);
-      for (const s of roster){ push(s?.jenjang ?? ''); }
+      for (const s of roster){
+        push(s?.jenjang ?? '');
+      }
     }
-    return [...normSet.entries()]
+
+    // Return array terurut (pakai label cantik yg disimpan)
+    const arr = [...normSet.entries()]
       .map(([key, label]) => ({ key, label: prettyJenjangLabel(label) }))
       .sort((a,b)=> sortKeyJenjang(a.label).localeCompare(sortKeyJenjang(b.label),'id'));
+    return arr; // [{key,label}]
   }
 
   // ======= Komputasi: Per Jenjang
@@ -11071,6 +11084,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!agg.has(key)) agg.set(key, { label: display, sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
         const a = agg.get(key);
+        // perapihan label (ambil yang paling “rapi” jika datang dari variasi)
         if (display && a.label !== display && prettyJenjangLabel(display).length > prettyJenjangLabel(a.label).length){
           a.label = display;
         }
@@ -11079,6 +11093,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // Rows dari agg
     const rows = [...agg.values()]
       .map(v => ({
         label : v.label,
@@ -11089,6 +11104,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }))
       .sort((a,b)=> sortKeyJenjang(a.label).localeCompare(sortKeyJenjang(b.label),'id'));
 
+    // Master jenjang final (gunakan kunci normalisasi) → total akurat
     const master = await collectMasterJenjang(kelasKeys);
     const masterJenjangCount = master.length;
 
@@ -11127,21 +11143,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const ov = document.getElementById('thmsOverlay');
     ov.style.display = 'block';
 
+    // judul + periode + cache flag
     document.getElementById('thmsTitleMode').textContent =
       mode === 'kelas' ? '— Per Halaqoh (Ustadz)' : '— Per Jenjang';
     const fmt = (window.fmtD_M_YYYY || (x=>x));
     document.getElementById('thmsSub').textContent = `Periode: ${fmt(startDate)} s.d. ${fmt(endDate)}`;
     document.getElementById('thmsCacheFlag').style.display = fromCache ? '' : 'none';
 
+    // rubah judul kartu pertama sesuai mode
     document.getElementById('thmsCardKelompokTitle').textContent =
       mode === 'kelas' ? 'Total Halaqoh' : 'Total Jenjang';
 
+    // cards
     const totalGroupsShown = rows.length;
     const totalSantri = rows.reduce((s,r)=>s+r.count,0);
     const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
     const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
     const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
 
+    // untuk mode jenjang: pakai MASTER count agar akurat
     const totalKelompokCard = (mode==='jenjang' && typeof masterJenjangCount==='number')
       ? masterJenjangCount
       : totalGroupsShown;
@@ -11152,6 +11172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('thmsCardTuntas').textContent   = totalTuntas;
     document.getElementById('thmsCardKhatam').textContent   = totalKhatam;
 
+    // chart
     const labels = rows.map(r=>r.label);
     const data   = rows.map(r=>Math.round(r.avg));
     const ctx    = document.getElementById('thmsChart').getContext('2d');
@@ -11172,6 +11193,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+    // list
     const list = document.getElementById('thmsList');
     list.innerHTML = '';
     rows.forEach(r=>{
@@ -11189,6 +11211,7 @@ document.addEventListener("DOMContentLoaded", () => {
       list.appendChild(item);
     });
 
+    // tab state
     _mode = mode;
     document.getElementById('tabJenjang').classList.toggle('active', mode==='jenjang');
     document.getElementById('tabKelas').classList.toggle('active',   mode==='kelas');
@@ -11210,6 +11233,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const baseKey = makeBaseKey(startDate, endDate, kelasKeys);
       let mode = defaultMode;
 
+      // load default mode (prefer cache)
       let payload = cacheLoad(baseKey, mode);
       if (!payload){
         payload = (mode==='kelas')
@@ -11220,6 +11244,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderView(payload, !!cacheLoad(baseKey, mode));
       _lastBaseKey = baseKey;
 
+      // bind tab actions (once)
       const tabJ = document.getElementById('tabJenjang');
       const tabK = document.getElementById('tabKelas');
       if (!tabJ.dataset.bound){
@@ -11261,6 +11286,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener('click', ()=>openOverlay('jenjang'));
 })();
 </script>
+
 
 
 
