@@ -7835,9 +7835,10 @@ function juzOfAyah(s,a){
   function resolveTanggalGlobal(){
     const byWin = (window.tanggalInput && window.tanggalInput.value) ? window.tanggalInput.value : '';
     const byId  = $('#tanggalInput')?.value
-               || $('#tanggal')?.value
-               || $('#date')?.value
-               || '';
+           || $('#tanggal')?.value
+           || $('#date')?.value
+           || $('#tanggal-filter-akhir')?.value   // ← tambahkan ini
+           || '';
     const byName= (document.querySelector('input[name="tanggal"]')?.value
                 || document.querySelector('input[name="date"]')?.value
                 || '');
@@ -8088,8 +8089,34 @@ if (Number.isFinite(scCand) && scCand > 0) {
     });
   }
 
+	// --- Cek apakah user sedang memilih rentang tanggal ---
+function isRangeActive(){
+  // Start (tanggal awal) – ambil dari beberapa kemungkinan input
+  const start = (
+    document.querySelector('#tanggal')?.value ||
+    document.querySelector('#tanggalInput')?.value ||
+    document.querySelector('input[name="tanggal"]')?.value ||
+    document.querySelector('input[name="date"]')?.value ||
+    ''
+  ).trim();
+
+  // End (tanggal akhir) – dukung id yang kamu pakai
+  const endA = document.querySelector('#tanggal-filter-akhir')?.value?.trim() || '';
+  const endB = document.querySelector('#murRangeSampai')?.value?.trim() || '';
+
+  // Jika ada end (A/B) & berbeda dari start → dianggap range aktif
+  if (start && endA && endA !== start) return true;
+  if (start && endB && endB !== start) return true;
+
+  // Kalau user isi end saja (tanpa start) di overlay, juga anggap aktif
+  if (!start && (endA || endB)) return true;
+
+  return false;
+}
+
   // ---------- Refresh dari server (muat juga skor/predikat jika ada) ----------
   async function refreshMurFromServer(){
+	if (typeof isRangeActive === 'function' && isRangeActive()) return;
     const $ = (s,r=document)=>r.querySelector(s);
     const table = $('#santri-table');
     const kelas = (function(){
@@ -8287,11 +8314,12 @@ if (window.currentRowEl){
   const cell = window.currentRowEl.querySelector('.murajaah-cell');
   if (cell){
     cell.dataset[`score${idx}`] = '0';
-    // opsional: langsung set label predikat sesuai 0 (ROSIB)
-    cell.dataset[`ptext${idx}`]  = getPredikat(0).text;
-    cell.dataset[`phuruf${idx}`] = getPredikat(0).huruf;
+    // skor 0 → tidak ada predikat
+    delete cell.dataset[`ptext${idx}`];
+    delete cell.dataset[`phuruf${idx}`];
   }
 }
+
 
     // Rekap total
     [1,2,3].forEach(renderSession);
