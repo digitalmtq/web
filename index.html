@@ -7835,10 +7835,9 @@ function juzOfAyah(s,a){
   function resolveTanggalGlobal(){
     const byWin = (window.tanggalInput && window.tanggalInput.value) ? window.tanggalInput.value : '';
     const byId  = $('#tanggalInput')?.value
-           || $('#tanggal')?.value
-           || $('#date')?.value
-           || $('#tanggal-filter-akhir')?.value   // ← tambahan
-           || '';
+               || $('#tanggal')?.value
+               || $('#date')?.value
+               || '';
     const byName= (document.querySelector('input[name="tanggal"]')?.value
                 || document.querySelector('input[name="date"]')?.value
                 || '');
@@ -7902,16 +7901,15 @@ function juzOfAyah(s,a){
         const res = await fetch(`/api/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`);
         if (!res.ok) return null;
         const arr = await res.json().catch(()=>[]) || [];
-        const id  = String(row.dataset?.id  || '').trim();
-const nis = String(row.dataset?.nis || '').trim();
-return arr.find(r=>{
-  const rid  = String(r?.id  || '').trim();
-  const rnis = String(r?.nis || '').trim();
-  // urutan prioritas: NIS → ID; tanpa fallback nama
-  if (nis && rnis === nis) return true;
-  if (id  && rid  === id ) return true;
-  return false;
-}) || null;
+        const id  = String(row.dataset?.id  || row.children?.[0]?.textContent || '').trim();
+        const nis = String(row.dataset?.nis || '').trim();
+        const nm  = (row.children?.[1]?.childNodes?.[0]?.textContent || row.children?.[1]?.textContent || '').trim().toLowerCase();
+        return arr.find(r=>{
+          const rid  = String(r?.id||'').trim();
+          const rnis = String(r?.nis||'').trim();
+          const rnm  = String(r?.nama||'').trim().toLowerCase();
+          return (nis && rnis===nis) || (id && rid===id) || (nm && rnm===nm);
+        }) || null;
       }catch{ return null; }
     }
 
@@ -8090,169 +8088,155 @@ if (Number.isFinite(scCand) && scCand > 0) {
     });
   }
 
-	function isRangeActive(){
-  const start =
-    document.querySelector('#tanggal')?.value?.trim() ||
-    document.querySelector('#tanggalInput')?.value?.trim() ||
-    document.querySelector('input[name="tanggal"]')?.value?.trim() ||
-    document.querySelector('input[name="date"]')?.value?.trim() || '';
-  const endA = document.querySelector('#tanggal-filter-akhir')?.value?.trim() || '';
-  const endB = document.querySelector('#murRangeSampai')?.value?.trim() || '';
-  if (start && endA && endA !== start) return true;
-  if (start && endB && endB !== start) return true;
-  if (!start && (endA || endB)) return true;
-  return false;
-}
-
   // ---------- Refresh dari server (muat juga skor/predikat jika ada) ----------
-  async function refreshMurFromServer(){
-	if (typeof isRangeActive === 'function' && isRangeActive()) return;
-    const $ = (s,r=document)=>r.querySelector(s);
-    const table = $('#santri-table');
-    const kelas = (function(){
-      return String(
-        window.kelasSelect?.value ||
-        $('#kelasSelect')?.value || $('#kelas')?.value ||
-        document.querySelector('select[name="kelas"]')?.value ||
-        table?.dataset?.kelas || document.body?.dataset?.kelas || ''
-      ).trim();
-    })();
-    if(!kelas || !table) return;
+async function refreshMurFromServer(){
+  const $ = (s,r=document)=>r.querySelector(s);
+  const table = $('#santri-table');
+  const kelas = (function(){
+    return String(
+      window.kelasSelect?.value ||
+      $('#kelasSelect')?.value || $('#kelas')?.value ||
+      document.querySelector('select[name="kelas"]')?.value ||
+      table?.dataset?.kelas || document.body?.dataset?.kelas || ''
+    ).trim();
+  })();
+  if(!kelas || !table) return;
 
-    const rows = [...(table.tBodies?.[0]?.rows||[])];
-    const tglSet = new Set(rows.map(r=>String(r.dataset?.tanggal||'').trim()).filter(Boolean));
-    if(!tglSet.size){
-      const g = String(
-        window.tanggalInput?.value ||
-        $('#tanggalInput')?.value || $('#tanggal')?.value || $('#date')?.value ||
-        document.querySelector('input[name="tanggal"]')?.value ||
-        document.querySelector('input[name="date"]')?.value || ''
-      ).trim();
-      if(g) tglSet.add(g);
+  // helper ambil nilai pertama yang ada
+  const getVal = (...sels)=>{
+    for (const sel of sels){
+      const el = document.querySelector(sel);
+      const v  = (el?.value || '').trim();
+      if (v) return v;
     }
-    if(!tglSet.size) return;
+    return '';
+  };
 
-    const setSA=(cell,src,dsS,dsA)=>{ if(!src){cell.dataset[dsS]='';cell.dataset[dsA]='';return;}
-      const [s,a]=String(src).split(':'); cell.dataset[dsS]=s||''; cell.dataset[dsA]=a||''; };
-    const setPages=(cell,src,pfKey,ptKey)=>{ if(!src){cell.dataset[pfKey]='';cell.dataset[ptKey]='';return;}
-      const [pf,pt]=String(src).split('-'); cell.dataset[pfKey]=pf||''; cell.dataset[ptKey]=pt||''; };
-    const num=(v)=>{ if(typeof v==='number') return Number.isFinite(v)?v:0;
-      const n=parseFloat(String(v??'').replace(/[^0-9.,-]/g,'').replace(',', '.')); return Number.isFinite(n)?n:0; };
+  // deteksi rentang tanggal aktif
+  const startDate = getVal('#tanggal', '#tanggalInput', 'input[name="tanggal"]', '#date');
+  const endDate   = getVal('#tanggal-filter-akhir', '#tanggalFilterAkhir', 'input[name="tanggal-filter-akhir"]');
+  const rangeActive = !!(startDate && endDate && endDate !== startDate);
 
-    for (const tgl of tglSet){
-      let list=[];
-      try{
-        const res=await fetch(`/api/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tgl)}`);
-        if(!res.ok) continue;
-        list=await res.json().catch(()=>[])||[];
-      }catch{continue;}
+  const rows = [...(table.tBodies?.[0]?.rows||[])];
 
-      const byId=new Map(), byNis=new Map();
-      for(const r of list){
-        const id = String(r?.id??'').trim();
-        const nis= String(r?.nis??'').trim();
-        if(id)  byId.set(id, r);
-        if(nis) byNis.set(nis,r);
+  // sumber tanggal yang benar2 sedang tampil di tabel (jadi patokan saat range aktif)
+  const tglSet = new Set(
+    rows.map(r=>String(r.dataset?.tanggal||'').trim()).filter(Boolean)
+  );
+
+  // fallback kalau tidak ada data-tanggal di baris
+  if(!tglSet.size){
+    const g = startDate || getVal('#tanggal', '#tanggalInput', 'input[name="tanggal"]', '#date');
+    if(g) tglSet.add(g);
+  }
+  if(!tglSet.size) return;
+
+  const setSA=(cell,src,dsS,dsA)=>{
+    if(!src){cell.dataset[dsS]='';cell.dataset[dsA]='';return;}
+    const [s,a]=String(src).split(':'); cell.dataset[dsS]=s||''; cell.dataset[dsA]=a||'';
+  };
+  const setPages=(cell,src,pfKey,ptKey)=>{
+    if(!src){cell.dataset[pfKey]='';cell.dataset[ptKey]='';return;}
+    const [pf,pt]=String(src).split('-'); cell.dataset[pfKey]=pf||''; cell.dataset[ptKey]=pt||'';
+  };
+  const num=(v)=>{
+    if(typeof v==='number') return Number.isFinite(v)?v:0;
+    const n=parseFloat(String(v??'').replace(/[^0-9.,-]/g,'').replace(',', '.'));
+    return Number.isFinite(n)?n:0;
+  };
+
+  // loop per tanggal yang ada di tabel
+  for (const tgl of tglSet){
+    let list=[];
+    try{
+      const res=await fetch(`/api/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tgl)}`);
+      if(!res.ok) continue;
+      list=await res.json().catch(()=>[])||[];
+    }catch{continue;}
+
+    // PETA BERDASARKAN NIS (paling aman untuk identitas santri)
+    const byNis=new Map();
+    for(const r of list){
+      const nis= String(r?.nis??'').trim();
+      if(nis) byNis.set(nis,r);
+    }
+
+    rows.forEach(tr=>{
+      const cell=tr.querySelector('.murajaah-cell'); if(!cell) return;
+
+      // Saat range aktif: HANYA update baris yang tanggalnya persis sama dengan tgl loop ini
+      if (rangeActive){
+        const trTgl = String(tr.dataset?.tanggal||'').trim();
+        if (!trTgl || trTgl !== tgl) return; // skip baris lain/yang tak bertanggal
       }
 
-      rows.forEach(tr=>{
-        const cell=tr.querySelector('.murajaah-cell'); if(!cell) return;
-        const nis = String(tr.dataset?.nis || '').trim();
-		const id  = String(tr.dataset?.id  || '').trim(); // ← hanya dari dataset, bukan teks sel
-		const rec = (nis && byNis.get(nis)) || (id && byId.get(id)) || null;
+      // Utamakan NIS; hindari fallback ke id kolom pertama (rawan nomor urut)
+      const nis = String(tr.dataset?.nis||'').trim();
+      if (!nis) return; // jika baris tak punya NIS, kita lewati (menghindari salah mapping)
+      const rec = byNis.get(nis);
+      if (!rec) return;
 
-        const total = num(rec?.juzmurajaah ?? rec?.totalJuz ?? 0);
-        const valEl = cell.querySelector('.mur-val');
-        if(valEl) valEl.textContent = `${total.toFixed(2)} juz`;
-        cell.dataset.murtotal = total.toFixed(2);
+      // Tampilkan total ke .mur-val utk baris ini
+      const total = num(rec?.juzmurajaah ?? rec?.totalJuz ?? 0);
+      const valEl = cell.querySelector('.mur-val');
+      if(valEl) valEl.textContent = `${total.toFixed(2)} juz`;
+      cell.dataset.murtotal = total.toFixed(2);
 
-        const legacyFrom = rec?.murFrom || '';
-        const legacyTo   = rec?.murTo   || '';
-        const legacyPg   = rec?.murPages|| '';
-        setSA(cell, legacyFrom, 'sf', 'af');
-        setSA(cell, legacyTo,   'st', 'at');
-        setPages(cell, legacyPg, 'pf', 'pt');
+      // Sinkron data lama (agar modal kebaca)
+      const legacyFrom = rec?.murFrom || '';
+      const legacyTo   = rec?.murTo   || '';
+      const legacyPg   = rec?.murPages|| '';
+      setSA(cell, legacyFrom, 'sf', 'af');
+      setSA(cell, legacyTo,   'st', 'at');
+      setPages(cell, legacyPg, 'pf', 'pt');
 
-        const takeNonEmpty = (...xs) => { for (const x of xs){ if(x!==undefined && x!==null && String(x)!=='') return x; } return ''; };
-        function getSessionFrom(rec, i){
-          const arr = Array.isArray(rec?.murSessions) ? rec.murSessions : null;
-          const ses = arr && arr[i-1] ? arr[i-1] : null;
-          const fromStr  = takeNonEmpty(rec?.[`murFrom${i}`],  ses?.from,  rec?.murFrom);
-          const toStr    = takeNonEmpty(rec?.[`murTo${i}`],    ses?.to,    rec?.murTo);
-          const pagesStr = takeNonEmpty(rec?.[`murPages${i}`], ses?.pages, rec?.murPages);
-          const juzVal   = takeNonEmpty(rec?.[`juzmur${i}`], rec?.[`juzSesi${i}`], ses?.juz);
-          const jFrom    = (rec?.[`jFrom${i}`] ?? ses?.jFrom);
-          const jTo      = (rec?.[`jTo${i}`]   ?? ses?.jTo);
-          const score    = (rec?.[`murScore${i}`]     ?? ses?.score);
-          const pText    = (rec?.[`murPredText${i}`]  ?? ses?.predikatText);
-          const pHuruf   = (rec?.[`murPredHuruf${i}`] ?? ses?.predikatHuruf);
-          return { fromStr, toStr, pagesStr, juzVal, jFrom, jTo, score, pText, pHuruf };
+      const takeNonEmpty = (...xs) => { for (const x of xs){ if(x!==undefined && x!==null && String(x)!=='') return x; } return ''; };
+      function getSessionFrom(rec, i){
+        const arr = Array.isArray(rec?.murSessions) ? rec.murSessions : null;
+        const ses = arr && arr[i-1] ? arr[i-1] : null;
+        const fromStr  = takeNonEmpty(rec?.[`murFrom${i}`],  ses?.from,  rec?.murFrom);
+        const toStr    = takeNonEmpty(rec?.[`murTo${i}`],    ses?.to,    rec?.murTo);
+        const pagesStr = takeNonEmpty(rec?.[`murPages${i}`], ses?.pages, rec?.murPages);
+        const juzVal   = takeNonEmpty(rec?.[`juzmur${i}`], rec?.[`juzSesi${i}`], ses?.juz);
+        const jFrom    = (rec?.[`jFrom${i}`] ?? ses?.jFrom);
+        const jTo      = (rec?.[`jTo${i}`]   ?? ses?.jTo);
+        const score    = (rec?.[`murScore${i}`]     ?? ses?.score);
+        const pText    = (rec?.[`murPredText${i}`]  ?? ses?.predikatText);
+        const pHuruf   = (rec?.[`murPredHuruf${i}`] ?? ses?.predikatHuruf);
+        return { fromStr, toStr, pagesStr, juzVal, jFrom, jTo, score, pText, pHuruf };
+      }
+
+      for (let i = 1; i <= 3; i++) {
+        // Hormati wipe-token
+        if (wipeHas(tr, i)){
+          ['sf','af','st','at','pf','pt','jfrom','jto','score','ptext','phuruf'].forEach(k=>{
+            const key = `${k}${i}`; if (key in cell.dataset) delete cell.dataset[key];
+          });
+          cell.dataset[`juz${i}`] = '0.00';
+          cell.dataset[`wipe${i}`] = '1';
+          continue;
         }
 
-        for (let i = 1; i <= 3; i++) {
-          // Jika ada wipe untuk sesi ini: kosongkan & skip data server
-          if (wipeHas(tr, i)){
-            ['sf','af','st','at','pf','pt','jfrom','jto','score','ptext','phuruf'].forEach(k=>{
-              const key = `${k}${i}`; if (key in cell.dataset) delete cell.dataset[key];
-            });
-            cell.dataset[`juz${i}`] = '0.00';
-            cell.dataset[`wipe${i}`] = '1';
-            continue;
-          }
+        const ses = getSessionFrom(rec, i);
+        setSA(cell, ses.fromStr, `sf${i}`, `af${i}`);
+        setSA(cell, ses.toStr,   `st${i}`, `at${i}`);
+        setPages(cell, ses.pagesStr, `pf${i}`, `pt${i}`);
+        if (ses.jFrom != null && ses.jFrom !== '') cell.dataset[`jfrom${i}`] = String(ses.jFrom); else delete cell.dataset[`jfrom${i}`];
+        if (ses.jTo   != null && ses.jTo   !== '') cell.dataset[`jto${i}`]   = String(ses.jTo);   else delete cell.dataset[`jto${i}`];
+        cell.dataset[`juz${i}`] = num(ses.juzVal || 0).toFixed(2);
 
-          const ses = getSessionFrom(rec, i);
-          setSA(cell, ses.fromStr, `sf${i}`, `af${i}`);
-          setSA(cell, ses.toStr,   `st${i}`, `at${i}`);
-          setPages(cell, ses.pagesStr, `pf${i}`, `pt${i}`);
-          if (ses.jFrom != null && ses.jFrom !== '') cell.dataset[`jfrom${i}`] = String(ses.jFrom); else delete cell.dataset[`jfrom${i}`];
-          if (ses.jTo   != null && ses.jTo   !== '') cell.dataset[`jto${i}`]   = String(ses.jTo);   else delete cell.dataset[`jto${i}`];
-          cell.dataset[`juz${i}`] = num(ses.juzVal || 0).toFixed(2);
-
-const sNum = Number(ses.score);
-if (Number.isFinite(sNum) && sNum > 0) {
-  cell.dataset[`score${i}`] = String(Math.floor(sNum));
-} else {
-  delete cell.dataset[`score${i}`];
-}
-          if (ses.pText  != null) cell.dataset[`ptext${i}`] = String(ses.pText); else delete cell.dataset[`ptext${i}`];
-          if (ses.pHuruf != null) cell.dataset[`phuruf${i}`]= String(ses.pHuruf); else delete cell.dataset[`phuruf${i}`];
+        const sNum = Number(ses.score);
+        if (Number.isFinite(sNum) && sNum > 0) {
+          cell.dataset[`score${i}`] = String(Math.floor(sNum));
+        } else {
+          delete cell.dataset[`score${i}`];
         }
-      });
-    }
-  }
-
-  function bindModalShell(){
-    $('#mur-close')?.addEventListener('click',()=>{$('#murModal').style.display='none';});
-    $('#mur-preview')?.addEventListener('click', ()=>{
-      const lines=[1,2,3].map(i=>{
-        const st=murState[i]||{};
-        if(!st.sF) return `<li>Sesi ${i}: -</li>`;
-        const pv = (st.pText && st.pHuruf!=null) ? ` • Nilai ${st.score} → <b>${st.pText} (${st.pHuruf})</b>` : '';
-        return `<li><b>Sesi ${i}</b>: Surah ${st.sF}:${st.aF} → ${st.sT}:${st.aT} • Juz ${st.jFrom} → ${st.jTo} • <b>${(st.total||0).toFixed(2)} juz</b>${pv}</li>`;
-      }).join('');
-      const grand=((murState[1]?.total||0)+(murState[2]?.total||0)+(murState[3]?.total||0)).toFixed(2);
-      $('#murPreviewBody').innerHTML = `<ul style="margin:0 0 10px 18px">${lines}</ul><div><b>Total 3 sesi:</b> ${grand} juz</div>`;
-      $('#murPreviewOverlay').style.display='flex';
+        if (ses.pText  != null) cell.dataset[`ptext${i}`] = String(ses.pText); else delete cell.dataset[`ptext${i}`];
+        if (ses.pHuruf != null) cell.dataset[`phuruf${i}`]= String(ses.pHuruf); else delete cell.dataset[`phuruf${i}`];
+      }
     });
-    $('#mur-save')?.addEventListener('click', async()=>{
-  try{
-    // Sinkronkan skor dulu, supaya dataset pasti terisi
-    [1,2,3].forEach(i => setPredikatUI(i));
-    // Render (rekap total & dataset range)
-    [1,2,3].forEach(renderSession);
-
-    if (typeof window.simpanDataMutabaah === 'function'){
-      await window.simpanDataMutabaah($('#mur-save'));
-      await refreshMurFromServer();
-      $('#mur-save-status').textContent='🟢 Tersimpan';
-      setTimeout(()=>$('#mur-save-status').textContent='',1500);
-    }
-  }catch(e){ console.error(e); $('#mur-save-status').textContent='❌ Gagal simpan'; }
-});
   }
-
-  function afterTableRendered(){ ensureMurColumn(); refreshMurFromServer(); }
-
+}
   // ============ RESET: kosong total (0.00) + lindungi dari data server ============
   async function serverSafeReset(idx){
     try{ if (!window.dataReady) await ensureMap(); }catch(_){}
@@ -8365,65 +8349,6 @@ if (window.currentRowEl){
 
   // ekspor
   window.murajaah = { afterTableRendered: ()=>{ ensureMurColumn(); refreshMurFromServer(); }, refreshServer: refreshMurFromServer };
-
-  // === Auto-refresh mur-val saat ganti tanggal/kelas (harian) ===
-(function(){
-  // kecilkan frekuensi panggilan
-  let murDebounceTimer=null;
-  function debounce(fn, ms){ clearTimeout(murDebounceTimer); murDebounceTimer=setTimeout(fn, ms); }
-
-  function onDailyContextMaybeRefresh(){
-    // Jangan overwrite saat mode rentang aktif
-    if (typeof isRangeActive === 'function' && isRangeActive()) return;
-    if (window.murajaah?.refreshServer) window.murajaah.refreshServer();
-  }
-
-  function bindAutoRefreshTriggers(){
-    const selectors = [
-      // kelas
-      '#kelasSelect','#kelas','select[name="kelas"]','.kelas','.kelasSelect','.kelas-select',
-      // tanggal (harian)
-      '#tanggal','#tanggalInput','#date','input[name="tanggal"]',
-      // kalau pakai datepicker custom, perubahan value via script sering pakai 'input'
-    ];
-
-    selectors.forEach(sel=>{
-      const el = document.querySelector(sel);
-      if(!el) return;
-      // idempotent: hindari double binding
-      if (el.__murAutoBound) return;
-      el.__murAutoBound = true;
-
-      // perubahan kelas/tanggal → refresh
-      el.addEventListener('change', ()=>debounce(onDailyContextMaybeRefresh, 120));
-      el.addEventListener('input',  ()=>debounce(onDailyContextMaybeRefresh, 120)); // untuk datepicker yang update via input
-    });
-
-    // Bila ada elemen akhir rentang, perubahan ini TIDAK memicu refresh harian (tetap dihitung lewat modul range)
-    const endRange = document.querySelector('#tanggal-filter-akhir') || document.querySelector('#murRangeSampai');
-    if (endRange && !endRange.__murAutoBound){
-      endRange.__murAutoBound = true;
-      endRange.addEventListener('change', ()=>{/* sengaja kosong: range dihandle modul range */});
-      endRange.addEventListener('input',  ()=>{/* sengaja kosong */});
-    }
-  }
-
-  // jalankan sekali saat DOM siap
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', bindAutoRefreshTriggers);
-  } else {
-    bindAutoRefreshTriggers();
-  }
-
-  // kalau SPA/halaman dinamis, re-check beberapa saat setelah load data
-  const _origLoad = window.loadSantriData;
-  window.loadSantriData = async function(...args){
-    await (_origLoad?.apply ? _origLoad.apply(this, args) : Promise.resolve());
-    setTimeout(bindAutoRefreshTriggers, 50);
-    // setelah data baru muncul, refresh harian jika bukan mode rentang
-    setTimeout(onDailyContextMaybeRefresh, 120);
-  };
-})();
 
   // init
   (async function init(){
