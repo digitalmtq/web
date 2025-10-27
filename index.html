@@ -10817,38 +10817,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 <script>
-// === [GRAFIK PROSENTASE THMS — PER JENJANG & PER HALAQOH + CACHING + NORMALISASI JENJANG] ===
-// versi: final revisi (tunggu elemen siap + whitelist roster + cache fingerprint)
+/* === [GRAFIK PROSENTASE THMS — PER JENJANG & PER HALAQOH + CACHING + NORMALISASI JENJANG] === */
 (function grafikTHMS_boot(){
-
   // ---- util: tunggu DOM siap
   function onReady(fn){
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', fn, { once:true });
-    } else { fn(); }
+    } else fn();
   }
-
-  // ---- util: tunggu sampai .pdf-rekap-controls ada (untuk halaman dinamis)
+  // ---- util: tunggu sampai .pdf-rekap-controls benar2 ada (untuk halaman dinamis/SPA)
   function whenControlsExist(fn){
-    const ok = document.querySelector('.pdf-rekap-controls');
-    if (ok) return fn();
+    const el = document.querySelector('.pdf-rekap-controls');
+    if (el) return fn();
     const mo = new MutationObserver(()=>{
-      const hit = document.querySelector('.pdf-rekap-controls');
-      if (hit) { mo.disconnect(); fn(); }
+      const ok = document.querySelector('.pdf-rekap-controls');
+      if (ok) { mo.disconnect(); fn(); }
     });
     mo.observe(document.documentElement, { childList:true, subtree:true });
-    setTimeout(()=>mo.disconnect(), 10000); // failsafe 10s
+    setTimeout(()=>mo.disconnect(), 10000); // fail-safe
   }
 
   onReady(()=> whenControlsExist(initGrafikTHMS));
 
-  // =====================================================================
-  // SEMUA KODE UTAMA DITARUH DI DALAM FUNGSI INI
-  // =====================================================================
   function initGrafikTHMS(){
     const wrap = document.querySelector('.pdf-rekap-controls');
     if (!wrap) return console.warn('[THMS] .pdf-rekap-controls tidak ditemukan');
-    if (document.getElementById('btn-graph-thms')) return; // sudah terpasang
+    if (document.getElementById('btn-graph-thms')) return;
 
     // ===== Tombol pemicu
     const btn = document.createElement('button');
@@ -10951,8 +10945,8 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // ====== Caching helpers
-    const CACHE_NS = 'THMS_GRAPH_V4KEY';
+    // ====== Caching helpers (cache ikut roster)
+    const CACHE_NS = 'THMS_GRAPH_V5KEY';
     const CACHE_TTL_MS = 24*60*60*1000; // 24 jam
     function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
     function cacheLoad(baseKey, mode){
@@ -11032,10 +11026,18 @@ document.addEventListener("DOMContentLoaded", () => {
       return kelasKey;
     }
 
-    // ===== Whitelist berbasis roster (NIS/ID)
-    function buildRosterWhitelist(santriData){
+    // ===== Roster (untuk master jenjang)
+    async function getRosterForClass(kelasKey){
+      const r = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
+      const roster = await r?.json().catch(()=>[]);
+      return Array.isArray(roster) ? roster : [];
+    }
+
+    // ===== Whitelist helper (pakai buildRosterWhitelist jika tersedia)
+    function makeAllowSet(roster){
+      if (typeof buildRosterWhitelist === 'function') return buildRosterWhitelist(roster);
       const allow = new Set();
-      for (const s of (santriData||[])) {
+      for (const s of (roster||[])) {
         const nis = (s?.nis===0 || s?.nis) ? String(s.nis).trim() : "";
         const id  = (s?.id===0  || s?.id)  ? String(s.id).trim()  : "";
         if (nis) allow.add(nis);
@@ -11044,14 +11046,20 @@ document.addEventListener("DOMContentLoaded", () => {
       return allow;
     }
 
-    // ===== Roster (untuk master jenjang)
-    async function getRosterForClass(kelasKey){
-      const r = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
-      const roster = await r?.json().catch(()=>[]);
-      return Array.isArray(roster) ? roster : [];
+    // ===== (Opsional kuat) sidik-jari roster untuk cache key
+    async function rosterFingerprintAll(kelasKeys){
+      const lists = await Promise.all(kelasKeys.map(k => getRosterForClass(k)));
+      const ids = lists.flat().flatMap(s => {
+        const nis = (s?.nis===0 || s?.nis) ? String(s.nis).trim() : "";
+        const id  = (s?.id===0  || s?.id)  ? String(s.id).trim()  : "";
+        return [nis, id].filter(Boolean);
+      }).sort().join('|');
+      let h = 0;
+      for (let i=0;i<ids.length;i++) h = (h*31 + ids.charCodeAt(i)) >>> 0;
+      return h.toString(36).slice(0,12);
     }
 
-    // ===== Fallback: agregat D1 + roster (❗difilter whitelist)
+    // ===== Fallback: agregat D1 + roster (TERFILTER whitelist)
     async function fetchAggOnlyRows(kelasKey, startDate, endDate){
       const url = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&aggregate=1&t=${Date.now()}`;
       const r1  = await fetch(url).catch(()=>null);
@@ -11059,8 +11067,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!j1 || !j1.aggregate || !Array.isArray(j1.list)) return [];
 
       const roster = await getRosterForClass(kelasKey);
-      const allow  = buildRosterWhitelist(roster);
-
+      const allow  = makeAllowSet(roster);
       const byNis = new Map(), byId = new Map();
       for (const s of roster){
         const nis = (s?.nis===0 || s?.nis) ? String(s.nis).trim() : "";
@@ -11072,7 +11079,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const out = [];
       for (const it of j1.list){
         const key = String(it?.key||'').trim();
-        if (!key || !allow.has(key)) continue; // <<< filter yang tidak ada di roster
+        if (!key || !allow.has(key)) continue; // << filter berdasar roster
         const totalJuz = Number(it?.totalJuz || it?.total_juz_num || 0);
         const s = byNis.get(key) || byId.get(key) || {};
         out.push({
@@ -11084,10 +11091,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return out;
     }
 
-    // ===== Ambil rows per kelas (universal + fallback) — (❗difilter whitelist)
+    // ===== Ambil rows per kelas (universal + fallback) — juga TERFILTER whitelist
     async function getRowsForClass(kelasKey, startDate, endDate){
       const roster = await getRosterForClass(kelasKey);
-      const allow  = buildRosterWhitelist(roster);
+      const allow  = makeAllowSet(roster);
 
       if (typeof collectRekapDataForClass === 'function') {
         const data = await collectRekapDataForClass(kelasKey, startDate, endDate).catch(()=>null);
@@ -11212,7 +11219,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return { rows, startDate, endDate, mode: 'kelas' };
     }
 
-    // ======= Render (kartu tab Jenjang identik dengan tab Kelas)
+    // ======= Chart ctx guard
+    function getChartCtx(){
+      const c = document.getElementById('thmsChart');
+      const ctx = c && c.getContext && c.getContext('2d');
+      if (!ctx) throw new Error('Canvas context tidak tersedia');
+      return ctx;
+    }
+
+    // ======= Render (kartu tab Jenjang kini identik dengan tab Kelas)
     let _chart = null, _mode = 'jenjang', _lastBaseKey = null;
     function renderView(payload, fromCache=false){
       const { rows, startDate, endDate, mode } = payload;
@@ -11228,7 +11243,6 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById('thmsCardKelompokTitle').textContent =
         mode === 'kelas' ? 'Total Halaqoh' : 'Total Jenjang';
 
-      // === Penghitungan kartu ===
       const totalGroupsShown = rows.length;
       const totalSantri = rows.reduce((s,r)=>s+r.count,0);
       const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
@@ -11243,9 +11257,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const labels = rows.map(r=>r.label);
       const data   = rows.map(r=>Math.round(r.avg));
-      const canvas = document.getElementById('thmsChart');
-      const ctx    = canvas && canvas.getContext && canvas.getContext('2d');
-      if (!ctx) { console.warn('[THMS] Canvas context tidak tersedia'); return; }
+      const ctx    = getChartCtx();
       if (_chart) { _chart.destroy(); _chart=null; }
       _chart = new Chart(ctx, {
         type:'bar',
@@ -11285,19 +11297,6 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById('tabKelas').classList.toggle('active',   mode==='kelas');
     }
 
-    // ===== Fingerprint roster gabungan (untuk kunci cache agar ikut berubah saat roster berubah)
-    async function rosterFingerprintAll(kelasKeys){
-      const lists = await Promise.all(kelasKeys.map(k => getRosterForClass(k)));
-      const ids = lists.flat().flatMap(s => {
-        const nis = (s?.nis===0 || s?.nis) ? String(s.nis).trim() : "";
-        const id  = (s?.id===0  || s?.id)  ? String(s.id).trim()  : "";
-        return [nis, id].filter(Boolean);
-      }).sort().join('|');
-      let h = 0;
-      for (let i=0;i<ids.length;i++) h = (h*31 + ids.charCodeAt(i)) >>> 0;
-      return h.toString(36).slice(0,12);
-    }
-
     // ======= Click handler + cache-aware
     async function openOverlay(defaultMode='jenjang'){
       btn.disabled = true; btn.textContent = 'Memuat grafik…';
@@ -11311,7 +11310,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const kelasKeys = getAllKelasKeysSafe();
         if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
 
-        // baseKey + fingerprint roster → cache otomatis invalid saat roster berubah
+        // cache key + sidik-jari roster
         const rf = await rosterFingerprintAll(kelasKeys);
         const baseKey = `${CACHE_NS}|${startDate}|${endDate}|${fingerprintKeys(kelasKeys)}|R:${rf}`;
         let mode = defaultMode;
@@ -11365,7 +11364,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     btn.addEventListener('click', ()=>openOverlay('jenjang'));
-  } // end initGrafikTHMS
+  }
 })();
 </script>
 
