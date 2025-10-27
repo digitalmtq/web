@@ -10817,487 +10817,555 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 <script>
-// === [GRAFIK PROSENTASE THMS — PER JENJANG & PER HALAQOH + CACHING + NORMALISASI JENJANG] ==
-(function grafikTHMS(){
-  const wrap = document.querySelector('.pdf-rekap-controls');
-  if (!wrap) return console.warn('[THMS] .pdf-rekap-controls tidak ditemukan');
-  if (document.getElementById('btn-graph-thms')) return;
+// === [GRAFIK PROSENTASE THMS — PER JENJANG & PER HALAQOH + CACHING + NORMALISASI JENJANG] ===
+// versi: final revisi (tunggu elemen siap + whitelist roster + cache fingerprint)
+(function grafikTHMS_boot(){
 
-  // ===== Tombol pemicu
-  const btn = document.createElement('button');
-  btn.id = 'btn-graph-thms';
-  btn.className = 'rekap-btn';
-  btn.style.background = '#16a34a';
-  btn.textContent = 'Grafik Prosentase';
-  wrap.appendChild(btn);
-
-  // ===== Style overlay (center)
-  if (!document.getElementById('thms-ov-style')) {
-    const s = document.createElement('style');
-    s.id = 'thms-ov-style';
-    s.textContent = `
-      .thms-ov{position:fixed; inset:0; z-index:9999; display:none; background:rgba(0,0,0,.5); align-items:center; justify-content:center; padding:16px}
-      .thms-ov[style*="display: block"]{ display:flex !important; }
-      .thms-sheet{position:relative; width:min(980px,94vw); max-height:90vh; overflow:auto; background:#fff; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.25); padding:14px}
-      .thms-handle{width:56px;height:5px;background:#e5e7eb;border-radius:999px;margin:2px auto 8px}
-      .thms-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
-      .thms-title{font-weight:800;font-size:18px;color:#111827}
-      .thms-sub{color:#4b5563;font-size:13px;margin-top:2px}
-      .thms-close{border:none;background:#ef4444;color:#fff;font-weight:700;border-radius:10px;padding:.5rem .8rem;cursor:pointer}
-      .thms-tabs{display:flex;gap:8px;margin-top:10px}
-      .thms-tab{padding:.45rem .7rem;border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;color:#374151;font-weight:700;cursor:pointer}
-      .thms-tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
-      .thms-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-      @media (min-width:640px){ .thms-cards{grid-template-columns:repeat(5,1fr)} }
-      .thms-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
-      .thms-card .t{font-size:12px;color:#6b7280}
-      .thms-card .v{font-weight:800;font-size:18px;color:#111827}
-      .thms-chart{margin-top:10px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
-      .thms-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
-      .thms-item{border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
-      .thms-item .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
-      .thms-item .name{font-weight:700;color:#111827}
-      .thms-item .pct{font-variant-numeric:tabular-nums;font-weight:800}
-      .thms-progress{height:8px;background:#f3f4f6;border-radius:999px;overflow:hidden;margin-top:6px}
-      .thms-progress > span{display:block;height:100%;background:#3b82f6}
-      .thms-cache-flag{font-size:11px;color:#059669;font-weight:700;margin-left:6px}
-    `;
-    document.head.appendChild(s);
+  // ---- util: tunggu DOM siap
+  function onReady(fn){
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', fn, { once:true });
+    } else { fn(); }
   }
 
-  // ===== Overlay DOM (❗hanya tombol "Tutup")
-  function ensureOverlay(){
-    if (document.getElementById('thmsOverlay')) return;
-    const el = document.createElement('div');
-    el.id = 'thmsOverlay';
-    el.className = 'thms-ov';
-    el.innerHTML = `
-      <div class="thms-sheet" role="dialog" aria-modal="true" aria-labelledby="thmsTitleMain">
-        <div class="thms-handle"></div>
-        <div class="thms-header">
-          <div>
-            <div class="thms-title">
-              <span id="thmsTitleMain">Grafik Prosentase</span>
-              <span id="thmsTitleMode">— Per Jenjang</span>
-              <span id="thmsCacheFlag" class="thms-cache-flag" style="display:none">(cache)</span>
-            </div>
-            <div id="thmsSub" class="thms-sub"></div>
-          </div>
-          <button id="thmsClose" class="thms-close">Tutup</button>
-        </div>
-
-        <div class="thms-tabs">
-          <button id="tabJenjang" class="thms-tab active">Per Jenjang</button>
-          <button id="tabKelas"   class="thms-tab">Per Halaqoh (Ustadz)</button>
-        </div>
-
-        <div class="thms-cards">
-          <div class="thms-card"><div id="thmsCardKelompokTitle" class="t">Total Jenjang</div><div id="thmsCardKelompok" class="v">-</div></div>
-          <div class="thms-card"><div class="t">Total Santri</div><div id="thmsCardSantri" class="v">-</div></div>
-          <div class="thms-card"><div class="t">Rata-rata Global</div><div id="thmsCardAvg" class="v">-</div></div>
-          <div class="thms-card"><div class="t">Tuntas</div><div id="thmsCardTuntas" class="v">-</div></div>
-          <div class="thms-card"><div class="t">Khatam</div><div id="thmsCardKhatam" class="v">-</div></div>
-        </div>
-
-        <div class="thms-chart"><canvas id="thmsChart" height="160"></canvas></div>
-        <div id="thmsList" class="thms-list"></div>
-      </div>
-    `;
-    document.body.appendChild(el);
-
-    const close = ()=> el.style.display='none';
-    document.addEventListener('keydown', (e)=>{
-      if (el.style.display==='block' && (e.key==='Escape' || e.key==='Esc')) {
-        e.stopPropagation(); e.preventDefault();
-      }
-    }, true);
-    el.querySelector('#thmsClose').addEventListener('click', close);
-  }
-
-  async function ensureChartJS(){
-    if (window.Chart) return;
-    await new Promise((res, rej)=>{
-      const s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
-      s.onload=res; s.onerror=()=>rej(new Error('Gagal memuat Chart.js'));
-      document.head.appendChild(s);
+  // ---- util: tunggu sampai .pdf-rekap-controls ada (untuk halaman dinamis)
+  function whenControlsExist(fn){
+    const ok = document.querySelector('.pdf-rekap-controls');
+    if (ok) return fn();
+    const mo = new MutationObserver(()=>{
+      const hit = document.querySelector('.pdf-rekap-controls');
+      if (hit) { mo.disconnect(); fn(); }
     });
+    mo.observe(document.documentElement, { childList:true, subtree:true });
+    setTimeout(()=>mo.disconnect(), 10000); // failsafe 10s
   }
 
-  // ====== Caching helpers
-  const CACHE_NS = 'THMS_GRAPH_V4KEY';
-  const CACHE_TTL_MS = 24*60*60*1000; // 24 jam
-  function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
-  function makeBaseKey(start, end, kelasKeys){ return `${CACHE_NS}|${start}|${end}|${fingerprintKeys(kelasKeys)}`; }
-  function cacheLoad(baseKey, mode){
-    try{
-      const raw = localStorage.getItem(`${baseKey}|${mode}`);
-      if (!raw) return null;
-      const obj = JSON.parse(raw);
-      if (!obj || !obj.t || !obj.payload) return null;
-      if (Date.now() - obj.t > CACHE_TTL_MS) return null;
-      return obj.payload;
-    }catch(e){ return null; }
-  }
-  function cacheSave(baseKey, mode, payload){
-    try{ localStorage.setItem(`${baseKey}|${mode}`, JSON.stringify({ t: Date.now(), payload })); }catch(e){}
-  }
+  onReady(()=> whenControlsExist(initGrafikTHMS));
 
-  // ===== Helper daftar kelas (aman)
-  function getAllKelasKeysSafe(){
-    if (typeof _getAllKelasKeys === 'function') {
-      const k = _getAllKelasKeys();
-      if (Array.isArray(k) && k.length) return k;
-    }
-    if (Array.isArray(window.ALL_KELAS_KEYS) && window.ALL_KELAS_KEYS.length){
-      return [...new Set(window.ALL_KELAS_KEYS.map(String))];
-    }
-    const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
-             ? kelasSelect
-             : (document.getElementById('kelasSelect') || document.getElementById('kelas'));
-    let keys = [];
-    if (el?.options?.length) keys = [...el.options].map(o=>o.value).filter(Boolean);
-    const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM;
-    if (!keys.length && custom && typeof custom==='object') keys = Object.keys(custom);
-    if (!keys.length && el?.value) keys = [el.value];
-    keys = [...new Set(keys.map(String))].sort((a,b)=>{
-      const na = +(String(a).match(/(\d+)/)?.[1]||1e9);
-      const nb = +(String(b).match(/(\d+)/)?.[1]||1e9);
-      return na-nb || String(a).localeCompare(String(b),'id');
-    });
-    if (keys.length) window.ALL_KELAS_KEYS = keys;
-    return keys;
-  }
+  // =====================================================================
+  // SEMUA KODE UTAMA DITARUH DI DALAM FUNGSI INI
+  // =====================================================================
+  function initGrafikTHMS(){
+    const wrap = document.querySelector('.pdf-rekap-controls');
+    if (!wrap) return console.warn('[THMS] .pdf-rekap-controls tidak ditemukan');
+    if (document.getElementById('btn-graph-thms')) return; // sudah terpasang
 
-  // ===== Normalisasi & sort jenjang
-  function normJenjangKey(raw){
-    let s = (raw==null ? '' : String(raw)).trim().toUpperCase();
-    s = s.replace(/[\.\-\_ ]+/g,'');
-    return s;
-  }
-  function prettyJenjangLabel(raw){
-    if (typeof jenjangLabel === 'function'){
-      const r = jenjangLabel(raw ?? '');
-      if (r != null && String(r).trim()) return String(r).trim();
-    }
-    return String(raw ?? '').trim();
-  }
-  function sortKeyJenjang(label){
-    const lbl = String(label||'').trim();
-    const mIL = /^IL\s*([A-D])$/i.exec(lbl) || /^IL([A-D])$/i.exec(lbl);
-    if (mIL) return `0.${'ABCD'.indexOf(mIL[1].toUpperCase())}`;
-    const m = /^(\d+)\s*([A-Z])$/i.exec(lbl) || /^(\d+)([A-Z])$/i.exec(lbl);
-    if (m) return `${String(m[1]).padStart(3,'0')}.${m[2]}`;
-    return `999.${lbl}`;
-  }
+    // ===== Tombol pemicu
+    const btn = document.createElement('button');
+    btn.id = 'btn-graph-thms';
+    btn.className = 'rekap-btn';
+    btn.style.background = '#16a34a';
+    btn.textContent = 'Grafik Prosentase';
+    wrap.appendChild(btn);
 
-  // ===== Label kelas (ustadz)
-  function getKelasLabel(kelasKey){
-    const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
-             ? kelasSelect
-             : (document.getElementById('kelasSelect') || document.getElementById('kelas'));
-    const opt = el ? [...el.options].find(o=>o.value===kelasKey) : null;
-    if (opt && opt.textContent) return opt.textContent.trim();
-    const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {};
-    if (custom[kelasKey]) return String(custom[kelasKey]);
-    if (typeof _kelasKelompokLineFor === 'function') {
-      return _kelasKelompokLineFor(kelasKey)?.line?.replace(/^Halaqoh:\s*/,'') || kelasKey;
-    }
-    return kelasKey;
-  }
-
-  // ===== Roster (untuk master jenjang)
-  async function getRosterForClass(kelasKey){
-    const r = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
-    const roster = await r?.json().catch(()=>[]);
-    return Array.isArray(roster) ? roster : [];
-  }
-
-  // ===== Fallback: agregat D1 + roster
-  async function fetchAggOnlyRows(kelasKey, startDate, endDate){
-    const url = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&aggregate=1&t=${Date.now()}`;
-    const r1  = await fetch(url).catch(()=>null);
-    const j1  = await r1?.json().catch(()=>null);
-    if (!j1 || !j1.aggregate || !Array.isArray(j1.list)) return [];
-
-    const roster = await getRosterForClass(kelasKey);
-    const byNis = new Map(), byId = new Map();
-    for (const s of roster){
-      const nis = (s?.nis==null? '' : String(s.nis).trim());
-      const id  = (s?.id==null ? '' : String(s.id).trim());
-      if (nis) byNis.set(nis, s);
-      if (id)  byId.set(id, s);
-    }
-
-    const out = [];
-    for (const it of j1.list){
-      const key = String(it?.key||'').trim();
-      if (!key) continue;
-      const totalJuz = Number(it?.totalJuz || it?.total_juz_num || 0);
-      const s = byNis.get(key) || byId.get(key) || {};
-      out.push({
-        totalJuz,
-        semester: (s?.semester!=null) ? Number(s.semester) : null,
-        jenjang : s?.jenjang ?? null
-      });
-    }
-    return out;
-  }
-
-  // ===== Ambil rows per kelas (universal + fallback)
-  async function getRowsForClass(kelasKey, startDate, endDate){
-    if (typeof collectRekapDataForClass === 'function') {
-      const data = await collectRekapDataForClass(kelasKey, startDate, endDate).catch(()=>null);
-      if (data?.rows?.length) {
-        return data.rows.map(r => ({
-          totalJuz: Number(r.totalJuz||0),
-          semester: r.semester,
-          jenjang : r.jenjang
-        }));
-      }
-    }
-    return await fetchAggOnlyRows(kelasKey, startDate, endDate).catch(()=>[]);
-  }
-
-  // Quick helper: percent
-  function getPercent(r){
-    if (typeof PDF_totalAllJuzStatus==='function'){
-      return PDF_totalAllJuzStatus(Number(r.totalJuz||0), r.semester)?.percent || 0;
-    }
-    if (typeof PDF_percentCapaian==='function'){
-      return PDF_percentCapaian(Number(r.totalJuz||0), r.semester) || 0;
-    }
-    return 0;
-  }
-
-  // ===== Master jenjang
-  async function collectMasterJenjang(kelasKeys){
-    const normSet = new Map(); // keyNorm -> prettyLabel
-    const push = (raw)=>{
-      const pretty = prettyJenjangLabel(raw);
-      const key = normJenjangKey(pretty || raw);
-      if (!key) return;
-      if (!normSet.has(key)) normSet.set(key, pretty || raw);
-    };
-    if (Array.isArray(window.MASTER_JENJANG) && window.MASTER_JENJANG.length){
-      for (const lbl of window.MASTER_JENJANG) push(lbl);
-    }
-    const sel = document.getElementById('jenjang') || document.getElementById('jenjangSelect');
-    if (sel?.options?.length){
-      for (const o of sel.options) push(o.textContent || o.value);
-    }
-    for (const k of kelasKeys){
-      const roster = await getRosterForClass(k);
-      for (const s of roster){ push(s?.jenjang ?? ''); }
-    }
-    return [...normSet.entries()]
-      .map(([key, label]) => ({ key, label: prettyJenjangLabel(label) }))
-      .sort((a,b)=> sortKeyJenjang(a.label).localeCompare(sortKeyJenjang(b.label),'id'));
-  }
-
-  // ======= Komputasi: Per Jenjang (rilis semua jenjang, termasuk kosong)
-  async function computeByJenjang(startDate, endDate, kelasKeys){
-    const agg = new Map(); // keyNorm -> { label, sumPct, n, kh, tn, countSantri }
-    for (const k of kelasKeys){
-      const rowsKelas = await getRowsForClass(k, startDate, endDate);
-      for (const r of rowsKelas){
-        const rawLabel = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
-        const display  = prettyJenjangLabel(rawLabel);
-        const key      = normJenjangKey(display);
-        if (!key) continue;
-
-        const pct = getPercent(r);
-        const isKhatam = Number(r.totalJuz||0) >= 30;
-        const isTuntas = !isKhatam && pct >= 100;
-
-        if (!agg.has(key)) agg.set(key, { label: display, sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
-        const a = agg.get(key);
-        if (display && a.label !== display && prettyJenjangLabel(display).length > prettyJenjangLabel(a.label).length){
-          a.label = display;
-        }
-        a.sumPct += pct; a.n++; a.countSantri++;
-        if (isKhatam) a.kh++; else if (isTuntas) a.tn++;
-      }
-    }
-
-    const master = await collectMasterJenjang(kelasKeys);
-    const rows = master.map(m => {
-      const v = agg.get(m.key);
-      if (!v) {
-        return { label: m.label, avg: 0, khatam: 0, tuntas: 0, count: 0 };
-      }
-      return {
-        label : v.label,
-        avg   : v.n ? (v.sumPct/v.n) : 0,
-        khatam: v.kh,
-        tuntas: v.tn,
-        count : v.countSantri
-      };
-    });
-
-    return { rows, startDate, endDate, mode: 'jenjang' };
-  }
-
-  // ======= Komputasi: Per Halaqoh (kelas) — selalu rilis semua kelas
-  async function computeByKelas(startDate, endDate, kelasKeys){
-    const rows = [];
-    for (const k of kelasKeys){
-      const rowsKelas = await getRowsForClass(k, startDate, endDate);
-      let sum=0, n=0, kh=0, tn=0;
-      for (const r of rowsKelas){
-        const pct = getPercent(r);
-        const isKhatam = Number(r.totalJuz||0) >= 30;
-        const isTuntas = !isKhatam && pct >= 100;
-        sum += pct; n++; if (isKhatam) kh++; else if (isTuntas) tn++;
-      }
-      rows.push({
-        label: getKelasLabel(k),
-        avg: n? (sum/n) : 0,
-        khatam: kh,
-        tuntas: tn,
-        count: n
-      });
-    }
-    rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
-    return { rows, startDate, endDate, mode: 'kelas' };
-  }
-
-  // ======= Render (kartu tab Jenjang kini identik dengan tab Kelas)
-  let _chart = null, _mode = 'jenjang', _lastBaseKey = null;
-  function renderView(payload, fromCache=false){
-    const { rows, startDate, endDate, mode } = payload;
-    const ov = document.getElementById('thmsOverlay');
-    ov.style.display = 'block';
-
-    document.getElementById('thmsTitleMode').textContent =
-      mode === 'kelas' ? '— Per Halaqoh (Ustadz)' : '— Per Jenjang';
-    const fmt = (window.fmtD_M_YYYY || (x=>x));
-    document.getElementById('thmsSub').textContent = `Periode: ${fmt(startDate)} s.d. ${fmt(endDate)}`;
-    document.getElementById('thmsCacheFlag').style.display = fromCache ? '' : 'none';
-
-    document.getElementById('thmsCardKelompokTitle').textContent =
-      mode === 'kelas' ? 'Total Halaqoh' : 'Total Jenjang';
-
-    // === Penghitungan kartu: SAMA untuk kedua mode (mengikuti tab Kelas) ===
-    const totalGroupsShown = rows.length; // jumlah baris yang ditampilkan
-    const totalSantri = rows.reduce((s,r)=>s+r.count,0);
-    const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
-    const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
-    const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
-
-    document.getElementById('thmsCardKelompok').textContent = totalGroupsShown;
-    document.getElementById('thmsCardSantri').textContent   = totalSantri;
-    document.getElementById('thmsCardAvg').textContent      = `${avgGlobal}%`;
-    document.getElementById('thmsCardTuntas').textContent   = totalTuntas;
-    document.getElementById('thmsCardKhatam').textContent   = totalKhatam;
-
-    const labels = rows.map(r=>r.label);
-    const data   = rows.map(r=>Math.round(r.avg));
-    const ctx    = document.getElementById('thmsChart').getContext('2d');
-    if (_chart) { _chart.destroy(); _chart=null; }
-    _chart = new Chart(ctx, {
-      type:'bar',
-      data:{ labels, datasets:[{ label:'Rata-rata THMS (%)', data }] },
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        scales:{ y:{ beginAtZero:true, max:100, ticks:{ stepSize:10 } } },
-        plugins:{
-          legend:{ display:false },
-          tooltip:{ callbacks:{ footer:(items)=>{
-            const i = items[0].dataIndex, r = rows[i];
-            return `Santri: ${r.count} | Tuntas: ${r.tuntas} | Khatam: ${r.khatam}`;
-          }}}
-        }
-      }
-    });
-
-    const list = document.getElementById('thmsList');
-    list.innerHTML = '';
-    rows.forEach(r=>{
-      const pct = Math.round(r.avg);
-      const item = document.createElement('div');
-      item.className = 'thms-item';
-      item.innerHTML = `
-        <div class="row">
-          <div class="name">${r.label}</div>
-          <div class="pct">${pct}%</div>
-        </div>
-        <div class="thms-progress"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>
-        <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Tuntas: ${r.tuntas} · Khatam: ${r.khatam}</div>
+    // ===== Style overlay (center)
+    if (!document.getElementById('thms-ov-style')) {
+      const s = document.createElement('style');
+      s.id = 'thms-ov-style';
+      s.textContent = `
+        .thms-ov{position:fixed; inset:0; z-index:9999; display:none; background:rgba(0,0,0,.5); align-items:center; justify-content:center; padding:16px}
+        .thms-ov[style*="display: block"]{ display:flex !important; }
+        .thms-sheet{position:relative; width:min(980px,94vw); max-height:90vh; overflow:auto; background:#fff; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.25); padding:14px}
+        .thms-handle{width:56px;height:5px;background:#e5e7eb;border-radius:999px;margin:2px auto 8px}
+        .thms-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+        .thms-title{font-weight:800;font-size:18px;color:#111827}
+        .thms-sub{color:#4b5563;font-size:13px;margin-top:2px}
+        .thms-close{border:none;background:#ef4444;color:#fff;font-weight:700;border-radius:10px;padding:.5rem .8rem;cursor:pointer}
+        .thms-tabs{display:flex;gap:8px;margin-top:10px}
+        .thms-tab{padding:.45rem .7rem;border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;color:#374151;font-weight:700;cursor:pointer}
+        .thms-tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
+        .thms-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+        @media (min-width:640px){ .thms-cards{grid-template-columns:repeat(5,1fr)} }
+        .thms-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
+        .thms-card .t{font-size:12px;color:#6b7280}
+        .thms-card .v{font-weight:800;font-size:18px;color:#111827}
+        .thms-chart{margin-top:10px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
+        .thms-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+        .thms-item{border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
+        .thms-item .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+        .thms-item .name{font-weight:700;color:#111827}
+        .thms-item .pct{font-variant-numeric:tabular-nums;font-weight:800}
+        .thms-progress{height:8px;background:#f3f4f6;border-radius:999px;overflow:hidden;margin-top:6px}
+        .thms-progress > span{display:block;height:100%;background:#3b82f6}
+        .thms-cache-flag{font-size:11px;color:#059669;font-weight:700;margin-left:6px}
       `;
-      list.appendChild(item);
-    });
-
-    _mode = mode;
-    document.getElementById('tabJenjang').classList.toggle('active', mode==='jenjang');
-    document.getElementById('tabKelas').classList.toggle('active',   mode==='kelas');
-  }
-
-  // ======= Click handler + cache-aware
-  async function openOverlay(defaultMode='jenjang'){
-    btn.disabled = true; btn.textContent = 'Memuat grafik…';
-    try{
-      ensureOverlay(); await ensureChartJS();
-
-      const startDate = document.querySelector('#pdf-start-date')?.value;
-      const endDate   = document.querySelector('#pdf-end-date')?.value;
-      if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai & akhir.');
-
-      const kelasKeys = getAllKelasKeysSafe();
-      if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
-
-      const baseKey = makeBaseKey(startDate, endDate, kelasKeys);
-      let mode = defaultMode;
-
-      let payload = cacheLoad(baseKey, mode);
-      if (!payload){
-        payload = (mode==='kelas')
-          ? await computeByKelas(startDate, endDate, kelasKeys)
-          : await computeByJenjang(startDate, endDate, kelasKeys);
-        cacheSave(baseKey, mode, payload);
-      }
-      renderView(payload, !!cacheLoad(baseKey, mode));
-      _lastBaseKey = baseKey;
-
-      const tabJ = document.getElementById('tabJenjang');
-      const tabK = document.getElementById('tabKelas');
-      if (!tabJ.dataset.bound){
-        tabJ.dataset.bound = '1';
-        tabJ.addEventListener('click', async ()=>{
-          if (_mode==='jenjang') return;
-          const c = cacheLoad(_lastBaseKey, 'jenjang');
-          if (c) return renderView(c, true);
-          const start = document.querySelector('#pdf-start-date')?.value;
-          const end   = document.querySelector('#pdf-end-date')?.value;
-          const keys  = getAllKelasKeysSafe();
-          const data  = await computeByJenjang(start, end, keys);
-          cacheSave(_lastBaseKey, 'jenjang', data);
-          renderView(data, false);
-        });
-      }
-      if (!tabK.dataset.bound){
-        tabK.dataset.bound = '1';
-        tabK.addEventListener('click', async ()=>{
-          if (_mode==='kelas') return;
-          const c = cacheLoad(_lastBaseKey, 'kelas');
-          if (c) return renderView(c, true);
-          const start = document.querySelector('#pdf-start-date')?.value;
-          const end   = document.querySelector('#pdf-end-date')?.value;
-          const keys  = getAllKelasKeysSafe();
-          const data  = await computeByKelas(start, end, keys);
-          cacheSave(_lastBaseKey, 'kelas', data);
-          renderView(data, false);
-        });
-      }
-    } catch(e){
-      console.error(e);
-      alert('Gagal menampilkan grafik: ' + (e.message||e));
-    } finally {
-      btn.disabled = false; btn.textContent = 'Grafik Prosentase';
+      document.head.appendChild(s);
     }
-  }
 
-  btn.addEventListener('click', ()=>openOverlay('jenjang'));
+    // ===== Overlay DOM (❗hanya tombol "Tutup")
+    function ensureOverlay(){
+      if (document.getElementById('thmsOverlay')) return;
+      const el = document.createElement('div');
+      el.id = 'thmsOverlay';
+      el.className = 'thms-ov';
+      el.innerHTML = `
+        <div class="thms-sheet" role="dialog" aria-modal="true" aria-labelledby="thmsTitleMain">
+          <div class="thms-handle"></div>
+          <div class="thms-header">
+            <div>
+              <div class="thms-title">
+                <span id="thmsTitleMain">Grafik Prosentase</span>
+                <span id="thmsTitleMode">— Per Jenjang</span>
+                <span id="thmsCacheFlag" class="thms-cache-flag" style="display:none">(cache)</span>
+              </div>
+              <div id="thmsSub" class="thms-sub"></div>
+            </div>
+            <button id="thmsClose" class="thms-close">Tutup</button>
+          </div>
+
+          <div class="thms-tabs">
+            <button id="tabJenjang" class="thms-tab active">Per Jenjang</button>
+            <button id="tabKelas"   class="thms-tab">Per Halaqoh (Ustadz)</button>
+          </div>
+
+          <div class="thms-cards">
+            <div class="thms-card"><div id="thmsCardKelompokTitle" class="t">Total Jenjang</div><div id="thmsCardKelompok" class="v">-</div></div>
+            <div class="thms-card"><div class="t">Total Santri</div><div id="thmsCardSantri" class="v">-</div></div>
+            <div class="thms-card"><div class="t">Rata-rata Global</div><div id="thmsCardAvg" class="v">-</div></div>
+            <div class="thms-card"><div class="t">Tuntas</div><div id="thmsCardTuntas" class="v">-</div></div>
+            <div class="thms-card"><div class="t">Khatam</div><div id="thmsCardKhatam" class="v">-</div></div>
+          </div>
+
+          <div class="thms-chart"><canvas id="thmsChart" height="160"></canvas></div>
+          <div id="thmsList" class="thms-list"></div>
+        </div>
+      `;
+      document.body.appendChild(el);
+
+      const close = ()=> el.style.display='none';
+      document.addEventListener('keydown', (e)=>{
+        if (el.style.display==='block' && (e.key==='Escape' || e.key==='Esc')) {
+          e.stopPropagation(); e.preventDefault();
+        }
+      }, true);
+      el.querySelector('#thmsClose').addEventListener('click', close);
+    }
+
+    async function ensureChartJS(){
+      if (window.Chart) return;
+      await new Promise((res, rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+        s.onload=res; s.onerror=()=>rej(new Error('Gagal memuat Chart.js'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // ====== Caching helpers
+    const CACHE_NS = 'THMS_GRAPH_V4KEY';
+    const CACHE_TTL_MS = 24*60*60*1000; // 24 jam
+    function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
+    function cacheLoad(baseKey, mode){
+      try{
+        const raw = localStorage.getItem(`${baseKey}|${mode}`);
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (!obj || !obj.t || !obj.payload) return null;
+        if (Date.now() - obj.t > CACHE_TTL_MS) return null;
+        return obj.payload;
+      }catch(e){ return null; }
+    }
+    function cacheSave(baseKey, mode, payload){
+      try{ localStorage.setItem(`${baseKey}|${mode}`, JSON.stringify({ t: Date.now(), payload })); }catch(e){}
+    }
+
+    // ===== Helper daftar kelas (aman)
+    function getAllKelasKeysSafe(){
+      if (typeof _getAllKelasKeys === 'function') {
+        const k = _getAllKelasKeys();
+        if (Array.isArray(k) && k.length) return k;
+      }
+      if (Array.isArray(window.ALL_KELAS_KEYS) && window.ALL_KELAS_KEYS.length){
+        return [...new Set(window.ALL_KELAS_KEYS.map(String))];
+      }
+      const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
+               ? kelasSelect
+               : (document.getElementById('kelasSelect') || document.getElementById('kelas'));
+      let keys = [];
+      if (el?.options?.length) keys = [...el.options].map(o=>o.value).filter(Boolean);
+      const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM;
+      if (!keys.length && custom && typeof custom==='object') keys = Object.keys(custom);
+      if (!keys.length && el?.value) keys = [el.value];
+      keys = [...new Set(keys.map(String))].sort((a,b)=>{
+        const na = +(String(a).match(/(\d+)/)?.[1]||1e9);
+        const nb = +(String(b).match(/(\d+)/)?.[1]||1e9);
+        return na-nb || String(a).localeCompare(String(b),'id');
+      });
+      if (keys.length) window.ALL_KELAS_KEYS = keys;
+      return keys;
+    }
+
+    // ===== Normalisasi & sort jenjang
+    function normJenjangKey(raw){
+      let s = (raw==null ? '' : String(raw)).trim().toUpperCase();
+      s = s.replace(/[\.\-\_ ]+/g,'');
+      return s;
+    }
+    function prettyJenjangLabel(raw){
+      if (typeof jenjangLabel === 'function'){
+        const r = jenjangLabel(raw ?? '');
+        if (r != null && String(r).trim()) return String(r).trim();
+      }
+      return String(raw ?? '').trim();
+    }
+    function sortKeyJenjang(label){
+      const lbl = String(label||'').trim();
+      const mIL = /^IL\s*([A-D])$/i.exec(lbl) || /^IL([A-D])$/i.exec(lbl);
+      if (mIL) return `0.${'ABCD'.indexOf(mIL[1].toUpperCase())}`;
+      const m = /^(\d+)\s*([A-Z])$/i.exec(lbl) || /^(\d+)([A-Z])$/i.exec(lbl);
+      if (m) return `${String(m[1]).padStart(3,'0')}.${m[2]}`;
+      return `999.${lbl}`;
+    }
+
+    // ===== Label kelas (ustadz)
+    function getKelasLabel(kelasKey){
+      const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
+               ? kelasSelect
+               : (document.getElementById('kelasSelect') || document.getElementById('kelas'));
+      const opt = el ? [...el.options].find(o=>o.value===kelasKey) : null;
+      if (opt && opt.textContent) return opt.textContent.trim();
+      const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {};
+      if (custom[kelasKey]) return String(custom[kelasKey]);
+      if (typeof _kelasKelompokLineFor === 'function') {
+        return _kelasKelompokLineFor(kelasKey)?.line?.replace(/^Halaqoh:\s*/,'') || kelasKey;
+      }
+      return kelasKey;
+    }
+
+    // ===== Whitelist berbasis roster (NIS/ID)
+    function buildRosterWhitelist(santriData){
+      const allow = new Set();
+      for (const s of (santriData||[])) {
+        const nis = (s?.nis===0 || s?.nis) ? String(s.nis).trim() : "";
+        const id  = (s?.id===0  || s?.id)  ? String(s.id).trim()  : "";
+        if (nis) allow.add(nis);
+        if (id)  allow.add(id);
+      }
+      return allow;
+    }
+
+    // ===== Roster (untuk master jenjang)
+    async function getRosterForClass(kelasKey){
+      const r = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
+      const roster = await r?.json().catch(()=>[]);
+      return Array.isArray(roster) ? roster : [];
+    }
+
+    // ===== Fallback: agregat D1 + roster (❗difilter whitelist)
+    async function fetchAggOnlyRows(kelasKey, startDate, endDate){
+      const url = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelasKey)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&aggregate=1&t=${Date.now()}`;
+      const r1  = await fetch(url).catch(()=>null);
+      const j1  = await r1?.json().catch(()=>null);
+      if (!j1 || !j1.aggregate || !Array.isArray(j1.list)) return [];
+
+      const roster = await getRosterForClass(kelasKey);
+      const allow  = buildRosterWhitelist(roster);
+
+      const byNis = new Map(), byId = new Map();
+      for (const s of roster){
+        const nis = (s?.nis===0 || s?.nis) ? String(s.nis).trim() : "";
+        const id  = (s?.id===0  || s?.id)  ? String(s.id).trim()  : "";
+        if (nis) byNis.set(nis, s);
+        if (id)  byId.set(id, s);
+      }
+
+      const out = [];
+      for (const it of j1.list){
+        const key = String(it?.key||'').trim();
+        if (!key || !allow.has(key)) continue; // <<< filter yang tidak ada di roster
+        const totalJuz = Number(it?.totalJuz || it?.total_juz_num || 0);
+        const s = byNis.get(key) || byId.get(key) || {};
+        out.push({
+          totalJuz,
+          semester: (s?.semester!=null) ? Number(s.semester) : null,
+          jenjang : s?.jenjang ?? null
+        });
+      }
+      return out;
+    }
+
+    // ===== Ambil rows per kelas (universal + fallback) — (❗difilter whitelist)
+    async function getRowsForClass(kelasKey, startDate, endDate){
+      const roster = await getRosterForClass(kelasKey);
+      const allow  = buildRosterWhitelist(roster);
+
+      if (typeof collectRekapDataForClass === 'function') {
+        const data = await collectRekapDataForClass(kelasKey, startDate, endDate).catch(()=>null);
+        if (data?.rows?.length) {
+          return data.rows
+            .filter(r => {
+              const key = (r?.nis && String(r.nis).trim())
+                       || (r?.id  && String(r.id).trim())
+                       || '';
+              return key && allow.has(key);
+            })
+            .map(r => ({
+              totalJuz: Number(r.totalJuz||0),
+              semester: r.semester,
+              jenjang : r.jenjang
+            }));
+        }
+      }
+      return await fetchAggOnlyRows(kelasKey, startDate, endDate).catch(()=>[]);
+    }
+
+    // Quick helper: percent
+    function getPercent(r){
+      if (typeof PDF_totalAllJuzStatus==='function'){
+        return PDF_totalAllJuzStatus(Number(r.totalJuz||0), r.semester)?.percent || 0;
+      }
+      if (typeof PDF_percentCapaian==='function'){
+        return PDF_percentCapaian(Number(r.totalJuz||0), r.semester) || 0;
+      }
+      return 0;
+    }
+
+    // ===== Master jenjang
+    async function collectMasterJenjang(kelasKeys){
+      const normSet = new Map(); // keyNorm -> prettyLabel
+      const push = (raw)=>{
+        const pretty = prettyJenjangLabel(raw);
+        const key = normJenjangKey(pretty || raw);
+        if (!key) return;
+        if (!normSet.has(key)) normSet.set(key, pretty || raw);
+      };
+      if (Array.isArray(window.MASTER_JENJANG) && window.MASTER_JENJANG.length){
+        for (const lbl of window.MASTER_JENJANG) push(lbl);
+      }
+      const sel = document.getElementById('jenjang') || document.getElementById('jenjangSelect');
+      if (sel?.options?.length){
+        for (const o of sel.options) push(o.textContent || o.value);
+      }
+      for (const k of kelasKeys){
+        const roster = await getRosterForClass(k);
+        for (const s of roster){ push(s?.jenjang ?? ''); }
+      }
+      return [...normSet.entries()]
+        .map(([key, label]) => ({ key, label: prettyJenjangLabel(label) }))
+        .sort((a,b)=> sortKeyJenjang(a.label).localeCompare(sortKeyJenjang(b.label),'id'));
+    }
+
+    // ======= Komputasi: Per Jenjang (rilis semua jenjang, termasuk kosong)
+    async function computeByJenjang(startDate, endDate, kelasKeys){
+      const agg = new Map(); // keyNorm -> { label, sumPct, n, kh, tn, countSantri }
+      for (const k of kelasKeys){
+        const rowsKelas = await getRowsForClass(k, startDate, endDate);
+        for (const r of rowsKelas){
+          const rawLabel = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
+          const display  = prettyJenjangLabel(rawLabel);
+          const key      = normJenjangKey(display);
+          if (!key) continue;
+
+          const pct = getPercent(r);
+          const isKhatam = Number(r.totalJuz||0) >= 30;
+          const isTuntas = !isKhatam && pct >= 100;
+
+          if (!agg.has(key)) agg.set(key, { label: display, sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
+          const a = agg.get(key);
+          if (display && a.label !== display && prettyJenjangLabel(display).length > prettyJenjangLabel(a.label).length){
+            a.label = display;
+          }
+          a.sumPct += pct; a.n++; a.countSantri++;
+          if (isKhatam) a.kh++; else if (isTuntas) a.tn++;
+        }
+      }
+
+      const master = await collectMasterJenjang(kelasKeys);
+      const rows = master.map(m => {
+        const v = agg.get(m.key);
+        if (!v) {
+          return { label: m.label, avg: 0, khatam: 0, tuntas: 0, count: 0 };
+        }
+        return {
+          label : v.label,
+          avg   : v.n ? (v.sumPct/v.n) : 0,
+          khatam: v.kh,
+          tuntas: v.tn,
+          count : v.countSantri
+        };
+      });
+
+      return { rows, startDate, endDate, mode: 'jenjang' };
+    }
+
+    // ======= Komputasi: Per Halaqoh (kelas) — selalu rilis semua kelas
+    async function computeByKelas(startDate, endDate, kelasKeys){
+      const rows = [];
+      for (const k of kelasKeys){
+        const rowsKelas = await getRowsForClass(k, startDate, endDate);
+        let sum=0, n=0, kh=0, tn=0;
+        for (const r of rowsKelas){
+          const pct = getPercent(r);
+          const isKhatam = Number(r.totalJuz||0) >= 30;
+          const isTuntas = !isKhatam && pct >= 100;
+          sum += pct; n++; if (isKhatam) kh++; else if (isTuntas) tn++;
+        }
+        rows.push({
+          label: getKelasLabel(k),
+          avg: n? (sum/n) : 0,
+          khatam: kh,
+          tuntas: tn,
+          count: n
+        });
+      }
+      rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
+      return { rows, startDate, endDate, mode: 'kelas' };
+    }
+
+    // ======= Render (kartu tab Jenjang identik dengan tab Kelas)
+    let _chart = null, _mode = 'jenjang', _lastBaseKey = null;
+    function renderView(payload, fromCache=false){
+      const { rows, startDate, endDate, mode } = payload;
+      const ov = document.getElementById('thmsOverlay');
+      ov.style.display = 'block';
+
+      document.getElementById('thmsTitleMode').textContent =
+        mode === 'kelas' ? '— Per Halaqoh (Ustadz)' : '— Per Jenjang';
+      const fmt = (window.fmtD_M_YYYY || (x=>x));
+      document.getElementById('thmsSub').textContent = `Periode: ${fmt(startDate)} s.d. ${fmt(endDate)}`;
+      document.getElementById('thmsCacheFlag').style.display = fromCache ? '' : 'none';
+
+      document.getElementById('thmsCardKelompokTitle').textContent =
+        mode === 'kelas' ? 'Total Halaqoh' : 'Total Jenjang';
+
+      // === Penghitungan kartu ===
+      const totalGroupsShown = rows.length;
+      const totalSantri = rows.reduce((s,r)=>s+r.count,0);
+      const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
+      const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
+      const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
+
+      document.getElementById('thmsCardKelompok').textContent = totalGroupsShown;
+      document.getElementById('thmsCardSantri').textContent   = totalSantri;
+      document.getElementById('thmsCardAvg').textContent      = `${avgGlobal}%`;
+      document.getElementById('thmsCardTuntas').textContent   = totalTuntas;
+      document.getElementById('thmsCardKhatam').textContent   = totalKhatam;
+
+      const labels = rows.map(r=>r.label);
+      const data   = rows.map(r=>Math.round(r.avg));
+      const canvas = document.getElementById('thmsChart');
+      const ctx    = canvas && canvas.getContext && canvas.getContext('2d');
+      if (!ctx) { console.warn('[THMS] Canvas context tidak tersedia'); return; }
+      if (_chart) { _chart.destroy(); _chart=null; }
+      _chart = new Chart(ctx, {
+        type:'bar',
+        data:{ labels, datasets:[{ label:'Rata-rata THMS (%)', data }] },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          scales:{ y:{ beginAtZero:true, max:100, ticks:{ stepSize:10 } } },
+          plugins:{
+            legend:{ display:false },
+            tooltip:{ callbacks:{ footer:(items)=>{
+              const i = items[0].dataIndex, r = rows[i];
+              return `Santri: ${r.count} | Tuntas: ${r.tuntas} | Khatam: ${r.khatam}`;
+            }}}
+          }
+        }
+      });
+
+      const list = document.getElementById('thmsList');
+      list.innerHTML = '';
+      rows.forEach(r=>{
+        const pct = Math.round(r.avg);
+        const item = document.createElement('div');
+        item.className = 'thms-item';
+        item.innerHTML = `
+          <div class="row">
+            <div class="name">${r.label}</div>
+            <div class="pct">${pct}%</div>
+          </div>
+          <div class="thms-progress"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>
+          <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Tuntas: ${r.tuntas} · Khatam: ${r.khatam}</div>
+        `;
+        list.appendChild(item);
+      });
+
+      _mode = mode;
+      document.getElementById('tabJenjang').classList.toggle('active', mode==='jenjang');
+      document.getElementById('tabKelas').classList.toggle('active',   mode==='kelas');
+    }
+
+    // ===== Fingerprint roster gabungan (untuk kunci cache agar ikut berubah saat roster berubah)
+    async function rosterFingerprintAll(kelasKeys){
+      const lists = await Promise.all(kelasKeys.map(k => getRosterForClass(k)));
+      const ids = lists.flat().flatMap(s => {
+        const nis = (s?.nis===0 || s?.nis) ? String(s.nis).trim() : "";
+        const id  = (s?.id===0  || s?.id)  ? String(s.id).trim()  : "";
+        return [nis, id].filter(Boolean);
+      }).sort().join('|');
+      let h = 0;
+      for (let i=0;i<ids.length;i++) h = (h*31 + ids.charCodeAt(i)) >>> 0;
+      return h.toString(36).slice(0,12);
+    }
+
+    // ======= Click handler + cache-aware
+    async function openOverlay(defaultMode='jenjang'){
+      btn.disabled = true; btn.textContent = 'Memuat grafik…';
+      try{
+        ensureOverlay(); await ensureChartJS();
+
+        const startDate = document.querySelector('#pdf-start-date')?.value;
+        const endDate   = document.querySelector('#pdf-end-date')?.value;
+        if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai & akhir.');
+
+        const kelasKeys = getAllKelasKeysSafe();
+        if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
+
+        // baseKey + fingerprint roster → cache otomatis invalid saat roster berubah
+        const rf = await rosterFingerprintAll(kelasKeys);
+        const baseKey = `${CACHE_NS}|${startDate}|${endDate}|${fingerprintKeys(kelasKeys)}|R:${rf}`;
+        let mode = defaultMode;
+
+        let payload = cacheLoad(baseKey, mode);
+        if (!payload){
+          payload = (mode==='kelas')
+            ? await computeByKelas(startDate, endDate, kelasKeys)
+            : await computeByJenjang(startDate, endDate, kelasKeys);
+          cacheSave(baseKey, mode, payload);
+        }
+        renderView(payload, !!cacheLoad(baseKey, mode));
+        _lastBaseKey = baseKey;
+
+        const tabJ = document.getElementById('tabJenjang');
+        const tabK = document.getElementById('tabKelas');
+        if (!tabJ.dataset.bound){
+          tabJ.dataset.bound = '1';
+          tabJ.addEventListener('click', async ()=>{
+            if (_mode==='jenjang') return;
+            const c = cacheLoad(_lastBaseKey, 'jenjang');
+            if (c) return renderView(c, true);
+            const start = document.querySelector('#pdf-start-date')?.value;
+            const end   = document.querySelector('#pdf-end-date')?.value;
+            const keys  = getAllKelasKeysSafe();
+            const data  = await computeByJenjang(start, end, keys);
+            cacheSave(_lastBaseKey, 'jenjang', data);
+            renderView(data, false);
+          });
+        }
+        if (!tabK.dataset.bound){
+          tabK.dataset.bound = '1';
+          tabK.addEventListener('click', async ()=>{
+            if (_mode==='kelas') return;
+            const c = cacheLoad(_lastBaseKey, 'kelas');
+            if (c) return renderView(c, true);
+            const start = document.querySelector('#pdf-start-date')?.value;
+            const end   = document.querySelector('#pdf-end-date')?.value;
+            const keys  = getAllKelasKeysSafe();
+            const data  = await computeByKelas(start, end, keys);
+            cacheSave(_lastBaseKey, 'kelas', data);
+            renderView(data, false);
+          });
+        }
+      } catch(e){
+        console.error(e);
+        alert('Gagal menampilkan grafik: ' + (e.message||e));
+      } finally {
+        btn.disabled = false; btn.textContent = 'Grafik Prosentase';
+      }
+    }
+
+    btn.addEventListener('click', ()=>openOverlay('jenjang'));
+  } // end initGrafikTHMS
 })();
 </script>
 
