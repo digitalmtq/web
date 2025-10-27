@@ -20,9 +20,9 @@ export async function onRequest({ request, env }) {
     });
   }
 
-  // >>> FIX PATH: selalu ambil dari /server/kelas_<kelas>.json
-  const path  = `server/kelas_${encodeURIComponent(kelas)}.json`;
-  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${path}`;
+  // NOTE: path ini sesuai kode asalmu (root repo: <kelas>.json).
+  // Kalau file-nya ada di folder lain, ubah saja path-nya.
+  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${encodeURIComponent(kelas)}.json`;
 
   try {
     const gh = await fetch(apiUrl, {
@@ -31,17 +31,8 @@ export async function onRequest({ request, env }) {
         Accept: "application/vnd.github.v3+json",
         "User-Agent": "cf-pages-functions",
       },
-      // >>> Matikan cache edge agar selalu terbaru
       cf: { cacheTtl: 0, cacheEverything: false },
     });
-
-    // Jika file roster belum ada → jangan error; kembalikan array kosong
-    if (gh.status === 404) {
-      return new Response("[]", {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...CORS },
-      });
-    }
 
     if (!gh.ok) {
       return new Response(JSON.stringify({ error: `Gagal fetch data: ${gh.status}` }), {
@@ -50,13 +41,10 @@ export async function onRequest({ request, env }) {
       });
     }
 
-    const result  = await gh.json();                // { content: "base64", ... }
-    const decoded = atob(result.content || "");     // base64 -> string JSON
-    let parsed = [];
-    try { parsed = JSON.parse(decoded); } catch {}
-    if (!Array.isArray(parsed)) parsed = [];
+    const result  = await gh.json();        // { content: "base64", ... }
+    const decoded = atob(result.content);   // base64 -> string JSON
 
-    return new Response(JSON.stringify(parsed), {
+    return new Response(decoded, {
       status: 200,
       headers: { "Content-Type": "application/json", ...CORS },
     });
