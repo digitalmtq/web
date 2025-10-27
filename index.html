@@ -10817,7 +10817,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 <script>
-/* === [GRAFIK PROSENTASE THMS — PER HALAQOH + CACHING (SEUMUR HIDUP) + NORMALISASI JENJANG] === */
+/* === [GRAFIK PROSENTASE THMS — PER HALAQOH + CACHING PER TANGGAL (PERMANEN) + REFRESH] === */
 (function grafikTHMS_boot(){
   // ---- util: tunggu DOM siap
   function onReady(fn){
@@ -10864,7 +10864,10 @@ document.addEventListener("DOMContentLoaded", () => {
         .thms-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
         .thms-title{font-weight:800;font-size:18px;color:#111827}
         .thms-sub{color:#4b5563;font-size:13px;margin-top:2px}
-        .thms-close{border:none;background:#ef4444;color:#fff;font-weight:700;border-radius:10px;padding:.5rem .8rem;cursor:pointer}
+        .thms-actions{display:flex;gap:8px;align-items:center}
+        .thms-btn{border:none;border-radius:10px;padding:.5rem .8rem;cursor:pointer;font-weight:700}
+        .thms-close{background:#ef4444;color:#fff}
+        .thms-refresh{background:#2563eb;color:#fff}
         .thms-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
         @media (min-width:640px){ .thms-cards{grid-template-columns:repeat(5,1fr)} }
         .thms-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
@@ -10883,7 +10886,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.head.appendChild(s);
     }
 
-    // ===== Overlay DOM (tanpa tab)
+    // ===== Overlay DOM (Tanpa tab Jenjang) + tombol Refresh
     function ensureOverlay(){
       if (document.getElementById('thmsOverlay')) return;
       const el = document.createElement('div');
@@ -10901,7 +10904,10 @@ document.addEventListener("DOMContentLoaded", () => {
               </div>
               <div id="thmsSub" class="thms-sub"></div>
             </div>
-            <button id="thmsClose" class="thms-close">Tutup</button>
+            <div class="thms-actions">
+              <button id="thmsRefresh" class="thms-btn thms-refresh" title="Perbarui data untuk tanggal ini">Refresh Data</button>
+              <button id="thmsClose" class="thms-btn thms-close">Tutup</button>
+            </div>
           </div>
 
           <div class="thms-cards">
@@ -10937,24 +10943,20 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // ====== Caching helpers (SEUMUR HIDUP, key hanya berdasar tanggal)
-    const CACHE_NS = 'THMS_GRAPH_V6DATE';
-    function makeBaseKey(start, end){ return `${CACHE_NS}|${start}|${end}`; }
-
+    // ====== Caching helpers — PERMANEN per rentang tanggal (tidak pakai TTL, tidak ikut roster)
+    const CACHE_NS = 'THMS_GRAPH_V6KEY';
+    function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
+    function makeBaseKey(start, end, kelasKeys){ return `${CACHE_NS}|${start}|${end}|${fingerprintKeys(kelasKeys)}`; }
     function cacheLoad(baseKey, mode){
       try{
         const raw = localStorage.getItem(`${baseKey}|${mode}`);
         if (!raw) return null;
         const obj = JSON.parse(raw);
-        // dukung format lama {t, payload} atau langsung payload
-        return (obj && typeof obj === 'object' && 'payload' in obj) ? obj.payload : obj;
+        return (obj && obj.payload) ? obj.payload : null; // tanpa TTL
       }catch(e){ return null; }
     }
     function cacheSave(baseKey, mode, payload){
-      try{
-        // simpan tanpa TTL; tetap bungkus agar bisa diekspansi di masa depan
-        localStorage.setItem(`${baseKey}|${mode}`, JSON.stringify({ payload }));
-      }catch(e){}
+      try{ localStorage.setItem(`${baseKey}|${mode}`, JSON.stringify({ t: Date.now(), payload })); }catch(e){}
     }
 
     // ===== Helper daftar kelas (aman)
@@ -10983,14 +10985,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return keys;
     }
 
-    // ===== Normalisasi & util label
-    function prettyJenjangLabel(raw){
-      if (typeof jenjangLabel === 'function'){
-        const r = jenjangLabel(raw ?? '');
-        if (r != null && String(r).trim()) return String(r).trim();
-      }
-      return String(raw ?? '').trim();
-    }
+    // ===== Label kelas (ustadz)
     function getKelasLabel(kelasKey){
       const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
                ? kelasSelect
@@ -11005,7 +11000,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return kelasKey;
     }
 
-    // ===== Roster
+    // ===== Roster & whitelist
     async function getRosterForClass(kelasKey){
       const r = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
       const roster = await r?.json().catch(()=>[]);
@@ -11043,7 +11038,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const out = [];
       for (const it of j1.list){
         const key = String(it?.key||'').trim();
-        if (!key || !allow.has(key)) continue;
+        if (!key || !allow.has(key)) continue; // filter berdasar roster
         const totalJuz = Number(it?.totalJuz || it?.total_juz_num || 0);
         const s = byNis.get(key) || byId.get(key) || {};
         out.push({
@@ -11187,29 +11182,60 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // ======= State untuk refresh
+    let _lastBaseKey = null;
+    let _lastStart = null, _lastEnd = null, _lastKelasKeys = null;
+
+    // ======= Compute & render helper (pakai cache atau paksa fresh)
+    async function computeAndRender({ forceFresh = false } = {}){
+      const startDate = _lastStart ?? document.querySelector('#pdf-start-date')?.value;
+      const endDate   = _lastEnd   ?? document.querySelector('#pdf-end-date')?.value;
+      if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai & akhir.');
+
+      const kelasKeys = _lastKelasKeys ?? getAllKelasKeysSafe();
+      if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
+
+      const baseKey = makeBaseKey(startDate, endDate, kelasKeys);
+      const mode = 'kelas';
+
+      let payload = !forceFresh ? cacheLoad(baseKey, mode) : null;
+      if (!payload){
+        payload = await computeByKelas(startDate, endDate, kelasKeys);
+        cacheSave(baseKey, mode, payload);
+      }
+      renderView(payload, !forceFresh && !!cacheLoad(baseKey, mode));
+
+      _lastBaseKey = baseKey;
+      _lastStart   = startDate;
+      _lastEnd     = endDate;
+      _lastKelasKeys = kelasKeys;
+    }
+
     // ======= Click handler + cache-aware (HANYA mode 'kelas')
     async function openOverlay(){
       btn.disabled = true; btn.textContent = 'Memuat grafik…';
       try{
         ensureOverlay(); await ensureChartJS();
+        await computeAndRender({ forceFresh:false });
 
-        const startDate = document.querySelector('#pdf-start-date')?.value;
-        const endDate   = document.querySelector('#pdf-end-date')?.value;
-        if (!startDate || !endDate) throw new Error('Mohon pilih tanggal mulai & akhir.');
-
-        const kelasKeys = getAllKelasKeysSafe();
-        if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
-
-        // cache key berdasar tanggal saja
-        const baseKey = makeBaseKey(startDate, endDate);
-        const mode = 'kelas';
-
-        let payload = cacheLoad(baseKey, mode);
-        if (!payload){
-          payload = await computeByKelas(startDate, endDate, kelasKeys);
-          cacheSave(baseKey, mode, payload);
+        // Bind tombol Refresh (sekali saja)
+        const refBtn = document.getElementById('thmsRefresh');
+        if (!refBtn.dataset.bound){
+          refBtn.dataset.bound = '1';
+          refBtn.addEventListener('click', async ()=>{
+            const prev = refBtn.textContent;
+            refBtn.disabled = true; refBtn.textContent = 'Menyegarkan…';
+            try{
+              await computeAndRender({ forceFresh:true }); // abaikan cache, tulis ulang
+              document.getElementById('thmsCacheFlag').style.display = 'none'; // hasil fresh
+            } catch(e){
+              console.error(e);
+              alert('Gagal menyegarkan data: ' + (e.message||e));
+            } finally {
+              refBtn.disabled = false; refBtn.textContent = prev;
+            }
+          });
         }
-        renderView(payload, !!cacheLoad(baseKey, mode));
       } catch(e){
         console.error(e);
         alert('Gagal menampilkan grafik: ' + (e.message||e));
@@ -11223,7 +11249,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 })();
 </script>
-
 
 
 
