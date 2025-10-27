@@ -8138,7 +8138,10 @@ if (Number.isFinite(scCand) && scCand > 0) {
         if(nis) byNis.set(nis,r);
       }
 
-      rows.forEach(tr=>{
+      	rows.forEach(tr=>{
+		// ⬇⬇⬇ Tambahan: batasi ke baris dengan tanggal yang sesuai
+		const rowTgl = String(tr.dataset?.tanggal || '').trim();
+		if (rowTgl && rowTgl !== tgl) return;
         const cell=tr.querySelector('.murajaah-cell'); if(!cell) return;
         const nis = String(tr.dataset?.nis||'').trim();
         const id  = String(tr.children?.[0]?.textContent||'').trim();
@@ -8288,8 +8291,8 @@ if (window.currentRowEl){
   if (cell){
     cell.dataset[`score${idx}`] = '0';
     // opsional: langsung set label predikat sesuai 0 (ROSIB)
-    cell.dataset[`ptext${idx}`]  = getPredikat(0).text;
-    cell.dataset[`phuruf${idx}`] = getPredikat(0).huruf;
+    delete cell.dataset[`ptext${idx}`];
+	delete cell.dataset[`phuruf${idx}`];
   }
 }
 
