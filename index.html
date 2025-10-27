@@ -7837,7 +7837,7 @@ function juzOfAyah(s,a){
     const byId  = $('#tanggalInput')?.value
            || $('#tanggal')?.value
            || $('#date')?.value
-           || $('#tanggal-filter-akhir')?.value   // ← tambahkan ini
+           || $('#tanggal-filter-akhir')?.value   // ← tambahan
            || '';
     const byName= (document.querySelector('input[name="tanggal"]')?.value
                 || document.querySelector('input[name="date"]')?.value
@@ -7902,15 +7902,16 @@ function juzOfAyah(s,a){
         const res = await fetch(`/api/getAbsensi?kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}&t=${Date.now()}`);
         if (!res.ok) return null;
         const arr = await res.json().catch(()=>[]) || [];
-        const id  = String(row.dataset?.id  || row.children?.[0]?.textContent || '').trim();
-        const nis = String(row.dataset?.nis || '').trim();
-        const nm  = (row.children?.[1]?.childNodes?.[0]?.textContent || row.children?.[1]?.textContent || '').trim().toLowerCase();
-        return arr.find(r=>{
-          const rid  = String(r?.id||'').trim();
-          const rnis = String(r?.nis||'').trim();
-          const rnm  = String(r?.nama||'').trim().toLowerCase();
-          return (nis && rnis===nis) || (id && rid===id) || (nm && rnm===nm);
-        }) || null;
+        const id  = String(row.dataset?.id  || '').trim();
+const nis = String(row.dataset?.nis || '').trim();
+return arr.find(r=>{
+  const rid  = String(r?.id  || '').trim();
+  const rnis = String(r?.nis || '').trim();
+  // urutan prioritas: NIS → ID; tanpa fallback nama
+  if (nis && rnis === nis) return true;
+  if (id  && rid  === id ) return true;
+  return false;
+}) || null;
       }catch{ return null; }
     }
 
@@ -8089,28 +8090,17 @@ if (Number.isFinite(scCand) && scCand > 0) {
     });
   }
 
-	// --- Cek apakah user sedang memilih rentang tanggal ---
-function isRangeActive(){
-  // Start (tanggal awal) – ambil dari beberapa kemungkinan input
-  const start = (
-    document.querySelector('#tanggal')?.value ||
-    document.querySelector('#tanggalInput')?.value ||
-    document.querySelector('input[name="tanggal"]')?.value ||
-    document.querySelector('input[name="date"]')?.value ||
-    ''
-  ).trim();
-
-  // End (tanggal akhir) – dukung id yang kamu pakai
+	function isRangeActive(){
+  const start =
+    document.querySelector('#tanggal')?.value?.trim() ||
+    document.querySelector('#tanggalInput')?.value?.trim() ||
+    document.querySelector('input[name="tanggal"]')?.value?.trim() ||
+    document.querySelector('input[name="date"]')?.value?.trim() || '';
   const endA = document.querySelector('#tanggal-filter-akhir')?.value?.trim() || '';
   const endB = document.querySelector('#murRangeSampai')?.value?.trim() || '';
-
-  // Jika ada end (A/B) & berbeda dari start → dianggap range aktif
   if (start && endA && endA !== start) return true;
   if (start && endB && endB !== start) return true;
-
-  // Kalau user isi end saja (tanpa start) di overlay, juga anggap aktif
   if (!start && (endA || endB)) return true;
-
   return false;
 }
 
@@ -8167,9 +8157,9 @@ function isRangeActive(){
 
       rows.forEach(tr=>{
         const cell=tr.querySelector('.murajaah-cell'); if(!cell) return;
-        const nis = String(tr.dataset?.nis||'').trim();
-        const id  = String(tr.children?.[0]?.textContent||'').trim();
-        const rec = (nis && byNis.get(nis)) || (id && byId.get(id)) || null;
+        const nis = String(tr.dataset?.nis || '').trim();
+		const id  = String(tr.dataset?.id  || '').trim(); // ← hanya dari dataset, bukan teks sel
+		const rec = (nis && byNis.get(nis)) || (id && byId.get(id)) || null;
 
         const total = num(rec?.juzmurajaah ?? rec?.totalJuz ?? 0);
         const valEl = cell.querySelector('.mur-val');
@@ -8314,12 +8304,11 @@ if (window.currentRowEl){
   const cell = window.currentRowEl.querySelector('.murajaah-cell');
   if (cell){
     cell.dataset[`score${idx}`] = '0';
-    // skor 0 → tidak ada predikat
-    delete cell.dataset[`ptext${idx}`];
-    delete cell.dataset[`phuruf${idx}`];
+    // opsional: langsung set label predikat sesuai 0 (ROSIB)
+    cell.dataset[`ptext${idx}`]  = getPredikat(0).text;
+    cell.dataset[`phuruf${idx}`] = getPredikat(0).huruf;
   }
 }
-
 
     // Rekap total
     [1,2,3].forEach(renderSession);
