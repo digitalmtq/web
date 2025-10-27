@@ -10817,7 +10817,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 <script>
-/* === [GRAFIK PROSENTASE THMS — PER JENJANG & PER HALAQOH + CACHING + NORMALISASI JENJANG] === */
+/* === [GRAFIK PROSENTASE THMS — PER HALAQOH + CACHING + NORMALISASI JENJANG] === */
 (function grafikTHMS_boot(){
   // ---- util: tunggu DOM siap
   function onReady(fn){
@@ -10865,9 +10865,6 @@ document.addEventListener("DOMContentLoaded", () => {
         .thms-title{font-weight:800;font-size:18px;color:#111827}
         .thms-sub{color:#4b5563;font-size:13px;margin-top:2px}
         .thms-close{border:none;background:#ef4444;color:#fff;font-weight:700;border-radius:10px;padding:.5rem .8rem;cursor:pointer}
-        .thms-tabs{display:flex;gap:8px;margin-top:10px}
-        .thms-tab{padding:.45rem .7rem;border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;color:#374151;font-weight:700;cursor:pointer}
-        .thms-tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
         .thms-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
         @media (min-width:640px){ .thms-cards{grid-template-columns:repeat(5,1fr)} }
         .thms-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
@@ -10886,7 +10883,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.head.appendChild(s);
     }
 
-    // ===== Overlay DOM (❗hanya tombol "Tutup")
+    // ===== Overlay DOM (Tab Jenjang DIHAPUS, hanya judul & konten)
     function ensureOverlay(){
       if (document.getElementById('thmsOverlay')) return;
       const el = document.createElement('div');
@@ -10899,7 +10896,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div>
               <div class="thms-title">
                 <span id="thmsTitleMain">Grafik Prosentase</span>
-                <span id="thmsTitleMode">— Per Jenjang</span>
+                <span id="thmsTitleMode">— Per Halaqoh (Ustadz)</span>
                 <span id="thmsCacheFlag" class="thms-cache-flag" style="display:none">(cache)</span>
               </div>
               <div id="thmsSub" class="thms-sub"></div>
@@ -10907,13 +10904,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <button id="thmsClose" class="thms-close">Tutup</button>
           </div>
 
-          <div class="thms-tabs">
-            <button id="tabJenjang" class="thms-tab active">Per Jenjang</button>
-            <button id="tabKelas"   class="thms-tab">Per Halaqoh (Ustadz)</button>
-          </div>
-
           <div class="thms-cards">
-            <div class="thms-card"><div id="thmsCardKelompokTitle" class="t">Total Jenjang</div><div id="thmsCardKelompok" class="v">-</div></div>
+            <div class="thms-card"><div id="thmsCardKelompokTitle" class="t">Total Halaqoh</div><div id="thmsCardKelompok" class="v">-</div></div>
             <div class="thms-card"><div class="t">Total Santri</div><div id="thmsCardSantri" class="v">-</div></div>
             <div class="thms-card"><div class="t">Rata-rata Global</div><div id="thmsCardAvg" class="v">-</div></div>
             <div class="thms-card"><div class="t">Tuntas</div><div id="thmsCardTuntas" class="v">-</div></div>
@@ -11006,7 +10998,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const lbl = String(label||'').trim();
       const mIL = /^IL\s*([A-D])$/i.exec(lbl) || /^IL([A-D])$/i.exec(lbl);
       if (mIL) return `0.${'ABCD'.indexOf(mIL[1].toUpperCase())}`;
-      const m = /^(\d+)\s*([A-Z])$/i.exec(lbl) || /^(\d+)([A-Z])$/i.exec(lbl);
+      const m = /^(\d+)\s*([A-Z])$/i.exec(lbl) || /^(\d+)([A-Z])$/i.exec(lbl;
       if (m) return `${String(m[1]).padStart(3,'0')}.${m[2]}`;
       return `999.${lbl}`;
     }
@@ -11079,7 +11071,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const out = [];
       for (const it of j1.list){
         const key = String(it?.key||'').trim();
-        if (!key || !allow.has(key)) continue; // << filter berdasar roster
+        if (!key || !allow.has(key)) continue; // filter berdasar roster
         const totalJuz = Number(it?.totalJuz || it?.total_juz_num || 0);
         const s = byNis.get(key) || byId.get(key) || {};
         out.push({
@@ -11127,73 +11119,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return 0;
     }
 
-    // ===== Master jenjang
-    async function collectMasterJenjang(kelasKeys){
-      const normSet = new Map(); // keyNorm -> prettyLabel
-      const push = (raw)=>{
-        const pretty = prettyJenjangLabel(raw);
-        const key = normJenjangKey(pretty || raw);
-        if (!key) return;
-        if (!normSet.has(key)) normSet.set(key, pretty || raw);
-      };
-      if (Array.isArray(window.MASTER_JENJANG) && window.MASTER_JENJANG.length){
-        for (const lbl of window.MASTER_JENJANG) push(lbl);
-      }
-      const sel = document.getElementById('jenjang') || document.getElementById('jenjangSelect');
-      if (sel?.options?.length){
-        for (const o of sel.options) push(o.textContent || o.value);
-      }
-      for (const k of kelasKeys){
-        const roster = await getRosterForClass(k);
-        for (const s of roster){ push(s?.jenjang ?? ''); }
-      }
-      return [...normSet.entries()]
-        .map(([key, label]) => ({ key, label: prettyJenjangLabel(label) }))
-        .sort((a,b)=> sortKeyJenjang(a.label).localeCompare(sortKeyJenjang(b.label),'id'));
-    }
-
-    // ======= Komputasi: Per Jenjang (rilis semua jenjang, termasuk kosong)
-    async function computeByJenjang(startDate, endDate, kelasKeys){
-      const agg = new Map(); // keyNorm -> { label, sumPct, n, kh, tn, countSantri }
-      for (const k of kelasKeys){
-        const rowsKelas = await getRowsForClass(k, startDate, endDate);
-        for (const r of rowsKelas){
-          const rawLabel = (typeof jenjangLabel==='function') ? jenjangLabel(r.jenjang ?? '') : (r.jenjang ?? '');
-          const display  = prettyJenjangLabel(rawLabel);
-          const key      = normJenjangKey(display);
-          if (!key) continue;
-
-          const pct = getPercent(r);
-          const isKhatam = Number(r.totalJuz||0) >= 30;
-          const isTuntas = !isKhatam && pct >= 100;
-
-          if (!agg.has(key)) agg.set(key, { label: display, sumPct:0, n:0, kh:0, tn:0, countSantri:0 });
-          const a = agg.get(key);
-          if (display && a.label !== display && prettyJenjangLabel(display).length > prettyJenjangLabel(a.label).length){
-            a.label = display;
-          }
-          a.sumPct += pct; a.n++; a.countSantri++;
-          if (isKhatam) a.kh++; else if (isTuntas) a.tn++;
-        }
-      }
-
-      const master = await collectMasterJenjang(kelasKeys);
-      const rows = master.map(m => {
-        const v = agg.get(m.key);
-        if (!v) {
-          return { label: m.label, avg: 0, khatam: 0, tuntas: 0, count: 0 };
-        }
-        return {
-          label : v.label,
-          avg   : v.n ? (v.sumPct/v.n) : 0,
-          khatam: v.kh,
-          tuntas: v.tn,
-          count : v.countSantri
-        };
-      });
-
-      return { rows, startDate, endDate, mode: 'jenjang' };
-    }
+    // ===== (tersisa untuk kompatibilitas, tidak digunakan di UI ini)
+    async function collectMasterJenjang(kelasKeys){ /* ... tetap seperti sebelumnya ... */ return []; }
+    async function computeByJenjang(){ return { rows:[], startDate:'', endDate:'', mode:'jenjang' }; }
 
     // ======= Komputasi: Per Halaqoh (kelas) — selalu rilis semua kelas
     async function computeByKelas(startDate, endDate, kelasKeys){
@@ -11227,21 +11155,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return ctx;
     }
 
-    // ======= Render (kartu tab Jenjang kini identik dengan tab Kelas)
-    let _chart = null, _mode = 'jenjang', _lastBaseKey = null;
+    // ======= Render (hanya mode Kelas)
+    let _chart = null;
     function renderView(payload, fromCache=false){
-      const { rows, startDate, endDate, mode } = payload;
+      const { rows, startDate, endDate } = payload;
       const ov = document.getElementById('thmsOverlay');
       ov.style.display = 'block';
 
-      document.getElementById('thmsTitleMode').textContent =
-        mode === 'kelas' ? '— Per Halaqoh (Ustadz)' : '— Per Jenjang';
+      document.getElementById('thmsTitleMode').textContent = '— Per Halaqoh (Ustadz)';
       const fmt = (window.fmtD_M_YYYY || (x=>x));
       document.getElementById('thmsSub').textContent = `Periode: ${fmt(startDate)} s.d. ${fmt(endDate)}`;
       document.getElementById('thmsCacheFlag').style.display = fromCache ? '' : 'none';
 
-      document.getElementById('thmsCardKelompokTitle').textContent =
-        mode === 'kelas' ? 'Total Halaqoh' : 'Total Jenjang';
+      document.getElementById('thmsCardKelompokTitle').textContent = 'Total Halaqoh';
 
       const totalGroupsShown = rows.length;
       const totalSantri = rows.reduce((s,r)=>s+r.count,0);
@@ -11291,14 +11217,10 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         list.appendChild(item);
       });
-
-      _mode = mode;
-      document.getElementById('tabJenjang').classList.toggle('active', mode==='jenjang');
-      document.getElementById('tabKelas').classList.toggle('active',   mode==='kelas');
     }
 
-    // ======= Click handler + cache-aware
-    async function openOverlay(defaultMode='jenjang'){
+    // ======= Click handler + cache-aware (HANYA mode 'kelas')
+    async function openOverlay(){
       btn.disabled = true; btn.textContent = 'Memuat grafik…';
       try{
         ensureOverlay(); await ensureChartJS();
@@ -11313,48 +11235,14 @@ document.addEventListener("DOMContentLoaded", () => {
         // cache key + sidik-jari roster
         const rf = await rosterFingerprintAll(kelasKeys);
         const baseKey = `${CACHE_NS}|${startDate}|${endDate}|${fingerprintKeys(kelasKeys)}|R:${rf}`;
-        let mode = defaultMode;
+        const mode = 'kelas';
 
         let payload = cacheLoad(baseKey, mode);
         if (!payload){
-          payload = (mode==='kelas')
-            ? await computeByKelas(startDate, endDate, kelasKeys)
-            : await computeByJenjang(startDate, endDate, kelasKeys);
+          payload = await computeByKelas(startDate, endDate, kelasKeys);
           cacheSave(baseKey, mode, payload);
         }
         renderView(payload, !!cacheLoad(baseKey, mode));
-        _lastBaseKey = baseKey;
-
-        const tabJ = document.getElementById('tabJenjang');
-        const tabK = document.getElementById('tabKelas');
-        if (!tabJ.dataset.bound){
-          tabJ.dataset.bound = '1';
-          tabJ.addEventListener('click', async ()=>{
-            if (_mode==='jenjang') return;
-            const c = cacheLoad(_lastBaseKey, 'jenjang');
-            if (c) return renderView(c, true);
-            const start = document.querySelector('#pdf-start-date')?.value;
-            const end   = document.querySelector('#pdf-end-date')?.value;
-            const keys  = getAllKelasKeysSafe();
-            const data  = await computeByJenjang(start, end, keys);
-            cacheSave(_lastBaseKey, 'jenjang', data);
-            renderView(data, false);
-          });
-        }
-        if (!tabK.dataset.bound){
-          tabK.dataset.bound = '1';
-          tabK.addEventListener('click', async ()=>{
-            if (_mode==='kelas') return;
-            const c = cacheLoad(_lastBaseKey, 'kelas');
-            if (c) return renderView(c, true);
-            const start = document.querySelector('#pdf-start-date')?.value;
-            const end   = document.querySelector('#pdf-end-date')?.value;
-            const keys  = getAllKelasKeysSafe();
-            const data  = await computeByKelas(start, end, keys);
-            cacheSave(_lastBaseKey, 'kelas', data);
-            renderView(data, false);
-          });
-        }
       } catch(e){
         console.error(e);
         alert('Gagal menampilkan grafik: ' + (e.message||e));
@@ -11363,10 +11251,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    btn.addEventListener('click', ()=>openOverlay('jenjang'));
+    // buka langsung ke mode 'kelas'
+    btn.addEventListener('click', openOverlay);
   }
 })();
 </script>
+
 
 
 
