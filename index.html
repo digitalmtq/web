@@ -8366,6 +8366,65 @@ if (window.currentRowEl){
   // ekspor
   window.murajaah = { afterTableRendered: ()=>{ ensureMurColumn(); refreshMurFromServer(); }, refreshServer: refreshMurFromServer };
 
+  // === Auto-refresh mur-val saat ganti tanggal/kelas (harian) ===
+(function(){
+  // kecilkan frekuensi panggilan
+  let murDebounceTimer=null;
+  function debounce(fn, ms){ clearTimeout(murDebounceTimer); murDebounceTimer=setTimeout(fn, ms); }
+
+  function onDailyContextMaybeRefresh(){
+    // Jangan overwrite saat mode rentang aktif
+    if (typeof isRangeActive === 'function' && isRangeActive()) return;
+    if (window.murajaah?.refreshServer) window.murajaah.refreshServer();
+  }
+
+  function bindAutoRefreshTriggers(){
+    const selectors = [
+      // kelas
+      '#kelasSelect','#kelas','select[name="kelas"]','.kelas','.kelasSelect','.kelas-select',
+      // tanggal (harian)
+      '#tanggal','#tanggalInput','#date','input[name="tanggal"]',
+      // kalau pakai datepicker custom, perubahan value via script sering pakai 'input'
+    ];
+
+    selectors.forEach(sel=>{
+      const el = document.querySelector(sel);
+      if(!el) return;
+      // idempotent: hindari double binding
+      if (el.__murAutoBound) return;
+      el.__murAutoBound = true;
+
+      // perubahan kelas/tanggal → refresh
+      el.addEventListener('change', ()=>debounce(onDailyContextMaybeRefresh, 120));
+      el.addEventListener('input',  ()=>debounce(onDailyContextMaybeRefresh, 120)); // untuk datepicker yang update via input
+    });
+
+    // Bila ada elemen akhir rentang, perubahan ini TIDAK memicu refresh harian (tetap dihitung lewat modul range)
+    const endRange = document.querySelector('#tanggal-filter-akhir') || document.querySelector('#murRangeSampai');
+    if (endRange && !endRange.__murAutoBound){
+      endRange.__murAutoBound = true;
+      endRange.addEventListener('change', ()=>{/* sengaja kosong: range dihandle modul range */});
+      endRange.addEventListener('input',  ()=>{/* sengaja kosong */});
+    }
+  }
+
+  // jalankan sekali saat DOM siap
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', bindAutoRefreshTriggers);
+  } else {
+    bindAutoRefreshTriggers();
+  }
+
+  // kalau SPA/halaman dinamis, re-check beberapa saat setelah load data
+  const _origLoad = window.loadSantriData;
+  window.loadSantriData = async function(...args){
+    await (_origLoad?.apply ? _origLoad.apply(this, args) : Promise.resolve());
+    setTimeout(bindAutoRefreshTriggers, 50);
+    // setelah data baru muncul, refresh harian jika bukan mode rentang
+    setTimeout(onDailyContextMaybeRefresh, 120);
+  };
+})();
+
   // init
   (async function init(){
     bindModalShell();
