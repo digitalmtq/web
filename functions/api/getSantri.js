@@ -12,17 +12,15 @@ export async function onRequest({ request, env }) {
 
   const url   = new URL(request.url);
   const kelas = url.searchParams.get("kelas");
-
   if (!kelas) {
     return new Response(JSON.stringify({ error: "Parameter 'kelas' wajib diisi" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json", ...CORS },
+      status: 400, headers: { "Content-Type": "application/json", ...CORS },
     });
   }
 
-  // NOTE: path ini sesuai kode asalmu (root repo: <kelas>.json).
-  // Kalau file-nya ada di folder lain, ubah saja path-nya.
-  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${encodeURIComponent(kelas)}.json`;
+  // >>> POIN PENTING: path konsisten ke repo /server/kelas_<kelas>.json
+  const path  = `server/kelas_${encodeURIComponent(kelas)}.json`;
+  const apiUrl = `https://api.github.com/repos/digitalmtq/server/contents/${path}`;
 
   try {
     const gh = await fetch(apiUrl, {
@@ -31,28 +29,30 @@ export async function onRequest({ request, env }) {
         Accept: "application/vnd.github.v3+json",
         "User-Agent": "cf-pages-functions",
       },
-      cf: { cacheTtl: 0, cacheEverything: false },
+      cf: { cacheTtl: 0, cacheEverything: false }, // matikan cache edge
     });
 
+    if (gh.status === 404) {
+      // Tidak ada file -> kembalikan array kosong (jangan error)
+      return new Response("[]", { status: 200, headers: { "Content-Type": "application/json", ...CORS } });
+    }
     if (!gh.ok) {
       return new Response(JSON.stringify({ error: `Gagal fetch data: ${gh.status}` }), {
-        status: gh.status,
-        headers: { "Content-Type": "application/json", ...CORS },
+        status: gh.status, headers: { "Content-Type": "application/json", ...CORS },
       });
     }
 
-    const result  = await gh.json();        // { content: "base64", ... }
-    const decoded = atob(result.content);   // base64 -> string JSON
-
-    return new Response(decoded, {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...CORS },
+    const result  = await gh.json();              // { content: "base64", ... }
+    const decoded = atob(result.content || "");   // base64 -> string JSON
+    let parsed = [];
+    try { parsed = JSON.parse(decoded); } catch {}
+    if (!Array.isArray(parsed)) parsed = [];
+    return new Response(JSON.stringify(parsed), {
+      status: 200, headers: { "Content-Type": "application/json", ...CORS },
     });
-
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...CORS },
+      status: 500, headers: { "Content-Type": "application/json", ...CORS },
     });
   }
 }
