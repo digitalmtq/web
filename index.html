@@ -8391,6 +8391,9 @@ if (window.currentRowEl){
   const BATAS = {1: 8, 2: 13, 3: 18, 4: 23, 5: 28, 6: 30};
   const LS_KEY = k => `murRange:${k}`;
 
+  // Simpan detail per-santri (key = NIS/id)
+window.murRangeDetailsByKey = Object.create(null);
+
   function getSantriTable(){
     return document.getElementById('santri-table')
         || document.getElementById('santriTable')
@@ -8557,6 +8560,58 @@ if (window.currentRowEl){
         return [t,0,0];
       };
 
+	  // ---- KUMPULKAN DETAIL PER-KEY (NIS) ----
+if (!window.murRangeDetailsByKey[key]) window.murRangeDetailsByKey[key] = [];
+const take = (...xs)=>{ for (const x of xs){ if (x!==undefined && x!==null && String(x).trim()!=='') return x; } return ""; };
+
+// tanggal dari item (sesuaikan nama field jika beda)
+const tgl = String(item?.tanggal || item?.date || item?.tgl || "").trim();
+
+// helper pecah "12:34" jadi {s:12, a:34}
+const splitSA = s => {
+  if (!s) return { s:null, a:null };
+  const [S,A] = String(s).split(':'); 
+  return { s: S?Number(S):null, a: A?Number(A):null };
+};
+
+for (let sesi=1; sesi<=3; sesi++){
+  const fromStr  = take(item?.[`murFrom${sesi}`],  item?.murSessions?.[sesi-1]?.from,  sesi===1? item?.murFrom : "");
+  const toStr    = take(item?.[`murTo${sesi}`],    item?.murSessions?.[sesi-1]?.to,    sesi===1? item?.murTo   : "");
+  const pagesStr = take(item?.[`murPages${sesi}`], item?.murSessions?.[sesi-1]?.pages, sesi===1? item?.murPages: "");
+  const jFrom    = take(item?.[`jFrom${sesi}`],    item?.murSessions?.[sesi-1]?.jFrom);
+  const jTo      = take(item?.[`jTo${sesi}`],      item?.murSessions?.[sesi-1]?.jTo);
+  const juzVal   = take(item?.[`juzmur${sesi}`],   item?.[`juzSesi${sesi}`],           item?.murSessions?.[sesi-1]?.juz);
+  const score    = take(item?.[`murScore${sesi}`], item?.murSessions?.[sesi-1]?.score);
+  const pText    = take(item?.[`murPredText${sesi}`],  item?.murSessions?.[sesi-1]?.predikatText);
+  const pHuruf   = take(item?.[`murPredHuruf${sesi}`], item?.murSessions?.[sesi-1]?.predikatHuruf);
+
+  const anyFilled = fromStr || toStr || pagesStr || jFrom || jTo || juzVal || score || pText || pHuruf;
+  if (!anyFilled) continue;
+
+  let pf=null, pt=null;
+  if (pagesStr){
+    const [PF,PT] = String(pagesStr).split('-');
+    pf = PF?Number(PF):null; pt = PT?Number(PT):null;
+  }
+  const F = splitSA(fromStr), T = splitSA(toStr);
+  const totalJuzNum = (()=>{
+    const n = parseFloat(String(juzVal||"").replace(',','.'));
+    return Number.isFinite(n)?n:0;
+  })();
+
+  window.murRangeDetailsByKey[key].push({
+    tanggal: tgl || "", sesi,
+    jFrom: jFrom ? Number(jFrom) : null,
+    jTo:   jTo   ? Number(jTo)   : null,
+    pf, pt,
+    sF: F.s, aF: F.a, sT: T.s, aT: T.a,
+    score: score!=="" ? Number(score) : null,
+    pText: pText || "",
+    pHuruf: pHuruf || "",
+    totalJuz: totalJuzNum
+  });
+}
+
       const rekap = Object.create(null);
       (allData||[]).forEach(item=>{
         let id  = normKey(item?.id);
@@ -8598,9 +8653,15 @@ if (window.currentRowEl){
         let totalLabel = `${totalNum.toFixed(2)}&nbsp;juz`;
         if (totalNum >= 30) totalLabel = `<span style="color:#7c3aed;font-weight:600">KHATAM</span> (${totalNum.toFixed(2)} juz)`;
 
-        cell.innerHTML = `${totalLabel}
-          <span class="mur-range-badge" style="color:#6b7280; font-size:12px">total ${pSum}%</span>
-          <small class="mur-range-count" style="color:#6b7280">(${rec?.cAll||0})</small>`;
+        const nisKey = String(row.dataset?.nis || row.dataset?.id || row.dataset?.key || '').trim();
+const detailCount = (window.murRangeDetailsByKey[nisKey] || []).length;
+
+td.innerHTML = `${totalLabel}
+  <span class="mur-range-badge" style="color:#6b7280; font-size:12px">total ${pSum}%</span>
+  <a href="#" class="mur-range-count-link" data-key="${nisKey}"
+     style="color:#2563eb; font-size:12px; margin-left:4px; text-decoration:underline;">
+     (${detailCount})
+  </a>`;
 
         cell.dataset.murRangeTotal = totalNum.toFixed(2);
         cell.dataset.murRangePsum  = String(pSum);
@@ -8622,6 +8683,29 @@ if (window.currentRowEl){
 
   window.bukaOverlayTotalMurRange = bukaOverlayTotalMurRange;
   $('#btnHitungTotalMur')?.addEventListener('click', hitungTotalMurRangeFromTable);
+
+	function attachMurRangeTableDelegation(){
+  const table = (typeof getSantriTable==='function') ? getSantriTable() : null;
+  if (!table || table.__murRangeDelegated) return;
+  table.__murRangeDelegated = true;
+
+  table.addEventListener('click', (ev)=>{
+    const a = ev.target.closest('.mur-range-count-link');
+    if (!a) return;
+    ev.preventDefault();
+
+    const key  = a.getAttribute('data-key') || '';
+    const tr   = a.closest('tr');
+    const name = (tr?.children?.[1] ? (tr.children[1].childNodes?.[0]?.textContent || tr.children[1].textContent) : '').trim();
+    const dari = document.getElementById('murRangeDari')?.value || '';
+    const smp  = document.getElementById('murRangeSampai')?.value || '';
+
+    openMurRangeDetailForKey(key, {
+      title: name ? `${name} — ${key}` : key,
+      info : (dari && smp) ? `Rentang: ${dari} s.d. ${smp}` : ''
+    });
+  });
+}
 
   // ====== RESET/SAVE overlay → hapus di DB & local (robust) ======
   function resetRangeLocal(kelas){
@@ -8792,9 +8876,10 @@ if (window.currentRowEl){
   }
 
   function afterTableRenderedMurRange(){
-    ensureMurRangeColumn();
-    autoApplyMurRangeIfAvailable();
-  }
+  ensureMurRangeColumn();
+  attachMurRangeTableDelegation(); // ← tambah baris ini
+  autoApplyMurRangeIfAvailable();
+}
 
   const _origLoad = window.loadSantriData;
   window.loadSantriData = async function(...args){
@@ -8821,6 +8906,58 @@ if (window.currentRowEl){
 
   window.hitungTotalMurRangeFromTable = hitungTotalMurRangeFromTable;
 })();
+
+	function openMurRangeDetailForKey(key, meta={}){
+  const overlay = document.getElementById('murRangeDetailOverlay');
+  const body    = document.getElementById('murRangeDetailBody');
+  const ttl     = document.getElementById('murRangeDetailTitle');
+  const sub     = document.getElementById('murRangeDetailSub');
+  const btn     = document.getElementById('murRangeDetailClose');
+  if (!overlay || !body) return;
+
+  ttl && (ttl.textContent = meta.title || `Detail — ${key}`);
+  sub && (sub.textContent = meta.info || '');
+
+  const list = (window.murRangeDetailsByKey && window.murRangeDetailsByKey[key]) ? [...window.murRangeDetailsByKey[key]] : [];
+
+  // sort by tanggal (ASC), sesi (ASC)
+  const toDate = (s)=> s ? new Date(s.replace(/(\d{2})-(\d{2})-(\d{4})/,'$3-$2-$1')) : new Date('1970-01-01');
+  list.sort((a,b)=>{
+    const da = toDate(a.tanggal), db = toDate(b.tanggal);
+    if (da - db !== 0) return da - db;
+    return (a.sesi||0) - (b.sesi||0);
+  });
+
+  const esc = s => (s==null? '' : String(s));
+
+  if (!list.length){
+    body.innerHTML = `<tr><td colspan="8" style="padding:14px;color:#6b7280">Belum ada data pada rentang ini.</td></tr>`;
+  } else {
+    body.innerHTML = list.map(it=>{
+      const juz   = (it.jFrom||it.jTo) ? `Juz ${esc(it.jFrom)} → ${esc(it.jTo)}` : '–';
+      const pages = (it.pf||it.pt)     ? `${esc(it.pf)}–${esc(it.pt)}`          : '–';
+      const sa    = (it.sF||it.aF||it.sT||it.aT) ? `${esc(it.sF)}:${esc(it.aF)} → ${esc(it.sT)}:${esc(it.aT)}` : '–';
+      const nilai = (it.score!=null && it.score!=='') ? String(it.score) : '–';
+      const pred  = (it.pText || it.pHuruf) ? `${esc(it.pText)} ${it.pHuruf ? '('+esc(it.pHuruf)+')' : ''}` : '–';
+      const tz    = (Number.isFinite(it.totalJuz) ? it.totalJuz : 0);
+
+      return `<tr>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f1f1">${esc(it.tanggal)||'–'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f1f1">Sesi ${esc(it.sesi)||'-'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f1f1">${juz}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f1f1">${pages}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f1f1">${sa}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f1f1">${nilai}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f1f1">${pred}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f1f1">${(tz||0).toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  overlay.style.display = 'flex';
+  btn && btn.addEventListener('click', ()=> overlay.style.display = 'none', { once:true });
+  overlay.addEventListener('click', (e)=>{ if (e.target === overlay) overlay.style.display='none'; }, { once:true });
+}
 
 // ============================
 // D. MURAJAAH 3 SESI
@@ -11254,7 +11391,36 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 
+<!-- Modal Detail Mur Range -->
+<div id="murRangeDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;max-width:960px;width:calc(100% - 24px);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #eee">
+      <div>
+        <div id="murRangeDetailTitle" style="font-weight:700;font-size:16px;">Detail Murajaah</div>
+        <div id="murRangeDetailSub" style="font-size:12px;color:#6b7280;margin-top:2px"></div>
+      </div>
+      <button id="murRangeDetailClose" type="button" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:#f8f9fa;cursor:pointer">Tutup</button>
+    </div>
 
+    <div style="max-height:70vh;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead style="position:sticky;top:0;background:#fafafa;border-bottom:1px solid #eee">
+          <tr>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Tanggal</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Juz</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Halaman</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Surah:Ayat</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Nilai</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Predikat</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Total Juz</th>
+          </tr>
+        </thead>
+        <tbody id="murRangeDetailBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 		
 </body>
 </html>
