@@ -10817,7 +10817,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 <script>
-/* === [GRAFIK PROSENTASE THMS — PER HALAQOH + CACHING + NORMALISASI JENJANG] === */
+/* === [GRAFIK PROSENTASE THMS — PER HALAQOH + CACHING (SEUMUR HIDUP) + NORMALISASI JENJANG] === */
 (function grafikTHMS_boot(){
   // ---- util: tunggu DOM siap
   function onReady(fn){
@@ -10883,7 +10883,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.head.appendChild(s);
     }
 
-    // ===== Overlay DOM (Tanpa tab Jenjang)
+    // ===== Overlay DOM (tanpa tab)
     function ensureOverlay(){
       if (document.getElementById('thmsOverlay')) return;
       const el = document.createElement('div');
@@ -10937,22 +10937,24 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // ====== Caching helpers (cache ikut roster)
-    const CACHE_NS = 'THMS_GRAPH_V5KEY';
-    const CACHE_TTL_MS = 24*60*60*1000; // 24 jam
-    function fingerprintKeys(keys){ return keys.slice().map(String).sort().join('|'); }
+    // ====== Caching helpers (SEUMUR HIDUP, key hanya berdasar tanggal)
+    const CACHE_NS = 'THMS_GRAPH_V6DATE';
+    function makeBaseKey(start, end){ return `${CACHE_NS}|${start}|${end}`; }
+
     function cacheLoad(baseKey, mode){
       try{
         const raw = localStorage.getItem(`${baseKey}|${mode}`);
         if (!raw) return null;
         const obj = JSON.parse(raw);
-        if (!obj || !obj.t || !obj.payload) return null;
-        if (Date.now() - obj.t > CACHE_TTL_MS) return null;
-        return obj.payload;
+        // dukung format lama {t, payload} atau langsung payload
+        return (obj && typeof obj === 'object' && 'payload' in obj) ? obj.payload : obj;
       }catch(e){ return null; }
     }
     function cacheSave(baseKey, mode, payload){
-      try{ localStorage.setItem(`${baseKey}|${mode}`, JSON.stringify({ t: Date.now(), payload })); }catch(e){}
+      try{
+        // simpan tanpa TTL; tetap bungkus agar bisa diekspansi di masa depan
+        localStorage.setItem(`${baseKey}|${mode}`, JSON.stringify({ payload }));
+      }catch(e){}
     }
 
     // ===== Helper daftar kelas (aman)
@@ -10981,12 +10983,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return keys;
     }
 
-    // ===== Normalisasi & sort jenjang (untuk label roster saja)
-    function normJenjangKey(raw){
-      let s = (raw==null ? '' : String(raw)).trim().toUpperCase();
-      s = s.replace(/[\.\-\_ ]+/g,'');
-      return s;
-    }
+    // ===== Normalisasi & util label
     function prettyJenjangLabel(raw){
       if (typeof jenjangLabel === 'function'){
         const r = jenjangLabel(raw ?? '');
@@ -10994,16 +10991,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return String(raw ?? '').trim();
     }
-    function sortKeyJenjang(label){
-      const lbl = String(label||'').trim();
-      const mIL = /^IL\s*([A-D])$/i.exec(lbl) || /^IL([A-D])$/i.exec(lbl);
-      if (mIL) return `0.${'ABCD'.indexOf(mIL[1].toUpperCase())}`;
-      const m = /^(\d+)\s*([A-Z])$/i.exec(lbl) || /^(\d+)([A-Z])$/i.exec(lbl);
-      if (m) return `${String(m[1]).padStart(3,'0')}.${m[2]}`;
-      return `999.${lbl}`;
-    }
-
-    // ===== Label kelas (ustadz)
     function getKelasLabel(kelasKey){
       const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
                ? kelasSelect
@@ -11018,14 +11005,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return kelasKey;
     }
 
-    // ===== Roster (untuk master jenjang)
+    // ===== Roster
     async function getRosterForClass(kelasKey){
       const r = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`).catch(()=>null);
       const roster = await r?.json().catch(()=>[]);
       return Array.isArray(roster) ? roster : [];
     }
-
-    // ===== Whitelist helper (pakai buildRosterWhitelist jika tersedia)
     function makeAllowSet(roster){
       if (typeof buildRosterWhitelist === 'function') return buildRosterWhitelist(roster);
       const allow = new Set();
@@ -11036,19 +11021,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (id)  allow.add(id);
       }
       return allow;
-    }
-
-    // ===== (Opsional kuat) sidik-jari roster untuk cache key
-    async function rosterFingerprintAll(kelasKeys){
-      const lists = await Promise.all(kelasKeys.map(k => getRosterForClass(k)));
-      const ids = lists.flat().flatMap(s => {
-        const nis = (s?.nis===0 || s?.nis) ? String(s.nis).trim() : "";
-        const id  = (s?.id===0  || s?.id)  ? String(s.id).trim()  : "";
-        return [nis, id].filter(Boolean);
-      }).sort().join('|');
-      let h = 0;
-      for (let i=0;i<ids.length;i++) h = (h*31 + ids.charCodeAt(i)) >>> 0;
-      return h.toString(36).slice(0,12);
     }
 
     // ===== Fallback: agregat D1 + roster (TERFILTER whitelist)
@@ -11071,7 +11043,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const out = [];
       for (const it of j1.list){
         const key = String(it?.key||'').trim();
-        if (!key || !allow.has(key)) continue; // filter berdasar roster
+        if (!key || !allow.has(key)) continue;
         const totalJuz = Number(it?.totalJuz || it?.total_juz_num || 0);
         const s = byNis.get(key) || byId.get(key) || {};
         out.push({
@@ -11083,7 +11055,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return out;
     }
 
-    // ===== Ambil rows per kelas (universal + fallback) — juga TERFILTER whitelist
+    // ===== Ambil rows per kelas (universal + fallback) — TERFILTER whitelist
     async function getRowsForClass(kelasKey, startDate, endDate){
       const roster = await getRosterForClass(kelasKey);
       const allow  = makeAllowSet(roster);
@@ -11119,7 +11091,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return 0;
     }
 
-    // ======= Komputasi: Per Halaqoh (kelas) — selalu rilis semua kelas
+    // ======= Komputasi: Per Halaqoh (kelas)
     async function computeByKelas(startDate, endDate, kelasKeys){
       const rows = [];
       for (const k of kelasKeys){
@@ -11209,7 +11181,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="pct">${pct}%</div>
           </div>
           <div class="thms-progress"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>
-            <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Tuntas: ${r.tuntas} · Khatam: ${r.khatam}</div>
+          <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Tuntas: ${r.tuntas} · Khatam: ${r.khatam}</div>
         `;
         list.appendChild(item);
       });
@@ -11228,9 +11200,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const kelasKeys = getAllKelasKeysSafe();
         if (!kelasKeys.length) throw new Error('Tidak menemukan daftar kelas.');
 
-        // cache key + sidik-jari roster
-        const rf = await rosterFingerprintAll(kelasKeys);
-        const baseKey = `${CACHE_NS}|${startDate}|${endDate}|${fingerprintKeys(kelasKeys)}|R:${rf}`;
+        // cache key berdasar tanggal saja
+        const baseKey = makeBaseKey(startDate, endDate);
         const mode = 'kelas';
 
         let payload = cacheLoad(baseKey, mode);
