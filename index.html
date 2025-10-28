@@ -2829,7 +2829,7 @@ logoutBtn.addEventListener("click", () => {
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
     perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
-	defaultTarget: 1,                                   // default denominator
+    defaultTarget: 1,                                   // default denominator
     maxTarget: 6,                                       // denominator 1..6
     labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
   };
@@ -2925,6 +2925,11 @@ logoutBtn.addEventListener("click", () => {
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
     const root = (typeof container === "string") ? document.getElementById(container) : container;
     if (!root) throw new Error("Container absensi tidak ditemukan");
+
+    // === SCOPING UNIK PER INSTANCE ===
+    const scope = root.getAttribute('data-absflex-scope') || ('absflex_' + Math.random().toString(36).slice(2));
+    root.setAttribute('data-absflex-scope', scope);
+
     const perStatus = ABS_FLEX_CFG.perStatus;
     const keys = buildKeys(perStatus);
 
@@ -2947,7 +2952,7 @@ logoutBtn.addEventListener("click", () => {
             <div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
               ${Array.from({length:perStatus},(_,i)=>`
                 <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;border:1px solid #f1f5f9;min-height:32px;min-width:0;">
-                  <input type="checkbox" data-abskey="${st}${i+1}" style="width:16px;height:16px;">
+                  <input type="checkbox" data-abskey="${scope}:${st}${i+1}" style="width:16px;height:16px;">
                   <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${labelFor(st, i+1)}</span>
                 </label>
               `).join("")}
@@ -2959,9 +2964,9 @@ logoutBtn.addEventListener("click", () => {
 
     const percentEl = root.querySelector(".absflex-percent");
     const targetEl  = root.querySelector(".absflex-target");
-    const boxes     = [...root.querySelectorAll('input[type="checkbox"][data-abskey]')];
+    const boxes     = [...root.querySelectorAll(`input[type="checkbox"][data-abskey^="${scope}:"]`)];
 
-    // bangun items awal
+    // items internal pakai key murni (tanpa scope) agar kompatibel preset lama
     let items;
     if (Array.isArray(presetItems)) {
       const presetSet = new Map(presetItems.map(it => [String(it.key).toLowerCase(), !!it.checked]));
@@ -2970,10 +2975,14 @@ logoutBtn.addEventListener("click", () => {
       items = keys.map(k => ({ key:k, checked:false }));
     }
 
+    // scope helpers
+    const stripScope = (scoped) => scoped.startsWith(scope + ':') ? scoped.slice(scope.length + 1) : scoped;
+
     function writeUI(){
       boxes.forEach(b => {
-        const k = String(b.dataset.abskey).toLowerCase();
-        const it = items.find(x => x.key === k);
+        const raw = String(b.dataset.abskey); // contoh: "absflex_xxx:hadir1"
+        const k   = stripScope(raw);          // -> "hadir1"
+        const it  = items.find(x => x.key === k);
         b.checked = !!it?.checked;
       });
     }
@@ -2986,7 +2995,7 @@ logoutBtn.addEventListener("click", () => {
       const rec = computePercent(items, t);
       percentEl.textContent = `${Math.round(rec.percent)}%`;
       recolor(rec.percent);
-      // expose ke container (dipakai untuk sync ke cell pemanggil)
+      // expose ke container (pakai key murni tanpa scope buat kompatibilitas)
       root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
       root._absensiTarget  = rec.target;
       root._absensiChecked = rec.checked;
@@ -3000,9 +3009,10 @@ logoutBtn.addEventListener("click", () => {
         writeUI(); recalcExpose();
         return;
       }
-      if (e.target.matches('input[type="checkbox"][data-abskey]')) {
-        const k = String(e.target.dataset.abskey).toLowerCase();
-        const it = items.find(x => x.key === k);
+      if (e.target.matches(`input[type="checkbox"][data-abskey^="${scope}:"]`)) {
+        const raw = String(e.target.dataset.abskey);
+        const k   = stripScope(raw); // "hadir1", "izin2", ...
+        const it  = items.find(x => x.key === k);
         if (it) it.checked = !!e.target.checked;
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
         writeUI(); recalcExpose();
