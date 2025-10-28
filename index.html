@@ -2828,7 +2828,7 @@ logoutBtn.addEventListener("click", () => {
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
-    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
+    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 1 unit per status
     defaultTarget: 1,                                   // default denominator
     maxTarget: 6,                                       // denominator 1..6
     labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
@@ -2848,21 +2848,16 @@ logoutBtn.addEventListener("click", () => {
     const Title   = st.charAt(0).toUpperCase() + st.slice(1);
     const idx     = i - 1;
     const per     = ABS_FLEX_CFG.perStatus|0;
-    const sesiAll = ["Subuh","Pagi","Siang","Sore","Malam","Tahajjud"]; // aman utk >2 sesi
+    const sesiAll = ["Subuh","Pagi","Siang","Sore","Malam","Tahajjud"];
 
-    // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
       const sesi = (idx === 0) ? "Pagi" : "Sore";
       return `${Title} ${sesi} ${i}`;
     }
-
-    // Jika lebih dari 2 sesi, gunakan daftar sesi lengkap
     if (per > 2){
       const sesi = sesiAll[idx] || `Sesi ${i}`;
       return `${Title} ${sesi} ${i}`;
     }
-
-    // Fallback (perStatus=1)
     return `${Title} ${i}`;
   }
 
@@ -2928,6 +2923,9 @@ logoutBtn.addEventListener("click", () => {
     const perStatus = ABS_FLEX_CFG.perStatus;
     const keys = buildKeys(perStatus);
 
+    // UID unik per render untuk mengunci selector hanya ke instance ini
+    const uid = 'af-' + Math.random().toString(36).slice(2, 9);
+
     root.innerHTML = `
       <div class="absflex-head" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
         <label style="font-size:12px;color:#6b7280">Sesi aktif:</label>
@@ -2947,8 +2945,8 @@ logoutBtn.addEventListener("click", () => {
             <div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
               ${Array.from({length:perStatus},(_,i)=>`
                 <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;border:1px solid #f1f5f9;min-height:32px;min-width:0;">
-                  <!-- khusus modal: gunakan data-afkey agar tidak bentrok dengan elemen lain -->
-                  <input type="checkbox" data-afkey="${st}${i+1}" style="width:16px;height:16px;">
+                  <!-- khusus modal: gunakan data-afkey & data-afuid -->
+                  <input type="checkbox" data-afuid="${uid}" data-afkey="${st}${i+1}" style="width:16px;height:16px;">
                   <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${labelFor(st, i+1)}</span>
                 </label>
               `).join("")}
@@ -2960,8 +2958,9 @@ logoutBtn.addEventListener("click", () => {
 
     const percentEl = root.querySelector(".absflex-percent");
     const targetEl  = root.querySelector(".absflex-target");
-    // Penting: scope hanya ke modal menggunakan data-afkey
-    const boxes     = [...root.querySelectorAll('input[type="checkbox"][data-afkey]')];
+    // Scope ketat: hanya checkbox dalam instance ini
+    const q = (sel) => root.querySelectorAll(`[data-afuid="${uid}"]${sel ? sel : ''}`);
+    const boxes = Array.from(q('')); // semua input[data-afuid=uid]
 
     // bangun items awal
     let items;
@@ -2974,7 +2973,7 @@ logoutBtn.addEventListener("click", () => {
 
     function writeUI(){
       boxes.forEach(b => {
-        const k = String(b.dataset.afkey).toLowerCase(); // gunakan afkey
+        const k = String(b.getAttribute('data-afkey')).toLowerCase();
         const it = items.find(x => x.key === k);
         b.checked = !!it?.checked;
       });
@@ -2995,15 +2994,15 @@ logoutBtn.addEventListener("click", () => {
       root._absensiPercent = Math.round(rec.percent);
     }
 
-    // listeners (hanya dalam root modal)
+    // listeners (dibatasi ke root + uid supaya tidak mempengaruhi kolom lain)
     root.addEventListener("change", (e) => {
       if (e.target === targetEl) {
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
         writeUI(); recalcExpose();
         return;
       }
-      if (e.target.matches('input[type="checkbox"][data-afkey]')) {
-        const k = String(e.target.dataset.afkey).toLowerCase();
+      if (e.target instanceof HTMLInputElement && e.target.matches(`input[type="checkbox"][data-afuid="${uid}"]`)) {
+        const k = String(e.target.getAttribute('data-afkey')).toLowerCase();
         const it = items.find(x => x.key === k);
         if (it) it.checked = !!e.target.checked;
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
@@ -3072,7 +3071,6 @@ logoutBtn.addEventListener("click", () => {
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
 })();
-
 
 
 // === Load Santri Data ===
