@@ -3083,6 +3083,95 @@ logoutBtn.addEventListener("click", () => {
   window.ensureAbsensiModal = ensureAbsensiModal;
 })();
 
+// === ABSENSI FLEX: DROPDOWN/POPOVER HELPER (tanpa modal) ==================
+(function(){
+  // tutup dropdown yang sedang terbuka (jika ada)
+  function closeOpen(){
+    const open = window.__absflex_open_dropdown;
+    if (open && open.panel) {
+      open.panel.remove();
+      window.__absflex_open_dropdown = null;
+      window.removeEventListener('keydown', open.keyHandler);
+      window.removeEventListener('scroll', open.scrollHandler, true);
+      window.removeEventListener('resize', open.resizeHandler);
+      document.removeEventListener('click', open.outsideHandler, true);
+    }
+  }
+
+  // posisikan panel di bawah trigger (fallback agar tidak keluar layar)
+  function placePanel(panel, trigger){
+    const r = trigger.getBoundingClientRect();
+    const margin = 6;
+    const maxW = Math.min(420, window.innerWidth - 16);
+    panel.style.minWidth = '300px';
+    panel.style.maxWidth = maxW + 'px';
+    panel.style.left = Math.max(8, Math.min(window.innerWidth - panel.offsetWidth - 8, r.left + window.scrollX)) + 'px';
+    panel.style.top  = (r.bottom + window.scrollY + margin) + 'px';
+  }
+
+  // buat panel dropdown dan render absensi di dalamnya
+  function openDropdown(trigger, options){
+    closeOpen();
+
+    const panel = document.createElement('div');
+    panel.setAttribute('role', 'dialog');
+    panel.style.cssText = [
+      'position:absolute','z-index:1001',
+      'background:#fff','border:1px solid #e5e7eb','border-radius:12px',
+      'box-shadow:0 10px 30px rgba(0,0,0,.12)',
+      'padding:12px','max-height:70vh','overflow:auto'
+    ].join(';');
+
+    document.body.appendChild(panel);
+    // beri scope unik ke container panel agar checkbox tidak "mirror"
+    panel.setAttribute('data-absflex-scope', 'absflex_' + Math.random().toString(36).slice(2));
+
+    // tampil lalu posisikan, kemudian render isi
+    panel.style.visibility = 'hidden';
+    requestAnimationFrame(() => {
+      panel.style.visibility = 'visible';
+      placePanel(panel, trigger);
+      renderAbsensiFlex(panel, options || {});
+    });
+
+    const keyHandler = (e) => { if (e.key === 'Escape') closeOpen(); };
+    const scrollHandler = () => { if (window.__absflex_open_dropdown) placePanel(panel, trigger); };
+    const resizeHandler = () => { if (window.__absflex_open_dropdown) placePanel(panel, trigger); };
+    const outsideHandler = (e) => {
+      if (!panel.contains(e.target) && e.target !== trigger) closeOpen();
+    };
+
+    window.addEventListener('keydown', keyHandler);
+    window.addEventListener('scroll', scrollHandler, true);
+    window.addEventListener('resize', resizeHandler);
+    document.addEventListener('click', outsideHandler, true);
+
+    window.__absflex_open_dropdown = { panel, keyHandler, scrollHandler, resizeHandler, outsideHandler };
+  }
+
+  // PUBLIC: pasang ke tombol2 (default: .btn-absensi-flex)
+  window.initAbsensiFlexDropdowns = function(selector='.btn-absensi-flex', optsFn=null){
+    document.querySelectorAll(selector).forEach(btn => {
+      // hilangkan handler ganda
+      btn.__absflex_bound && btn.removeEventListener('click', btn.__absflex_bound);
+      const handler = (e) => {
+        e.stopPropagation();
+        const options = typeof optsFn === 'function' ? (optsFn(btn) || {}) : {};
+        openDropdown(btn, options);
+      };
+      btn.addEventListener('click', handler);
+      btn.__absflex_bound = handler;
+    });
+  };
+
+  // auto-init saat DOM siap (pakai default target/preset)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => window.initAbsensiFlexDropdowns());
+  } else {
+    window.initAbsensiFlexDropdowns();
+  }
+})();
+
 
 
 // === Load Santri Data ===
