@@ -2828,7 +2828,7 @@ logoutBtn.addEventListener("click", () => {
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
-    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
+    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // 1..6 unit per status (hadir1..N)
     defaultTarget: 1,                                   // default denominator
     maxTarget: 6,                                       // denominator 1..6
     labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
@@ -2844,26 +2844,21 @@ logoutBtn.addEventListener("click", () => {
   }
 
   function defaultLabel(st, i){
-    // Dukungan sesi lengkap + pertahankan perilaku lama untuk perStatus=2 (Pagi/Sore)
+    // Pertahankan perilaku lama untuk perStatus=2 (Pagi/Sore)
     const Title   = st.charAt(0).toUpperCase() + st.slice(1);
     const idx     = i - 1;
     const per     = ABS_FLEX_CFG.perStatus|0;
-    const sesiAll = ["Sesi"];
+    const sesiAll = ["Subuh","Pagi","Siang","Sore","Malam","Tahajjud"]; // lengkap
 
-    // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
       const sesi = (idx === 0) ? "Pagi" : "Sore";
       return `${Title} ${sesi} ${i}`;
     }
-
-    // Jika lebih dari 2 sesi, gunakan daftar sesi lengkap
     if (per > 2){
       const sesi = sesiAll[idx] || `Sesi ${i}`;
       return `${Title} ${sesi} ${i}`;
     }
-
-    // Fallback (perStatus=1)
-    return `${Title} ${i}`;
+    return `${Title} ${i}`; // perStatus=1
   }
 
   function labelFor(st, i){
@@ -2921,13 +2916,17 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
-  // Render widget ke target container (dipakai di MODAL)
-  window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
+  // ========== RENDER (dipakai di MODAL) ==========
+  // scopeId: string opsional; kalau tidak ada, akan di-resolve otomatis dari baris/kolom (NIS)
+  window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null, scopeId=null } = {}){
     const root = (typeof container === "string") ? document.getElementById(container) : container;
     if (!root) throw new Error("Container absensi tidak ditemukan");
 
-    // === SCOPING UNIK PER INSTANCE ===
-    const scope = root.getAttribute('data-absflex-scope') || ('absflex_' + Math.random().toString(36).slice(2));
+    // SCOPING UNIK PER INSTANCE (mencegah “ikut-ikutan” antar NIS/kolom)
+    const scope =
+      (scopeId && String(scopeId)) ||
+      root.getAttribute('data-absflex-scope') ||
+      ('absflex_' + Math.random().toString(36).slice(2));
     root.setAttribute('data-absflex-scope', scope);
 
     const perStatus = ABS_FLEX_CFG.perStatus;
@@ -2975,12 +2974,12 @@ logoutBtn.addEventListener("click", () => {
       items = keys.map(k => ({ key:k, checked:false }));
     }
 
-    // scope helpers
+    // helper scope
     const stripScope = (scoped) => scoped.startsWith(scope + ':') ? scoped.slice(scope.length + 1) : scoped;
 
     function writeUI(){
       boxes.forEach(b => {
-        const raw = String(b.dataset.abskey); // contoh: "absflex_xxx:hadir1"
+        const raw = String(b.dataset.abskey); // "absflex_xxx:hadir1"
         const k   = stripScope(raw);          // -> "hadir1"
         const it  = items.find(x => x.key === k);
         b.checked = !!it?.checked;
@@ -3002,7 +3001,7 @@ logoutBtn.addEventListener("click", () => {
       root._absensiPercent = Math.round(rec.percent);
     }
 
-    // listeners
+    // listeners (hanya dalam scope ini)
     root.addEventListener("change", (e) => {
       if (e.target === targetEl) {
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
@@ -3070,17 +3069,80 @@ logoutBtn.addEventListener("click", () => {
     `;
     document.body.appendChild(overlay);
 
-    // close handlers
     const closeBtn = overlay.querySelector("#absensiModalClose");
     closeBtn.addEventListener("click", () => overlay.style.display = "none");
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.style.display = "none";
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") overlay.style.display = "none";
-    });
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.style.display = "none"; });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") overlay.style.display = "none"; });
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
+})();
+
+
+
+// === CLICK HANDLER: buka modal untuk kolom/NIS yang ditekan (tanpa set apa2 di tombol)
+(function(){
+  // Usahakan resolve NIS/Key dari DOM yang sudah ada per kolom/baris
+  function sanitizeScope(raw){
+    return 'nis_' + String(raw||'').trim().replace(/\s+/g,'_').replace(/[^a-z0-9_\-.]/gi,'').toLowerCase();
+  }
+  function resolveScopeFromButton(btn){
+    const cell = btn.closest('td,th');
+    const row  = btn.closest('tr');
+
+    // 1) dataset umum yang sering dipakai
+    const cand =
+      btn.dataset.nis || btn.dataset.studentKey ||
+      (cell && (cell.dataset.nis || cell.dataset.studentKey || cell.dataset.key)) ||
+      (row  && (row.dataset.nis  || row.dataset.studentKey  || row.dataset.key));
+
+    if (cand) return sanitizeScope(cand);
+
+    // 2) cari elemen penampung NIS dalam baris
+    if (row){
+      const el =
+        row.querySelector('.nis, .nis-key, [data-field="nis"], [data-col="nis"], [data-nis], [data-student-key]');
+      if (el){
+        const val = el.getAttribute('data-nis') || el.getAttribute('data-student-key') || el.textContent;
+        if (val) return sanitizeScope(val);
+      }
+      // 3) fallback index baris (stabil selama render halaman)
+      if (row.parentElement){
+        const idx = Array.prototype.indexOf.call(row.parentElement.children, row);
+        return 'row_' + idx;
+      }
+    }
+    // 4) fallback acak
+    return 'row_' + Math.random().toString(36).slice(2);
+  }
+
+  if (!window.__absflex_clickBound){
+    window.__absflex_clickBound = true;
+
+    document.addEventListener('click', function(e){
+      const btn = e.target.closest('.btn-absensi-flex');
+      if (!btn) return;
+
+      // Resolve scope dari DOM (baris/kolom tempat tombol berada)
+      const scopeId = resolveScopeFromButton(btn);
+
+      // Siapkan & tampilkan modal
+      ensureAbsensiModal();
+      const overlay = document.getElementById('absensiModalOverlay');
+      const body    = document.getElementById('absensiModalContent');
+      overlay.style.display = 'block';
+
+      // Render isi modal (clear dulu agar tidak carry-over)
+      requestAnimationFrame(()=> {
+        body.innerHTML = '';
+        // Jika kamu punya preset/target per NIS, ambil di sini sebelum render
+        renderAbsensiFlex(body, {
+          target: ABS_FLEX_CFG.defaultTarget,
+          presetItems: null,
+          scopeId
+        });
+      });
+    }, false);
+  }
 })();
 
 
