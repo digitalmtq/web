@@ -10860,7 +10860,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnPdf.id = 'btn-graph-thms-pdf';
     btnPdf.className = 'rekap-btn';
     btnPdf.style.background = '#0ea5e9';
-    btnPdf.textContent = 'PDF Grafik Prosentase';
+    btnPdf.textContent = 'PDF Grafik';
     wrap.appendChild(btnPdf);
 
     // ===== Style overlay (center)
@@ -10917,7 +10917,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div id="thmsSub" class="thms-sub"></div>
             </div>
             <div class="thms-actions">
-              <button id="thmsRefresh" class="thms-btn thms-refresh" title="Perbarui data untuk tanggal ini">Refresh Data</button>
+              <button id="thmsRefresh" class="thms-btn thms-refresh" title="Perbarui data untuk tanggal ini">Perbaharui</button>
               <button id="thmsClose" class="thms-btn thms-close">Tutup</button>
             </div>
           </div>
@@ -11259,7 +11259,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error(e);
         alert('Gagal menampilkan grafik: ' + (e.message||e));
       } finally {
-        btn.disabled = false; btn.textContent = 'Grafik Prosentase';
+        btn.disabled = false; btn.textContent = 'Live Grafik';
       }
     }
 
