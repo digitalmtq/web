@@ -2828,8 +2828,8 @@ logoutBtn.addEventListener("click", () => {
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
-    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 1 unit per status
-    defaultTarget: 1,                                   // default denominator
+    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
+	defaultTarget: 1,                                   // default denominator
     maxTarget: 6,                                       // denominator 1..6
     labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
   };
@@ -2848,16 +2848,21 @@ logoutBtn.addEventListener("click", () => {
     const Title   = st.charAt(0).toUpperCase() + st.slice(1);
     const idx     = i - 1;
     const per     = ABS_FLEX_CFG.perStatus|0;
-    const sesiAll = ["Subuh","Pagi","Siang","Sore","Malam","Tahajjud"];
+    const sesiAll = ["Sesi"];
 
+    // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
       const sesi = (idx === 0) ? "Pagi" : "Sore";
       return `${Title} ${sesi} ${i}`;
     }
+
+    // Jika lebih dari 2 sesi, gunakan daftar sesi lengkap
     if (per > 2){
       const sesi = sesiAll[idx] || `Sesi ${i}`;
       return `${Title} ${sesi} ${i}`;
     }
+
+    // Fallback (perStatus=1)
     return `${Title} ${i}`;
   }
 
@@ -2917,103 +2922,197 @@ logoutBtn.addEventListener("click", () => {
   }
 
   // Render widget ke target container (dipakai di MODAL)
-  window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
-    const root = (typeof container === "string") ? document.getElementById(container) : container;
-    if (!root) throw new Error("Container absensi tidak ditemukan");
-    const perStatus = ABS_FLEX_CFG.perStatus;
-    const keys = buildKeys(perStatus);
+window.renderAbsensiFlex = function renderAbsensiFlex(
+  container,
+  { target = ABS_FLEX_CFG.defaultTarget, presetItems = null, syncCell = null } = {}
+){
+  const root = (typeof container === "string") ? document.getElementById(container) : container;
+  if (!root) throw new Error("Container absensi tidak ditemukan");
+  const perStatus = ABS_FLEX_CFG.perStatus;
+  const keys = (function buildKeys(perStatus = ABS_FLEX_CFG.perStatus){
+    const n = Math.max(1, Math.min(6, perStatus|0 || 2));
+    const arr = [];
+    for (const st of ABS_FLEX_CFG.statuses){ for (let i=1;i<=n;i++) arr.push(`${st}${i}`); }
+    return arr;
+  })(perStatus);
 
-    // UID unik per render untuk mengunci selector hanya ke instance ini
-    const uid = 'af-' + Math.random().toString(36).slice(2, 9);
-
-    root.innerHTML = `
-      <div class="absflex-head" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-        <label style="font-size:12px;color:#6b7280">Sesi aktif:</label>
-        <select class="absflex-target" style="padding:2px 6px;border:1px solid #e5e7eb;border-radius:8px;">
-          ${Array.from({length:ABS_FLEX_CFG.maxTarget},(_,i)=>`<option value="${i+1}" ${i+1==target?'selected':''}>${i+1}</option>`).join("")}
-        </select>
-        <span class="absflex-percent" style="border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;background:#eef2ff;font-weight:600;">0%</span>
-      </div>
-
-      <!-- Grid luar: kartu per status (responsif & rapi) -->
-      <div class="absflex-grid" style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
-        ${ABS_FLEX_CFG.statuses.map(st => `
-          <div style="border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff;">
-            <div style="font-weight:700;margin-bottom:6px;text-transform:capitalize;">${st}</div>
-
-            <!-- Grid dalam: checkbox per sesi, rapi sampai 6 sesi -->
-            <div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
-              ${Array.from({length:perStatus},(_,i)=>`
-                <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;border:1px solid #f1f5f9;min-height:32px;min-width:0;">
-                  <!-- khusus modal: gunakan data-afkey & data-afuid -->
-                  <input type="checkbox" data-afuid="${uid}" data-afkey="${st}${i+1}" style="width:16px;height:16px;">
-                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${labelFor(st, i+1)}</span>
-                </label>
-              `).join("")}
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    `;
-
-    const percentEl = root.querySelector(".absflex-percent");
-    const targetEl  = root.querySelector(".absflex-target");
-    // Scope ketat: hanya checkbox dalam instance ini
-    const q = (sel) => root.querySelectorAll(`[data-afuid="${uid}"]${sel ? sel : ''}`);
-    const boxes = Array.from(q('')); // semua input[data-afuid=uid]
-
-    // bangun items awal
-    let items;
-    if (Array.isArray(presetItems)) {
-      const presetSet = new Map(presetItems.map(it => [String(it.key).toLowerCase(), !!it.checked]));
-      items = keys.map(k => ({ key:k, checked: !!presetSet.get(k) }));
-    } else {
-      items = keys.map(k => ({ key:k, checked:false }));
-    }
-
-    function writeUI(){
-      boxes.forEach(b => {
-        const k = String(b.getAttribute('data-afkey')).toLowerCase();
-        const it = items.find(x => x.key === k);
-        b.checked = !!it?.checked;
-      });
-    }
-    function recolor(p){
-      percentEl.style.background = p>=80 ? '#dcfce7' : p>=50 ? '#fff7ed' : '#fee2e2';
-      percentEl.style.borderColor= p>=80 ? '#86efac' : p>=50 ? '#fdba74' : '#fca5a5';
-    }
-    function recalcExpose(){
-      const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
-      const rec = computePercent(items, t);
-      percentEl.textContent = `${Math.round(rec.percent)}%`;
-      recolor(rec.percent);
-      // expose ke container (dipakai untuk sync ke cell pemanggil)
-      root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
-      root._absensiTarget  = rec.target;
-      root._absensiChecked = rec.checked;
-      root._absensiPercent = Math.round(rec.percent);
-    }
-
-    // listeners (dibatasi ke root + uid supaya tidak mempengaruhi kolom lain)
-    root.addEventListener("change", (e) => {
-      if (e.target === targetEl) {
-        items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
-        writeUI(); recalcExpose();
-        return;
+  // --- util kecil
+  const cloneItems = (arr) => (Array.isArray(arr) ? arr.map(it => ({ key:String(it.key).toLowerCase(), checked:!!it.checked })) : []);
+  const title = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const buildExpanded = (items, tgt)=>{
+    const t = Math.max(1, Math.min(6, Number(tgt)||1));
+    const per = Number(ABS_FLEX_CFG?.perStatus ?? 2);
+    const stOrder = Array.isArray(ABS_FLEX_CFG?.statuses) && ABS_FLEX_CFG.statuses.length ? ABS_FLEX_CFG.statuses : ["hadir","izin","sakit","alpha"];
+    const checkedSet = new Set((items||[]).filter(it=>it.checked).map(it=>String(it.key).toLowerCase()));
+    const out=[]; let seq=1;
+    for (const st of stOrder){
+      for (let i=1;i<=per;i++){
+        const k = `${st}${i}`;
+        if (checkedSet.has(k) && seq<=t){ out.push(`${title(st)}${i}`); seq++; }
       }
-      if (e.target instanceof HTMLInputElement && e.target.matches(`input[type="checkbox"][data-afuid="${uid}"]`)) {
-        const k = String(e.target.getAttribute('data-afkey')).toLowerCase();
-        const it = items.find(x => x.key === k);
-        if (it) it.checked = !!e.target.checked;
-        items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
-        writeUI(); recalcExpose();
-      }
-    });
-
-    // init tampilan
-    writeUI(); recalcExpose();
-    return root;
+    }
+    return out;
   };
+
+  // --- UI
+  root.innerHTML = `
+    <div class="absflex-head" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+      <label style="font-size:12px;color:#6b7280">Sesi aktif:</label>
+      <select class="absflex-target" style="padding:2px 6px;border:1px solid #e5e7eb;border-radius:8px;">
+        ${Array.from({length:ABS_FLEX_CFG.maxTarget},(_,i)=>`<option value="${i+1}" ${i+1==target?'selected':''}>${i+1}</option>`).join("")}
+      </select>
+      <span class="absflex-percent" style="border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;background:#eef2ff;font-weight:600;">0%</span>
+    </div>
+
+    <div class="absflex-grid" style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+      ${ABS_FLEX_CFG.statuses.map(st => `
+        <div style="border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff;">
+          <div style="font-weight:700;margin-bottom:6px;text-transform:capitalize;">${st}</div>
+          <div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
+            ${Array.from({length:perStatus},(_,i)=>`
+              <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;border:1px solid #f1f5f9;min-height:32px;min-width:0;">
+                <input type="checkbox" data-abskey="${st}${i+1}" style="width:16px;height:16px;">
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${(function defaultLabel(st,i){
+                  const Title = st.charAt(0).toUpperCase() + st.slice(1);
+                  const idx = i-1, per = ABS_FLEX_CFG.perStatus|0;
+                  if (per===2){ return `${Title} ${(idx===0?'Pagi':'Sore')} ${i}`; }
+                  if (per>2){
+                    const sesiAll = Array.isArray(window.ABS_SESI_ALL) ? window.ABS_SESI_ALL : ["Subuh","Pagi","Siang","Sore","Malam","Tahajjud"];
+                    const sesi = sesiAll[idx] || `Sesi ${i}`; return `${Title} ${sesi} ${i}`;
+                  }
+                  return `${Title} ${i}`;
+                })('${st}', ${i+1})}</span>
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  const percentEl = root.querySelector(".absflex-percent");
+  const targetEl  = root.querySelector(".absflex-target");
+  const boxes     = [...root.querySelectorAll('input[type="checkbox"][data-abskey]')];
+
+  // bangun items awal (SELALU clone)
+  let items;
+  if (Array.isArray(presetItems)) {
+    const presetSet = new Map(presetItems.map(it => [String(it.key).toLowerCase(), !!it.checked]));
+    items = keys.map(k => ({ key:k, checked: !!presetSet.get(k) }));
+  } else {
+    items = keys.map(k => ({ key:k, checked:false }));
+  }
+
+  function writeUI(){
+    boxes.forEach(b => {
+      const k = String(b.dataset.abskey).toLowerCase();
+      const it = items.find(x => x.key === k);
+      b.checked = !!it?.checked;
+    });
+  }
+  function recolor(p){
+    percentEl.style.background = p>=80 ? '#dcfce7' : p>=50 ? '#fff7ed' : '#fee2e2';
+    percentEl.style.borderColor= p>=80 ? '#86efac' : p>=50 ? '#fdba74' : '#fca5a5';
+  }
+  function computePercent(items, target){
+    const tgt = Math.max(1, Math.min(ABS_FLEX_CFG.maxTarget, target|0 || ABS_FLEX_CFG.defaultTarget));
+    const checked = (items||[]).reduce((a,it)=>a+(it.checked?1:0),0);
+    return { percent: Math.min(checked, tgt)/tgt*100, checked, target: tgt };
+  }
+  function clampToTarget(items, target, mode="lifo"){
+    const tgt = Math.max(1, Math.min(ABS_FLEX_CFG.maxTarget, target|0 || ABS_FLEX_CFG.defaultTarget));
+    const on  = (items||[]).filter(it=>it.checked);
+    if (on.length <= tgt) return items;
+    const extra = on.length - tgt;
+    const order = on.map(it=>it.key);
+    const toOff = (mode==="fifo") ? order.slice(0,extra) : order.slice(-extra);
+    const offSet = new Set(toOff);
+    return items.map(it => offSet.has(it.key) ? {...it, checked:false} : it);
+  }
+
+  // === expose + optional sync ke sel sumber ===
+  function recalcExpose(){
+    const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
+    const rec = computePercent(items, t);
+    percentEl.textContent = `${Math.round(rec.percent)}%`;
+    recolor(rec.percent);
+
+    // Selalu deep-clone saat expose ke ROOT (untuk hindari share pointer)
+    root._absensiItems   = cloneItems(items);
+    root._absensiTarget  = rec.target;
+    root._absensiChecked = rec.checked;
+    root._absensiPercent = Math.round(rec.percent);
+
+    // Jika ada sel sumber: sinkronkan juga (deep-clone)
+    if (syncCell && syncCell.classList?.contains('abs-flex-cell')) {
+      syncCell._absensiItems   = cloneItems(items);
+      syncCell._absensiTarget  = rec.target;
+      syncCell._absensiChecked = rec.checked;
+      syncCell._absensiPercent = Math.round(rec.percent);
+
+      // Update ringkas mini (tanpa ganggu sel lain)
+      const mini = syncCell.querySelector('.abs-mini');
+      if (mini){
+        const exp = buildExpanded(syncCell._absensiItems, syncCell._absensiTarget);
+        mini.textContent = exp.length ? exp.join(', ') : '';
+      }
+    }
+  }
+
+  // listeners
+  root.addEventListener("change", (e) => {
+    if (e.target === targetEl) {
+      items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
+      writeUI(); recalcExpose();
+      return;
+    }
+    if (e.target.matches('input[type="checkbox"][data-abskey]')) {
+      const k = String(e.target.dataset.abskey).toLowerCase();
+      const it = items.find(x => x.key === k);
+      if (it) it.checked = !!e.target.checked;
+      items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
+      writeUI(); recalcExpose();
+    }
+  });
+
+  // init tampilan
+  writeUI(); recalcExpose();
+  return root;
+};
+
+(function(){
+  // panggil sekali di awal halaman juga boleh
+  window.ensureAbsensiModal?.();
+
+  function openAbsensiFlexModalForCell(cell){
+    if (!cell) return;
+    const overlay = document.getElementById("absensiModalOverlay");
+    const content = document.getElementById("absensiModalContent");
+    if (!overlay || !content) return;
+
+    // Simpan referensi sel sumber agar life-cycle jelas
+    overlay._srcCell = cell;
+
+    // Bangun preset dari sel sumber (kalau belum ada, biarkan null)
+    const preset = Array.isArray(cell._absensiItems) ? cell._absensiItems : null;
+    const target = Number(cell._absensiTarget)||ABS_FLEX_CFG.defaultTarget;
+
+    // Render modal dengan sinkronisasi dua-arah
+    content.innerHTML = '';
+    window.renderAbsensiFlex(content, { target, presetItems: preset, syncCell: cell });
+
+    overlay.style.display = 'flex';
+  }
+
+  // Delegasi klik untuk semua tombol .btn-absensi-flex, per baris
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.btn-absensi-flex');
+    if (!btn) return;
+    const cell = btn.closest('td.abs-flex-cell');
+    if (cell) openAbsensiFlexModalForCell(cell);
+  });
+})();
+
 
   // Converter untuk preset dari data lama/baru (dipakai saat render baris)
   window.__makePresetAbsensiItems = function(dataAbsensi){
@@ -3036,6 +3135,8 @@ logoutBtn.addEventListener("click", () => {
   // expose helper compute (optional)
   window.__absflex_computePercent = computePercent;
 })();
+
+
 
 // === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja)
 (function(){
@@ -3071,6 +3172,7 @@ logoutBtn.addEventListener("click", () => {
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
 })();
+
 
 
 // === Load Santri Data ===
