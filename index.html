@@ -3080,40 +3080,6 @@ window.renderAbsensiFlex = function renderAbsensiFlex(
   return root;
 };
 
-(function(){
-  // panggil sekali di awal halaman juga boleh
-  window.ensureAbsensiModal?.();
-
-  function openAbsensiFlexModalForCell(cell){
-    if (!cell) return;
-    const overlay = document.getElementById("absensiModalOverlay");
-    const content = document.getElementById("absensiModalContent");
-    if (!overlay || !content) return;
-
-    // Simpan referensi sel sumber agar life-cycle jelas
-    overlay._srcCell = cell;
-
-    // Bangun preset dari sel sumber (kalau belum ada, biarkan null)
-    const preset = Array.isArray(cell._absensiItems) ? cell._absensiItems : null;
-    const target = Number(cell._absensiTarget)||ABS_FLEX_CFG.defaultTarget;
-
-    // Render modal dengan sinkronisasi dua-arah
-    content.innerHTML = '';
-    window.renderAbsensiFlex(content, { target, presetItems: preset, syncCell: cell });
-
-    overlay.style.display = 'flex';
-  }
-
-  // Delegasi klik untuk semua tombol .btn-absensi-flex, per baris
-  document.addEventListener('click', (e)=>{
-    const btn = e.target.closest('.btn-absensi-flex');
-    if (!btn) return;
-    const cell = btn.closest('td.abs-flex-cell');
-    if (cell) openAbsensiFlexModalForCell(cell);
-  });
-})();
-
-
   // Converter untuk preset dari data lama/baru (dipakai saat render baris)
   window.__makePresetAbsensiItems = function(dataAbsensi){
     if (Array.isArray(dataAbsensi?.absensiItems)){
