@@ -1368,6 +1368,7 @@ async function buatUserNIS() {
   <button id="editBtnIndex" type="button">HTML</button>
 
 <!-- Modal Utama: Rentang Tanggal + Aksi -->
+<!-- Modal Utama: Rentang Tanggal + Aksi -->
 <div id="pdfModalOverlay" style="
   display:none; 
   position:fixed; 
@@ -1381,7 +1382,7 @@ async function buatUserNIS() {
   <div style="background:#fff; padding:20px; border-radius:8px; min-width:320px; max-width:90%;">
     <h3>Download Rekap Nilai</h3>
     
-    <!-- Kontrol Rekap: 3 baris x 2 kolom -->
+    <!-- Kontrol Rekap: 3+ baris x 2 kolom -->
     <div class="pdf-rekap-controls">
       <!-- Row 1, Col 1: Mulai -->
       <div class="date-item">
@@ -1395,16 +1396,38 @@ async function buatUserNIS() {
         <input type="date" id="pdf-end-date" />
       </div>
 
-      <!-- Row 2, Col 1: PDF Halaqoh -->
+      <!-- Row 2, Col 1: Toggle Rentang Absensi (opsional) -->
+      <div class="date-item" style="align-items:center;">
+        <label for="use-absensi-range" style="display:inline-flex; gap:.35rem; align-items:center; font-weight:600;">
+          <input type="checkbox" id="use-absensi-range" />
+          Rentang Absensi (opsional)
+        </label>
+      </div>
+      <!-- Row 2, Col 2: spacer agar grid rapih -->
+      <div></div>
+
+      <!-- Row 3, Col 1: Absensi Mulai -->
+      <div class="date-item absensi-range" style="display:none;">
+        <label for="absensi-start-date">Absensi Mulai</label>
+        <input type="date" id="absensi-start-date" disabled />
+      </div>
+
+      <!-- Row 3, Col 2: Absensi s/d -->
+      <div class="date-item absensi-range" style="display:none;">
+        <label for="absensi-end-date">s/d</label>
+        <input type="date" id="absensi-end-date" disabled />
+      </div>
+
+      <!-- Row 4, Col 1: PDF Halaqoh -->
       <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
 
-      <!-- Row 2, Col 2: Excel All Halaqoh -->
+      <!-- Row 4, Col 2: Excel All Halaqoh -->
       <button id="download-xls-rekap" class="rekap-btn">Excel All Halaqoh</button>
 
-      <!-- Row 3, Col 1: PDF Individual -->
+      <!-- Row 5, Col 1: PDF Individual -->
       <button id="download-pdf-santri" class="rekap-btn">PDF Individual</button>
 
-      <!-- Row 3, Col 2: PDF All Halaqoh -->
+      <!-- Row 5, Col 2: PDF All Halaqoh -->
       <button id="download-pdf-allkelas" class="rekap-btn">PDF All Halaqoh</button>
     </div>
 
@@ -1417,7 +1440,7 @@ async function buatUserNIS() {
 
 <!-- CSS khusus modal ini saja -->
 <style>
-  /* Grid 2 kolom untuk 6 item (3 baris) */
+  /* Grid 2 kolom */
   #pdfModalOverlay .pdf-rekap-controls{
     display:grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1431,6 +1454,10 @@ async function buatUserNIS() {
     display:inline-flex; align-items:center; gap:.2rem; white-space:nowrap;
   }
   #pdfModalOverlay .date-item input[type="date"]{
+    width:12ch; min-width:10ch;
+  }
+  /* Input khusus absensi range */
+  #pdfModalOverlay .absensi-range input[type="date"]{
     width:12ch; min-width:10ch;
   }
 
@@ -1520,6 +1547,59 @@ async function buatUserNIS() {
   santriModalOverlay?.addEventListener("click", (e) => {
     if (e.target === santriModalOverlay) santriModalOverlay.style.display = "none";
   });
+
+  // ===== Absensi Range UI toggle =====
+  (function initAbsensiRangeUI(){
+    const chk = document.getElementById('use-absensi-range');
+    const sEl = document.getElementById('absensi-start-date');
+    const eEl = document.getElementById('absensi-end-date');
+    const group = document.querySelectorAll('.absensi-range');
+
+    function syncUI(){
+      const on = !!chk?.checked;
+      group.forEach(el => el.style.display = on ? '' : 'none');
+      if (sEl) sEl.disabled = !on;
+      if (eEl) eEl.disabled = !on;
+      // autofill awal pakai global jika kosong
+      if (on) {
+        if (sEl && !sEl.value) sEl.value = document.getElementById('pdf-start-date')?.value || '';
+        if (eEl && !eEl.value) eEl.value = document.getElementById('pdf-end-date')?.value   || '';
+      }
+    }
+    chk?.addEventListener('change', syncUI);
+    syncUI();
+  })();
+
+  // ===== Helper: ambil rentang Absensi bila dipilih; jika tidak pakai global =====
+  function getAbsensiRangeOrDefault(){
+    const use = document.getElementById('use-absensi-range')?.checked;
+    const as  = document.getElementById('absensi-start-date')?.value || '';
+    const ae  = document.getElementById('absensi-end-date')?.value   || '';
+    if (use && as && ae) return { start: as, end: ae, source: 'absensi' };
+    const gs  = document.getElementById('pdf-start-date')?.value || '';
+    const ge  = document.getElementById('pdf-end-date')?.value   || '';
+    return { start: gs, end: ge, source: 'global' };
+  }
+  window.getAbsensiRangeOrDefault = getAbsensiRangeOrDefault;
+
+  // ===== Builder label "Range Tanggal" (prioritaskan Absensi jika on) =====
+  function buildRangeLabel(startISO, endISO){
+    // jika UI Absensi aktif & lengkap → override label
+    const picked = getAbsensiRangeOrDefault();
+    const fmt = iso => {
+      const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return m ? `${Number(m[3])}-${Number(m[2])}-${m[1]}` : (iso || '-');
+    };
+    if (picked.source === 'absensi' && picked.start && picked.end) {
+      return `${fmt(picked.start)} s.d. ${fmt(picked.end)}`;
+    }
+    // fallback pakai argumen yang disuplai fungsi pemanggil
+    if (startISO && endISO) return `${fmt(startISO)} s.d. ${fmt(endISO)}`;
+    // fallback terakhir → pakai global (jika ada)
+    if (picked.start && picked.end) return `${fmt(picked.start)} s.d. ${fmt(picked.end)}`;
+    return '-';
+  }
+  window.buildRangeLabel = buildRangeLabel;
 </script>
 
 
