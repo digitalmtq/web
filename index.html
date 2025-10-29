@@ -3730,11 +3730,17 @@ async function loadSantriData() {
   </select>
           </td>
 
-          <!-- ABSENSI FLEX -->
-          <td class="abs-flex-cell">
-            <div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
-            <button type="button" class="btn-absensi-flex" style="margin-top:6px; padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Input</button>
-          </td>
+          <!-- ========== CELL ABSENSI FLEX (tambahkan data-row bila bisa) ========== -->
+<td class="abs-flex-cell">
+  <div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
+  <!-- Sangat dianjurkan: set data-row ke NIS/ID stabil saat render -->
+  <button type="button"
+          class="btn-absensi-flex"
+          data-row=""  <!-- contoh: data-row="110123" -->
+          style="margin-top:6px; padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">
+    Input
+  </button>
+</td>
 
           <td>
             <select class="keterangan">
