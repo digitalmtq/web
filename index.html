@@ -2823,33 +2823,16 @@ logoutBtn.addEventListener("click", () => {
   }, 500);
 });
 
-/* ========================================================================
-   ABSENSI FLEX – UTIL & RENDER (global, ringan) + FIX anti “centang nular”
-   ======================================================================== */
+// ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
-    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 2), // default 2 unit per status (hadir1..2, dst)
-    defaultTarget: 1,                                   // default denominator
+    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
+	defaultTarget: 1,                                   // default denominator
     maxTarget: 6,                                       // denominator 1..6
     labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
   };
-
-  /* ---------- helper anti shared reference ---------- */
-  function safeCloneItems(items){
-    return Array.isArray(items) ? items.map(it => ({ key:String(it.key).toLowerCase(), checked: !!it.checked })) : null;
-  }
-  function makeAbsensiItems(perStatus = (window.ABS_FLEX_CFG?.perStatus ?? 2)) {
-    const statuses = (window.ABS_FLEX_CFG?.statuses) || ["hadir","izin","sakit","alpha"];
-    const arr = [];
-    for (const st of statuses) {
-      for (let i = 1; i <= perStatus; i++) {
-        arr.push({ key: `${st}${i}`, checked: false }); // objek BARU tiap slot
-      }
-    }
-    return arr; // array BARU
-  }
 
   function buildKeys(perStatus = ABS_FLEX_CFG.perStatus){
     const n = Math.max(1, Math.min(6, perStatus|0 || 2));
@@ -2861,10 +2844,11 @@ logoutBtn.addEventListener("click", () => {
   }
 
   function defaultLabel(st, i){
+    // Dukungan sesi lengkap + pertahankan perilaku lama untuk perStatus=2 (Pagi/Sore)
     const Title   = st.charAt(0).toUpperCase() + st.slice(1);
     const idx     = i - 1;
     const per     = ABS_FLEX_CFG.perStatus|0;
-    const sesiAll = ["Sesi"]; // bisa diperluas ["Pagi","Siang","Sore","Malam",...]
+    const sesiAll = ["Sesi"];
 
     // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
@@ -2977,7 +2961,7 @@ logoutBtn.addEventListener("click", () => {
     const targetEl  = root.querySelector(".absflex-target");
     const boxes     = [...root.querySelectorAll('input[type="checkbox"][data-abskey]')];
 
-    // bangun items awal (SELALU BARU)
+    // bangun items awal
     let items;
     if (Array.isArray(presetItems)) {
       const presetSet = new Map(presetItems.map(it => [String(it.key).toLowerCase(), !!it.checked]));
@@ -3002,7 +2986,7 @@ logoutBtn.addEventListener("click", () => {
       const rec = computePercent(items, t);
       percentEl.textContent = `${Math.round(rec.percent)}%`;
       recolor(rec.percent);
-      // expose ke container (dipakai untuk sync ke cell pemanggil) — sudah clone
+      // expose ke container (dipakai untuk sync ke cell pemanggil)
       root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
       root._absensiTarget  = rec.target;
       root._absensiChecked = rec.checked;
@@ -3030,34 +3014,31 @@ logoutBtn.addEventListener("click", () => {
     return root;
   };
 
-  // Converter untuk preset dari data lama/baru (dipakai saat render baris) — SELALU CLONE
+  // Converter untuk preset dari data lama/baru (dipakai saat render baris)
   window.__makePresetAbsensiItems = function(dataAbsensi){
     if (Array.isArray(dataAbsensi?.absensiItems)){
       const target = Number(dataAbsensi?.absensiTarget) || ABS_FLEX_CFG.defaultTarget;
-      return { preset: safeCloneItems(dataAbsensi.absensiItems), target };
+      return { preset: dataAbsensi.absensiItems, target };
     }
     if (Array.isArray(dataAbsensi?.absensi6)){
-      const target = Math.max(1, Math.min(6, Number(dataAbsensi?.absensiActive) || 6));
-      const items  = abs6ToItems(dataAbsensi.absensi6, target);
-      return { preset: safeCloneItems(items), target };
+      const target = Number(dataAbsensi?.absensiActive) || 6;
+      const items = abs6ToItems(dataAbsensi.absensi6, target);
+      return { preset: items, target: Math.max(1, Math.min(6, target)) };
     }
     if (typeof dataAbsensi?.absensi === "string" && dataAbsensi.absensi){
       const items = legacyToItems(dataAbsensi.absensi, ABS_FLEX_CFG.defaultTarget);
-      return { preset: safeCloneItems(items), target: ABS_FLEX_CFG.defaultTarget };
+      return { preset: items, target: ABS_FLEX_CFG.defaultTarget };
     }
     return { preset: null, target: ABS_FLEX_CFG.defaultTarget };
   };
 
   // expose helper compute (optional)
   window.__absflex_computePercent = computePercent;
-
-  // Expose factory (optional; berguna saat inisialisasi rows)
-  window.__absflex_makeItems = makeAbsensiItems;
 })();
 
-/* ==========================================================
-   Modal Overlay Absensi Flex (sekali saja) + Wiring “Input”
-   ========================================================== */
+
+
+// === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja)
 (function(){
   function ensureAbsensiModal(){
     if (document.getElementById("absensiModalOverlay")) return;
@@ -3082,119 +3063,14 @@ logoutBtn.addEventListener("click", () => {
     // close handlers
     const closeBtn = overlay.querySelector("#absensiModalClose");
     closeBtn.addEventListener("click", () => overlay.style.display = "none");
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.style.display = "none"; });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") overlay.style.display = "none"; });
-  }
-  window.ensureAbsensiModal = ensureAbsensiModal;
-
-  // ---------- util: temukan row dari tombol ----------
-  function getRowFromButton(btn){
-    // 1) Prioritas: data-row pada tombol
-    const rid = btn?.dataset?.row;
-    if (rid && Array.isArray(window.rows)) {
-      const byId = window.rows.find(r => String(r.nis ?? r.id ?? r.rowId) === String(rid));
-      if (byId) return byId;
-    }
-    // 2) Cari <tr> terdekat yang punya data-nis / data-row
-    const tr = btn.closest('tr');
-    if (tr) {
-      const nid = tr.dataset?.nis || tr.dataset?.row || tr.id;
-      if (nid && Array.isArray(window.rows)) {
-        const byTr = window.rows.find(r => String(r.nis ?? r.id ?? r.rowId) === String(nid));
-        if (byTr) return byTr;
-      }
-    }
-    // 3) data-index (jika ada) → window.rows[index]
-    const idx = btn?.dataset?.index;
-    if (idx != null && Array.isArray(window.rows)) {
-      const byIdx = window.rows[Number(idx)];
-      if (byIdx) return byIdx;
-    }
-    return null;
-  }
-
-  // ---------- wiring tombol “Input” + simpan balik (SELALU CLONE) ----------
-  function wireAbsensiButtons(){
-    ensureAbsensiModal();
-    const overlay = document.getElementById('absensiModalOverlay');
-    const host    = document.getElementById('absensiModalContent');
-
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest('.btn-absensi-flex');
-      if (!btn) return;
-
-      const row = getRowFromButton(btn);
-      if (!row) {
-        console.warn('Btn Absensi Flex: row tidak ditemukan. Set data-row pada tombol atau data-nis pada <tr>.');
-        return;
-      }
-
-      // Ambil preset aman (di-clone)
-      const { preset, target } = window.__makePresetAbsensiItems(row);
-
-      // Render widget
-      host.innerHTML = '';
-      const root = document.createElement('div');
-      host.appendChild(root);
-      renderAbsensiFlex(root, { target, presetItems: preset });
-
-      // Tampilkan modal
-      overlay.style.display = 'flex';
-
-      // Fungsi simpan balik – SELALU deep-clone agar tidak share
-      const saveBack = () => {
-        const safeItems = (root._absensiItems || []).map(it => ({ key: it.key, checked: !!it.checked }));
-        row.absensiItems   = safeItems;                                      // array & item2 BARU
-        row.absensiTarget  = Number(root._absensiTarget)  || ABS_FLEX_CFG.defaultTarget;
-        row.absensiChecked = Number(root._absensiChecked) || 0;
-        row.absensiPercent = Number(root._absensiPercent) || 0;
-
-        // (opsional) update tampilan ringkas di cell
-        const cell = btn.closest('.abs-flex-cell');
-        if (cell) {
-          const mini = cell.querySelector('.abs-mini');
-          if (mini) {
-            mini.textContent = `${row.absensiChecked}/${row.absensiTarget} • ${row.absensiPercent}%`;
-          }
-        }
-      };
-
-      // Kaitkan saveBack ke semua jalur keluar modal (sekali saja)
-      const onOverlayClick = (ev) => { if (ev.target === overlay) { saveBack(); overlay.removeEventListener('click', onOverlayClick); } };
-      overlay.addEventListener('click', onOverlayClick);
-      const closeBtn = document.getElementById('absensiModalClose');
-      const onClose = () => { saveBack(); closeBtn.removeEventListener('click', onClose); };
-      closeBtn.addEventListener('click', onClose);
-      function onEsc(ev){ if (ev.key === 'Escape') { saveBack(); document.removeEventListener('keydown', onEsc); } }
-      document.addEventListener('keydown', onEsc);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.style.display = "none";
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") overlay.style.display = "none";
     });
   }
-
-  // Jalankan wiring saat DOM siap
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', wireAbsensiButtons);
-  } else {
-    wireAbsensiButtons();
-  }
-})();
-
-/* ===========================================
-   OPSIONAL: Audit duplikasi referensi (debug)
-   =========================================== */
-(function auditAbsensiSharing(){
-  if (!Array.isArray(window.rows)) return;
-  const ptrSet = new Set();
-  const dupArr = [];
-  window.rows.forEach((r, idx) => {
-    if (r.absensiItems && typeof r.absensiItems === 'object') {
-      const ref = r.absensiItems;
-      if (ptrSet.has(ref)) dupArr.push({ idx, nis: r.nis });
-      ptrSet.add(ref);
-    }
-  });
-  if (dupArr.length) {
-    console.warn('Duplikasi referensi absensiItems terdeteksi pada baris:', dupArr);
-  }
+  window.ensureAbsensiModal = ensureAbsensiModal;
 })();
 
 
@@ -3687,17 +3563,11 @@ async function loadSantriData() {
   </select>
           </td>
 
-          <!-- ========== CELL ABSENSI FLEX (tambahkan data-row bila bisa) ========== -->
-<td class="abs-flex-cell">
-  <div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
-  <!-- Sangat dianjurkan: set data-row ke NIS/ID stabil -->
-  <button type="button"
-          class="btn-absensi-flex"
-          data-row=""  <!-- isi saat render baris: data-row="110123" -->
-          style="margin-top:6px; padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">
-    Input
-  </button>
-</td>
+          <!-- ABSENSI FLEX -->
+          <td class="abs-flex-cell">
+            <div class="abs-mini" style="font-size:12px;opacity:.8;margin-top:4px;"></div>
+            <button type="button" class="btn-absensi-flex" style="margin-top:6px; padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Input</button>
+          </td>
 
           <td>
             <select class="keterangan">
