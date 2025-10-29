@@ -2823,16 +2823,34 @@ logoutBtn.addEventListener("click", () => {
   }, 500);
 });
 
-// ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
+/* ========================================================================
+   ABSENSI FLEX – UTIL & RENDER (global) + FIX anti “centang nular”
+   + ISOLASI MODAL via Shadow DOM agar tak terpengaruh checkbox luar
+   ======================================================================== */
 (function(){
-  // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
+  // Konfigurasi global (boleh override sebelum load)
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
-    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
-	defaultTarget: 1,                                   // default denominator
-    maxTarget: 6,                                       // denominator 1..6
-    labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
+    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 2), // default 2 unit/status
+    defaultTarget: 1,
+    maxTarget: 6,
+    labels: null
   };
+
+  /* ---------- helper anti shared reference ---------- */
+  function safeCloneItems(items){
+    return Array.isArray(items) ? items.map(it => ({ key:String(it.key).toLowerCase(), checked: !!it.checked })) : null;
+  }
+  function makeAbsensiItems(perStatus = (window.ABS_FLEX_CFG?.perStatus ?? 2)) {
+    const statuses = (window.ABS_FLEX_CFG?.statuses) || ["hadir","izin","sakit","alpha"];
+    const arr = [];
+    for (const st of statuses) {
+      for (let i = 1; i <= perStatus; i++) {
+        arr.push({ key: `${st}${i}`, checked: false }); // objek BARU tiap slot
+      }
+    }
+    return arr; // array BARU
+  }
 
   function buildKeys(perStatus = ABS_FLEX_CFG.perStatus){
     const n = Math.max(1, Math.min(6, perStatus|0 || 2));
@@ -2844,25 +2862,19 @@ logoutBtn.addEventListener("click", () => {
   }
 
   function defaultLabel(st, i){
-    // Dukungan sesi lengkap + pertahankan perilaku lama untuk perStatus=2 (Pagi/Sore)
     const Title   = st.charAt(0).toUpperCase() + st.slice(1);
     const idx     = i - 1;
     const per     = ABS_FLEX_CFG.perStatus|0;
-    const sesiAll = ["Sesi"];
+    const sesiAll = ["Sesi"]; // bisa diperluas
 
-    // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
       const sesi = (idx === 0) ? "Pagi" : "Sore";
       return `${Title} ${sesi} ${i}`;
     }
-
-    // Jika lebih dari 2 sesi, gunakan daftar sesi lengkap
     if (per > 2){
       const sesi = sesiAll[idx] || `Sesi ${i}`;
       return `${Title} ${sesi} ${i}`;
     }
-
-    // Fallback (perStatus=1)
     return `${Title} ${i}`;
   }
 
@@ -2921,33 +2933,69 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
-  // Render widget ke target container (dipakai di MODAL)
+  // ========== RENDER ABSENSI FLEX PADA ROOT (dengan Shadow DOM) ==========
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
-    const root = (typeof container === "string") ? document.getElementById(container) : container;
-    if (!root) throw new Error("Container absensi tidak ditemukan");
+    const host = (typeof container === "string") ? document.getElementById(container) : container;
+    if (!host) throw new Error("Container absensi tidak ditemukan");
+
+    // --- Shadow DOM isolation ---
+    let shadow = host._absflexShadow;
+    if (!shadow) {
+      shadow = host.attachShadow({ mode: 'open' });
+      host._absflexShadow = shadow;
+    } else {
+      shadow.innerHTML = ''; // bersihkan
+    }
+
+    // style minimal agar jelas (bisa dicabut bila pakai CSS global)
+    const style = document.createElement('style');
+    style.textContent = `
+      .absflex-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+      .pill{border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;background:#eef2ff;font-weight:600;}
+      .grid-outer{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+      .card{border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff;}
+      .grid-inner{display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}
+      .chkrow{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;border:1px solid #f1f5f9;min-height:32px;min-width:0;}
+      input[type="checkbox"]{width:16px;height:16px;}
+      .cap{text-transform:capitalize;font-weight:700;margin-bottom:6px;}
+    `;
+    shadow.appendChild(style);
+
     const perStatus = ABS_FLEX_CFG.perStatus;
     const keys = buildKeys(perStatus);
+    const uid = 'afx-'+Math.random().toString(36).slice(2);
 
-    root.innerHTML = `
-      <div class="absflex-head" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+    // bangun items awal (SELALU BARU)
+    let items;
+    if (Array.isArray(presetItems)) {
+      const presetSet = new Map(presetItems.map(it => [String(it.key).toLowerCase(), !!it.checked]));
+      items = keys.map(k => ({ key:k, checked: !!presetSet.get(k) }));
+    } else {
+      items = keys.map(k => ({ key:k, checked:false }));
+    }
+
+    // template DOM (dalam Shadow)
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="absflex-head">
         <label style="font-size:12px;color:#6b7280">Sesi aktif:</label>
         <select class="absflex-target" style="padding:2px 6px;border:1px solid #e5e7eb;border-radius:8px;">
           ${Array.from({length:ABS_FLEX_CFG.maxTarget},(_,i)=>`<option value="${i+1}" ${i+1==target?'selected':''}>${i+1}</option>`).join("")}
         </select>
-        <span class="absflex-percent" style="border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;background:#eef2ff;font-weight:600;">0%</span>
+        <span class="absflex-percent pill">0%</span>
       </div>
 
-      <!-- Grid luar: kartu per status (responsif & rapi) -->
-      <div class="absflex-grid" style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+      <div class="grid-outer">
         ${ABS_FLEX_CFG.statuses.map(st => `
-          <div style="border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff;">
-            <div style="font-weight:700;margin-bottom:6px;text-transform:capitalize;">${st}</div>
-
-            <!-- Grid dalam: checkbox per sesi, rapi sampai 6 sesi -->
-            <div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
+          <div class="card">
+            <div class="cap">${st}</div>
+            <div class="grid-inner">
               ${Array.from({length:perStatus},(_,i)=>`
-                <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;border:1px solid #f1f5f9;min-height:32px;min-width:0;">
-                  <input type="checkbox" data-abskey="${st}${i+1}" style="width:16px;height:16px;">
+                <label class="chkrow">
+                  <input type="checkbox"
+                         class="absflex-box"
+                         data-abskey="${st}${i+1}"
+                         name="${uid}-${st}${i+1}">
                   <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${labelFor(st, i+1)}</span>
                 </label>
               `).join("")}
@@ -2956,19 +3004,11 @@ logoutBtn.addEventListener("click", () => {
         `).join("")}
       </div>
     `;
+    shadow.appendChild(wrap);
 
-    const percentEl = root.querySelector(".absflex-percent");
-    const targetEl  = root.querySelector(".absflex-target");
-    const boxes     = [...root.querySelectorAll('input[type="checkbox"][data-abskey]')];
-
-    // bangun items awal
-    let items;
-    if (Array.isArray(presetItems)) {
-      const presetSet = new Map(presetItems.map(it => [String(it.key).toLowerCase(), !!it.checked]));
-      items = keys.map(k => ({ key:k, checked: !!presetSet.get(k) }));
-    } else {
-      items = keys.map(k => ({ key:k, checked:false }));
-    }
+    const percentEl = shadow.querySelector(".absflex-percent");
+    const targetEl  = shadow.querySelector(".absflex-target");
+    const boxes     = [...shadow.querySelectorAll('input.absflex-box[data-abskey]')];
 
     function writeUI(){
       boxes.forEach(b => {
@@ -2986,22 +3026,40 @@ logoutBtn.addEventListener("click", () => {
       const rec = computePercent(items, t);
       percentEl.textContent = `${Math.round(rec.percent)}%`;
       recolor(rec.percent);
-      // expose ke container (dipakai untuk sync ke cell pemanggil)
-      root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
-      root._absensiTarget  = rec.target;
-      root._absensiChecked = rec.checked;
-      root._absensiPercent = Math.round(rec.percent);
+      // expose ke host (dipakai untuk sync ke cell pemanggil) — sudah clone
+      host._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
+      host._absensiTarget  = rec.target;
+      host._absensiChecked = rec.checked;
+      host._absensiPercent = Math.round(rec.percent);
     }
 
-    // listeners
-    root.addEventListener("change", (e) => {
+    // ---- VERY IMPORTANT: blokir event global dari/ke luar ----
+    // 1) Stop propagasi change/input dari dalam (capture) supaya listener global tak ikut jalan
+    shadow.addEventListener('change', e => e.stopPropagation(), true);
+    shadow.addEventListener('input',  e => e.stopPropagation(), true);
+    // 2) Proteksi kalau ada script luar yang "menyetarakan" semua checkbox:
+    //    Jika ada perubahan 'checked' di luar siklus kita, kita reset sesuai state items.
+    const mo = new MutationObserver(muts => {
+      let needWrite = false;
+      for (const m of muts) {
+        if (m.type === 'attributes' && m.attributeName === 'checked' && m.target.matches('input.absflex-box')) {
+          // Kembalikan ke state internal
+          needWrite = true;
+        }
+      }
+      if (needWrite) writeUI();
+    });
+    boxes.forEach(b => mo.observe(b, { attributes:true, attributeFilter:['checked'] }));
+
+    // listeners lokal (dalam Shadow)
+    shadow.addEventListener("change", (e) => {
       if (e.target === targetEl) {
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
         writeUI(); recalcExpose();
         return;
       }
-      if (e.target.matches('input[type="checkbox"][data-abskey]')) {
-        const k = String(e.target.dataset.abskey).toLowerCase();
+      if (e.target.matches('input.absflex-box[data-abskey]')) {
+        const k  = String(e.target.dataset.abskey).toLowerCase();
         const it = items.find(x => x.key === k);
         if (it) it.checked = !!e.target.checked;
         items = clampToTarget(items, Number(targetEl.value) || ABS_FLEX_CFG.defaultTarget, "lifo");
@@ -3011,34 +3069,38 @@ logoutBtn.addEventListener("click", () => {
 
     // init tampilan
     writeUI(); recalcExpose();
-    return root;
+    // simpan refrensi UI untuk pemanggil (optional)
+    host._absflexShadowRoot = shadow;
+    host._absflexObserver   = mo;
+    return host; // host container (bukan shadow)
   };
 
-  // Converter untuk preset dari data lama/baru (dipakai saat render baris)
+  // Converter untuk preset dari data lama/baru (selalu clone)
   window.__makePresetAbsensiItems = function(dataAbsensi){
     if (Array.isArray(dataAbsensi?.absensiItems)){
       const target = Number(dataAbsensi?.absensiTarget) || ABS_FLEX_CFG.defaultTarget;
-      return { preset: dataAbsensi.absensiItems, target };
+      return { preset: safeCloneItems(dataAbsensi.absensiItems), target };
     }
     if (Array.isArray(dataAbsensi?.absensi6)){
-      const target = Number(dataAbsensi?.absensiActive) || 6;
-      const items = abs6ToItems(dataAbsensi.absensi6, target);
-      return { preset: items, target: Math.max(1, Math.min(6, target)) };
+      const target = Math.max(1, Math.min(6, Number(dataAbsensi?.absensiActive) || 6));
+      const items  = abs6ToItems(dataAbsensi.absensi6, target);
+      return { preset: safeCloneItems(items), target };
     }
     if (typeof dataAbsensi?.absensi === "string" && dataAbsensi.absensi){
       const items = legacyToItems(dataAbsensi.absensi, ABS_FLEX_CFG.defaultTarget);
-      return { preset: items, target: ABS_FLEX_CFG.defaultTarget };
+      return { preset: safeCloneItems(items), target: ABS_FLEX_CFG.defaultTarget };
     }
     return { preset: null, target: ABS_FLEX_CFG.defaultTarget };
   };
 
-  // expose helper compute (optional)
   window.__absflex_computePercent = computePercent;
+  window.__absflex_makeItems = makeAbsensiItems;
 })();
 
-
-
-// === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja)
+/* ==========================================================
+   Modal Overlay Absensi Flex (sekali saja) + Wiring “Input”
+   (pakai Shadow DOM di dalam renderAbsensiFlex)
+   ========================================================== */
 (function(){
   function ensureAbsensiModal(){
     if (document.getElementById("absensiModalOverlay")) return;
@@ -3063,14 +3125,119 @@ logoutBtn.addEventListener("click", () => {
     // close handlers
     const closeBtn = overlay.querySelector("#absensiModalClose");
     closeBtn.addEventListener("click", () => overlay.style.display = "none");
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.style.display = "none";
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") overlay.style.display = "none";
-    });
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.style.display = "none"; });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") overlay.style.display = "none"; });
+
+    // Penting: blokir propagasi event dari dalam modal ke dokumen (antisipasi listener global)
+    overlay.addEventListener('change', e => e.stopPropagation(), true);
+    overlay.addEventListener('input',  e => e.stopPropagation(), true);
+    overlay.addEventListener('click',  e => e.stopPropagation(), true);
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
+
+  // util: temukan row dari tombol
+  function getRowFromButton(btn){
+    const rid = btn?.dataset?.row;
+    if (rid && Array.isArray(window.rows)) {
+      const byId = window.rows.find(r => String(r.nis ?? r.id ?? r.rowId) === String(rid));
+      if (byId) return byId;
+    }
+    const tr = btn.closest('tr');
+    if (tr) {
+      const nid = tr.dataset?.nis || tr.dataset?.row || tr.id;
+      if (nid && Array.isArray(window.rows)) {
+        const byTr = window.rows.find(r => String(r.nis ?? r.id ?? r.rowId) === String(nid));
+        if (byTr) return byTr;
+      }
+    }
+    const idx = btn?.dataset?.index;
+    if (idx != null && Array.isArray(window.rows)) {
+      const byIdx = window.rows[Number(idx)];
+      if (byIdx) return byIdx;
+    }
+    return null;
+  }
+
+  function wireAbsensiButtons(){
+    ensureAbsensiModal();
+    const overlay = document.getElementById('absensiModalOverlay');
+    const host    = document.getElementById('absensiModalContent');
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-absensi-flex');
+      if (!btn) return;
+
+      const row = getRowFromButton(btn);
+      if (!row) {
+        console.warn('Btn Absensi Flex: row tidak ditemukan. Set data-row pada tombol atau data-nis pada <tr>.');
+        return;
+      }
+
+      // Ambil preset aman (di-clone)
+      const { preset, target } = window.__makePresetAbsensiItems(row);
+
+      // Render widget dalam Shadow DOM
+      host.innerHTML = '';
+      const root = document.createElement('div');
+      host.appendChild(root);
+      renderAbsensiFlex(root, { target, presetItems: preset });
+
+      // Tampilkan modal
+      overlay.style.display = 'flex';
+
+      // Simpan balik – SELALU deep-clone agar tidak share
+      const saveBack = () => {
+        const safeItems = (root._absensiItems || []).map(it => ({ key: it.key, checked: !!it.checked }));
+        row.absensiItems   = safeItems;                                      // array & item2 BARU
+        row.absensiTarget  = Number(root._absensiTarget)  || ABS_FLEX_CFG.defaultTarget;
+        row.absensiChecked = Number(root._absensiChecked) || 0;
+        row.absensiPercent = Number(root._absensiPercent) || 0;
+
+        // ringkas di cell
+        const cell = btn.closest('.abs-flex-cell');
+        if (cell) {
+          const mini = cell.querySelector('.abs-mini');
+          if (mini) {
+            mini.textContent = `${row.absensiChecked}/${row.absensiTarget} • ${row.absensiPercent}%`;
+          }
+        }
+      };
+
+      // Kaitkan saveBack ke semua jalur keluar modal (sekali saja)
+      const onOverlayClick = (ev) => { if (ev.target === overlay) { saveBack(); overlay.removeEventListener('click', onOverlayClick); } };
+      overlay.addEventListener('click', onOverlayClick);
+      const closeBtn = document.getElementById('absensiModalClose');
+      const onClose = () => { saveBack(); closeBtn.removeEventListener('click', onClose); };
+      closeBtn.addEventListener('click', onClose);
+      function onEsc(ev){ if (ev.key === 'Escape') { saveBack(); document.removeEventListener('keydown', onEsc); } }
+      document.addEventListener('keydown', onEsc);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireAbsensiButtons);
+  } else {
+    wireAbsensiButtons();
+  }
+})();
+
+/* ===========================================
+   OPSIONAL: Audit duplikasi referensi (debug)
+   =========================================== */
+(function auditAbsensiSharing(){
+  if (!Array.isArray(window.rows)) return;
+  const ptrSet = new Set();
+  const dupArr = [];
+  window.rows.forEach((r, idx) => {
+    if (r.absensiItems && typeof r.absensiItems === 'object') {
+      const ref = r.absensiItems;
+      if (ptrSet.has(ref)) dupArr.push({ idx, nis: r.nis });
+      ptrSet.add(ref);
+    }
+  });
+  if (dupArr.length) {
+    console.warn('Duplikasi referensi absensiItems terdeteksi pada baris:', dupArr);
+  }
 })();
 
 
