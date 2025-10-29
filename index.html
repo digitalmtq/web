@@ -1395,6 +1395,25 @@ async function buatUserNIS() {
         <input type="date" id="pdf-end-date" />
       </div>
 
+	  <!-- Toggle Rentang Absensi (opsional) -->
+<div class="date-item" style="align-items:center;">
+  <label for="use-absensi-range" style="display:inline-flex; gap:.35rem; align-items:center; font-weight:600;">
+    <input type="checkbox" id="use-absensi-range" />
+    Rentang Absensi (opsional)
+  </label>
+</div>
+<div></div>
+
+<!-- Absensi Mulai / s.d (muncul jika toggle aktif) -->
+<div class="date-item absensi-range" style="display:none;">
+  <label for="absensi-start-date">Absensi Mulai</label>
+  <input type="date" id="absensi-start-date" disabled />
+</div>
+<div class="date-item absensi-range" style="display:none;">
+  <label for="absensi-end-date">s/d</label>
+  <input type="date" id="absensi-end-date" disabled />
+</div>
+
       <!-- Row 2, Col 1: PDF Halaqoh -->
       <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
 
@@ -1417,6 +1436,11 @@ async function buatUserNIS() {
 
 <!-- CSS khusus modal ini saja -->
 <style>
+
+#pdfModalOverlay .absensi-range input[type="date"]{
+  width:12ch; min-width:10ch;
+}
+	
   /* Grid 2 kolom untuk 6 item (3 baris) */
   #pdfModalOverlay .pdf-rekap-controls{
     display:grid;
@@ -1520,6 +1544,53 @@ async function buatUserNIS() {
   santriModalOverlay?.addEventListener("click", (e) => {
     if (e.target === santriModalOverlay) santriModalOverlay.style.display = "none";
   });
+
+
+// === Toggle UI "Rentang Absensi" ===
+(function initAbsensiRangeUI(){
+  const chk = document.getElementById('use-absensi-range');
+  const sEl = document.getElementById('absensi-start-date');
+  const eEl = document.getElementById('absensi-end-date');
+  const group = document.querySelectorAll('.absensi-range');
+
+  function syncUI(){
+    const on = !!chk?.checked;
+    group.forEach(el => el.style.display = on ? '' : 'none');
+    if (sEl) sEl.disabled = !on;
+    if (eEl) eEl.disabled = !on;
+    // auto isi dari tanggal global jika kosong
+    if (on) {
+      if (sEl && !sEl.value) sEl.value = document.getElementById('pdf-start-date')?.value || '';
+      if (eEl && !eEl.value) eEl.value = document.getElementById('pdf-end-date')?.value   || '';
+    }
+  }
+  chk?.addEventListener('change', syncUI);
+  syncUI();
+})();
+
+// === Ambil range ABSENSI kalau toggle aktif; kalau tidak, pakai global ===
+function getAbsensiRangeOrDefault(){
+  const use = document.getElementById('use-absensi-range')?.checked;
+  const as  = document.getElementById('absensi-start-date')?.value || '';
+  const ae  = document.getElementById('absensi-end-date')?.value   || '';
+  if (use && as && ae) return { start: as, end: ae, source: 'absensi' };
+  const gs  = document.getElementById('pdf-start-date')?.value || '';
+  const ge  = document.getElementById('pdf-end-date')?.value   || '';
+  return { start: gs, end: ge, source: 'global' };
+}
+window.getAbsensiRangeOrDefault = getAbsensiRangeOrDefault;
+
+// === Buat label "Range Absensi" utk ditaruh di kolom tabel ===
+function buildRangeLabel(startISO, endISO){
+  const { start, end, source } = getAbsensiRangeOrDefault();
+  const fmt = iso => {
+    const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? `${Number(m[3])}-${Number(m[2])}-${m[1]}` : (iso || '-');
+  };
+  if (source === 'absensi') return `${fmt(start)} s.d. ${fmt(end)}`;
+  return `${fmt(startISO)} s.d. ${fmt(endISO)}`;
+}
+window.buildRangeLabel = buildRangeLabel;	
 </script>
 
 
@@ -5226,6 +5297,9 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
     setBtnLoading(pdfBtn, true, 'Membuat PDF…');
     try {
       const { kelas, startDate, endDate, kelasLine, kbmDays, rows } = await collectRekapData();
+	  const rangeLabel = (typeof buildRangeLabel === 'function')
+  ? buildRangeLabel(startDate, endDate)
+  : `${startDate} s.d. ${endDate}`;
 
       const { jsPDF } = window.jspdf || {};
       if (!jsPDF) { alert('jsPDF belum dimuat. Tambahkan <script> jsPDF.'); return; }
@@ -5288,6 +5362,7 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
+		{ key:'range', title:'Range Absensi', w:28, minW:24, maxW:60, align:'center' }, // <— BARU
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
         { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
@@ -5320,6 +5395,7 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
 		: (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
 
         return {
+		  range: rangeLabel,
           no: String(idx+1),
           nis: r.nis || r.id || '-',
           nama: r.nama || '-',
@@ -5635,7 +5711,17 @@ const allDataNorm = rawList
   });
 
   // 6) Merge slot
-  const slotAgg = _aggregateSlotsPerKey(allDataNorm);
+  const { start: absS, end: absE, source: absSrc } = getAbsensiRangeOrDefault();
+const useAbsensiRange = (absSrc === 'absensi');
+const allDataAbsensi = useAbsensiRange
+  ? (allDataNorm || []).filter(it => {
+      const t = String(it?.tanggal || '');
+      return t >= absS && t <= absE;
+    })
+  : allDataNorm;
+
+const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
+
   for (const [k, a] of slotAgg.entries()) {
     if (!aggMap[k]) continue;
     aggMap[k].hadirSlots  = a.hadir;
@@ -5749,6 +5835,7 @@ const allDataNorm = rawList
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
+		{ key:'range', title:'Range Absensi', w:28, minW:24, maxW:60, align:'center' },
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
         { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
@@ -5777,6 +5864,10 @@ const allDataNorm = rawList
 
         const { kelasLine, kbmDays, rows } = data;
 
+		const rangeLabel = (typeof buildRangeLabel === 'function')
+  ? buildRangeLabel(startDate, endDate)
+  : `${startDate} s.d. ${endDate}`;
+
         const tableData = rows.map((r, idx) => {
           const hasNilai  = (r.nilaiCount ?? 0) > 0;
 			const nilaiAvg  = hasNilai ? (r.nilaiSum / r.nilaiCount) : null;
@@ -5796,6 +5887,7 @@ const allDataNorm = rawList
 		  : (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
 
           return {
+			range: rangeLabel,
             no: String(idx+1),
             nis: r.nis || r.id || '-',
             nama: r.nama || '-',
@@ -5966,7 +6058,7 @@ async function xlsRekapDownload(){
 
     // Header kolom data (tanpa kolom Kelas/Kelompok)
     const baseHeader = [
-      "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
+      "No","NIS","Nama","SM","KLS","H","A","S","I","Range Absensi","Hadir %","SP",
       "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","Murajaah","THMS","Nilai Rata2","Predikat"
     ];
 
@@ -6022,6 +6114,7 @@ async function xlsRekapDownload(){
           (r.semester ?? ''),
           jenjangLabel(r.jenjang ?? ''),
           hadirSlots, alphaSlots, sakitSlots, izinSlots,
+		  rangeLabel,              // <— BARU, posisinya harus PAS dengan header
           hadirPct,
           (r.keterangan ?? ''),
           setoranText,
