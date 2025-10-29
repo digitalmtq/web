@@ -4582,6 +4582,17 @@ document.getElementById('mur-save')?.addEventListener('click', function(){ simpa
     return `${Number(m[3])}-${Number(m[2])}-${m[1]}`;
   }
 
+  function buildRangeLabel(startISO, endISO){
+  const s = startISO ? fmtD_M_YYYY(startISO) : null;
+  const e = endISO   ? fmtD_M_YYYY(endISO)   : null;
+  if (s && e) return `${s} s.d. ${e}`;
+  // fallback: coba baca dari input modal
+  const sIn = document.querySelector('#pdf-start-date')?.value || '';
+  const eIn = document.querySelector('#pdf-end-date')?.value   || '';
+  if (sIn && eIn) return `${fmtD_M_YYYY(sIn)} s.d. ${fmtD_M_YYYY(eIn)}`;
+  return '-';
+}
+
   // ===== Inject CSS kontrol =====
   (function injectStyles(){
     if (document.getElementById('rekap-style')) return;
@@ -5288,6 +5299,8 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
+		// ⬇️ kolom baru
+  		{ key:'range',    title:'Range Tanggal', w:28, minW:20, maxW:32, align:'center' },
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
         { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
@@ -5327,6 +5340,8 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
           jenjang: jenjangLabel(r.jenjang ?? ''),
           ket: r.keterangan ?? '-',
           h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
+			// ⬇️ isi kolom baru
+  		  range: rangeLabel,
           hadirPct: `${hadirPct}%`,
           setoran: setoranText,
           juz: juzText,
@@ -5749,6 +5764,8 @@ const allDataNorm = rawList
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
+		// ⬇️ kolom baru
+  		{ key:'range',    title:'Range Tanggal', w:28, minW:20, maxW:32, align:'center' },
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
         { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
@@ -5803,6 +5820,8 @@ const allDataNorm = rawList
             jenjang: jenjangLabel(r.jenjang ?? ''),
             ket: r.keterangan ?? '-',
             h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
+			  // ⬇️
+  			range: rangeLabel,
             hadirPct: `${hadirPct}%`,
             setoran: setoranText,
             juz: juzText,
@@ -5966,7 +5985,7 @@ async function xlsRekapDownload(){
 
     // Header kolom data (tanpa kolom Kelas/Kelompok)
     const baseHeader = [
-      "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
+      "No","NIS","Nama","SM","KLS","H","A","S","I","Range Tanggal","Hadir %","SP",
       "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","Murajaah","THMS","Nilai Rata2","Predikat"
     ];
 
@@ -6022,6 +6041,8 @@ async function xlsRekapDownload(){
           (r.semester ?? ''),
           jenjangLabel(r.jenjang ?? ''),
           hadirSlots, alphaSlots, sakitSlots, izinSlots,
+			// ⬇️ baru
+  		  rangeLabel,
           hadirPct,
           (r.keterangan ?? ''),
           setoranText,
@@ -6689,6 +6710,8 @@ async function pdfSantriDownload(){
         jenjang: jenjangSantriLabel,
         ket: keteranganSantri,
         h: d.cnt.hadir, a: d.cnt.alpha, s: d.cnt.sakit, i: d.cnt.izin,
+		  // ⬇️
+  		range: rangeLabel,
         hadirPct: `${hadirPct}%`,
         setoran: PDF_joinSAsegmentsNamaMerged(d.sa),
         juz: PDF_joinRangeSegmentsCompact(d.juz, true),
@@ -6784,6 +6807,8 @@ async function pdfSantriDownload(){
       { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
       { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
       { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
+		// ⬇️ kolom baru
+  	  { key:'range',    title:'Range Tanggal', w:28, minW:20, maxW:32, align:'center' },
       { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
       { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
       { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
