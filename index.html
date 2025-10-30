@@ -9131,7 +9131,6 @@ var btnStyle = btnEnabled
         var trEl = document.createElement('tr');
         if (i%2===1) trEl.style.background = '#fafafa';
         trEl.innerHTML =
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ (i+1) +'</td>' +
           '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ fmtID(it.tanggal||'') +'</td>' +
           '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>'+ num(it.total).toFixed(2) +' juz</b></td>' +
           '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s1) +'</td>' +
@@ -9162,7 +9161,6 @@ var btnStyle = btnEnabled
         var trEl2 = document.createElement('tr');
         if (j%2===1) trEl2.style.background = '#fafafa';
         trEl2.innerHTML =
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ (j+1) +'</td>' +
           '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ fmtID(it2.tanggal||'') +'</td>' +
           '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>'+ num(it2.total).toFixed(2) +' juz</b></td>' +
           '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it2.s1) +'</td>' +
