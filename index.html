@@ -9036,6 +9036,29 @@ var btnStyle = btnEnabled
     return { fromDate: (dariEl && dariEl.value ? dariEl.value : ''), toDate: (smpEl && smpEl.value ? smpEl.value : '') };
   }
 
+	(function(){
+  // ... (helper lain tetap)
+
+  // Peta warna untuk predikat huruf
+  function predStyle(p){
+    var t = (p==null?'':String(p)).toUpperCase().trim();
+    if (t === 'A+') return { bg:'#dcfce7', fg:'#166534', br:'#86efac' }; // green-100
+    if (t === 'A')  return { bg:'#eafaf0', fg:'#166534', br:'#a7f3d0' }; // slightly paler green
+    if (t === 'B')  return { bg:'#dbeafe', fg:'#1e3a8a', br:'#93c5fd' }; // blue-100
+    if (t === 'C')  return { bg:'#ffedd5', fg:'#9a3412', br:'#fdba74' }; // orange-100
+    if (t === 'D')  return { bg:'#ffe4e6', fg:'#9f1239', br:'#fecdd3' }; // rose-100
+    return null;
+  }
+
+  // Bungkus konten sesi dengan badge warna (jika ada pHuruf)
+  function renderSessionHTML(s){
+    // gunakan sesLine(s) yang sudah ada untuk teksnya
+    var inner = sesLine(s);
+    var st = s ? predStyle(s.pHuruf) : null;
+    if (!st) return inner || '-';
+    return '<div style="display:inline-block;border-radius:8px;padding:6px 8px;border:1px solid '+st.br+';background:'+st.bg+';color:'+st.fg+'">'+ inner +'</div>';
+  }
+
   function sesLine(s){
     if (!s) return '-';
     var hasRange = (s.from && s.from.length) || (s.to && s.to.length);
@@ -9131,11 +9154,11 @@ var btnStyle = btnEnabled
         var trEl = document.createElement('tr');
         if (i%2===1) trEl.style.background = '#fafafa';
         trEl.innerHTML =
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ fmtID(it.tanggal||'') +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>'+ num(it.total).toFixed(2) +' juz</b></td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s1) +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s2) +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s3) +'</td>';
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ fmtID(it.tanggal||'') +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>'+ num(it.total).toFixed(2) +' juz</b></td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ renderSessionHTML(it.s1) +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ renderSessionHTML(it.s2) +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ renderSessionHTML(it.s3) +'</td>';
         tb.appendChild(trEl);
       }
     }
@@ -9161,11 +9184,11 @@ var btnStyle = btnEnabled
         var trEl2 = document.createElement('tr');
         if (j%2===1) trEl2.style.background = '#fafafa';
         trEl2.innerHTML =
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ fmtID(it2.tanggal||'') +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>'+ num(it2.total).toFixed(2) +' juz</b></td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it2.s1) +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it2.s2) +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it2.s3) +'</td>';
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ fmtID(it2.tanggal||'') +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>'+ num(it2.total).toFixed(2) +' juz</b></td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ renderSessionHTML(it2.s1) +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ renderSessionHTML(it2.s2) +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ renderSessionHTML(it2.s3) +'</td>';
         tb.appendChild(trEl2);
       }
     };
