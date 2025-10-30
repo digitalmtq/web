@@ -8557,7 +8557,9 @@ if (window.currentRowEl){
       if (tr.querySelector('.total-mur-range')) return;
       const td = document.createElement('td');
       td.className = 'total-mur-range';
-      td.innerHTML = `0.00&nbsp;juz <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span> <small class="mur-range-count" style="color:#6b7280">(0)</small>`;
+      td.innerHTML = `0.00&nbsp;juz
+  	  <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span>
+  	  <small class="mur-range-count" data-link="1" style="color:#6b7280;cursor:pointer;text-decoration:underline">(0)</small>`;
       const murCell = tr.querySelector('.murajaah-cell');
       if (murCell && murCell.nextSibling) tr.insertBefore(td, murCell.nextSibling);
       else tr.appendChild(td);
@@ -8721,8 +8723,8 @@ if (window.currentRowEl){
         if (totalNum >= 30) totalLabel = `<span style="color:#7c3aed;font-weight:600">KHATAM</span> (${totalNum.toFixed(2)} juz)`;
 
         cell.innerHTML = `${totalLabel}
-          <span class="mur-range-badge" style="color:#6b7280; font-size:12px">total ${pSum}%</span>
-          <small class="mur-range-count" style="color:#6b7280">(${rec?.cAll||0})</small>`;
+  		<span class="mur-range-badge" style="color:#6b7280; font-size:12px">total ${pSum}%</span>
+  		<small class="mur-range-count" data-link="1" style="color:#6b7280;cursor:pointer;text-decoration:underline">(${rec?.cAll||0})</small>`;
 
         cell.dataset.murRangeTotal = totalNum.toFixed(2);
         cell.dataset.murRangePsum  = String(pSum);
@@ -8755,7 +8757,9 @@ if (window.currentRowEl){
     [...rows].forEach(tr=>{
       const td = tr.querySelector('.total-mur-range');
       if (!td) return;
-      td.innerHTML = `0.00&nbsp;juz <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span> <small class="mur-range-count" style="color:#6b7280">(0)</small>`;
+      td.innerHTML = `0.00&nbsp;juz
+  	  <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span>
+  	  <small class="mur-range-count" data-link="1" style="color:#6b7280;cursor:pointer;text-decoration:underline">(0)</small>`;
       td.dataset.murRangeTotal = "0.00";
       td.dataset.murRangePsum  = "0";
       td.dataset.murRangePavg  = "0";
@@ -8940,6 +8944,239 @@ if (window.currentRowEl){
   } else {
     afterTableRenderedMurRange();
   }
+
+// ===== Modal List Murajaah (by Range) =====
+(function(){
+  const $  = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+
+  // format tanggal yyyy-mm-dd -> dd/mm/yyyy
+  function fmtID(d){
+    if(!d) return '';
+    const [y,m,dd] = String(d).split('-');
+    return (dd && m && y) ? `${dd}/${m}/${y}` : d;
+  }
+
+  // Ambil key unik utk row (selaras dgn hitungTotalMurRangeFromTable)
+  function rowKeyOf(tr){
+    const key = String(tr.dataset?.key || tr.dataset?.nis || tr.dataset?.id || '').trim();
+    if (key) return key;
+    const nm = (tr.children?.[1] ? (tr.children[1].childNodes?.[0]?.textContent || tr.children[1].textContent) : '').trim().toLowerCase();
+    return nm || ''; // fallback nama (akan dipetakan lagi)
+  }
+
+  // Buka modal + isi header
+  function showListModalHeader({nama, nis, range, count}){
+    const box = $('#murRangeListModal'); if (!box) return;
+    $('#mrl-title').textContent = 'Daftar Murajaah (Rentang)';
+    const sub = [
+      nama ? `Nama: ${nama}` : '',
+      nis ? `NIS: ${nis}` : '',
+      (range?.from && range?.to) ? `Rentang: ${fmtID(range.from)} s.d. ${fmtID(range.to)}` : ''
+    ].filter(Boolean).join(' • ');
+    $('#mrl-sub').textContent = sub + (count != null ? ` • Total hari: ${count}` : '');
+    box.style.display = 'flex';
+  }
+
+  // Render tabel
+  function renderRows(list){
+    const tb = $('#mrl-tbody');
+    const empty = $('#mrl-empty');
+    tb.innerHTML = '';
+    if (!list.length){
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    list.forEach((it, i)=>{
+      const tr = document.createElement('tr');
+      if (i % 2 === 1) tr.style.background = '#fafafa';
+
+      // helpers untuk tulis sesi
+      function sesLine(s){
+        if (!s) return '-';
+        const range = (s.from || s.to) ? `${s.from||''} → ${s.to||''}` : (s.pages||'');
+        const juz   = (s.juz != null) ? ` • ${Number(s.juz||0).toFixed(2)} juz` : '';
+        const score = (s.score != null && s.score !== '') ? ` • Nilai ${s.score}${s.pHuruf?` (${s.pHuruf})`:''}` : '';
+        return `${range}${juz}${score}`;
+      }
+
+      tr.innerHTML = `
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">${i+1}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">${fmtID(it.tanggal||it.date||'')}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>${Number(it.total||0).toFixed(2)} juz</b></td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s1)}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s2)}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s3)}</td>
+      `;
+      tb.appendChild(tr);
+    });
+  }
+
+  // Extract sesi dari 1 record (sesuai skema yg udah dipakai)
+  function extractSessions(rec){
+    const num = v => {
+      if (typeof window.parseNum === 'function') return window.parseNum(v);
+      const n = parseFloat(String(v??'').replace(/[^0-9.,-]/g,'').replace(',', '.'));
+      return Number.isFinite(n)?n:0;
+    };
+    function ses(i){
+      // prefer field per-sesi, fallback ke legacy
+      const from  = rec?.[`murFrom${i}`] ?? rec?.murSessions?.[i-1]?.from ?? (i===1?rec?.murFrom:undefined);
+      const to    = rec?.[`murTo${i}`]   ?? rec?.murSessions?.[i-1]?.to   ?? (i===1?rec?.murTo:undefined);
+      const pages = rec?.[`murPages${i}`]?? rec?.murSessions?.[i-1]?.pages?? (i===1?rec?.murPages:undefined);
+      const juz   = rec?.[`juzmur${i}`]  ?? rec?.[`juzSesi${i}`]          ?? rec?.murSessions?.[i-1]?.juz;
+      const score = rec?.[`murScore${i}`]?? rec?.murSessions?.[i-1]?.score;
+      const pText = rec?.[`murPredText${i}`] ?? rec?.murSessions?.[i-1]?.predikatText;
+      const pHuruf= rec?.[`murPredHuruf${i}`]?? rec?.murSessions?.[i-1]?.predikatHuruf;
+
+      return {
+        from: from || '', to: to || '', pages: pages || '',
+        juz: (juz!=null ? num(juz) : undefined),
+        score: (score!=null && score!=='') ? Math.floor(Number(score)||0) : undefined,
+        pText: pText || '', pHuruf: pHuruf || ''
+      };
+    }
+    const s1 = ses(1), s2 = ses(2), s3 = ses(3);
+    const total = num(rec?.juzmurajaah ?? rec?.totalJuz ?? (num(s1.juz)+num(s2.juz)+num(s3.juz)));
+    return { s1, s2, s3, total };
+  }
+
+  async function openMurRangeListForRow(tr){
+    try{
+      // Ambil kelas & rentang
+      const kelas = (typeof window.kelasNow === 'function' ? window.kelasNow() : '') || '';
+      if (!kelas) { alert('Mohon pilih kelas.'); return; }
+
+      // Ambil rentang dari server/localStorage (fungsi ada di IIFE yang sama)
+      let fromDate = '', toDate = '';
+      try{
+        const rng = await window.getRangeForKelas?.(kelas);
+        fromDate = rng?.fromDate || $('#murRangeDari')?.value || '';
+        toDate   = rng?.toDate   || $('#murRangeSampai')?.value || '';
+      }catch(_){}
+      if (!fromDate || !toDate) { alert('Rentang tanggal belum disetel. Klik header "Setting Murajaah" untuk mengatur.'); return; }
+
+      // Fetch data rentang
+      const res = await fetch(`/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(fromDate)}&end=${encodeURIComponent(toDate)}&t=${Date.now()}`);
+      if (!res.ok) throw new Error('Gagal mengambil data rentang.');
+      const payload = await res.json();
+      const all = Array.isArray(payload) ? payload : (payload?.list || []);
+
+      // Tentukan key untuk row ini
+      const key = rowKeyOf(tr);
+      // Pemetaan nama->key (sama seperti hitungTotalMurRangeFromTable)
+      const table = (typeof window.getSantriTable === 'function') ? window.getSantriTable() : document.querySelector('#santri-table');
+      const rows = [...(table?.tBodies?.[0]?.rows || [])];
+      const nameToKey = new Map();
+      rows.forEach(r=>{
+        const k = String(r.dataset?.nis || r.dataset?.id || r.dataset?.key || '').trim();
+        const nm = (r.children?.[1] ? (r.children[1].childNodes?.[0]?.textContent || r.children[1].textContent) : '').trim().toLowerCase();
+        if (k && nm) nameToKey.set(nm, k);
+      });
+
+      // Identitas
+      const namaRow = (tr.children?.[1] ? (tr.children[1].childNodes?.[0]?.textContent || tr.children[1].textContent) : '').trim();
+      const nisRow  = String(tr.dataset?.nis || '').trim();
+
+      // Filter milik santri ini
+      const lowerName = namaRow.toLowerCase();
+      const myKey = key || (nameToKey.has(lowerName) ? nameToKey.get(lowerName) : '');
+      const myList = (all||[]).filter(rec=>{
+        const rkey = String(rec?.nis || rec?.id || '').trim();
+        if (myKey && rkey) return rkey === myKey;
+        // fallback by nama
+        const rnm = String(rec?.nama || '').trim().toLowerCase();
+        return (lowerName && rnm && rnm === lowerName);
+      });
+
+      // Bentuk rows
+      const normalized = myList.map(rec=>{
+        const { s1,s2,s3,total } = extractSessions(rec);
+        return {
+          tanggal: rec?.tanggal || rec?.date || '',
+          total,
+          s1, s2, s3
+        };
+      }).sort((a,b)=> String(a.tanggal||'').localeCompare(String(b.tanggal||'')));
+
+      // Tampilkan
+      showListModalHeader({ nama:namaRow, nis:nisRow, range:{from:fromDate,to:toDate}, count: normalized.length });
+      renderRows(normalized);
+
+      // Filter cepat di modal
+      const search = $('#mrl-search');
+      if (search){
+        search.value = '';
+        search.oninput = () => {
+          const q = search.value.trim().toLowerCase();
+          const filtered = normalized.filter(it=>{
+            const hay = [
+              it.tanggal,
+              it.total,
+              it.s1?.from, it.s1?.to, it.s1?.pages, it.s1?.score, it.s1?.pHuruf, it.s1?.pText,
+              it.s2?.from, it.s2?.to, it.s2?.pages, it.s2?.score, it.s2?.pHuruf, it.s2?.pText,
+              it.s3?.from, it.s3?.to, it.s3?.pages, it.s3?.score, it.s3?.pHuruf, it.s3?.pText,
+            ].join(' ').toLowerCase();
+            return hay.includes(q);
+          });
+          renderRows(filtered);
+        };
+      }
+    }catch(e){
+      console.error(e);
+      alert('❌ Gagal memuat daftar murajaah rentang. Lihat Console untuk detail.');
+    }
+  }
+
+  // Delegasi klik & keyboard
+  function bindMurRangeCountClicks(){
+    const table = (typeof window.getSantriTable === 'function') ? window.getSantriTable() : document.querySelector('#santri-table');
+    if (!table) return;
+    // click
+    table.addEventListener('click', (ev)=>{
+      const el = ev.target.closest('.mur-range-count[data-link="1"]');
+      if (!el) return;
+      const tr = el.closest('tr'); if (!tr) return;
+      openMurRangeListForRow(tr);
+    });
+    // enter/space
+    table.addEventListener('keydown', (ev)=>{
+      const el = ev.target.closest('.mur-range-count[data-link="1"]');
+      if (!el) return;
+      if (ev.key === 'Enter' || ev.key === ' '){
+        ev.preventDefault();
+        const tr = el.closest('tr'); if (!tr) return;
+        openMurRangeListForRow(tr);
+      }
+    });
+  }
+
+  // Close handlers
+  (function(){
+    const box = document.getElementById('murRangeListModal');
+    if (!box) return;
+    box.addEventListener('click', (e)=>{
+      if (e.target.hasAttribute('data-close-mur-range-list')){
+        box.style.display = 'none';
+      }
+    });
+    document.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape' && box.style.display !== 'none'){
+        box.style.display = 'none';
+      }
+    });
+  })();
+
+  // Panggil saat tabel siap
+  const _orig_after_mur_range = window.afterTableRenderedMurRange;
+  window.afterTableRenderedMurRange = function(){
+    try { _orig_after_mur_range?.(); } catch(_){}
+    // pastikan badge & listener siap
+    bindMurRangeCountClicks();
+  };
+})();
 
   window.hitungTotalMurRangeFromTable = hitungTotalMurRangeFromTable;
 })();
@@ -11597,6 +11834,47 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 })();
 </script>
+
+<!-- Modal: Daftar Input Murajaah (by Range) -->
+<div id="murRangeListModal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center">
+  <!-- backdrop -->
+  <div data-close-mur-range-list style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div>
+
+  <!-- dialog -->
+  <div style="position:relative;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(100%,1000px);max-height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #eee">
+      <div>
+        <div id="mrl-title" style="font-weight:700">Daftar Murajaah (Rentang)</div>
+        <div id="mrl-sub" style="font-size:12px;color:#6b7280"></div>
+      </div>
+      <button data-close-mur-range-list style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">Tutup</button>
+    </div>
+
+    <div style="padding:10px 16px">
+      <input id="mrl-search" placeholder="Cari tanggal/surah/catatan…" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;font-size:14px">
+    </div>
+
+    <div style="padding:0 16px 12px;overflow:auto">
+      <table style="width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+        <thead style="background:#fafafa">
+          <tr>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">#</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Tanggal</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Total (3 sesi)</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 1</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 2</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 3</th>
+          </tr>
+        </thead>
+        <tbody id="mrl-tbody"></tbody>
+      </table>
+
+      <div id="mrl-empty" style="text-align:center;color:#6b7280;font-size:13px;padding:16px;display:none">
+        Belum ada input murajaah pada rentang ini.
+      </div>
+    </div>
+  </div>
+</div>
 		
 </body>
 </html>
