@@ -6091,6 +6091,11 @@ async function xlsRekapDownload(){
       rowsAll.push([...baseHeader]);
       rCursor += 1;
 
+	  // label rentang (ikut toggle "Rentang Absensi" kalau ada)
+	  const rangeLabel = (typeof buildRangeLabel === 'function')
+  	  ? buildRangeLabel(startDate, endDate)
+  	  : `${startDate} s.d. ${endDate}`;
+		
       // ---- 3) Baris data (tanpa kolom Kelas/Kelompok)
       const body = rows.map((r, idx) => {
         const hasNilai  = (r.nilaiCount ?? 0) > 0;
