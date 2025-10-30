@@ -11886,17 +11886,18 @@ document.addEventListener("DOMContentLoaded", () => {
     style="box-sizing:border-box; width:100%; max-width:100%; display:block; border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px; font-size:14px"
   >
 </div>
-    <div style="padding:0 16px 12px;overflow:auto">
+    <div class="mrl-scroll" style="padding:0 16px 12px; overflow:auto; flex:1; min-height:0;">
       <table style="width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
         <thead style="background:#fafafa">
-          <tr>
-            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Tanggal</th>
-            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Total</th>
-            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 1</th>
-            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 2</th>
-            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 3</th>
-          </tr>
-        </thead>
+  <tr>
+    <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:2; background:#fafafa">Tanggal</th>
+    <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:2; background:#fafafa">Total (3 sesi)</th>
+    <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:2; background:#fafafa">Sesi 1</th>
+    <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:2; background:#fafafa">Sesi 2</th>
+    <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:2; background:#fafafa">Sesi 3</th>
+  </tr>
+</thead>
+
         <tbody id="mrl-tbody"></tbody>
       </table>
       <div id="mrl-empty" style="text-align:center;color:#6b7280;font-size:13px;padding:16px;display:none">
