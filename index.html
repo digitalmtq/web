@@ -38,6 +38,27 @@
   font-size: 12px; /* ini akan kecilkan semua font */
 }
 
+
+ /* Kolom pertama (#) selalu terlihat saat digeser */
+  #murRangeListModal .mrl-table .mrl-sticky,
+  #murRangeListModal .mrl-table td.mrl-sticky {
+    position: sticky;
+    left: 0;
+    background: #fff;           /* cocokkan warna body tabel */
+    z-index: 2;                  /* di atas sel lain */
+    box-shadow: 2px 0 0 rgba(0,0,0,0.04); /* garis pemisah halus */
+  }
+
+  /* Kepala tabel (#) sedikit di atas td sticky */
+  #murRangeListModal .mrl-table thead .mrl-sticky {
+    z-index: 3;
+  }
+
+  /* Responsif tambahan opsional: kecilkan min-width di layar sangat kecil */
+  @media (max-width: 380px) {
+    #murRangeListModal .mrl-table { min-width: 640px; }
+  }
+
     button.lihat-quran-btn {
   all: unset; /* reset semua style bawaan */
   display: inline-block;
@@ -9131,12 +9152,12 @@ var btnStyle = btnEnabled
         var trEl = document.createElement('tr');
         if (i%2===1) trEl.style.background = '#fafafa';
         trEl.innerHTML =
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ (i+1) +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ fmtID(it.tanggal||'') +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>'+ num(it.total).toFixed(2) +' juz</b></td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s1) +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s2) +'</td>' +
-          '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s3) +'</td>';
+  '<td class="mrl-sticky" style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ (i+1) +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">'+ fmtID(it.tanggal||'') +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>'+ num(it.total).toFixed(2) +' juz</b></td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s1) +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s2) +'</td>' +
+  '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ sesLine(it.s3) +'</td>';
         tb.appendChild(trEl);
       }
     }
@@ -11855,7 +11876,6 @@ document.addEventListener("DOMContentLoaded", () => {
   <div data-close-mur-range-list style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div>
 
   <div style="position:relative;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(100%,1000px);max-height:80vh;display:flex;flex-direction:column">
-    <!-- Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #eee">
       <div>
         <div id="mrl-title" style="font-weight:700">Daftar Murajaah (Rentang)</div>
@@ -11864,24 +11884,21 @@ document.addEventListener("DOMContentLoaded", () => {
       <button data-close-mur-range-list style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">Tutup</button>
     </div>
 
-    <!-- Body -->
-    <div style="padding:0 16px 12px">
-      <!-- Horizontal scroll wrapper -->
-      <div class="mrl-hscroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <table id="mrl-table" style="width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;min-width:720px">
-          <thead style="background:#fafafa">
-            <tr>
-              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">#</th>
-              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Tanggal</th>
-              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Total (3 sesi)</th>
-              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 1</th>
-              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 2</th>
-              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 3</th>
-            </tr>
-          </thead>
-          <tbody id="mrl-tbody"></tbody>
-        </table>
-      </div>
+    <!-- SCROLLER wrapper -->
+    <div class="mrl-scroll" style="padding:10px 16px 12px;overflow:auto;-webkit-overflow-scrolling:touch;">
+      <table class="mrl-table" style="border-collapse:separate;border-spacing:0;border:1px solid #e5e7eb;border-radius:10px;min-width:760px;">
+        <thead style="background:#fafafa">
+          <tr>
+            <th class="mrl-sticky" style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee;min-width:56px;width:56px">#</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee;min-width:140px">Tanggal</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee;min-width:160px">Total (3 sesi)</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee;min-width:280px">Sesi 1</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee;min-width:280px">Sesi 2</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee;min-width:280px">Sesi 3</th>
+          </tr>
+        </thead>
+        <tbody id="mrl-tbody"></tbody>
+      </table>
 
       <div id="mrl-empty" style="text-align:center;color:#6b7280;font-size:13px;padding:16px;display:none">
         Belum ada input murajaah pada rentang ini.
@@ -11889,37 +11906,6 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
   </div>
 </div>
-
-<!-- CSS khusus modal (sticky kolom pertama hanya di mobile) -->
-<style>
-@media (max-width: 768px) {
-  /* Pastikan sticky bekerja */
-  #murRangeListModal #mrl-table {
-    border-collapse: separate !important;
-    border-spacing: 0;
-    min-width: 720px; /* supaya ada ruang untuk di-scroll */
-  }
-  /* Kolom pertama sticky */
-  #murRangeListModal thead th:first-child,
-  #murRangeListModal tbody td:first-child {
-    position: sticky;
-    left: 0;
-    background: #fff;
-    z-index: 2; /* di atas sel lainnya */
-  }
-  #murRangeListModal thead th:first-child {
-    z-index: 3; /* di atas td pertama */
-  }
-  /* Garis pemisah saat di-scroll */
-  #murRangeListModal tbody td:first-child {
-    box-shadow: 2px 0 0 0 #e5e7eb;
-  }
-  /* Jika kamu pakai zebra-row, jaga kolom pertama tetap putih */
-  #murRangeListModal tbody tr:nth-child(odd) td { background: #fafafa; }
-  #murRangeListModal tbody td:first-child { background: #fff !important; }
-}
-</style>
-		
 		
 </body>
 </html>
