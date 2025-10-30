@@ -8589,7 +8589,11 @@ if (window.currentRowEl){
       if (tr.querySelector('.total-mur-range')) return;
       const td = document.createElement('td');
       td.className = 'total-mur-range';
-      td.innerHTML = `0.00&nbsp;juz <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span> <small class="mur-range-count" style="color:#6b7280">(0)</small>`;
+      td.innerHTML = `0.00&nbsp;juz
+  <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span>
+  <small class="mur-range-count" data-link="0" data-count="0"
+         role="button" tabindex="-1" aria-label="Tidak ada input murajaah dalam rentang"
+         style="color:#6b7280">(0)</small>`;
       const murCell = tr.querySelector('.murajaah-cell');
       if (murCell && murCell.nextSibling) tr.insertBefore(td, murCell.nextSibling);
       else tr.appendChild(td);
@@ -8752,9 +8756,16 @@ if (window.currentRowEl){
         let totalLabel = `${totalNum.toFixed(2)}&nbsp;juz`;
         if (totalNum >= 30) totalLabel = `<span style="color:#7c3aed;font-weight:600">KHATAM</span> (${totalNum.toFixed(2)} juz)`;
 
-        cell.innerHTML = `${totalLabel}
-          <span class="mur-range-badge" style="color:#6b7280; font-size:12px">total ${pSum}%</span>
-          <small class="mur-range-count" style="color:#6b7280">(${rec?.cAll||0})</small>`;
+        const count = Number(rec?.cAll || 0);
+cell.innerHTML = `${totalLabel}
+  <span class="mur-range-badge" style="color:#6b7280; font-size:12px">total ${pSum}%</span>
+  <small class="mur-range-count"
+         data-link="${count>0 ? '1':'0'}"
+         data-count="${count}"
+         role="button"
+         tabindex="${count>0 ? '0':'-1'}"
+         aria-label="${count>0?`Lihat ${count} input murajaah dalam rentang`:`Tidak ada input murajaah dalam rentang`}"
+         style="color:#6b7280;${count>0 ? 'cursor:pointer;text-decoration:underline' : ''}">(${count})</small>`;
 
         cell.dataset.murRangeTotal = totalNum.toFixed(2);
         cell.dataset.murRangePsum  = String(pSum);
@@ -8787,7 +8798,11 @@ if (window.currentRowEl){
     [...rows].forEach(tr=>{
       const td = tr.querySelector('.total-mur-range');
       if (!td) return;
-      td.innerHTML = `0.00&nbsp;juz <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span> <small class="mur-range-count" style="color:#6b7280">(0)</small>`;
+      td.innerHTML = `0.00&nbsp;juz
+  <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span>
+  <small class="mur-range-count" data-link="0" data-count="0"
+         role="button" tabindex="-1" aria-label="Tidak ada input murajaah dalam rentang"
+         style="color:#6b7280">(0)</small>`;
       td.dataset.murRangeTotal = "0.00";
       td.dataset.murRangePsum  = "0";
       td.dataset.murRangePavg  = "0";
@@ -8973,6 +8988,10 @@ if (window.currentRowEl){
     afterTableRenderedMurRange();
   }
 
+	// Ekspor helper agar bisa dipakai global/patch
+  window.getRangeForKelas = window.getRangeForKelas || getRangeForKelas;
+  window.kelasNow        = window.kelasNow        || kelasNow;
+  window.getSantriTable  = window.getSantriTable  || getSantriTable;
   window.hitungTotalMurRangeFromTable = hitungTotalMurRangeFromTable;
 })();
 
@@ -11627,6 +11646,235 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.removeItem(keyFor());
     load();
   };
+})();
+</script>
+
+
+
+<!-- Modal: Daftar Input Murajaah (Rentang) -->
+<div id="murRangeListModal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center">
+  <div data-close-mur-range-list style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div>
+
+  <div style="position:relative;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);width:min(100%,1000px);max-height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #eee">
+      <div>
+        <div id="mrl-title" style="font-weight:700">Daftar Murajaah (Rentang)</div>
+        <div id="mrl-sub" style="font-size:12px;color:#6b7280"></div>
+      </div>
+      <button data-close-mur-range-list style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">Tutup</button>
+    </div>
+
+    <div style="padding:10px 16px">
+      <input id="mrl-search" placeholder="Cari tanggal/surah/catatan…" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;font-size:14px">
+    </div>
+
+    <div style="padding:0 16px 12px;overflow:auto">
+      <table style="width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+        <thead style="background:#fafafa">
+          <tr>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">#</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Tanggal</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Total (3 sesi)</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 1</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 2</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee">Sesi 3</th>
+          </tr>
+        </thead>
+        <tbody id="mrl-tbody"></tbody>
+      </table>
+
+      <div id="mrl-empty" style="text-align:center;color:#6b7280;font-size:13px;padding:16px;display:none">
+        Belum ada input murajaah pada rentang ini.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Fallback helper jika (untung-untungan) ekspor belum ada
+  function _kelasNow(){
+    if (window.kelasNow) return window.kelasNow();
+    const sel = document.querySelector('select#kelasSelect, select[name="kelas"], #kelas, .kelas, .kelas-select, .kelasSelect');
+    if (sel && sel.value) return String(sel.value).trim();
+    const ref = document.querySelector('[data-kelas]');
+    if (ref?.dataset?.kelas) return String(ref.dataset.kelas).trim();
+    try{ const last=localStorage.getItem('lastKelas'); if (last) return String(last).trim(); }catch{}
+    return '';
+  }
+  function _getSantriTable(){
+    if (window.getSantriTable) return window.getSantriTable();
+    return document.getElementById('santri-table')
+        || document.getElementById('santriTable')
+        || document.querySelector('table[data-role="santri-table"]')
+        || document.querySelector('table.santri-table')
+        || null;
+  }
+  async function _getRangeForKelas(kelas){
+    if (window.getRangeForKelas) {
+      try{ const r = await window.getRangeForKelas(kelas); if (r && (r.fromDate||r.toDate)) return r; }catch{}
+    }
+    const dariEl = document.getElementById('murRangeDari');
+    const smpEl  = document.getElementById('murRangeSampai');
+    return { fromDate: (dariEl?.value||''), toDate: (smpEl?.value||'') };
+  }
+
+  function fmtID(iso){ if(!iso) return ''; const a=String(iso).split('-'); return a.length===3?`${a[2]}/${a[1]}/${a[0]}`:iso; }
+  function num(v){ const n=parseFloat(String(v??'').replace(/[^0-9.,-]/g,'').replace(',', '.')); return Number.isFinite(n)?n:0; }
+
+  function sesLine(s){
+    if (!s) return '-';
+    const range = (s.from||s.to) ? `${s.from||''} → ${s.to||''}` : (s.pages||'');
+    const juz   = (s.juz!=null && s.juz!=='') ? ` • ${num(s.juz).toFixed(2)} juz` : '';
+    const score = (s.score!=null && s.score!=='') ? ` • Nilai ${Math.floor(Number(s.score)||0)}` : '';
+    const huruf = (s.pHuruf) ? ` (${s.pHuruf})` : '';
+    return (range||juz||score) ? `${range}${juz}${score}${huruf}` : '-';
+  }
+
+  function extractSessions(rec){
+    const s = i => ({
+      from:  rec?.[`murFrom${i}`]  ?? rec?.murSessions?.[i-1]?.from  ?? (i===1?rec?.murFrom:undefined)  || '',
+      to:    rec?.[`murTo${i}`]    ?? rec?.murSessions?.[i-1]?.to    ?? (i===1?rec?.murTo:undefined)    || '',
+      pages: rec?.[`murPages${i}`] ?? rec?.murSessions?.[i-1]?.pages ?? (i===1?rec?.murPages:undefined) || '',
+      juz:   rec?.[`juzmur${i}`]   ?? rec?.[`juzSesi${i}`]           ?? rec?.murSessions?.[i-1]?.juz,
+      score: rec?.[`murScore${i}`] ?? rec?.murSessions?.[i-1]?.score,
+      pHuruf:rec?.[`murPredHuruf${i}`] ?? rec?.murSessions?.[i-1]?.predikatHuruf || ''
+    });
+    const s1=s(1), s2=s(2), s3=s(3);
+    const total = num(rec?.juzmurajaah ?? rec?.totalJuz ?? (num(s1.juz)+num(s2.juz)+num(s3.juz)));
+    return { s1, s2, s3, total };
+  }
+
+  async function openMurRangeListForRow(tr){
+    const box = document.getElementById('murRangeListModal');
+    if (!box){ alert('Modal murRangeListModal belum ditambahkan (Langkah 1).'); return; }
+
+    const kelas = _kelasNow();
+    if (!kelas){ alert('Mohon pilih kelas.'); return; }
+
+    const rng = await _getRangeForKelas(kelas);
+    const fromDate = rng?.fromDate || '';
+    const toDate   = rng?.toDate   || '';
+    if (!fromDate || !toDate){ alert('Rentang tanggal belum disetel. Klik header "Setting Murajaah" untuk mengatur.'); return; }
+
+    const res = await fetch(`/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(fromDate)}&end=${encodeURIComponent(toDate)}&t=${Date.now()}`);
+    if (!res.ok){ alert('Gagal mengambil data rentang.'); return; }
+    const payload = await res.json();
+    const all = Array.isArray(payload) ? payload : (payload?.list || []);
+
+    const namaRow = (tr.children?.[1] ? (tr.children[1].childNodes?.[0]?.textContent || tr.children[1].textContent) : '').trim();
+    const nisRow  = String(tr.dataset?.nis || '').trim();
+    const keyRow  = String(tr.dataset?.key || tr.dataset?.nis || tr.dataset?.id || '').trim().toLowerCase();
+
+    const table = _getSantriTable();
+    const rows  = [...(table?.tBodies?.[0]?.rows||[])];
+    const nameToKey = new Map();
+    rows.forEach(r=>{
+      const k = String(r.dataset?.nis || r.dataset?.id || r.dataset?.key || '').trim().toLowerCase();
+      const nm = (r.children?.[1] ? (r.children[1].childNodes?.[0]?.textContent || r.children[1].textContent) : '').trim().toLowerCase();
+      if (k && nm) nameToKey.set(nm, k);
+    });
+    const myKey = keyRow || nameToKey.get(namaRow.toLowerCase()) || '';
+
+    const mine = all.filter(rec=>{
+      const rkey = String(rec?.nis || rec?.id || '').trim().toLowerCase();
+      if (myKey && rkey) return rkey === myKey;
+      const rnm = String(rec?.nama || '').trim().toLowerCase();
+      return (namaRow && rnm && rnm === namaRow.toLowerCase());
+    });
+
+    const normalized = mine.map(rec=>{
+      const { s1,s2,s3,total } = extractSessions(rec);
+      return { tanggal: rec?.tanggal || rec?.date || '', total, s1,s2,s3 };
+    }).sort((a,b)=> String(a.tanggal||'').localeCompare(String(b.tanggal||'')));
+
+    // Header
+    document.getElementById('mrl-title').textContent = 'Daftar Murajaah (Rentang)';
+    document.getElementById('mrl-sub').textContent =
+      `${namaRow ? `Nama: ${namaRow} • `:''}${nisRow?`NIS: ${nisRow} • `:''}Rentang: ${fmtID(fromDate)} s.d. ${fmtID(toDate)} • Total hari: ${normalized.length}`;
+
+    // Tabel
+    const tb = document.getElementById('mrl-tbody');
+    const empty = document.getElementById('mrl-empty');
+    tb.innerHTML = '';
+    if (!normalized.length){
+      empty.style.display='block';
+    } else {
+      empty.style.display='none';
+      normalized.forEach((it,i)=>{
+        const trEl = document.createElement('tr');
+        if (i%2===1) trEl.style.background = '#fafafa';
+        trEl.innerHTML = `
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">${i+1}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">${fmtID(it.tanggal||'')}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>${num(it.total).toFixed(2)} juz</b></td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s1)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s2)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s3)}</td>
+        `;
+        tb.appendChild(trEl);
+      });
+    }
+
+    // Search
+    const search = document.getElementById('mrl-search');
+    search.value = '';
+    search.oninput = () => {
+      const q = search.value.trim().toLowerCase();
+      const filtered = normalized.filter(it=>{
+        const hay = [
+          it.tanggal, it.total,
+          it.s1?.from, it.s1?.to, it.s1?.pages, it.s1?.score, it.s1?.pHuruf,
+          it.s2?.from, it.s2?.to, it.s2?.pages, it.s2?.score, it.s2?.pHuruf,
+          it.s3?.from, it.s3?.to, it.s3?.pages, it.s3?.score, it.s3?.pHuruf
+        ].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+      // render ulang cepat
+      tb.innerHTML='';
+      if (!filtered.length){ empty.style.display='block'; return; }
+      empty.style.display='none';
+      filtered.forEach((it,i)=>{
+        const trEl = document.createElement('tr');
+        if (i%2===1) trEl.style.background = '#fafafa';
+        trEl.innerHTML = `
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">${i+1}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top">${fmtID(it.tanggal||'')}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top"><b>${num(it.total).toFixed(2)} juz</b></td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s1)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s2)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">${sesLine(it.s3)}</td>
+        `;
+        tb.appendChild(trEl);
+      });
+    };
+
+    // Tampilkan modal
+    box.style.display = 'flex';
+  }
+
+  // Delegasi klik: tangkap klik di angka (n) pada kolom Setting Murajaah
+  document.addEventListener('click', function(ev){
+    const el = ev.target.closest('.mur-range-count');
+    if (!el) return;
+    if (el.dataset && el.dataset.link === '0') return; // nonaktif (count=0)
+    const tr = el.closest('tr'); if (!tr) return;
+    openMurRangeListForRow(tr);
+  });
+
+  // Tutup modal (backdrop/tombol/ESC)
+  document.addEventListener('click', function(e){
+    const box = document.getElementById('murRangeListModal');
+    if (box && e.target?.hasAttribute?.('data-close-mur-range-list')){
+      box.style.display = 'none';
+    }
+  });
+  document.addEventListener('keydown', function(e){
+    const box = document.getElementById('murRangeListModal');
+    if (box && e.key === 'Escape' && box.style.display !== 'none'){
+      box.style.display = 'none';
+    }
+  });
 })();
 </script>
 		
