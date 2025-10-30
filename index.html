@@ -8591,8 +8591,12 @@ if (window.currentRowEl){
       td.className = 'total-mur-range';
       td.innerHTML = `0.00&nbsp;juz
   <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span>
-  <small class="mur-range-count" data-link="0" data-count="0"
-         role="button" tabindex="-1" aria-label="Tidak ada input murajaah dalam rentang"
+  <small class="mur-range-count"
+         data-link="0"
+         data-count="0"
+         role="button"
+         tabindex="-1"
+         aria-label="Tidak ada input murajaah dalam rentang"
          style="color:#6b7280">(0)</small>`;
       const murCell = tr.querySelector('.murajaah-cell');
       if (murCell && murCell.nextSibling) tr.insertBefore(td, murCell.nextSibling);
@@ -8760,12 +8764,12 @@ if (window.currentRowEl){
 cell.innerHTML = `${totalLabel}
   <span class="mur-range-badge" style="color:#6b7280; font-size:12px">total ${pSum}%</span>
   <small class="mur-range-count"
-         data-link="${count>0 ? '1':'0'}"
+         data-link="${count > 0 ? '1' : '0'}"
          data-count="${count}"
          role="button"
-         tabindex="${count>0 ? '0':'-1'}"
-         aria-label="${count>0?`Lihat ${count} input murajaah dalam rentang`:`Tidak ada input murajaah dalam rentang`}"
-         style="color:#6b7280;${count>0 ? 'cursor:pointer;text-decoration:underline' : ''}">(${count})</small>`;
+         tabindex="${count > 0 ? '0' : '-1'}"
+         aria-label="${count > 0 ? ('Lihat ' + count + ' input murajaah dalam rentang') : 'Tidak ada input murajaah dalam rentang'}"
+         style="color:#6b7280;${count > 0 ? 'cursor:pointer;text-decoration:underline' : ''}">(${count})</small>`;
 
         cell.dataset.murRangeTotal = totalNum.toFixed(2);
         cell.dataset.murRangePsum  = String(pSum);
@@ -8800,9 +8804,14 @@ cell.innerHTML = `${totalLabel}
       if (!td) return;
       td.innerHTML = `0.00&nbsp;juz
   <span class="mur-range-badge" style="color:#999; font-size:12px">total 0%</span>
-  <small class="mur-range-count" data-link="0" data-count="0"
-         role="button" tabindex="-1" aria-label="Tidak ada input murajaah dalam rentang"
+  <small class="mur-range-count"
+         data-link="0"
+         data-count="0"
+         role="button"
+         tabindex="-1"
+         aria-label="Tidak ada input murajaah dalam rentang"
          style="color:#6b7280">(0)</small>`;
+
       td.dataset.murRangeTotal = "0.00";
       td.dataset.murRangePsum  = "0";
       td.dataset.murRangePavg  = "0";
@@ -11865,9 +11874,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Tutup modal (backdrop/tombol/ESC)
   document.addEventListener('click', function(e){
     const box = document.getElementById('murRangeListModal');
-    if (box && e.target?.hasAttribute?.('data-close-mur-range-list')){
-      box.style.display = 'none';
-    }
+    if (box && e.target && typeof e.target.hasAttribute === 'function' && e.target.hasAttribute('data-close-mur-range-list')) {
+  box.style.display = 'none';
+}
   });
   document.addEventListener('keydown', function(e){
     const box = document.getElementById('murRangeListModal');
