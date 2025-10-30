@@ -4775,6 +4775,11 @@ function _isMeaningfulKBM(rec){
     return map;
   }
 
+  function buildRangeLabel(startDate, endDate){
+  // pakai formatter yang sudah ada
+  return `${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`;
+}
+
   // === Helper Kelas/Kelompok ===
 function buildKelasKelompokLine(kelas, kelasEl) {
   const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
@@ -5339,7 +5344,7 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         doc.text(kelasLine, margin.left, margin.top + 6);
         doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 12);
         const rightX = pageW - margin.right - 70;
-        doc.text(`KBM: ${kbmDays} hari`, rightX, margin.top + 6);
+        doc.text(`KBM: ${kbmDays} hari (${buildRangeLabel(startDate, endDate)})`, rightX, margin.top + 6);
         doc.text(`Total Santri: ${rows.length}`, rightX, margin.top + 12);
         doc.setTextColor(...theme.text);
       }
@@ -5362,7 +5367,6 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
-		{ key:'range', title:'Range Absensi', w:28, minW:24, maxW:60, align:'center' }, // <— BARU
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
         { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
@@ -5395,7 +5399,6 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
 		: (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
 
         return {
-		  range: rangeLabel,
           no: String(idx+1),
           nis: r.nis || r.id || '-',
           nama: r.nama || '-',
@@ -5809,13 +5812,13 @@ const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
         doc.text(`Dicetak: ${printedAt}`, margin.left, y);
         doc.text(`Halaman ${pageNo} / ${totalPages}`, pageW - margin.right - 30, y);
       }
-      function drawClassHeaderCompact(kelasLine, kbmDays, totalSantri, yStart){
-        const headerText = `${kelasLine}, KBM: ${kbmDays} hari, Total Santri: ${totalSantri}`;
-        doc.setFont('helvetica','bold'); doc.setFontSize(CLASS_HEADER_FONT);
-        const baseline = yStart + CLASS_HEADER_LINE_H * 0.72;
-        doc.text(headerText, margin.left, baseline);
-        return CLASS_HEADER_LINE_H;
-      }
+      function drawClassHeaderCompact(kelasLine, kbmDays, totalSantri, yStart, startDate, endDate){
+  const headerText = `${kelasLine}, KBM: ${kbmDays} hari (${buildRangeLabel(startDate, endDate)}), Total Santri: ${totalSantri}`;
+  doc.setFont('helvetica','bold'); doc.setFontSize(CLASS_HEADER_FONT);
+  const baseline = yStart + CLASS_HEADER_LINE_H * 0.72;
+  doc.text(headerText, margin.left, baseline);
+  return CLASS_HEADER_LINE_H;
+}
       function ensureSpaceForClassBlock(yCurrent){
         const need = CLASS_HEADER_LINE_H + HEADER_TO_TABLE_GAP + headerRowH + ROW_MIN_H;
         if (yCurrent + need > pageH - margin.bottom){
@@ -5835,7 +5838,6 @@ const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
         { key:'a',        title:'A',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'s',        title:'S',    w:8,  minW:6,  maxW:10, align:'center' },
         { key:'i',        title:'I',    w:8,  minW:6,  maxW:10, align:'center' },
-		{ key:'range', title:'Range Absensi', w:28, minW:24, maxW:60, align:'center' },
         { key:'hadirPct', title:'Hadir %', w:16, minW:16, maxW:18, align:'center' },
         { key:'ket',      title:'SP',   w:12, minW:12, maxW:12, align:'center' },
         { key:'setoran',  title:'Setoran',  w:48, minW:32, maxW:120, align:'left'  },
@@ -5887,7 +5889,6 @@ const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
 		  : (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
 
           return {
-			range: rangeLabel,
             no: String(idx+1),
             nis: r.nis || r.id || '-',
             nama: r.nama || '-',
@@ -5919,7 +5920,7 @@ const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
           return yCurrent;
         })(y);
 
-        y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
+        y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y, startDate, endDate);
         y += HEADER_TO_TABLE_GAP;
 
         drawTableHeader(doc, cols, margin.left, y, headerRowH, fontHead, theme, cellPadX);
@@ -5938,7 +5939,7 @@ const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
           if (y + rowH > pageH - margin.bottom) {
             doc.addPage('a3', 'landscape');
             y = margin.top + 6;
-            y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y);
+            y += drawClassHeaderCompact(kelasLine, kbmDays, rows.length, y, startDate, endDate);
             y += HEADER_TO_TABLE_GAP;
             drawTableHeader(doc, cols, margin.left, y, headerRowH, fontHead, theme, cellPadX);
             y += headerRowH;
@@ -6058,7 +6059,7 @@ async function xlsRekapDownload(){
 
     // Header kolom data (tanpa kolom Kelas/Kelompok)
     const baseHeader = [
-      "No","NIS","Nama","SM","KLS","H","A","S","I","Range Absensi","Hadir %","SP",
+      "No","NIS","Nama","SM","KLS","H","A","S","I","Hadir %","SP",
       "Setoran (Surah: Ayat s.d. Surah: Ayat)","Juz","Total Juz","Murajaah","THMS","Nilai Rata2","Predikat"
     ];
 
@@ -6076,7 +6077,7 @@ async function xlsRekapDownload(){
 
       // ---- 1) Judul kelas (merge A..last) + keterangan ringkas
       const judul =
-        `Kelas/Kelompok: ${kkLabel}   |   Total Santri: ${rows.length}   |   KBM: ${kbmDays} hari   |   Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`;
+        `Kelas/Kelompok: ${kkLabel}   |   Total Santri: ${rows.length}   |   KBM: ${kbmDays} hari (${buildRangeLabel(startDate, endDate)})   |   Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`;
       const judulRow = [judul, ...Array(baseHeader.length - 1).fill("")];
       rowsAll.push(judulRow);
 
@@ -6119,7 +6120,6 @@ async function xlsRekapDownload(){
           (r.semester ?? ''),
           jenjangLabel(r.jenjang ?? ''),
           hadirSlots, alphaSlots, sakitSlots, izinSlots,
-		  rangeLabel,              // <— BARU, posisinya harus PAS dengan header
           hadirPct,
           (r.keterangan ?? ''),
           setoranText,
