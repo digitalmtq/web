@@ -12082,11 +12082,15 @@ document.addEventListener("DOMContentLoaded", () => {
 </div>
 
 <script>
-// === Download PDF langsung (jsPDF) — A3 landscape + format "Surah X s.d Y" ===
+// === PDF A3 landscape, kolom DINAMIS, badge pasti muat (wrap), teks "Surah X s.d Y" ===
 (function(){
+  // --- util DOM ---
+  const $ = s=>document.querySelector(s);
+  const text = el => (el ? String(el.innerText||el.textContent||'').trim() : '');
+
   // warna predikat
   function predStyle(letter){
-    var t = (letter||'').toUpperCase().trim();
+    const t=(letter||'').toUpperCase().trim();
     if (t==='A+') return { bg:[220,252,231], br:[134,239,172], fg:[22,101,52]  };
     if (t==='A')  return { bg:[234,250,240], br:[167,243,208], fg:[22,101,52]  };
     if (t==='B')  return { bg:[219,234,254], br:[147,197,253], fg:[30,58,138]  };
@@ -12094,152 +12098,174 @@ document.addEventListener("DOMContentLoaded", () => {
     if (t==='D')  return { bg:[255,228,230], br:[254,205,211], fg:[159,18,57]  };
     return null;
   }
-  function t(el){ return el ? String(el.innerText||el.textContent||'').trim() : ''; }
-
-  // ===== filter baris kosong (Sesi 1–3 kosong) =====
-  function isRowEmpty(tr){
-    var c = tr.children; if (!c || c.length<5) return true;
-    return !t(c[2]) && !t(c[3]) && !t(c[4]);
+  function extractHuruf(sessionText){
+    const m = (sessionText||'').match(/\((A\+|A|B|C|D)\)/i);
+    return m ? m[1].toUpperCase() : '';
   }
-  function collectRows(){
-    var tbody = document.getElementById('mrl-tbody'); if (!tbody) return [];
-    var out = [];
-    tbody.querySelectorAll('tr').forEach(function(tr){
-      if (isRowEmpty(tr)) return;
-      var td = tr.children;
-      out.push([ t(td[0]), t(td[1]), t(td[2]), t(td[3]), t(td[4]) ]);
+
+  // Baris kosong = Sesi kolom semua kosong
+  function isRowEmpty(tr, sesiIdx){
+    const c=tr.children; if(!c) return true;
+    return sesiIdx.every(i=>!text(c[i]));
+  }
+
+  // "a:b → c:d" | "a:b - c:d" → "Surah a:b s.d c:d"
+  const ARROW_RE = /(\d+\s*:\s*\d+)\s*[\u2192\-–—>]\s*(\d+\s*:\s*\d+)/;
+  const normalizeSessionText = s => s ? s.replace(ARROW_RE, (_,a,b)=>`Surah ${a} s.d ${b}`) : s;
+
+  // Ambil kolom yang benar-benar tampil di modal (thead)
+  function detectColumns(){
+    const thead = $('#mrl-tbody')?.parentNode?.querySelector('thead');
+    if(!thead) return null;
+    const ths = [...thead.querySelectorAll('th')].map(th=>text(th));
+    // Peta tipe kolom
+    const cols = [];
+    ths.forEach((label, idx)=>{
+      const L=label.toLowerCase();
+      if (L.includes('tanggal')) cols.push({type:'tgl', label:'Tanggal', idx});
+      else if (L.includes('total')) cols.push({type:'total', label:'Total', idx});
+      else if (L.includes('sesi'))  cols.push({type:'sesi', label:label, idx}); // Sesi 1/2/3
+    });
+    return cols;
+  }
+
+  // Kumpulkan rows sesuai urutan kolom
+  function collectRows(cols){
+    const tbody = $('#mrl-tbody'); if(!tbody) return [];
+    const sesiIdx = cols.filter(c=>c.type==='sesi').map(c=>c.idx);
+    const out = [];
+    tbody.querySelectorAll('tr').forEach(tr=>{
+      if (isRowEmpty(tr, sesiIdx)) return;
+      const row = cols.map(c=>{
+        const td = tr.children[c.idx];
+        let v = text(td);
+        if (c.type==='sesi') v = normalizeSessionText(v);
+        return v;
+      });
+      out.push(row);
     });
     return out;
   }
 
-  // ===== transform teks sesi: "a:b → c:d" -> "Surah a:b s.d c:d" =====
-  var ARROW_RE = /(\d+\s*:\s*\d+)\s*[\u2192\-–—>]\s*(\d+\s*:\s*\d+)/; // tangkap 78:1 → 114:6
-  function normalizeSessionText(s){
-    if (!s) return s;
-    return s.replace(ARROW_RE, function(_, a, b){ return 'Surah '+a+' s.d '+b; });
-  }
-  function extractHuruf(sessionText){
-    var m = (sessionText||'').match(/\((A\+|A|B|C|D)\)/i);
-    return m ? m[1].toUpperCase() : '';
-  }
+  // =========== jsPDF A3 landscape ===========
+  const M = {L:12, T:12, R:12, B:10};
+  const PAGE_W = 420, PAGE_H = 297;
+  const USABLE_W = PAGE_W - M.L - M.R;
+  const HEADER_FILL = [33,150,243], HEADER_TXT=[255,255,255];
+  const GRID=[224,224,224], ZEBRA=[248,250,252];
 
-  // ===== PDF: A3 landscape =====
-  var M = {L:12, T:12, R:12, B:10};
-  var PAGE_W = 420, PAGE_H = 297;              // A3 landscape (mm)
-  var USABLE_W = PAGE_W - M.L - M.R;           // 396
-  var COL_W = [36, 27, 111, 111, 111];         // total 396 pas
-  var HEADER_FILL = [33,150,243], HEADER_TXT=[255,255,255];
-  var GRID=[224,224,224], ZEBRA=[248,250,252];
+  // Bagi lebar kolom DINAMIS (tgl/total fixed min, sisa dibagi ke kolom sesi)
+  function computeColWidths(cols){
+    const nSesi = cols.filter(c=>c.type==='sesi').length;
+    const hasTgl = cols.some(c=>c.type==='tgl');
+    const hasTot = cols.some(c=>c.type==='total');
 
-  function drawPageHeader(doc, title, sub){
-    var y = M.T;
-    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(0);
-    doc.text(title || 'Daftar Murajaah (Rentang)', M.L, y); y += 7;
-    if (sub){
-      doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      var lines = doc.splitTextToSize(sub, USABLE_W);
-      lines.forEach(function(line){ doc.text(line, M.L, y); y += 5; });
-      y += 2;
-    }
-    var x = M.L, thH = 9;
-    doc.setFillColor.apply(doc, HEADER_FILL);
-    doc.setDrawColor.apply(doc, GRID);
-    doc.rect(M.L, y, USABLE_W, thH, 'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, HEADER_TXT);
-    ['Tanggal','Total','Sesi 1','Sesi 2','Sesi 3'].forEach(function(h,i){
-      doc.text(h, x+2, y+5.8); if (i>0) doc.line(x, y, x, y+thH); x += COL_W[i];
+    const tglMin  = hasTgl ? 40 : 0;   // lebih lebar agar tanggal nyaman
+    const totMin  = hasTot ? 32 : 0;   // total agak lebar
+    const fixed = tglMin + totMin;
+    const rem = Math.max(USABLE_W - fixed, 60*nSesi);
+    const sesiW = nSesi ? rem / nSesi : 0;
+
+    const mapW = {};
+    cols.forEach(c=>{
+      if (c.type==='tgl') mapW[c.idx] = tglMin;
+      else if (c.type==='total') mapW[c.idx] = totMin;
+      else mapW[c.idx] = sesiW;
     });
-    doc.line(M.L, y+thH, M.L+USABLE_W, y+thH);
-    doc.setTextColor(0);
-    return y + thH + 2;
-  }
-  function drawFooter(doc, pageNo, totalPages){
-    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(110);
-    doc.text('Generated '+ new Date().toLocaleString() +' • Page '+pageNo+(totalPages?('/'+totalPages):''), M.L, PAGE_H-6);
-    doc.setTextColor(0);
+    // hasil dalam urutan cols
+    return cols.map(c=>mapW[c.idx]);
   }
 
-  function tryJsPDFDownload(rows, title, sub){
-    var jsPDF = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF||null);
+  function tryJsPDFDownload(rows, cols, colW, title, sub){
+    const jsPDF = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF||null);
     if (!jsPDF) return false;
 
-    // transform panah -> "Surah ... s.d ..."
-    rows = rows.map(function(r){
-      return [ r[0], r[1], normalizeSessionText(r[2]), normalizeSessionText(r[3]), normalizeSessionText(r[4]) ];
-    });
+    const doc = new jsPDF({unit:'mm', format:'a3', orientation:'landscape'});
+    const headers = cols.map(c=>c.label);
 
-    var doc = new jsPDF({unit:'mm', format:'a3', orientation:'landscape'});
-    var pageNo = 1, y = drawPageHeader(doc, title, sub);
-    doc.setDrawColor.apply(doc, GRID); doc.setLineWidth(0.2);
-    doc.setFont('helvetica','normal');
+    function header(y){
+      doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(0);
+      doc.text(title||'Daftar Murajaah (Rentang)', M.L, y); y+=7;
+      if (sub){
+        doc.setFont('helvetica','normal'); doc.setFontSize(11);
+        doc.splitTextToSize(sub, USABLE_W).forEach(line=>{ doc.text(line, M.L, y); y+=5; });
+        y+=2;
+      }
+      // header tabel
+      let x = M.L, thH = 9;
+      doc.setFillColor(...HEADER_FILL);
+      doc.setDrawColor(...GRID);
+      doc.rect(M.L, y, USABLE_W, thH, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...HEADER_TXT);
+      headers.forEach((h,i)=>{ doc.text(h, x+2, y+5.8); if(i>0) doc.line(x,y,x,y+thH); x+=colW[i]; });
+      doc.line(M.L, y+thH, M.L+USABLE_W, y+thH);
+      doc.setTextColor(0);
+      return y + thH + 2;
+    }
+    function footer(page){
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(110);
+      doc.text(`Generated ${new Date().toLocaleString()} • Page ${page}`, M.L, PAGE_H-6);
+      doc.setTextColor(0);
+    }
 
-    for (var r=0; r<rows.length; r++){
-      var row = rows[r];
+    let page=1, y = header(M.T);
+    doc.setDrawColor(...GRID); doc.setLineWidth(0.2);
 
-      // wrap per kolom (lebih lega di A3)
-      var wrapped = [
-        doc.splitTextToSize(row[0], COL_W[0]-3),
-        doc.splitTextToSize(row[1], COL_W[1]-3),
-        doc.splitTextToSize(row[2], COL_W[2]-8),
-        doc.splitTextToSize(row[3], COL_W[3]-8),
-        doc.splitTextToSize(row[4], COL_W[4]-8),
-      ];
-      var linesMax = 1; wrapped.forEach(function(w){ linesMax = Math.max(linesMax, w.length); });
-      var rowH = Math.max(9, 5 * linesMax + 5); // lebih tinggi
+    for (let r=0; r<rows.length; r++){
+      // wrap per kolom (beri ruang padding & badge)
+      const wrapped = rows[r].map((cell, i)=>{
+        const innerW = Math.max(colW[i]-8, 20); // jaga supaya teks selalu muat
+        return doc.splitTextToSize(cell||'', innerW);
+      });
+      // tinggi baris
+      let linesMax = 1; wrapped.forEach(w=>linesMax=Math.max(linesMax, w.length));
+      const lineH = 5;
+      const rowH = Math.max(10, linesMax*lineH + 6);
 
       // page break
       if (y + rowH > PAGE_H - M.B - 10){
-        drawFooter(doc, pageNo);
-        doc.addPage('a3','landscape');
-        pageNo++; y = drawPageHeader(doc, title, sub);
+        footer(page); doc.addPage('a3','landscape'); page++; y = header(M.T);
       }
 
       // zebra
-      if (r % 2 === 1){ doc.setFillColor.apply(doc, ZEBRA); doc.rect(M.L, y, USABLE_W, rowH, 'F'); }
+      if (r%2===1){ doc.setFillColor(...ZEBRA); doc.rect(M.L, y, USABLE_W, rowH, 'F'); }
 
-      var x = M.L; doc.setFontSize(10);
+      // isi
+      doc.setFont('helvetica','normal'); doc.setFontSize(10);
+      let x = M.L;
+      for (let c=0; c<cols.length; c++){
+        const col = cols[c];
+        const lines = wrapped[c];
 
-      // Tanggal
-      wrapped[0].forEach(function(line,i){ doc.text(line, x+1.8, y+6 + i*5); });
-      doc.line(x, y, x, y+rowH); x += COL_W[0];
+        if (col.type==='sesi'){
+          const sesText = rows[r][c] || '';
+          const huruf = extractHuruf(sesText);
+          const st = predStyle(huruf);
+          const padX=2.2, padY=2.0, badgeW = Math.max(colW[c]-3.0, 18);
+          const h = Math.max(8, lines.length*lineH + padY*2);
 
-      // Total
-      wrapped[1].forEach(function(line,i){ doc.text(line, x+1.8, y+6 + i*5); });
-      doc.line(x, y, x, y+rowH); x += COL_W[1];
-
-      // Sesi 1..3 dengan badge warna
-      for (var c=2; c<=4; c++){
-        var sesText = row[c] || '';
-        var huruf   = extractHuruf(sesText);
-        var sty     = huruf ? predStyle(huruf) : null;
-
-        if (sesText){
-          var lines = wrapped[c];
-          var padX = 2.2, padY = 2.2, lineH = 5;
-          var h = Math.max(8, lines.length*lineH + padY*2 + 2);
-
-          if (sty){
-            doc.setFillColor.apply(doc, sty.bg);
-            doc.setDrawColor.apply(doc, sty.br);
-            if (doc.roundedRect){
-              doc.roundedRect(x+1.2, y+2, COL_W[c]-2.4, h, 2.5, 2.5, 'FD');
-            }else{
-              doc.rect(x+1.2, y+2, COL_W[c]-2.4, h, 'FD');
-            }
-            doc.setTextColor.apply(doc, sty.fg);
-          } else {
+          if (st){
+            doc.setFillColor(...st.bg); doc.setDrawColor(...st.br);
+            if (doc.roundedRect) doc.roundedRect(x+1.2, y+2, badgeW-2.4, h, 2.5, 2.5, 'FD');
+            else doc.rect(x+1.2, y+2, badgeW-2.4, h, 'FD');
+            doc.setTextColor(...st.fg);
+          }else{
             doc.setTextColor(0);
           }
-          for (var li=0; li<lines.length; li++){
-            doc.text(lines[li], x+padX+1.2, y+2+padY+5 + li*lineH);
+          for (let li=0; li<lines.length; li++){
+            doc.text(lines[li], x+padX+1.5, y+2+padY+5 + li*lineH);
           }
           doc.setTextColor(0);
+        }else{
+          // tgl/total biasa
+          lines.forEach((ln,i)=> doc.text(ln, x+1.8, y+6 + i*lineH));
         }
 
-        doc.setDrawColor.apply(doc, GRID);
-        doc.line(x, y, x, y+rowH); x += COL_W[c];
+        // grid vertikal
+        doc.setDrawColor(...GRID);
+        doc.line(x, y, x, y+rowH);
+        x += colW[c];
       }
-
       // grid kanan & bawah
       doc.line(M.L+USABLE_W, y, M.L+USABLE_W, y+rowH);
       doc.line(M.L, y+rowH, M.L+USABLE_W, y+rowH);
@@ -12247,25 +12273,30 @@ document.addEventListener("DOMContentLoaded", () => {
       y += rowH;
     }
 
-    drawFooter(doc, pageNo);
-    doc.save('murajaah-range-a3.pdf'); // langsung download
+    footer(page);
+    doc.save('murajaah-range-a3.pdf');
     return true;
   }
 
   function handleDownload(){
-    var title = document.getElementById('mrl-title')?.textContent?.trim() || 'Daftar Murajaah (Rentang)';
-    var sub   = document.getElementById('mrl-sub')  ?.textContent?.trim() || '';
-    var rows  = collectRows();
-    if (!rows.length){ alert('Tidak ada data untuk diunduh.'); return; }
-    var ok = false; try { ok = tryJsPDFDownload(rows, title, sub); } catch(e){ ok=false; }
-    if (!ok){ alert('jsPDF belum tersedia. Tambahkan <script jsPDF> di <head>.'); }
+    const title = $('#mrl-title') ? $('#mrl-title').textContent.trim() : 'Daftar Murajaah (Rentang)';
+    const sub   = $('#mrl-sub')   ? $('#mrl-sub').textContent.trim()   : '';
+    const cols  = detectColumns(); if(!cols || !cols.length){ alert('Tabel tidak ditemukan.'); return; }
+    const rows  = collectRows(cols); if(!rows.length){ alert('Tidak ada data untuk diunduh.'); return; }
+    const colW  = computeColWidths(cols);
+
+    let ok=false; try{
+      ok = tryJsPDFDownload(rows, cols, colW, title, sub);
+    }catch(e){ ok=false; }
+    if (!ok) alert('jsPDF belum tersedia. Tambahkan <script jsPDF> di <head>.');
   }
 
-  document.addEventListener('click', function(ev){
-    if (ev.target && ev.target.id === 'mrl-download') handleDownload();
+  document.addEventListener('click', e=>{
+    if (e.target && e.target.id==='mrl-download') handleDownload();
   });
 })();
 </script>
+
 
 		
 </body>
