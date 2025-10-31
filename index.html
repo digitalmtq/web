@@ -12083,12 +12083,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 // === Murajaah Range → Download PDF LANGSUNG (jsPDF) ===
-// - Format: A3 landscape
-// - Kolom dinamis (ikut thead modal)
-// - Badge berwarna (A+/A/B/C/D)
-// - Teks sesi: "Surah X s.d Y" (ganti panah)
-// - Baris kosong (tanpa isi Sesi) otomatis disembunyikan
-// - Badge & teks dipusatkan VERTIKAL agar presisi
+// A3 landscape • kolom dinamis • badge berwarna • "Surah X s.d Y"
+// Baris kosong disembunyikan • Badge/teks dipusatkan vertikal
+// + RINGKASAN: Total Juz (di bagian bawah)
 
 (function(){
   // ---------- Utils DOM ----------
@@ -12153,6 +12150,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return out;
   }
 
+  // ---------- parser angka "1.00 juz" → 1.00 ----------
+  function parseJuz(s){
+    if (!s) return 0;
+    let v = String(s).toLowerCase().replace(/juz/g,'').trim();
+    v = v.replace(/[^\d,.\-]/g,'');
+    // normalisasi koma/desimal
+    const c=v.lastIndexOf(','), d=v.lastIndexOf('.');
+    if (c>-1 && d>-1){ if (c>d){ v=v.replace(/\./g,'').replace(',', '.'); } else { v=v.replace(/,/g,''); } }
+    else if (c>-1){ v=v.replace(/\./g,'').replace(',', '.'); }
+    else { v=v.replace(/,/g,''); }
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   // ---------- Layout PDF (A3 landscape) ----------
   const M = { L:12, T:12, R:12, B:10 };
   const PAGE_W = 420, PAGE_H = 297;                   // A3 landscape (mm)
@@ -12188,6 +12199,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const doc = new jsPDF({ unit:'mm', format:'a3', orientation:'landscape' });
     const headers = cols.map(c=>c.label);
+    const totalIdx = cols.findIndex(c=>c.type==='total');
+
+    // ==== hitung total juz (hanya baris tercetak) ====
+    let totalJuz = 0;
+    if (totalIdx >= 0){
+      for (let i=0;i<rows.length;i++){
+        totalJuz += parseJuz(rows[i][totalIdx]);
+      }
+    }
+    totalJuz = Math.max(0, totalJuz);
+    const hariCount = rows.length;
 
     function drawHeader(y){
       doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(0);
@@ -12219,24 +12241,52 @@ document.addEventListener("DOMContentLoaded", () => {
       doc.setTextColor(0);
     }
 
+    // kotak ringkasan di bawah
+    function drawSummary(y){
+      const label = `Ringkasan: Total Juz = ${totalJuz.toFixed(2)} juz • Jumlah hari = ${hariCount}`;
+      const boxH = 11;
+      if (y + boxH > PAGE_H - M.B){ // pindah halaman jika tak muat
+        drawFooter(page);
+        doc.addPage('a3','landscape');
+        page++;
+        y = M.T; // tidak perlu header tabel lagi untuk ringkasan
+      }
+      // garis pemisah
+      doc.setDrawColor(...GRID);
+      doc.line(M.L, y, M.L + USABLE_W, y);
+      y += 3;
+
+      // kotak
+      doc.setFillColor(245, 245, 245);
+      doc.setDrawColor(200, 200, 200);
+      if (doc.roundedRect){
+        doc.roundedRect(M.L, y, USABLE_W, boxH, 2.5, 2.5, 'FD');
+      } else {
+        doc.rect(M.L, y, USABLE_W, boxH, 'FD');
+      }
+      doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(34,34,34);
+      doc.text(label, M.L + 4, y + 7);
+      return y + boxH;
+    }
+
     let page = 1;
     let y = drawHeader(M.T);
     doc.setDrawColor(...GRID); doc.setLineWidth(0.2);
 
     for (let r=0; r<rows.length; r++){
-      // wrap per kolom (sesi diberi ruang lebih besar)
+      // wrap per kolom
       const wrapped = rows[r].map((cell, i)=>{
-        const innerW = Math.max(colW[i] - 8, 20); // padding kiri/kanan
+        const innerW = Math.max(colW[i] - 8, 20);
         return doc.splitTextToSize(cell || '', innerW);
       });
 
-      // tinggi baris dinamis
+      // tinggi baris
       let linesMax = 1; wrapped.forEach(w => linesMax = Math.max(linesMax, w.length));
       const lineH = 5;
-      const rowH  = Math.max(10, linesMax * lineH + 6); // +6 untuk padding cell
+      const rowH  = Math.max(10, linesMax * lineH + 6);
 
       // page break
-      if (y + rowH > PAGE_H - M.B - 10){
+      if (y + rowH > PAGE_H - M.B - 20){ // sisakan ruang untuk ringkasan/footnote
         drawFooter(page);
         doc.addPage('a3','landscape');
         page++; y = drawHeader(M.T);
@@ -12280,7 +12330,7 @@ document.addEventListener("DOMContentLoaded", () => {
             doc.setTextColor(0);
           }
 
-          // teks di dalam badge → juga dipusatkan vertikal
+          // teks di dalam badge → dipusatkan vertikal
           const textY = badgeY + (badgeH - textBlockH)/2 + 4; // +4 = baseline tweak
           for (let li=0; li<lines.length; li++){
             doc.text(lines[li], x + padX + 1.5, textY + li*lineH);
@@ -12289,7 +12339,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } else {
           // kolom Tanggal / Total → pusat vertikal di dalam cell
-          const baseY = y + (rowH - textBlockH)/2 + 4; // +4 = baseline tweak
+          const baseY = y + (rowH - textBlockH)/2 + 4;
           lines.forEach((ln,i)=> doc.text(ln, x+1.8, baseY + i*lineH));
         }
 
@@ -12305,6 +12355,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       y += rowH;
     }
+
+    // ---- Ringkasan di bawah tabel ----
+    y += 6;
+    y = drawSummary(y);
 
     drawFooter(page);
     doc.save('murajaah-range-a3.pdf'); // langsung download
@@ -12334,6 +12388,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 })();
 </script>
+
 
 
 
