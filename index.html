@@ -9355,128 +9355,6 @@ function renderSessionHTML(s){
     box.style.display = 'flex';
   }
 
-
-// === PDF Export: Download daftar Murajaah (Rentang) ===
-(function(){
-  const $ = (s,r=document)=>r.querySelector(s);
-
-  async function ensureJsPdf(){
-    if (window.jspdf?.jsPDF && window.jspdf?.autoTable) return true;
-
-    function load(url){ return new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src=url; sc.async=true; sc.onload=()=>res(true); sc.onerror=()=>rej(url); document.head.appendChild(sc); }); }
-    try{
-      if (!window.jspdf?.jsPDF) {
-        await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-      }
-    }catch(_){}
-    try{
-      if (!window.jspdf?.autoTable) {
-        await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
-      }
-    }catch(_){}
-
-    return !!(window.jspdf?.jsPDF && window.jspdf?.autoTable);
-  }
-
-  function parseSubLine(){
-    // Contoh mrl-sub:
-    // "Nama: Ahmad Fauzi • NIS: 110234 • Rentang: 01/10/2025 s.d. 31/10/2025 • Total hari: 7"
-    const sub = $('#mrl-sub')?.textContent || '';
-    const out = { nama:'', nis:'', from:'', to:'' };
-
-    const mNama = sub.match(/Nama:\s*([^•]+)/i);
-    const mNis  = sub.match(/NIS:\s*([^•]+)/i);
-    const mRent = sub.match(/Rentang:\s*([^•]+)/i);
-    if (mNama) out.nama = mNama[1].trim();
-    if (mNis)  out.nis  = mNis[1].trim();
-    if (mRent){
-      const p = mRent[1].split(/s\.d\./i).map(s=>s.trim());
-      out.from = (p[0]||'').trim();
-      out.to   = (p[1]||'').trim();
-    }
-    return out;
-  }
-
-  function collectRows(){
-    const rows = [];
-    const trs = $('#mrl-tbody')?.querySelectorAll('tr') || [];
-    trs.forEach(tr=>{
-      const tds = [...tr.children];
-      const getTxt = el => (el?.innerText || el?.textContent || '').replace(/\s+/g,' ').trim();
-      // Tabel: [Tanggal, Total, Sesi 1, Sesi 2, Sesi 3]
-      rows.push([
-        getTxt(tds[0]),
-        getTxt(tds[1]),
-        getTxt(tds[2]),
-        getTxt(tds[3]),
-        getTxt(tds[4]),
-      ]);
-    });
-    return rows;
-  }
-
-  async function downloadMrlPdf(){
-    const ok = await ensureJsPdf();
-    if (!ok){ alert('Gagal memuat pustaka PDF. Cek koneksi internet.'); return; }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-
-    const meta = parseSubLine();
-    const title = $('#mrl-title')?.textContent?.trim() || 'Daftar Murajaah (Rentang)';
-    const subtitle = $('#mrl-sub')?.textContent?.trim() || '';
-    const body = collectRows();
-
-    // Header
-    doc.setFontSize(14);
-    doc.text(title, 14, 14);
-    doc.setFontSize(10);
-    doc.text(subtitle, 14, 20);
-
-    // Tabel
-    const head = [['Tanggal','Total','Sesi 1','Sesi 2','Sesi 3']];
-    doc.autoTable({
-      head,
-      body,
-      startY: 26,
-      styles: { fontSize: 9, cellPadding: 2, valign:'top' },
-      headStyles: { fillColor: [240,240,240], textColor: 20 },
-      columnStyles: {
-        0: { cellWidth: 28 }, // tanggal
-        1: { cellWidth: 24 }, // total
-        2: { cellWidth: 90 },
-        3: { cellWidth: 90 },
-        4: { cellWidth: 90 },
-      },
-      didDrawPage: (data)=>{
-        // footer kecil
-        const pageStr = 'Hal. ' + doc.internal.getNumberOfPages();
-        doc.setFontSize(8);
-        doc.text(pageStr, doc.internal.pageSize.getWidth()-14, doc.internal.pageSize.getHeight()-8, { align:'right' });
-      }
-    });
-
-    // Nama file
-    const safe = s => (s||'').replace(/[^\w\-]+/g,'_').replace(/_+/g,'_').slice(0,50);
-    const fname = [
-      'Murajaah',
-      meta.nama ? safe(meta.nama) : null,
-      meta.nis  ? 'NIS_'+safe(meta.nis) : null,
-      meta.from && meta.to ? (safe(meta.from)+'_sd_'+safe(meta.to)) : null
-    ].filter(Boolean).join('_') + '.pdf';
-
-    doc.save(fname || 'Daftar_Murajaah.pdf');
-  }
-
-  // Bind tombol
-  document.addEventListener('click', (ev)=>{
-    const btn = ev.target?.closest?.('#mrl-download');
-    if (!btn) return;
-    downloadMrlPdf();
-  });
-})();
-	
-
   // Klik tombol "Lihat"
   document.addEventListener('click', function(ev){
     var btn = ev.target && ev.target.closest ? ev.target.closest('.mur-range-list-btn') : null;
@@ -12165,22 +12043,15 @@ document.addEventListener("DOMContentLoaded", () => {
         <div id="mrl-title" style="font-weight:700">Daftar Murajaah (Rentang)</div>
         <div id="mrl-sub" style="font-size:12px;color:#6b7280"></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="mrl-download" style="border:1px solid #d1d5db;border-radius:8px;padding:6px 10px;font-size:12px;background:#eef2ff;color:#4338ca">
-          Download PDF
-        </button>
-        <button data-close-mur-range-list style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">Tutup</button>
-      </div>
+      <button data-close-mur-range-list style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">Tutup</button>
     </div>
-
     <div style="padding:10px 16px">
-      <input
-        id="mrl-search"
-        placeholder="Cari tanggal/surah/catatan…"
-        style="box-sizing:border-box; width:100%; max-width:100%; display:block; border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px; font-size:14px"
-      >
-    </div>
-
+  <input
+    id="mrl-search"
+    placeholder="Cari tanggal/surah/catatan…"
+    style="box-sizing:border-box; width:100%; max-width:100%; display:block; border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px; font-size:14px"
+  >
+</div>
     <div style="padding:0 16px 12px;overflow:auto">
       <table style="width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
         <thead style="background:#fafafa">
