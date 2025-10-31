@@ -7669,6 +7669,8 @@ function juzOfAyah(s,a){
 
   function setPredikatUI(idx){
   const inp = $(`#mur${idx}-score`);
+  applyPredikatBadgeStyle(idx, ''); // netral
+  applyPredikatBadgeStyle(idx, ''); // netral (0 tidak punya predikat)
   if (!inp) return;
   const raw = String(inp.value ?? '');
 
@@ -7711,6 +7713,7 @@ function juzOfAyah(s,a){
   // > 0 → pakai predikat normal (ROSIB 1–59, dst.)
   const p = getPredikat(sc);
   $(`#mur${idx}-predikatBadge`).textContent = `${p.text} (${p.huruf})`;
+  applyPredikatBadgeStyle(idx, p.huruf);
   murState[idx].score  = sc;
   murState[idx].pText  = p.text;
   murState[idx].pHuruf = p.huruf;
@@ -8000,6 +8003,40 @@ function getRowNamaNis(row){
   const nama = ((row.children?.[1]?.childNodes?.[0]?.textContent) ||
                 (row.children?.[1]?.textContent) || '').trim();
   return { nama, nis };
+}
+
+	function applyPredikatBadgeStyle(idx, huruf){
+  const el = document.getElementById(`mur${idx}-predikatBadge`);
+  if (!el) return;
+
+  // reset dulu
+  el.style.background = '';
+  el.style.color = '';
+  el.style.border = '';
+  el.style.borderRadius = '8px';
+  el.style.padding = '2px 6px';
+  el.style.display = 'inline-block';
+
+  const h = (huruf||'').toUpperCase().trim();
+  // mapping warna
+  const MAP = {
+    'A+': { bg:'#dcfce7', fg:'#166534', br:'#86efac' }, // hijau muda
+    'A' : { bg:'#eafaf0', fg:'#166534', br:'#a7f3d0' }, // hijau muda (lebih pucat)
+    'B' : { bg:'#dbeafe', fg:'#1e3a8a', br:'#93c5fd' }, // biru muda
+    'C' : { bg:'#ffedd5', fg:'#9a3412', br:'#fdba74' }, // oranye muda
+    'D' : { bg:'#ffe4e6', fg:'#9f1239', br:'#fecdd3' }, // merah muda
+  };
+
+  const s = MAP[h];
+  if (!s){ // tidak ada predikat → netral
+    el.style.background = '';
+    el.style.color = '';
+    el.style.border = '1px solid transparent';
+    return;
+  }
+  el.style.background = s.bg;
+  el.style.color = s.fg;
+  el.style.border = `1px solid ${s.br}`;
 }
 
   // ---------- Helper: resolve kelas & tanggal ----------
