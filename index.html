@@ -12043,7 +12043,16 @@ document.addEventListener("DOMContentLoaded", () => {
         <div id="mrl-title" style="font-weight:700">Daftar Murajaah (Rentang)</div>
         <div id="mrl-sub" style="font-size:12px;color:#6b7280"></div>
       </div>
-      <button data-close-mur-range-list style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">Tutup</button>
+      <div style="display:flex;gap:8px">
+  <button id="mrl-download"
+    style="border:1px solid #d1d5db;border-radius:8px;padding:6px 10px;font-size:12px;background:#eef2ff;color:#1e40af">
+    Download PDF
+  </button>
+  <button data-close-mur-range-list
+    style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">
+    Tutup
+  </button>
+</div>
     </div>
     <div style="padding:10px 16px">
   <input
@@ -12070,7 +12079,151 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     </div>
   </div>
-</div>		
+</div>
+
+<script>
+// === Download PDF untuk Modal Daftar Murajaah (Rentang)
+(function(){
+  function text(el){ return el ? String(el.textContent || '').trim() : ''; }
+
+  // core: generate dari DOM → array of rows
+  function collectRows(){
+    var tbody = document.getElementById('mrl-tbody');
+    if (!tbody) return [];
+    var rows = [];
+    var trs = tbody.querySelectorAll('tr');
+    for (var i=0;i<trs.length;i++){
+      var tds = trs[i].children;
+      if (!tds || tds.length < 5) continue;
+      // Struktur kolom yang sekarang: (#) opsional, Tanggal, Total, Sesi1, Sesi2, Sesi3
+      // Versi modal kamu tidak ada kolom "#", maka indeks: 0..4
+      rows.push([
+        text(tds[0]), // Tanggal
+        text(tds[1]), // Total
+        tds[2] ? tds[2].innerText.trim() : '', // Sesi 1 (ambil innerText agar isi badge jadi teks)
+        tds[3] ? tds[3].innerText.trim() : '', // Sesi 2
+        tds[4] ? tds[4].innerText.trim() : ''  // Sesi 3
+      ]);
+    }
+    return rows;
+  }
+
+  function tryJsPDF(rows, title, sub){
+    // Pastikan jsPDF ada
+    var jsPDF = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF || null);
+    if (!jsPDF) return false;
+
+    var doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    var marginL = 12, marginT = 12, line = 5.5, y = marginT;
+
+    // Header
+    doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text(title || 'Daftar Murajaah (Rentang)', marginL, y); y += 7;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    var subLines = doc.splitTextToSize(sub || '', 190 - marginL*2);
+    for (var i=0;i<subLines.length;i++){ doc.text(subLines[i], marginL, y); y += line; }
+    y += 2;
+
+    // Header tabel
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    var headers = ['Tanggal','Total','Sesi 1','Sesi 2','Sesi 3'];
+    var colW = [28, 22, 46, 46, 46]; // total ≈ 188mm (A4 width 210 - margin 12*2)
+    var x0 = marginL, i;
+    for (i=0;i<headers.length;i++){ doc.text(headers[i], x0+1, y); x0 += colW[i]; }
+    y += 3;
+    doc.setLineWidth(0.2); doc.line(marginL, y, 210-marginL, y); y += 2;
+    doc.setFont('helvetica','normal');
+
+    // Body
+    var pageH = 297 - marginT - 10; // bottom margin 10
+    for (var r=0;r<rows.length;r++){
+      var row = rows[r];
+      // wrap tiap kolom sesuai colW
+      var wrapped = [
+        doc.splitTextToSize(row[0], colW[0]-2),
+        doc.splitTextToSize(row[1], colW[1]-2),
+        doc.splitTextToSize(row[2], colW[2]-2),
+        doc.splitTextToSize(row[3], colW[3]-2),
+        doc.splitTextToSize(row[4], colW[4]-2)
+      ];
+      // tentukan tinggi baris (jumlah baris max kolom)
+      var h = 0, j;
+      for (i=0;i<wrapped.length;i++){ h = Math.max(h, wrapped[i].length); }
+      var rowH = Math.max(6, h * 4.5);
+
+      // page break
+      if (y + rowH > pageH){
+        doc.addPage(); y = marginT;
+      }
+
+      // tulis kolom
+      var x = marginL; doc.setFontSize(9);
+      for (i=0;i<wrapped.length;i++){
+        var lines = wrapped[i];
+        for (j=0;j<lines.length;j++){
+          doc.text(lines[j], x+1, y + 4.5 + (j*4.5));
+        }
+        // border (opsional: garis vertikal halus)
+        // doc.rect(x, y, colW[i], rowH); // aktifkan jika mau kotak tabel
+        x += colW[i];
+      }
+      y += rowH + 2;
+    }
+
+    // Footer kecil
+    doc.setFontSize(8); doc.setTextColor(120);
+    doc.text('Generated on ' + new Date().toLocaleString(), marginL, 297-8);
+
+    doc.save('murajaah-range.pdf');
+    return true;
+  }
+
+  function printFallback(title, sub){
+    // Buka jendela print berisi salinan tabel (styled ringan)
+    var win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { alert('Popup diblokir. Izinkan pop-up untuk mendownload.'); return; }
+    var head = ''
+      + '<meta charset="utf-8">'
+      + '<title>'+ (title || 'Daftar Murajaah') +'</title>'
+      + '<style>'
+      + 'body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:16px;}'
+      + 'h1{font-size:18px;margin:0 0 6px 0;} .sub{color:#6b7280;font-size:12px;margin-bottom:10px;}'
+      + 'table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
+      + 'th,td{border-bottom:1px solid #eee;text-align:left;padding:6px 8px;vertical-align:top;}'
+      + 'thead{background:#fafafa;font-weight:600;}'
+      + '@media print{@page{size:auto;margin:12mm}}'
+      + '</style>';
+    var tbl = document.querySelector('#mrl-tbody') ? document.querySelector('#mrl-tbody').parentNode.parentNode.outerHTML : '';
+    win.document.write('<!doctype html><html><head>'+head+'</head><body>'
+      + '<h1>'+ (title || 'Daftar Murajaah (Rentang)') +'</h1>'
+      + (sub ? '<div class="sub">'+ sub +'</div>' : '')
+      + tbl
+      + '</body></html>');
+    try{ win.document.close(); win.focus(); win.print(); }catch(e){}
+  }
+
+  function handleDownload(){
+    var title = document.getElementById('mrl-title') ? document.getElementById('mrl-title').textContent.trim() : 'Daftar Murajaah (Rentang)';
+    var sub   = document.getElementById('mrl-sub')   ? document.getElementById('mrl-sub').textContent.trim()   : '';
+    var rows  = collectRows();
+    if (!rows.length){
+      alert('Tidak ada data untuk diunduh.');
+      return;
+    }
+    // Coba jsPDF, kalau gagal → print fallback
+    var ok = false;
+    try{ ok = tryJsPDF(rows, title, sub); }catch(e){ ok=false; }
+    if (!ok) printFallback(title, sub);
+  }
+
+  // Pasang listener tombol
+  document.addEventListener('click', function(ev){
+    var btn = ev.target && ev.target.id === 'mrl-download';
+    if (!btn) return;
+    handleDownload();
+  });
+})();
+</script>
 		
 </body>
 </html>
