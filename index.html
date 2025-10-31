@@ -9122,19 +9122,25 @@ function parseSA(sa){
   return {s:s,a:a};
 }
 
-// Render sesi + badge warna
-function renderSessionHTML(s){
-  if (!s) return '-';
+// Atur output jika tidak ada range SA. Pilih '' (kosong) atau '0'
+var MRL_EMPTY_OUTPUT = ''; // ubah ke '0' jika ingin angka 0
 
-  // Range teks
-  var range='';
-  if ((s.from && s.from.length) || (s.to && s.to.length)){
-    range = (s.from||'') + ' \u2192 ' + (s.to||'');
-  } else if (s.pages && s.pages.length){
-    range = s.pages;
+function renderSessionHTML(s){
+  if (!s) return MRL_EMPTY_OUTPUT;
+
+  // validasi harus ada "surah:ayat" → "surah:ayat"
+  var reSA = /^\s*\d+\s*:\s*\d+\s*$/;
+  var hasFrom = !!(s.from && reSA.test(String(s.from)));
+  var hasTo   = !!(s.to   && reSA.test(String(s.to)));
+  if (!(hasFrom && hasTo)){
+    // Tidak ada keterangan SA lengkap → kosong/0
+    return MRL_EMPTY_OUTPUT;
   }
 
-  // Tentukan Juz X–Y
+  // === lanjut sama seperti sebelumnya (range + Juz X–Y + Nilai + badge warna) ===
+  var range = (s.from||'') + ' \u2192 ' + (s.to||'');
+
+  // hitung/ambil jFrom-jTo
   var jFrom = (s.jFrom!=null && s.jFrom!=='') ? Number(s.jFrom) : null;
   var jTo   = (s.jTo  !=null && s.jTo  !=='') ? Number(s.jTo)   : null;
   if (jFrom==null || jTo==null){
@@ -9146,24 +9152,22 @@ function renderSessionHTML(s){
   if (jFrom && jTo) juzTxt = (jFrom===jTo) ? ('Juz ' + jFrom) : ('Juz ' + jFrom + '\u2013' + jTo);
   else if (jFrom)   juzTxt = 'Juz ' + jFrom;
 
-  // Nilai + huruf
+  // nilai + huruf (fallback huruf dari score)
   var huruf = (s.pHuruf && String(s.pHuruf).trim()) ? String(s.pHuruf).toUpperCase() : '';
   if (!huruf && s.score!=null && s.score!==''){ huruf = hurufFromScore(s.score); }
   var scoreTxt = '';
   if (s.score!=null && s.score!==''){
     scoreTxt = 'Nilai ' + Math.floor(Number(s.score)||0) + (huruf ? (' ('+huruf+')') : '');
   } else if (huruf){
-    scoreTxt = huruf; // andai score kosong tapi huruf ada
+    scoreTxt = huruf;
   }
 
-  // Rangkai teks
-  var parts=[];
+  var parts = [];
   if (range) parts.push(range);
   if (juzTxt) parts.push(juzTxt);
   if (scoreTxt) parts.push(scoreTxt);
-  var inner = parts.length ? parts.join(' \u2022 ') : '-';
+  var inner = parts.join(' \u2022 ');
 
-  // Bungkus badge warna
   var st = predStyle(huruf);
   if (!st) return inner;
   return '<div style="display:inline-block;border-radius:8px;padding:6px 8px;border:1px solid '+st.br+';background:'+st.bg+';color:'+st.fg+'">'+ inner +'</div>';
