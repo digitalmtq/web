@@ -9033,24 +9033,26 @@ var btnStyle = btnEnabled
   }
 
   // Peta warna untuk predikat huruf
-  function predStyle(p){
-    var t = (p==null?'':String(p)).toUpperCase().trim();
-    if (t === 'A+') return { bg:'#dcfce7', fg:'#166534', br:'#86efac' }; // green-100
-    if (t === 'A')  return { bg:'#eafaf0', fg:'#166534', br:'#a7f3d0' }; // slightly paler green
-    if (t === 'B')  return { bg:'#dbeafe', fg:'#1e3a8a', br:'#93c5fd' }; // blue-100
-    if (t === 'C')  return { bg:'#ffedd5', fg:'#9a3412', br:'#fdba74' }; // orange-100
-    if (t === 'D')  return { bg:'#ffe4e6', fg:'#9f1239', br:'#fecdd3' }; // rose-100
-    return null;
-  }
+function predStyle(p){
+  var t = (p==null?'':String(p)).toUpperCase().trim();
+  if (t === 'A+') return { bg:'#dcfce7', fg:'#166534', br:'#86efac' }; // hijau muda
+  if (t === 'A')  return { bg:'#eafaf0', fg:'#166534', br:'#a7f3d0' }; // hijau lebih pucat
+  if (t === 'B')  return { bg:'#dbeafe', fg:'#1e3a8a', br:'#93c5fd' }; // biru muda
+  if (t === 'C')  return { bg:'#ffedd5', fg:'#9a3412', br:'#fdba74' }; // oranye muda
+  if (t === 'D')  return { bg:'#ffe4e6', fg:'#9f1239', br:'#fecdd3' }; // merah muda
+  return null;
+}
 
-  // Bungkus konten sesi dengan badge warna (jika ada pHuruf)
-  function renderSessionHTML(s){
-    // gunakan sesLine(s) yang sudah ada untuk teksnya
-    var inner = sesLine(s);
-    var st = s ? predStyle(s.pHuruf) : null;
-    if (!st) return inner || '-';
-    return '<div style="display:inline-block;border-radius:8px;padding:6px 8px;border:1px solid '+st.br+';background:'+st.bg+';color:'+st.fg+'">'+ inner +'</div>';
-  }
+// Fallback: konversi skor → huruf (kalau pHuruf kosong)
+function hurufFromScore(sc){
+  var s = Math.max(0, Math.min(100, Math.floor(Number(sc)||0)));
+  if (s === 0) return '';          // 0 = tidak ada predikat
+  if (s <= 59) return 'D';
+  if (s <= 69) return 'C';
+  if (s <= 79) return 'B';
+  if (s <= 89) return 'A';
+  return 'A+';
+}
 
   function sesLine(s){
     if (!s) return '-';
