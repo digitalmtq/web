@@ -12082,9 +12082,9 @@ document.addEventListener("DOMContentLoaded", () => {
 </div>
 
 <script>
-// === Download PDF langsung (jsPDF) — A4 landscape, header repeat, zebra, filter baris kosong, badge berwarna ===
+// === Download PDF langsung (jsPDF) — A3 landscape + format "Surah X s.d Y" ===
 (function(){
-  // warna predikat (sama seperti modal)
+  // warna predikat
   function predStyle(letter){
     var t = (letter||'').toUpperCase().trim();
     if (t==='A+') return { bg:[220,252,231], br:[134,239,172], fg:[22,101,52]  };
@@ -12094,78 +12094,68 @@ document.addEventListener("DOMContentLoaded", () => {
     if (t==='D')  return { bg:[255,228,230], br:[254,205,211], fg:[159,18,57]  };
     return null;
   }
-
-  // ambil teks tertulis (tanpa HTML)
   function t(el){ return el ? String(el.innerText||el.textContent||'').trim() : ''; }
 
-  // baris dianggap kosong jika Sesi1..3 semuanya kosong
+  // ===== filter baris kosong (Sesi 1–3 kosong) =====
   function isRowEmpty(tr){
     var c = tr.children; if (!c || c.length<5) return true;
     return !t(c[2]) && !t(c[3]) && !t(c[4]);
   }
-
-  // koleksi baris tabel (sudah terfilter oleh input "Cari")
   function collectRows(){
     var tbody = document.getElementById('mrl-tbody'); if (!tbody) return [];
     var out = [];
     tbody.querySelectorAll('tr').forEach(function(tr){
       if (isRowEmpty(tr)) return;
       var td = tr.children;
-      out.push([
-        t(td[0]), t(td[1]), t(td[2]), t(td[3]), t(td[4])
-      ]);
+      out.push([ t(td[0]), t(td[1]), t(td[2]), t(td[3]), t(td[4]) ]);
     });
     return out;
   }
 
-  // ambil huruf predikat dari teks sesi: “… Nilai 95 (A+)” → “A+”
+  // ===== transform teks sesi: "a:b → c:d" -> "Surah a:b s.d c:d" =====
+  var ARROW_RE = /(\d+\s*:\s*\d+)\s*[\u2192\-–—>]\s*(\d+\s*:\s*\d+)/; // tangkap 78:1 → 114:6
+  function normalizeSessionText(s){
+    if (!s) return s;
+    return s.replace(ARROW_RE, function(_, a, b){ return 'Surah '+a+' s.d '+b; });
+  }
   function extractHuruf(sessionText){
-    var m = sessionText.match(/\((A\+|A|B|C|D)\)/i);
+    var m = (sessionText||'').match(/\((A\+|A|B|C|D)\)/i);
     return m ? m[1].toUpperCase() : '';
   }
 
-  // ===== PDF =====
+  // ===== PDF: A3 landscape =====
   var M = {L:12, T:12, R:12, B:10};
-  var PAGE_W = 297, PAGE_H = 210; // A4 landscape
-  var USABLE_W = PAGE_W - M.L - M.R;
-  var COL_W = [30, 24, 73, 73, 73]; // total 273 (pas)
-  var HEADER_FILL = [33, 150, 243]; // biru header
-  var HEADER_TXT  = [255,255,255];
-  var GRID        = [224,224,224];
-  var ZEBRA       = [248,250,252];
+  var PAGE_W = 420, PAGE_H = 297;              // A3 landscape (mm)
+  var USABLE_W = PAGE_W - M.L - M.R;           // 396
+  var COL_W = [36, 27, 111, 111, 111];         // total 396 pas
+  var HEADER_FILL = [33,150,243], HEADER_TXT=[255,255,255];
+  var GRID=[224,224,224], ZEBRA=[248,250,252];
 
   function drawPageHeader(doc, title, sub){
     var y = M.T;
-    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(0);
-    doc.text(title || 'Daftar Murajaah (Rentang)', M.L, y); y += 6;
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(0);
+    doc.text(title || 'Daftar Murajaah (Rentang)', M.L, y); y += 7;
     if (sub){
-      doc.setFont('helvetica','normal'); doc.setFontSize(10);
+      doc.setFont('helvetica','normal'); doc.setFontSize(11);
       var lines = doc.splitTextToSize(sub, USABLE_W);
-      lines.forEach(function(line){ doc.text(line, M.L, y); y += 4.5; });
-      y += 1;
+      lines.forEach(function(line){ doc.text(line, M.L, y); y += 5; });
+      y += 2;
     }
-
-    // header tabel
-    var x = M.L, thH = 8;
+    var x = M.L, thH = 9;
     doc.setFillColor.apply(doc, HEADER_FILL);
     doc.setDrawColor.apply(doc, GRID);
     doc.rect(M.L, y, USABLE_W, thH, 'F');
-
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor.apply(doc, HEADER_TXT);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, HEADER_TXT);
     ['Tanggal','Total','Sesi 1','Sesi 2','Sesi 3'].forEach(function(h,i){
-      doc.text(h, x+2, y+5.3);
-      if (i>0) doc.line(x, y, x, y+thH);
-      x += COL_W[i];
+      doc.text(h, x+2, y+5.8); if (i>0) doc.line(x, y, x, y+thH); x += COL_W[i];
     });
     doc.line(M.L, y+thH, M.L+USABLE_W, y+thH);
     doc.setTextColor(0);
-    return y + thH + 1.5;
+    return y + thH + 2;
   }
-
   function drawFooter(doc, pageNo, totalPages){
-    doc.setFont('helvetica','normal'); doc.setFontSize(8);
-    doc.setTextColor(110);
-    doc.text('Generated '+ new Date().toLocaleString() +' • Page '+pageNo+(totalPages?('/'+totalPages):''), M.L, PAGE_H-5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(110);
+    doc.text('Generated '+ new Date().toLocaleString() +' • Page '+pageNo+(totalPages?('/'+totalPages):''), M.L, PAGE_H-6);
     doc.setTextColor(0);
   }
 
@@ -12173,49 +12163,51 @@ document.addEventListener("DOMContentLoaded", () => {
     var jsPDF = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF||null);
     if (!jsPDF) return false;
 
-    var doc = new jsPDF({unit:'mm', format:'a4', orientation:'landscape'});
-    var pageNo = 1, y = drawPageHeader(doc, title, sub);
+    // transform panah -> "Surah ... s.d ..."
+    rows = rows.map(function(r){
+      return [ r[0], r[1], normalizeSessionText(r[2]), normalizeSessionText(r[3]), normalizeSessionText(r[4]) ];
+    });
 
+    var doc = new jsPDF({unit:'mm', format:'a3', orientation:'landscape'});
+    var pageNo = 1, y = drawPageHeader(doc, title, sub);
     doc.setDrawColor.apply(doc, GRID); doc.setLineWidth(0.2);
     doc.setFont('helvetica','normal');
 
     for (var r=0; r<rows.length; r++){
       var row = rows[r];
 
-      // bungkus teks per kolom
+      // wrap per kolom (lebih lega di A3)
       var wrapped = [
         doc.splitTextToSize(row[0], COL_W[0]-3),
         doc.splitTextToSize(row[1], COL_W[1]-3),
-        doc.splitTextToSize(row[2], COL_W[2]-6), // sesi: sisakan ruang badge padding
-        doc.splitTextToSize(row[3], COL_W[3]-6),
-        doc.splitTextToSize(row[4], COL_W[4]-6),
+        doc.splitTextToSize(row[2], COL_W[2]-8),
+        doc.splitTextToSize(row[3], COL_W[3]-8),
+        doc.splitTextToSize(row[4], COL_W[4]-8),
       ];
-      var linesMax = 1;
-      wrapped.forEach(function(w){ linesMax = Math.max(linesMax, w.length); });
-
-      // tinggi baris (lebih tinggi untuk sesi yang dibadge)
-      var rowH = Math.max(8, 4.5*linesMax + 4); // +4 untuk padding
+      var linesMax = 1; wrapped.forEach(function(w){ linesMax = Math.max(linesMax, w.length); });
+      var rowH = Math.max(9, 5 * linesMax + 5); // lebih tinggi
 
       // page break
-      if (y + rowH > PAGE_H - M.B - 8){
+      if (y + rowH > PAGE_H - M.B - 10){
         drawFooter(doc, pageNo);
-        doc.addPage('a4','landscape');
+        doc.addPage('a3','landscape');
         pageNo++; y = drawPageHeader(doc, title, sub);
       }
 
       // zebra
       if (r % 2 === 1){ doc.setFillColor.apply(doc, ZEBRA); doc.rect(M.L, y, USABLE_W, rowH, 'F'); }
 
-      // gambar kolom 0..1 (tanpa badge)
-      var x = M.L; doc.setFontSize(9);
+      var x = M.L; doc.setFontSize(10);
+
       // Tanggal
-      wrapped[0].forEach(function(line,i){ doc.text(line, x+1.8, y+5 + i*4.5); });
+      wrapped[0].forEach(function(line,i){ doc.text(line, x+1.8, y+6 + i*5); });
       doc.line(x, y, x, y+rowH); x += COL_W[0];
+
       // Total
-      wrapped[1].forEach(function(line,i){ doc.text(line, x+1.8, y+5 + i*4.5); });
+      wrapped[1].forEach(function(line,i){ doc.text(line, x+1.8, y+6 + i*5); });
       doc.line(x, y, x, y+rowH); x += COL_W[1];
 
-      // kolom sesi dengan badge
+      // Sesi 1..3 dengan badge warna
       for (var c=2; c<=4; c++){
         var sesText = row[c] || '';
         var huruf   = extractHuruf(sesText);
@@ -12223,28 +12215,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (sesText){
           var lines = wrapped[c];
-          var padX = 2, padY = 2, lineH = 4.5;
-          var h = Math.max(6.5, lines.length*lineH + padY*2);
+          var padX = 2.2, padY = 2.2, lineH = 5;
+          var h = Math.max(8, lines.length*lineH + padY*2 + 2);
 
           if (sty){
-            // badge background
             doc.setFillColor.apply(doc, sty.bg);
             doc.setDrawColor.apply(doc, sty.br);
             if (doc.roundedRect){
-              doc.roundedRect(x+1, y+2, COL_W[c]-3, h, 2, 2, 'FD');
+              doc.roundedRect(x+1.2, y+2, COL_W[c]-2.4, h, 2.5, 2.5, 'FD');
             }else{
-              doc.rect(x+1, y+2, COL_W[c]-3, h, 'FD');
+              doc.rect(x+1.2, y+2, COL_W[c]-2.4, h, 'FD');
             }
             doc.setTextColor.apply(doc, sty.fg);
           } else {
             doc.setTextColor(0);
           }
           for (var li=0; li<lines.length; li++){
-            doc.text(lines[li], x+padX+1.2, y+2+padY+4 + li*lineH);
+            doc.text(lines[li], x+padX+1.2, y+2+padY+5 + li*lineH);
           }
           doc.setTextColor(0);
         }
-        // grid vertikal
+
         doc.setDrawColor.apply(doc, GRID);
         doc.line(x, y, x, y+rowH); x += COL_W[c];
       }
@@ -12257,7 +12248,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     drawFooter(doc, pageNo);
-    doc.save('murajaah-range.pdf'); // <-- langsung download
+    doc.save('murajaah-range-a3.pdf'); // langsung download
     return true;
   }
 
@@ -12267,16 +12258,13 @@ document.addEventListener("DOMContentLoaded", () => {
     var rows  = collectRows();
     if (!rows.length){ alert('Tidak ada data untuk diunduh.'); return; }
     var ok = false; try { ok = tryJsPDFDownload(rows, title, sub); } catch(e){ ok=false; }
-    if (!ok){
-      alert('jsPDF belum tersedia. Tambahkan <script jsPDF> di <head>.');
-    }
+    if (!ok){ alert('jsPDF belum tersedia. Tambahkan <script jsPDF> di <head>.'); }
   }
 
   document.addEventListener('click', function(ev){
     if (ev.target && ev.target.id === 'mrl-download') handleDownload();
   });
 })();
-// === Download PDF langsung (jsPDF) — A4 landscape, header repeat, zebra, filter baris kosong, badge berwarna ===
 </script>
 
 		
