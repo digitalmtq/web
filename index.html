@@ -8754,6 +8754,9 @@ if (window.currentRowEl){
         const p1=pct(s1), p2=pct(s2), p3=pct(s3);
         const pSum = p1 + p2 + p3;
 
+        let totalLabel = `${totalNum.toFixed(2)}&nbsp;juz`;
+        if (totalNum >= 30) totalLabel = `<span style="color:#7c3aed;font-weight:600">KHATAM</span> (${totalNum.toFixed(2)} juz)`;
+
 		var count = Number(rec && rec.cAll ? rec.cAll : 0);
 var btnEnabled = count > 0;
 var btnStyle = btnEnabled
