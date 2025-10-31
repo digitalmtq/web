@@ -2434,7 +2434,12 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
      =========================== -->
 <div id="murModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1200; justify-content:center; align-items:center;">
   <div style="background:#fff; padding:16px; border-radius:12px; width:min(980px,95%); max-height:90vh; overflow:auto;">
-    <h3 style="margin:0 0 10px;">Input Murajaah (Juz / Surah / Ayat / Page)</h3>
+    <div class="mur-headline" style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 10px;">
+  <h3 style="margin:0 0 10px;">Input Murajaah</h3>
+  <div id="murStudentInfo" style="font-weight:600;font-size:14px;white-space:nowrap;">
+    <span id="murNama">—</span><span id="murNis" style="opacity:.75;"></span>
+  </div>
+</div>
 
     <style>
       .mur-sesi{border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin-bottom:10px}
@@ -7969,6 +7974,34 @@ function juzOfAyah(s,a){
     renderSession(idx);
   }
 
+	// --- Helper: set header Nama / NIS di murModal ---
+function setMurHeader(nama, nis){
+  const namaEl = document.getElementById('murNama');
+  const nisEl  = document.getElementById('murNis');
+  if (namaEl) namaEl.textContent = nama || '(Nama tidak ditemukan)';
+  if (nisEl)  nisEl.textContent  = nis ? ' • NIS ' + nis : '';
+
+  // simpan ke dataset & hidden input (jika ada)
+  const modal = document.getElementById('murModal');
+  if (modal){
+    modal.dataset.nama = nama || '';
+    modal.dataset.nis  = nis  || '';
+    const inNama = modal.querySelector('input[name="mur_nama"]');
+    const inNis  = modal.querySelector('input[name="mur_nis"]');
+    if (inNama) inNama.value = nama || '';
+    if (inNis)  inNis.value  = nis  || '';
+  }
+}
+
+function getRowNamaNis(row){
+  if (!row) return { nama:'', nis:'' };
+  const nis = String(row.dataset?.nis || '').trim();
+  // kolom [1] biasanya nama (innerText atau node text pertama)
+  const nama = ((row.children?.[1]?.childNodes?.[0]?.textContent) ||
+                (row.children?.[1]?.textContent) || '').trim();
+  return { nama, nis };
+}
+
   // ---------- Helper: resolve kelas & tanggal ----------
   function resolveKelas(){
     const byWin = (window.kelasSelect && window.kelasSelect.value) ? window.kelasSelect.value : "";
@@ -8005,6 +8038,12 @@ function juzOfAyah(s,a){
   async function openModalForRow(row){
     currentRowEl = row;
     $('#murModal').style.display = 'flex';
+
+	  // Isi header Nama/NIS segera saat modal dibuka
+try{
+  const { nama, nis } = getRowNamaNis(row);
+  setMurHeader(nama, nis);
+}catch(_){}
 
     if (!dataReady){
       await ensureMap();
