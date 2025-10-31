@@ -12082,82 +12082,198 @@ document.addEventListener("DOMContentLoaded", () => {
 </div>
 
 <script>
-// ==== Download PDF: persis tampilan modal, hide baris kosong (tanpa input) ====
+// === Download PDF langsung (jsPDF) — A4 landscape, header repeat, zebra, filter baris kosong, badge berwarna ===
 (function(){
-  function textOf(el){ return el ? String(el.textContent||'').trim() : ''; }
-
-  // baris dianggap "kosong" jika ketiga kolom sesi tidak ada teks sama sekali
-  function isRowEmpty(tr){
-    var tds = tr.children; if (!tds || tds.length < 5) return true;
-    var s1 = textOf(tds[2]);
-    var s2 = textOf(tds[3]);
-    var s3 = textOf(tds[4]);
-    return (!s1 && !s2 && !s3);
+  // warna predikat (sama seperti modal)
+  function predStyle(letter){
+    var t = (letter||'').toUpperCase().trim();
+    if (t==='A+') return { bg:[220,252,231], br:[134,239,172], fg:[22,101,52]  };
+    if (t==='A')  return { bg:[234,250,240], br:[167,243,208], fg:[22,101,52]  };
+    if (t==='B')  return { bg:[219,234,254], br:[147,197,253], fg:[30,58,138]  };
+    if (t==='C')  return { bg:[255,237,213], br:[253,186,116], fg:[154,52,18]  };
+    if (t==='D')  return { bg:[255,228,230], br:[254,205,211], fg:[159,18,57]  };
+    return null;
   }
 
-  function buildPrintableHTML(){
-    var title = document.getElementById('mrl-title')?.textContent?.trim() || 'Daftar Murajaah (Rentang)';
-    var sub   = document.getElementById('mrl-sub')?.textContent?.trim()   || '';
+  // ambil teks tertulis (tanpa HTML)
+  function t(el){ return el ? String(el.innerText||el.textContent||'').trim() : ''; }
 
-    // ambil thead & tbody dari modal saat ini (sudah terfilter oleh input "Cari")
-    var tableEl = document.querySelector('#mrl-tbody')?.parentNode?.parentNode;
-    var thead   = tableEl?.querySelector('thead');
-    var tbody   = tableEl?.querySelector('tbody');
-    if (!thead || !tbody) return { title, sub, html:'<p>Tidak ada data.</p>' };
+  // baris dianggap kosong jika Sesi1..3 semuanya kosong
+  function isRowEmpty(tr){
+    var c = tr.children; if (!c || c.length<5) return true;
+    return !t(c[2]) && !t(c[3]) && !t(c[4]);
+  }
 
-    // kloning hanya baris yang ADA isi Sesi 1/2/3
-    var rows = Array.from(tbody.querySelectorAll('tr'));
-    var kept = rows.filter(function(tr){ return !isRowEmpty(tr); });
+  // koleksi baris tabel (sudah terfilter oleh input "Cari")
+  function collectRows(){
+    var tbody = document.getElementById('mrl-tbody'); if (!tbody) return [];
+    var out = [];
+    tbody.querySelectorAll('tr').forEach(function(tr){
+      if (isRowEmpty(tr)) return;
+      var td = tr.children;
+      out.push([
+        t(td[0]), t(td[1]), t(td[2]), t(td[3]), t(td[4])
+      ]);
+    });
+    return out;
+  }
 
-    if (!kept.length){
-      return { title, sub, html:'<p>Tidak ada data untuk diunduh (semua baris kosong).</p>' };
+  // ambil huruf predikat dari teks sesi: “… Nilai 95 (A+)” → “A+”
+  function extractHuruf(sessionText){
+    var m = sessionText.match(/\((A\+|A|B|C|D)\)/i);
+    return m ? m[1].toUpperCase() : '';
+  }
+
+  // ===== PDF =====
+  var M = {L:12, T:12, R:12, B:10};
+  var PAGE_W = 297, PAGE_H = 210; // A4 landscape
+  var USABLE_W = PAGE_W - M.L - M.R;
+  var COL_W = [30, 24, 73, 73, 73]; // total 273 (pas)
+  var HEADER_FILL = [33, 150, 243]; // biru header
+  var HEADER_TXT  = [255,255,255];
+  var GRID        = [224,224,224];
+  var ZEBRA       = [248,250,252];
+
+  function drawPageHeader(doc, title, sub){
+    var y = M.T;
+    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(0);
+    doc.text(title || 'Daftar Murajaah (Rentang)', M.L, y); y += 6;
+    if (sub){
+      doc.setFont('helvetica','normal'); doc.setFontSize(10);
+      var lines = doc.splitTextToSize(sub, USABLE_W);
+      lines.forEach(function(line){ doc.text(line, M.L, y); y += 4.5; });
+      y += 1;
     }
 
-    // rakit tabel baru (pakai outerHTML thead + innerHTML baris terpilih)
-    var bodyHTML = kept.map(function(tr){ return tr.outerHTML; }).join('');
-    var tableHTML =
-      '<table class="mrl-print">' +
-        thead.outerHTML +
-        '<tbody>' + bodyHTML + '</tbody>' +
-      '</table>';
+    // header tabel
+    var x = M.L, thH = 8;
+    doc.setFillColor.apply(doc, HEADER_FILL);
+    doc.setDrawColor.apply(doc, GRID);
+    doc.rect(M.L, y, USABLE_W, thH, 'F');
 
-    var css =
-      '<style>' +
-        'body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:16px;background:#fff;}' +
-        'h1{font-size:18px;margin:0 0 6px 0;} .sub{color:#6b7280;font-size:12px;margin-bottom:12px;}' +
-        '.mrl-print{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;}' +
-        '.mrl-print thead{background:#1976d2;color:#fff;}' + /* header biru */
-        '.mrl-print th,.mrl-print td{border-bottom:1px solid #e5e7eb;text-align:left;padding:8px 10px;vertical-align:top;font-size:12px;}' +
-        '.mrl-print tbody tr:nth-child(odd){background:#f8fafc;}' +
-        '.mrl-print b{font-weight:700;}' +
-        /* biar badge tetap cantik saat print */
-        '@media print{@page{size:A4 landscape;margin:12mm} body{padding:0} .sub{margin-bottom:8px}}' +
-      '</style>';
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor.apply(doc, HEADER_TXT);
+    ['Tanggal','Total','Sesi 1','Sesi 2','Sesi 3'].forEach(function(h,i){
+      doc.text(h, x+2, y+5.3);
+      if (i>0) doc.line(x, y, x, y+thH);
+      x += COL_W[i];
+    });
+    doc.line(M.L, y+thH, M.L+USABLE_W, y+thH);
+    doc.setTextColor(0);
+    return y + thH + 1.5;
+  }
 
-    var htmlDoc =
-      '<!doctype html><html><head><meta charset="utf-8"><title>'+title+'</title>'+css+
-      '</head><body>'+
-        '<h1>'+title+'</h1>'+
-        (sub ? '<div class="sub">'+sub+'</div>' : '')+
-        tableHTML+
-      '</body></html>';
+  function drawFooter(doc, pageNo, totalPages){
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.setTextColor(110);
+    doc.text('Generated '+ new Date().toLocaleString() +' • Page '+pageNo+(totalPages?('/'+totalPages):''), M.L, PAGE_H-5);
+    doc.setTextColor(0);
+  }
 
-    return { title, sub, html: htmlDoc };
+  function tryJsPDFDownload(rows, title, sub){
+    var jsPDF = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF||null);
+    if (!jsPDF) return false;
+
+    var doc = new jsPDF({unit:'mm', format:'a4', orientation:'landscape'});
+    var pageNo = 1, y = drawPageHeader(doc, title, sub);
+
+    doc.setDrawColor.apply(doc, GRID); doc.setLineWidth(0.2);
+    doc.setFont('helvetica','normal');
+
+    for (var r=0; r<rows.length; r++){
+      var row = rows[r];
+
+      // bungkus teks per kolom
+      var wrapped = [
+        doc.splitTextToSize(row[0], COL_W[0]-3),
+        doc.splitTextToSize(row[1], COL_W[1]-3),
+        doc.splitTextToSize(row[2], COL_W[2]-6), // sesi: sisakan ruang badge padding
+        doc.splitTextToSize(row[3], COL_W[3]-6),
+        doc.splitTextToSize(row[4], COL_W[4]-6),
+      ];
+      var linesMax = 1;
+      wrapped.forEach(function(w){ linesMax = Math.max(linesMax, w.length); });
+
+      // tinggi baris (lebih tinggi untuk sesi yang dibadge)
+      var rowH = Math.max(8, 4.5*linesMax + 4); // +4 untuk padding
+
+      // page break
+      if (y + rowH > PAGE_H - M.B - 8){
+        drawFooter(doc, pageNo);
+        doc.addPage('a4','landscape');
+        pageNo++; y = drawPageHeader(doc, title, sub);
+      }
+
+      // zebra
+      if (r % 2 === 1){ doc.setFillColor.apply(doc, ZEBRA); doc.rect(M.L, y, USABLE_W, rowH, 'F'); }
+
+      // gambar kolom 0..1 (tanpa badge)
+      var x = M.L; doc.setFontSize(9);
+      // Tanggal
+      wrapped[0].forEach(function(line,i){ doc.text(line, x+1.8, y+5 + i*4.5); });
+      doc.line(x, y, x, y+rowH); x += COL_W[0];
+      // Total
+      wrapped[1].forEach(function(line,i){ doc.text(line, x+1.8, y+5 + i*4.5); });
+      doc.line(x, y, x, y+rowH); x += COL_W[1];
+
+      // kolom sesi dengan badge
+      for (var c=2; c<=4; c++){
+        var sesText = row[c] || '';
+        var huruf   = extractHuruf(sesText);
+        var sty     = huruf ? predStyle(huruf) : null;
+
+        if (sesText){
+          var lines = wrapped[c];
+          var padX = 2, padY = 2, lineH = 4.5;
+          var h = Math.max(6.5, lines.length*lineH + padY*2);
+
+          if (sty){
+            // badge background
+            doc.setFillColor.apply(doc, sty.bg);
+            doc.setDrawColor.apply(doc, sty.br);
+            if (doc.roundedRect){
+              doc.roundedRect(x+1, y+2, COL_W[c]-3, h, 2, 2, 'FD');
+            }else{
+              doc.rect(x+1, y+2, COL_W[c]-3, h, 'FD');
+            }
+            doc.setTextColor.apply(doc, sty.fg);
+          } else {
+            doc.setTextColor(0);
+          }
+          for (var li=0; li<lines.length; li++){
+            doc.text(lines[li], x+padX+1.2, y+2+padY+4 + li*lineH);
+          }
+          doc.setTextColor(0);
+        }
+        // grid vertikal
+        doc.setDrawColor.apply(doc, GRID);
+        doc.line(x, y, x, y+rowH); x += COL_W[c];
+      }
+
+      // grid kanan & bawah
+      doc.line(M.L+USABLE_W, y, M.L+USABLE_W, y+rowH);
+      doc.line(M.L, y+rowH, M.L+USABLE_W, y+rowH);
+
+      y += rowH;
+    }
+
+    drawFooter(doc, pageNo);
+    doc.save('murajaah-range.pdf'); // <-- langsung download
+    return true;
   }
 
   function handleDownload(){
-    var pkg = buildPrintableHTML();
-    var win = window.open('', '_blank', 'width=1200,height=800');
-    if (!win){ alert('Popup diblokir. Izinkan pop-up untuk mengunduh.'); return; }
-    win.document.write(pkg.html);
-    try{ win.document.close(); win.focus(); win.print(); }catch(e){}
+    var title = document.getElementById('mrl-title')?.textContent?.trim() || 'Daftar Murajaah (Rentang)';
+    var sub   = document.getElementById('mrl-sub')  ?.textContent?.trim() || '';
+    var rows  = collectRows();
+    if (!rows.length){ alert('Tidak ada data untuk diunduh.'); return; }
+    var ok = false; try { ok = tryJsPDFDownload(rows, title, sub); } catch(e){ ok=false; }
+    if (!ok){
+      alert('jsPDF belum tersedia. Tambahkan <script jsPDF> di <head>.');
+    }
   }
 
-  // tombol "Download PDF"
   document.addEventListener('click', function(ev){
-    if (ev.target && ev.target.id === 'mrl-download'){
-      handleDownload();
-    }
+    if (ev.target && ev.target.id === 'mrl-download') handleDownload();
   });
 })();
 </script>
