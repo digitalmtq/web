@@ -2945,7 +2945,7 @@ logoutBtn.addEventListener("click", () => {
   }, 500);
 });
 
-<!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
+// ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
@@ -3165,10 +3165,10 @@ logoutBtn.addEventListener("click", () => {
   // expose helper compute (optional)
   window.__absflex_computePercent = computePercent;
 })();
-</script>
 
-<!-- === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja) -->
-<script>
+
+
+// === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja)
 (function(){
   function ensureAbsensiModal(){
     if (document.getElementById("absensiModalOverlay")) return;
@@ -3182,50 +3182,13 @@ logoutBtn.addEventListener("click", () => {
     overlay.innerHTML = `
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
-          <h3 id="absensiModalTitle" style="margin:0;font-size:18px;">Edit Absensi</h3>
+          <h3 style="margin:0;font-size:18px;">Edit Absensi</h3>
           <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
       </div>
     `;
     document.body.appendChild(overlay);
-
-    // --- Setter global opsional untuk judul (bila ingin dipakai manual) ---
-    window.setAbsensiModalTitle = function(titleText){
-      const el = document.getElementById("absensiModalTitle");
-      if (el) el.textContent = titleText || "Edit Absensi";
-    };
-
-    // --- Auto-judul saat tombol .btn-absensi-flex di mana pun diklik ---
-    // Tidak perlu ubah kode lain: listener global ini akan mendeteksi klik.
-    document.addEventListener("click", (ev) => {
-      const btn = ev.target?.closest?.(".btn-absensi-flex");
-      if (!btn) return;
-      const row    = btn.closest("tr");
-      const nisTd  = row?.querySelector(".col-nis");
-      const namaTd = row?.querySelector(".col-nama");
-      const nis    = (row?.dataset?.nis || (nisTd ? nisTd.textContent.trim() : "") || "").trim();
-
-      // Ambil nama dari node text pertama di .col-nama (tanpa subTanggal yang ada di child div)
-      let nama = "";
-      if (namaTd) {
-        // cara aman: ambil text node pertama
-        const firstChild = namaTd.firstChild;
-        nama = (firstChild && firstChild.nodeType === Node.TEXT_NODE)
-          ? String(firstChild.textContent || "").trim()
-          : String(namaTd.textContent || "").trim();
-        // kalau ada sub-div tanggal, textContent bisa tercampur. Kita potong di " \n" pertama.
-        const brk = nama.indexOf("\n");
-        if (brk >= 0) nama = nama.slice(0, brk).trim();
-      }
-
-      const title = nama
-        ? (`Edit Absensi · ${nama}${nis ? ` (${nis})` : ""}`)
-        : (nis ? `Edit Absensi · ${nis}` : "Edit Absensi");
-
-      const ttlEl = document.getElementById("absensiModalTitle");
-      if (ttlEl) ttlEl.textContent = title;
-    });
 
     // close handlers
     const closeBtn = overlay.querySelector("#absensiModalClose");
@@ -3239,6 +3202,7 @@ logoutBtn.addEventListener("click", () => {
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
 })();
+
 
 
 // === Load Santri Data ===
