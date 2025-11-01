@@ -3182,7 +3182,7 @@ logoutBtn.addEventListener("click", () => {
     overlay.innerHTML = `
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
-          <h3 style="margin:0;font-size:18px;">Edit Absensi</h3>
+          <h3 style="margin:0;font-size:18px;"><span id="absensiModalTitleName" style="font-weight:600;"></span></h3>
           <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
@@ -3201,6 +3201,84 @@ logoutBtn.addEventListener("click", () => {
     });
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
+})();
+
+(function(){
+  // Ambil teks aman (support jika <a> di dalam sel)
+  function cellText(el){
+    if (!el) return '';
+    // prioritas: value (jika input/select), lalu textContent
+    const input = el.querySelector('input,select,textarea');
+    if (input) return (input.value || input.textContent || '').trim();
+    // jika ada anchor di dalam sel
+    const a = el.querySelector('a');
+    if (a) return (a.textContent || a.innerText || '').trim();
+    return (el.textContent || el.innerText || '').trim();
+  }
+
+  // Buat peta index kolom berdasarkan header (thead th)
+  // Match case-insensitive: "Nis" & "Nama"
+  function headerMapForTable(table){
+    const map = { nis: 0, nama: 1 }; // default fallback: kolom 0 = Nis, 1 = Nama
+    if (!table) return map;
+    const ths = table.querySelectorAll('thead th');
+    if (!ths.length) return map;
+
+    for (let i=0;i<ths.length;i++){
+      const t = (ths[i].textContent || '').trim().toLowerCase();
+      if (t === 'nis')  map.nis  = i;
+      if (t === 'nama') map.nama = i;
+    }
+    return map;
+  }
+
+  function extractIdentityFromButton(btn){
+    const tr = btn.closest('tr');
+    const table = tr && tr.closest('table');
+    const map = headerMapForTable(table);
+
+    // Ambil semua <td> di baris data
+    const tds = tr ? tr.querySelectorAll('td') : [];
+    const nis  = cellText(tds[map.nis]  || tds[0]);
+    const nama = cellText(tds[map.nama] || tds[1]);
+
+    return { nis, nama };
+  }
+
+  function setAbsensiModalTitle(nis, nama){
+    const span = document.getElementById('absensiModalTitleName');
+    if (!span) return;
+    const n1 = (nama||'').trim();
+    const n2 = (nis||'').trim();
+    span.textContent = (n1 && n2) ? `${n1} (${n2})`
+                     :  n1 ? n1
+                     :  n2 ? `NIS ${n2}`
+                     :  '';
+  }
+
+  function openAbsensiModal(opts){
+    // pastikan modal ada
+    window.ensureAbsensiModal && window.ensureAbsensiModal();
+
+    setAbsensiModalTitle(opts?.nis, opts?.nama);
+
+    const overlay = document.getElementById('absensiModalOverlay');
+    const content = document.getElementById('absensiModalContent');
+    if (!overlay || !content) return;
+
+    // render widget seperti biasa (preset bisa Anda sambungkan nanti)
+    content.innerHTML = '';
+    window.renderAbsensiFlex && window.renderAbsensiFlex(content, {});
+    overlay.style.display = 'flex';
+  }
+
+  // Listener global sekali saja
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('.btn-absensi-flex');
+    if (!btn) return;
+    const { nis, nama } = extractIdentityFromButton(btn);
+    openAbsensiModal({ nis, nama });
+  });
 })();
 
 
