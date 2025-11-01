@@ -11960,7 +11960,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-<!-- ===== SIMPAN RENTANG TANGGAL DOWNLOAD PDF DLL ===== -->		
+<!-- ===== SIMPAN RENTANG TANGGAL DOWNLOAD (PERIODE/ATAS) ===== -->
 <script>
 (function(){
   const startEl = document.getElementById('pdf-start-date');
@@ -11968,35 +11968,38 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!startEl || !endEl) return;
 
   // ====== KUNCI PENYIMPANAN ======
-  // Per kelas (default): simpan tanggal per nilai #kelasSelect
+  // Simpan per-kelas (default). Ubah ke GLOBAL kalau mau satu kunci untuk semua kelas.
   const kelasEl = document.getElementById('kelasSelect');
   const keyFor = () => `raportahfiz.rekapRange.${kelasEl?.value || 'ALL'}`;
-
-  // --- Kalau MAU GLOBAL untuk semua kelas, pakai ini:
-  // const keyFor = () => 'raportahfiz.rekapRange.GLOBAL';
+  // const keyFor = () => 'raportahfiz.rekapRange.GLOBAL'; // << gunakan ini jika ingin global
 
   // ====== UTIL ======
   const isISO = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
   const pad2  = n => String(n).padStart(2,'0');
-  function monthToDateDefault(){
+  const monthToDateDefault = () => {
     const d = new Date();
     const yyyy = d.getFullYear(), mm = pad2(d.getMonth()+1), dd = pad2(d.getDate());
     return { start: `${yyyy}-${mm}-01`, end: `${yyyy}-${mm}-${dd}` };
-  }
+  };
 
   function load(){
-    // ambil data tersimpan untuk kelas aktif
+    // ---- Guard: beri tahu modul lain bahwa kita sedang restore Periode (jangan mirror ke Absensi)
+    window.__rehydratingRekapDates = true;
+
     let obj = {};
     try { obj = JSON.parse(localStorage.getItem(keyFor()) || '{}'); } catch(e){}
-    const { start, end } = obj;
-
-    // set nilai input (pakai default kalau kosong/tidak valid)
+    const { start, end } = obj || {};
     const def = monthToDateDefault();
+
+    // set NILAI HANYA untuk Periode (ATAS)
     startEl.value = isISO(start) ? start : (startEl.value || def.start);
     endEl.value   = isISO(end)   ? end   : (endEl.value   || def.end);
 
-    // beri tahu komponen lain yang tergantung tanggal (opsional)
-    try { window._populateSantriSelect?.(); } catch(e){}
+    // Lepas guard setelah tick berikutnya agar listener lain selesai dulu
+    setTimeout(() => { window.__rehydratingRekapDates = false; }, 0);
+
+    // (Opsional) kabari komponen lain TANPA menyentuh Absensi
+    // setTimeout(() => { try { window.populateSantriSelect?.(); } catch(_){} }, 0);
   }
 
   function save(){
@@ -12011,7 +12014,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ====== EVENT LISTENERS ======
   startEl.addEventListener('change', save);
   endEl.addEventListener('change', save);
-  // Per kelas: saat ganti kelas → load kunci yang berbeda
+
+  // ganti kelas -> muat kunci yang sesuai
   kelasEl?.addEventListener('change', load);
 
   // Muat saat awal
@@ -12021,13 +12025,14 @@ document.addEventListener("DOMContentLoaded", () => {
     load();
   }
 
-  // (Opsional) tombol/debug untuk reset penyimpanan
+  // Debug helper: hapus simpanan utk kunci aktif
   window.clearSavedRekapRange = function(){
     localStorage.removeItem(keyFor());
     load();
   };
 })();
 </script>
+
 
 <!-- Modal: Daftar Input Murajaah (Rentang) -->
 <div id="murRangeListModal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center">
