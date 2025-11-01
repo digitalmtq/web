@@ -2980,14 +2980,19 @@ logoutBtn.addEventListener("click", () => {
     const per     = ABS_FLEX_CFG.perStatus|0;
     const sesiAll = ["Sesi"];
 
+    // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
       const sesi = (idx === 0) ? "Pagi" : "Sore";
       return `${Title} ${sesi} ${i}`;
     }
+
+    // Jika lebih dari 2 sesi, gunakan daftar sesi lengkap
     if (per > 2){
       const sesi = sesiAll[idx] || `Sesi ${i}`;
       return `${Title} ${sesi} ${i}`;
     }
+
+    // Fallback (perStatus=1)
     return `${Title} ${i}`;
   }
 
@@ -3196,49 +3201,69 @@ logoutBtn.addEventListener("click", () => {
     });
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
+})();
 
-  // ====== Tambahan ringan: helper untuk set judul & open modal (tanpa GET/POST) ======
-  window.setAbsensiModalTitle = function(nis, nama){
-    const span = document.getElementById("absensiModalTitleName");
+<!-- === listener ringan: set judul modal dari baris (tanpa buka modal / tanpa render) -->
+(function(){
+  // Ambil teks aman dari sel (support <a>, input/select)
+  function cellText(el){
+    if (!el) return '';
+    const input = el.querySelector('input,select,textarea');
+    if (input) return (input.value || input.textContent || '').trim();
+    const a = el.querySelector('a');
+    if (a) return (a.textContent || a.innerText || '').trim();
+    return (el.textContent || el.innerText || '').trim();
+  }
+
+  // Peta index kolom berdasarkan THEAD; fallback 0:Nis, 1:Nama
+  function headerMapForTable(table){
+    const map = { nis: 0, nama: 1 };
+    if (!table) return map;
+    const ths = table.querySelectorAll('thead th');
+    if (!ths.length) return map;
+    for (let i=0;i<ths.length;i++){
+      const t = (ths[i].textContent || '').trim().toLowerCase();
+      if (t === 'nis')  map.nis  = i;
+      if (t === 'nama') map.nama = i;
+    }
+    return map;
+  }
+
+  function extractIdentityFromButton(btn){
+    const tr = btn.closest('tr');
+    const table = tr && tr.closest('table');
+    const map = headerMapForTable(table);
+    const tds = tr ? tr.querySelectorAll('td') : [];
+    const nis  = cellText(tds[map.nis]  || tds[0]);
+    const nama = cellText(tds[map.nama] || tds[1]);
+    return { nis, nama };
+  }
+
+  function setAbsensiModalTitle(nis, nama){
+    const span = document.getElementById('absensiModalTitleName');
     if (!span) return;
-    const nm = (nama||"").trim();
-    const ns = (nis||"").trim();
-    span.textContent = (nm && ns) ? `${nm} (${ns})` : (nm || (ns ? `NIS ${ns}` : ""));
+    const n1 = (nama||'').trim();
+    const n2 = (nis||'').trim();
+    span.textContent = (n1 && n2) ? `${n1} (${n2})`
+                     :  n1 ? n1
+                     :  n2 ? `NIS ${n2}`
+                     :  '';
+  }
+
+  // Ekspor fungsi publik jika ingin dipanggil dari handler lama Anda
+  window.__setAbsensiTitleFromBtn = function(btn){
+    window.ensureAbsensiModal && window.ensureAbsensiModal();
+    const { nis, nama } = extractIdentityFromButton(btn);
+    setAbsensiModalTitle(nis, nama);
   };
 
-  // Panggil ini dari kode Anda ketika tombol Input diklik:
-  // window.openAbsensiModalSimple({ nis, nama, preset, target })
-  // - preset: array [{key:'hadir1',checked:true}, ...] (opsional)
-  // - target: integer (opsional)
-  window.openAbsensiModalSimple = function({ nis="", nama="", preset=null, target=window.ABS_FLEX_CFG?.defaultTarget || 1 } = {}){
-    ensureAbsensiModal();
-    const overlay = document.getElementById("absensiModalOverlay");
-    const content = document.getElementById("absensiModalContent");
-    if (!overlay || !content) return;
-
-    overlay.dataset.nis = String(nis||"");
-    overlay.dataset.nama = String(nama||"");
-
-    window.setAbsensiModalTitle(overlay.dataset.nis, overlay.dataset.nama);
-    content.innerHTML = "";
-    window.renderAbsensiFlex && window.renderAbsensiFlex(content, { target, presetItems: preset });
-
-    overlay.style.display = "flex";
-  };
-
-  // Opsional: ambil state terkini dari modal (untuk disimpan ke D1 oleh kode Anda)
-  window.getCurrentAbsensiState = function(){
-    const overlay = document.getElementById("absensiModalOverlay");
-    const content = document.getElementById("absensiModalContent");
-    return {
-      nis: overlay?.dataset?.nis || "",
-      nama: overlay?.dataset?.nama || "",
-      absensiItems: content?._absensiItems || [],
-      absensiTarget: content?._absensiTarget || (window.ABS_FLEX_CFG?.defaultTarget||1),
-      absensiChecked: content?._absensiChecked || 0,
-      absensiPercent: content?._absensiPercent || 0
-    };
-  };
+  // Listener global: hanya set judul; tidak membuka modal & tidak render
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('.btn-absensi-flex');
+    if (!btn) return;
+    window.__setAbsensiTitleFromBtn(btn);
+    // Tidak preventDefault / stopPropagation — biarkan handler lama berjalan
+  }, { passive: true });
 })();
 
 
