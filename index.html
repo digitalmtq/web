@@ -1395,24 +1395,24 @@ async function buatUserNIS() {
         <input type="date" id="pdf-end-date" />
       </div>
 
-	  <!-- Toggle Rentang Absensi (opsional) -->
-<div class="date-item" style="align-items:center;">
-  <label for="use-absensi-range" style="display:inline-flex; gap:.35rem; align-items:center; font-weight:600;">
-    <input type="checkbox" id="use-absensi-range" />
-    Rentang Absensi (opsional)
-  </label>
-</div>
-<div></div>
+      <!-- Toggle Rentang Absensi (opsional) -->
+      <div class="date-item" style="align-items:center;">
+        <label for="use-absensi-range" style="display:inline-flex; gap:.35rem; align-items:center; font-weight:600;">
+          <input type="checkbox" id="use-absensi-range" />
+          Rentang Absensi (opsional)
+        </label>
+      </div>
+      <div></div>
 
-<!-- Absensi Mulai / s.d (muncul jika toggle aktif) -->
-<div class="date-item absensi-range" style="display:none;">
-  <label for="absensi-start-date">Mulai</label>
-  <input type="date" id="absensi-start-date" disabled />
-</div>
-<div class="date-item absensi-range" style="display:none;">
-  <label for="absensi-end-date">s/d</label>
-  <input type="date" id="absensi-end-date" disabled />
-</div>
+      <!-- Absensi Mulai / s.d (muncul jika toggle aktif) -->
+      <div class="date-item absensi-range" style="display:none;">
+        <label for="absensi-start-date">Mulai</label>
+        <input type="date" id="absensi-start-date" disabled />
+      </div>
+      <div class="date-item absensi-range" style="display:none;">
+        <label for="absensi-end-date">s/d</label>
+        <input type="date" id="absensi-end-date" disabled />
+      </div>
 
       <!-- Row 2, Col 1: PDF Halaqoh -->
       <button id="download-pdf-rekap" class="rekap-btn">PDF Halaqoh</button>
@@ -1436,11 +1436,9 @@ async function buatUserNIS() {
 
 <!-- CSS khusus modal ini saja -->
 <style>
-
-#pdfModalOverlay .absensi-range input[type="date"]{
-  width:12ch; min-width:10ch;
-}
-	
+  #pdfModalOverlay .absensi-range input[type="date"]{
+    width:12ch; min-width:10ch;
+  }
   /* Grid 2 kolom untuk 6 item (3 baris) */
   #pdfModalOverlay .pdf-rekap-controls{
     display:grid;
@@ -1449,7 +1447,6 @@ async function buatUserNIS() {
     align-items:center;
     margin-top:.5rem;
   }
-
   /* Label nempel ke input & kompak */
   #pdfModalOverlay .date-item{
     display:inline-flex; align-items:center; gap:.2rem; white-space:nowrap;
@@ -1457,13 +1454,11 @@ async function buatUserNIS() {
   #pdfModalOverlay .date-item input[type="date"]{
     width:12ch; min-width:10ch;
   }
-
   /* Tombol melebar mengikuti kolom agar sejajar rapi */
   #pdfModalOverlay .rekap-btn{
     width:100%;
   }
 </style>
-
 
 <!-- Modal Kedua: Pilih Santri (muncul saat klik "PDF per Santri") -->
 <div id="santriModalOverlay" style="
@@ -1494,7 +1489,6 @@ async function buatUserNIS() {
 </div>
 <button class="logout-btn" id="logout-btn">Keluar</button>
 </div>
-
 
 <script>
   // -------- Modal Utama --------
@@ -1546,126 +1540,105 @@ async function buatUserNIS() {
   });
 
 
-<script>
-// === Toggle UI "Rentang Absensi" + PERSISTENT STORAGE (mandiri) ===
-(function initAbsensiRangeUI(){
-  const chk = document.getElementById('use-absensi-range');
-  const sEl = document.getElementById('absensi-start-date');
-  const eEl = document.getElementById('absensi-end-date');
-  const group = document.querySelectorAll('.absensi-range');
-  const kelasEl = document.getElementById('kelasSelect');
+  // === Toggle UI "Rentang Absensi" + PERSISTENCE TERPISAH ===
+  (function initAbsensiRangeUI(){
+    const chk   = document.getElementById('use-absensi-range');
+    const sEl   = document.getElementById('absensi-start-date');
+    const eEl   = document.getElementById('absensi-end-date');
+    const group = document.querySelectorAll('.absensi-range');
+    const kelasEl = document.getElementById('kelasSelect');
 
-  if (!sEl || !eEl) return;
+    if (!sEl || !eEl) return;
 
-  // --- KEY penyimpanan terpisah (jangan samakan dgn Periode) ---
-  const keyFor = () => `raportahfiz.absensiRange.${kelasEl?.value || 'ALL'}`;
+    // kunci storage khusus absensi (per kelas)
+    const keyFor = () => `raportahfiz.absensiRange.${kelasEl?.value || 'ALL'}`;
+    const isISO = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
 
-  const isISO = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
+    // flag untuk mencegah auto-copy setelah hydrate
+    let hydrated = false;
 
-  // --- state untuk mencegah auto-copy saat sudah punya nilai tersimpan
-  let hydrated = false;
-
-  function save(){
-    localStorage.setItem(keyFor(), JSON.stringify({
-      enabled: !!(chk?.checked),
-      start:   sEl.value || null,
-      end:     eEl.value || null,
-      t: Date.now()
-    }));
-  }
-
-  function load(){
-    let obj = {};
-    try { obj = JSON.parse(localStorage.getItem(keyFor()) || '{}'); } catch(_){}
-    // isi dari storage bila valid
-    if (typeof obj.enabled === 'boolean' && chk) chk.checked = obj.enabled;
-    if (isISO(obj.start)) sEl.value = obj.start;
-    if (isISO(obj.end))   eEl.value = obj.end;
-    hydrated = true; // tandai: sudah di-hydrate dari storage
-    syncUI();        // tampilkan/hide input & enable/disable
-  }
-
-  function syncUI(){
-    const on = !!chk?.checked;
-    group.forEach(el => el.style.display = on ? '' : 'none');
-    sEl.disabled = !on;
-    eEl.disabled = !on;
-
-    // HANYA auto-copy dari Periode kalau:
-    // - toggle ON
-    // - BELUM ter-hydrate dari storage (first time)
-    // - field masih kosong
-    if (on && !hydrated && !sEl.value && !eEl.value) {
-      const gs = document.getElementById('pdf-start-date')?.value || '';
-      const ge = document.getElementById('pdf-end-date')?.value   || '';
-      if (isISO(gs)) sEl.value = gs;
-      if (isISO(ge)) eEl.value = ge;
+    function save(){
+      localStorage.setItem(keyFor(), JSON.stringify({
+        enabled: !!(chk?.checked),
+        start:   sEl.value || null,
+        end:     eEl.value || null,
+        t: Date.now()
+      }));
     }
-  }
 
-  // Simpan saat user ubah
-  chk?.addEventListener('change', () => { syncUI(); save(); });
-  sEl.addEventListener('change', save);
-  eEl.addEventListener('change', save);
+    function syncUI(){
+      const on = !!chk?.checked;
+      group.forEach(el => el.style.display = on ? '' : 'none');
+      sEl.disabled = !on;
+      eEl.disabled = !on;
 
-  // Cegah “ikut” saat Periode rehydrate: kalau ada skrip lain
-  // yang memicu change pada saat load Periode, blok di sini.
-  const stopIfRekapRehydrate = ev => {
-    if (window.__rehydratingRekapDates) {
-      ev.stopImmediatePropagation();
-      // kembalikan dari storage bila perlu
-      setTimeout(load, 0);
+      // auto-copy dari Periode HANYA bila:
+      // - toggle ON
+      // - belum pernah hydrate dari storage
+      // - kedua field masih kosong
+      if (on && !hydrated && !sEl.value && !eEl.value){
+        const gs = document.getElementById('pdf-start-date')?.value || '';
+        const ge = document.getElementById('pdf-end-date')?.value   || '';
+        if (isISO(gs)) sEl.value = gs;
+        if (isISO(ge)) eEl.value = ge;
+      }
     }
-  };
-  sEl.addEventListener('input',  stopIfRekapRehydrate, true);
-  eEl.addEventListener('input',  stopIfRekapRehydrate, true);
-  sEl.addEventListener('change', stopIfRekapRehydrate, true);
-  eEl.addEventListener('change', stopIfRekapRehydrate, true);
 
-  // Ganti kelas -> pakai kunci berbeda
-  kelasEl?.addEventListener('change', () => { hydrated = false; load(); });
+    function load(){
+      let obj = {};
+      try { obj = JSON.parse(localStorage.getItem(keyFor()) || '{}'); } catch(_){}
+      if (typeof obj.enabled === 'boolean' && chk) chk.checked = obj.enabled;
+      if (isISO(obj.start)) sEl.value = obj.start;
+      if (isISO(obj.end))   eEl.value = obj.end;
+      hydrated = true;
+      syncUI();
+    }
 
-  // Load awal (sesudah elemen ada)
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', load);
-  } else {
-    load();
+    chk?.addEventListener('change', () => { syncUI(); save(); });
+    sEl.addEventListener('change', save);
+    eEl.addEventListener('change', save);
+
+    // ganti kelas → kunci berubah
+    kelasEl?.addEventListener('change', () => { hydrated = false; load(); });
+
+    if (document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', load);
+    } else {
+      load();
+    }
+
+    // debug helper
+    window.clearSavedAbsensiRange = function(){
+      localStorage.removeItem(keyFor());
+      hydrated = false;
+      load();
+    };
+  })();
+
+  // === Ambil range ABSENSI kalau toggle aktif; kalau tidak, pakai global ===
+  function getAbsensiRangeOrDefault(){
+    const use = document.getElementById('use-absensi-range')?.checked;
+    const as  = document.getElementById('absensi-start-date')?.value || '';
+    const ae  = document.getElementById('absensi-end-date')?.value   || '';
+    if (use && as && ae) return { start: as, end: ae, source: 'absensi' };
+    const gs  = document.getElementById('pdf-start-date')?.value || '';
+    const ge  = document.getElementById('pdf-end-date')?.value   || '';
+    return { start: gs, end: ge, source: 'global' };
   }
+  window.getAbsensiRangeOrDefault = getAbsensiRangeOrDefault;
 
-  // helper debug
-  window.clearSavedAbsensiRange = function(){
-    localStorage.removeItem(keyFor());
-    hydrated = false;
-    load();
-  };
-})();
-
-// === Ambil range ABSENSI kalau toggle aktif; kalau tidak, pakai Periode ===
-function getAbsensiRangeOrDefault(){
-  const use = document.getElementById('use-absensi-range')?.checked;
-  const as  = document.getElementById('absensi-start-date')?.value || '';
-  const ae  = document.getElementById('absensi-end-date')?.value   || '';
-  if (use && as && ae) return { start: as, end: ae, source: 'absensi' };
-  const gs  = document.getElementById('pdf-start-date')?.value || '';
-  const ge  = document.getElementById('pdf-end-date')?.value   || '';
-  return { start: gs, end: ge, source: 'global' };
-}
-window.getAbsensiRangeOrDefault = getAbsensiRangeOrDefault;
-
-// === Label "Range Absensi" (dipakai di header tabel) ===
-function buildRangeLabel(startISO, endISO){
-  const { start, end, source } = getAbsensiRangeOrDefault();
-  const fmt = iso => {
-    const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${Number(m[3])}-${Number(m[2])}-${m[1]}` : (iso || '-');
-  };
-  return (source === 'absensi')
-    ? `${fmt(start)} s.d. ${fmt(end)}`
-    : `${fmt(startISO)} s.d. ${fmt(endISO)}`;
-}
-window.buildRangeLabel = buildRangeLabel;
+  // === Buat label "Range Absensi" utk header (dipakai PDF) ===
+  function buildRangeLabel(startISO, endISO){
+    const { start, end, source } = getAbsensiRangeOrDefault();
+    const fmt = iso => {
+      const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return m ? `${Number(m[3])}-${Number(m[2])}-${m[1]}` : (iso || '-');
+    };
+    if (source === 'absensi') return `${fmt(start)} s.d. ${fmt(end)}`;
+    return `${fmt(startISO)} s.d. ${fmt(endISO)}`;
+  }
+  window.buildRangeLabel = buildRangeLabel;
 </script>
-
 
 
 
@@ -12033,7 +12006,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-<!-- ===== SIMPAN RENTANG TANGGAL DOWNLOAD PDF DLL ===== -->		
+<!-- ===== SIMPAN RENTANG TANGGAL DOWNLOAD PDF DLL ===== -->
 <script>
 (function(){
   const startEl = document.getElementById('pdf-start-date');
@@ -12045,9 +12018,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const kelasEl = document.getElementById('kelasSelect');
   const keyFor = () => `raportahfiz.rekapRange.${kelasEl?.value || 'ALL'}`;
 
-  // --- Kalau MAU GLOBAL untuk semua kelas, pakai ini:
-  // const keyFor = () => 'raportahfiz.rekapRange.GLOBAL';
-
   // ====== UTIL ======
   const isISO = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
   const pad2  = n => String(n).padStart(2,'0');
@@ -12058,12 +12028,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function load(){
-    // ambil data tersimpan untuk kelas aktif
     let obj = {};
     try { obj = JSON.parse(localStorage.getItem(keyFor()) || '{}'); } catch(e){}
-    const { start, end } = obj;
-
-    // set nilai input (pakai default kalau kosong/tidak valid)
+    const { start, end } = obj || {};
     const def = monthToDateDefault();
     startEl.value = isISO(start) ? start : (startEl.value || def.start);
     endEl.value   = isISO(end)   ? end   : (endEl.value   || def.end);
@@ -12081,27 +12048,23 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(keyFor(), JSON.stringify(data));
   }
 
-  // ====== EVENT LISTENERS ======
   startEl.addEventListener('change', save);
   endEl.addEventListener('change', save);
-  // Per kelas: saat ganti kelas → load kunci yang berbeda
   kelasEl?.addEventListener('change', load);
 
-  // Muat saat awal
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', load);
   } else {
     load();
   }
 
-  // (Opsional) tombol/debug untuk reset penyimpanan
+  // (opsional) reset
   window.clearSavedRekapRange = function(){
     localStorage.removeItem(keyFor());
     load();
   };
 })();
 </script>
-
 
 <!-- Modal: Daftar Input Murajaah (Rentang) -->
 <div id="murRangeListModal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center">
