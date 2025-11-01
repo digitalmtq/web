@@ -3180,9 +3180,7 @@ logoutBtn.addEventListener("click", () => {
     overlay.innerHTML = `
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
-          <h3 style="margin:0;font-size:18px;">
-            Edit Absensi — <span id="absensiModalTitleName" style="font-weight:600;"></span>
-          </h3>
+          <h3 style="margin:0;font-size:18px;"><span id="absensiModalTitleName" style="font-weight:600;"></span></h3>
           <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
@@ -3265,6 +3263,7 @@ logoutBtn.addEventListener("click", () => {
     // Tidak preventDefault / stopPropagation — biarkan handler lama berjalan
   }, { passive: true });
 })();
+<!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
 
 
 
