@@ -5418,7 +5418,7 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         doc.text('Rekap Absensi & Setoran', margin.left, margin.top);
         doc.setFont('helvetica','normal'); doc.setFontSize(10);
         doc.text(kelasLine, margin.left, margin.top + 6);
-        doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 12);
+        doc.text(`Periode Tahfiz: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 12);
         const rightX = pageW - margin.right - 70;
         doc.text(`KBM: ${kbmDays} hari (${buildRangeLabel(startDate, endDate)})`, rightX, margin.top + 6);
         doc.text(`Total Santri: ${rows.length}`, rightX, margin.top + 12);
@@ -5879,7 +5879,7 @@ const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
         doc.setFont('helvetica','bold'); doc.setFontSize(14);
         doc.text('Rekap Absensi & Setoran', margin.left, margin.top);
         doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
-        doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 6);
+        doc.text(`Periode Tahfiz: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, margin.left, margin.top + 6);
         doc.setTextColor(...theme.text);
       }
       function drawFooter(pageNo, totalPages, printedAt){
@@ -6155,7 +6155,7 @@ async function xlsRekapDownload(){
 
       // ---- 1) Judul kelas (merge A..last) + keterangan ringkas
       const judul =
-        `Kelas/Kelompok: ${kkLabel}   |   Total Santri: ${rows.length}   |   KBM: ${kbmDays} hari (${buildRangeLabel(startDate, endDate)})   |   Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`;
+        `Kelas/Kelompok: ${kkLabel}   |   Total Santri: ${rows.length}   |   KBM: ${kbmDays} hari (${buildRangeLabel(startDate, endDate)})   |   Periode Tahfiz: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`;
       const judulRow = [judul, ...Array(baseHeader.length - 1).fill("")];
       rowsAll.push(judulRow);
 
@@ -6938,7 +6938,7 @@ async function pdfSantriDownload(){
       doc.text(`Santri: ${key} — ${namaSantri}`, margin.left, margin.top + 12);
       const rightX = pageW - margin.right - 78;
       doc.text(`Semester: ${tableRows.find(r=>!r._isRekap)?.sem ?? '-'}`, rightX, margin.top + 6);
-      doc.text(`Periode: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, rightX, margin.top + 12);
+      doc.text(`Periode Tahfiz: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, rightX, margin.top + 12);
       doc.setTextColor(...theme.text);
     }
     function drawFooterS(pageNo, totalPages, printedAt){
@@ -9122,7 +9122,22 @@ var btnStyle = btnEnabled
 (function(){
   function fmtID(iso){ if(!iso) return ''; var a=String(iso).split('-'); return a.length===3? (a[2]+'/'+a[1]+'/'+a[0]) : iso; }
   function num(v){ var n=parseFloat(String(v==null?'':v).replace(/[^0-9.,-]/g,'').replace(',', '.')); return isFinite(n)?n:0; }
+  // === Tambahan: update total keseluruhan di bawah tabel modal ===
+function updateMrlSum(list){
+  var sum = (list||[]).reduce(function(acc, it){
+    return acc + num(it.total);
+  }, 0);
+  var box = document.getElementById('mrl-sum');
+  if (!box) return;
+  if (!list || !list.length){
+    box.style.display = 'none';
+  } else {
+    box.textContent = 'Total keseluruhan: ' + sum.toFixed(2) + ' juz';
+    box.style.display = '';
+  }
+}
 
+	
   function _kelasNow(){
     if (window.kelasNow) return window.kelasNow();
     var sel = document.querySelector('select#kelasSelect, select[name="kelas"], #kelas, .kelas, .kelas-select, .kelasSelect');
@@ -9362,6 +9377,7 @@ function renderSessionHTML(s){
         tb.appendChild(trEl);
       }
     }
+	updateMrlSum(normalized);
 
     var search = document.getElementById('mrl-search');
     search.value = '';
@@ -9391,6 +9407,7 @@ function renderSessionHTML(s){
 '<td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;vertical-align:top">'+ renderSessionHTML(it2.s3) +'</td>'
         tb.appendChild(trEl2);
       }
+	updateMrlSum(filtered);
     };
 
     box.style.display = 'flex';
@@ -11747,7 +11764,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       document.getElementById('thmsTitleMode').textContent = '— Per Halaqoh (Ustadz)';
       const fmt = (window.fmtD_M_YYYY || (x=>x));
-      document.getElementById('thmsSub').textContent = `Periode: ${fmt(startDate)} s.d. ${fmt(endDate)}`;
+      document.getElementById('thmsSub').textContent = `Periode Tahfiz: ${fmt(startDate)} s.d. ${fmt(endDate)}`;
       document.getElementById('thmsCacheFlag').style.display = fromCache ? '' : 'none';
 
       document.getElementById('thmsCardKelompokTitle').textContent = 'Total Halaqoh';
@@ -11924,7 +11941,7 @@ document.addEventListener("DOMContentLoaded", () => {
         doc.text('Live Grafik THMS — Per Halaqoh (Ustadz)', margin, 40);
         doc.setFont('helvetica','normal'); doc.setFontSize(11);
         const fmt = (window.fmtD_M_YYYY || (x=>x));
-        doc.text(`Periode: ${fmt(startDate)} s.d. ${fmt(endDate)}${fromCache?'  (cache)':''}`, margin, 58);
+        doc.text(`Periode Tahfiz: ${fmt(startDate)} s.d. ${fmt(endDate)}${fromCache?'  (cache)':''}`, margin, 58);
 
         // Kartu ringkas (grid 5 kolom)
         const yCardsTop = 78, hCard = 48, gap = 10, cols = 5;
@@ -12109,6 +12126,13 @@ document.addEventListener("DOMContentLoaded", () => {
       <div id="mrl-empty" style="text-align:center;color:#6b7280;font-size:13px;padding:16px;display:none">
         Belum ada input murajaah pada rentang ini.
       </div>
+		<!-- ⬇⬇ Tambahan: total keseluruhan -->
+      <div id="mrl-sum"
+           style="margin:10px 16px 16px;border-top:1px solid #e5e7eb;padding-top:10px;
+                  font-weight:600;color:#111827;display:none">
+        Total keseluruhan: 0.00 juz
+      </div>
+      <!-- ⬆⬆ Tambahan -->
     </div>
   </div>
 </div>
