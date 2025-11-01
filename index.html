@@ -8670,7 +8670,7 @@ if (window.currentRowEl){
   '<small class="mur-range-count" data-link="0" data-count="0" role="button" tabindex="-1" aria-label="Tidak ada input murajaah dalam rentang" style="color:#6b7280">(0)</small> ' +
   '<button type="button" class="mur-range-list-btn" data-count="0" disabled ' +
   'style="margin-left:6px;padding:3px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;color:#6b7280;cursor:not-allowed" ' +
-  'title="Daftar input murajaah (rentang)">Lihat</button>';
+  'title="Daftar input murajaah (rentang)">Unduh</button>';
       const murCell = tr.querySelector('.murajaah-cell');
       if (murCell && murCell.nextSibling) tr.insertBefore(td, murCell.nextSibling);
       else tr.appendChild(td);
@@ -8846,7 +8846,7 @@ var btnStyle = btnEnabled
   'aria-label="' + (btnEnabled ? ('Lihat ' + count + ' input murajaah dalam rentang') : 'Tidak ada input murajaah dalam rentang') + '" ' +
   'style="color:#6b7280;' + (btnEnabled ? 'cursor:pointer;text-decoration:underline' : '') + '">(' + count + ')</small> ' +
   '<button type="button" class="mur-range-list-btn" data-count="' + count + '" ' + (btnEnabled ? '' : 'disabled') + ' ' +
-  'style="' + btnStyle + '" title="Daftar input murajaah (rentang)">Lihat</button>';
+  'style="' + btnStyle + '" title="Daftar input murajaah (rentang)">Unduh</button>';
 
         cell.dataset.murRangeTotal = totalNum.toFixed(2);
         cell.dataset.murRangePsum  = String(pSum);
@@ -8884,7 +8884,7 @@ var btnStyle = btnEnabled
   '<small class="mur-range-count" data-link="0" data-count="0" role="button" tabindex="-1" aria-label="Tidak ada input murajaah dalam rentang" style="color:#6b7280">(0)</small> ' +
   '<button type="button" class="mur-range-list-btn" data-count="0" disabled ' +
   'style="margin-left:6px;padding:3px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;color:#6b7280;cursor:not-allowed" ' +
-  'title="Daftar input murajaah (rentang)">Lihat</button>';
+  'title="Daftar input murajaah (rentang)">Unduh</button>';
       td.dataset.murRangeTotal = "0.00";
       td.dataset.murRangePsum  = "0";
       td.dataset.murRangePavg  = "0";
