@@ -2945,13 +2945,14 @@ logoutBtn.addEventListener("click", () => {
   }, 500);
 });
 
+
 // ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
     perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
-	defaultTarget: 1,                                   // default denominator
+    defaultTarget: 1,                                   // default denominator
     maxTarget: 1,                                       // denominator 1..6
     labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
   };
@@ -3166,8 +3167,6 @@ logoutBtn.addEventListener("click", () => {
   window.__absflex_computePercent = computePercent;
 })();
 
-
-
 // === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja)
 (function(){
   function ensureAbsensiModal(){
@@ -3182,7 +3181,8 @@ logoutBtn.addEventListener("click", () => {
     overlay.innerHTML = `
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
-          <h3 style="margin:0;font-size:18px;">Edit Absensi</h3>
+          <!-- Judul statis dihapus. Ganti identitas dinamis: Nama (NIS) -->
+          <div id="absensiModalIdentity" style="margin:0;font-size:18px;font-weight:600;"></div>
           <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
@@ -3201,6 +3201,124 @@ logoutBtn.addEventListener("click", () => {
     });
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
+})();
+
+// === Tambahan: pencarian nama santri berdasar NIS + pembuka modal by NIS ===
+(function(){
+  // Opsi cepat: gunakan SANTRI_INDEX global bila Anda sudah build index saat load data
+  //   window.SANTRI_INDEX = { "110001": { nama:"Ahmad" }, ... }
+  window.getNamaByNIS = function(nis){
+    const key = (nis ?? "").toString().trim();
+    if (!key) return "";
+
+    // 1) Coba index global
+    if (window.SANTRI_INDEX && window.SANTRI_INDEX[key]?.nama) {
+      return String(window.SANTRI_INDEX[key].nama).trim();
+    }
+
+    // 2) Fallback: cari di tabel DOM
+    // Prefer <tr data-nis="...">
+    let tr = document.querySelector(`tr[data-nis="${CSS.escape(key)}"]`);
+    if (!tr) {
+      // fallback: cari sel yang textContent-nya sama dengan NIS
+      const nisCell = Array.from(document.querySelectorAll('[data-col="nis"], td, th'))
+        .find(el => el.textContent.trim() === key);
+      tr = nisCell?.closest?.('tr') || null;
+    }
+    if (tr) {
+      const namaCell = tr.querySelector('[data-col="nama"]');
+      if (namaCell) return namaCell.textContent.trim();
+      if (tr.dataset.nama) return tr.dataset.nama.trim(); // fallback data attr
+      const tds = [...tr.children].filter(el => el.tagName==='TD' || el.tagName==='TH');
+      if (tds[1]) return tds[1].textContent.trim(); // fallback kolom ke-2
+    }
+
+    return "";
+  };
+
+  // Buka modal hanya dengan NIS; header otomatis "Nama (NIS)"
+  window.openAbsensiModalByNIS = function({ nis, preset=null, onReady=null } = {}){
+    window.ensureAbsensiModal();
+
+    const overlay    = document.getElementById("absensiModalOverlay");
+    const identityEl = document.getElementById("absensiModalIdentity");
+    const content    = document.getElementById("absensiModalContent");
+
+    const nisSafe = (nis ?? "").toString().trim();
+    const nama    = window.getNamaByNIS(nisSafe);
+    identityEl.textContent = nama
+      ? `${nama} (${nisSafe})`
+      : (nisSafe ? `NIS ${nisSafe}` : "—");
+
+    // render widget
+    content.innerHTML = "";
+    const mount = document.createElement("div");
+    mount.id = "absflexMount";
+    content.appendChild(mount);
+
+    const target = (preset && typeof preset.target === "number") ? preset.target : undefined;
+    const presetItems = (preset && Array.isArray(preset.preset)) ? preset.preset : null;
+
+    const root = window.renderAbsensiFlex(mount, { target, presetItems });
+    root._nis  = nisSafe;
+    root._nama = nama || "";
+
+    if (typeof onReady === "function") onReady(root);
+    overlay.style.display = "flex";
+  };
+
+  // Util opsional: ambil NIS & Nama dari baris saat klik tombol di kolom
+  window.__extractSantriFromRow = function(startEl, { nisSelector='[data-col="nis"]', namaSelector='[data-col="nama"]', nisIndex=null, namaIndex=null } = {}){
+    const tr = startEl?.closest?.("tr");
+    if (!tr) return { nis:null, nama:null };
+
+    let nis = null, nama = null;
+
+    // 1) data-col
+    const nisCell  = tr.querySelector(nisSelector);
+    const namaCell = tr.querySelector(namaSelector);
+    if (nisCell)  nis  = nisCell.textContent.trim();
+    if (namaCell) nama = namaCell.textContent.trim();
+
+    // 2) index kolom (fallback)
+    if ((nis==null || nama==null) && (nisIndex!=null || namaIndex!=null)) {
+      const tds = [...tr.children].filter(el => el.tagName === 'TD' || el.tagName === 'TH');
+      if (nis==null  && nisIndex!=null  && tds[nisIndex])  nis  = tds[nisIndex].textContent.trim();
+      if (nama==null && namaIndex!=null && tds[namaIndex]) nama = tds[namaIndex].textContent.trim();
+    }
+
+    // 3) atribut data (fallback akhir)
+    if (!nis)  nis  = tr.dataset.nis  || null;
+    if (!nama) nama = tr.dataset.nama || null;
+
+    return { nis, nama };
+  };
+})();
+
+// === Contoh handler pemakaian (opsional): klik tombol edit di kolom ===
+// Anda boleh hapus blok ini jika sudah punya handler sendiri.
+(function(){
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest?.(".btn-edit-absensi"); // sesuaikan class tombol/ikon edit
+    if (!btn) return;
+
+    const tr = btn.closest("tr");
+    // Ambil NIS dari data-col / data-attr / index kolom
+    let nis = tr?.dataset?.nis || null;
+    if (!nis) {
+      const nisCell = tr?.querySelector?.('[data-col="nis"]');
+      if (nisCell) nis = nisCell.textContent.trim();
+    }
+
+    // Ambil dataAbsensi lama (opsional) untuk preset
+    const dataAbsensi = tr?.__absensiData || null;
+    const preset = window.__makePresetAbsensiItems
+      ? window.__makePresetAbsensiItems(dataAbsensi)
+      : null;
+
+    // Buka modal berdasar NIS — judul otomatis Nama (NIS)
+    window.openAbsensiModalByNIS({ nis, preset });
+  });
 })();
 
 
