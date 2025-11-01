@@ -2945,13 +2945,13 @@ logoutBtn.addEventListener("click", () => {
   }, 500);
 });
 
-// ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============
+<!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
     perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
-	defaultTarget: 1,                                   // default denominator
+    defaultTarget: 1,                                   // default denominator
     maxTarget: 1,                                       // denominator 1..6
     labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
   };
@@ -3166,9 +3166,7 @@ logoutBtn.addEventListener("click", () => {
   window.__absflex_computePercent = computePercent;
 })();
 
-
-
-// === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja)
+<!-- === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja) -->
 (function(){
   function ensureAbsensiModal(){
     if (document.getElementById("absensiModalOverlay")) return;
@@ -3182,7 +3180,9 @@ logoutBtn.addEventListener("click", () => {
     overlay.innerHTML = `
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
-          <h3 style="margin:0;font-size:18px;"><span id="absensiModalTitleName" style="font-weight:600;"></span></h3>
+          <h3 style="margin:0;font-size:18px;">
+            Edit Absensi — <span id="absensiModalTitleName" style="font-weight:600;"></span>
+          </h3>
           <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
@@ -3201,132 +3201,51 @@ logoutBtn.addEventListener("click", () => {
     });
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
-})();
 
-
-(function(){
-  function cellText(el){
-    if (!el) return '';
-    const input = el.querySelector('input,select,textarea');
-    if (input) return (input.value || input.textContent || '').trim();
-    const a = el.querySelector('a');
-    if (a) return (a.textContent || a.innerText || '').trim();
-    return (el.textContent || el.innerText || '').trim();
-  }
-
-  function headerMapForTable(table){
-    const map = { nis: 0, nama: 1 };
-    if (!table) return map;
-    const ths = table.querySelectorAll('thead th');
-    if (!ths.length) return map;
-    for (let i=0;i<ths.length;i++){
-      const t = (ths[i].textContent || '').trim().toLowerCase();
-      if (t === 'nis')  map.nis  = i;
-      if (t === 'nama') map.nama = i;
-    }
-    return map;
-  }
-
-  function extractIdentityFromButton(btn){
-    const tr = btn.closest('tr');
-    const table = tr && tr.closest('table');
-    const map = headerMapForTable(table);
-    const tds = tr ? tr.querySelectorAll('td') : [];
-    const nis  = cellText(tds[map.nis]  || tds[0]);
-    const nama = cellText(tds[map.nama] || tds[1]);
-    return { nis, nama, tr };
-  }
-
-  function setAbsensiModalTitle(nis, nama){
-    const span = document.getElementById('absensiModalTitleName');
+  // ====== Tambahan ringan: helper untuk set judul & open modal (tanpa GET/POST) ======
+  window.setAbsensiModalTitle = function(nis, nama){
+    const span = document.getElementById("absensiModalTitleName");
     if (!span) return;
-    const n1 = (nama||'').trim();
-    const n2 = (nis||'').trim();
-    span.textContent = (n1 && n2) ? `${n1} (${n2})` : (n1 || (n2 ? `NIS ${n2}` : ''));
-  }
+    const nm = (nama||"").trim();
+    const ns = (nis||"").trim();
+    span.textContent = (nm && ns) ? `${nm} (${ns})` : (nm || (ns ? `NIS ${ns}` : ""));
+  };
 
-  // === PATCH: buka modal + load preset dari tombol; sync balik hasil ===
-  function openAbsensiModal(opts){
-    window.ensureAbsensiModal && window.ensureAbsensiModal();
-
-    const { nis, nama, srcBtn } = opts || {};
-    setAbsensiModalTitle(nis, nama);
-
-    const overlay = document.getElementById('absensiModalOverlay');
-    const content = document.getElementById('absensiModalContent');
+  // Panggil ini dari kode Anda ketika tombol Input diklik:
+  // window.openAbsensiModalSimple({ nis, nama, preset, target })
+  // - preset: array [{key:'hadir1',checked:true}, ...] (opsional)
+  // - target: integer (opsional)
+  window.openAbsensiModalSimple = function({ nis="", nama="", preset=null, target=window.ABS_FLEX_CFG?.defaultTarget || 1 } = {}){
+    ensureAbsensiModal();
+    const overlay = document.getElementById("absensiModalOverlay");
+    const content = document.getElementById("absensiModalContent");
     if (!overlay || !content) return;
 
-    // 1) AMBIL STATE SEBELUMNYA dari tombol (jika ada)
-    let preset = null, target = undefined;
-    try {
-      if (srcBtn?.dataset.absitems) {
-        const parsed = JSON.parse(srcBtn.dataset.absitems);
-        if (Array.isArray(parsed)) preset = parsed.map(it => ({ key:String(it.key).toLowerCase(), checked:!!it.checked }));
-      }
-      if (srcBtn?.dataset.abstarget) {
-        target = Math.max(1, Math.min(6, parseInt(srcBtn.dataset.abstarget)||1));
-      }
-    } catch(e){ /* abaikan */ }
+    // simpan identitas
+    overlay.dataset.nis = String(nis||"");
+    overlay.dataset.nama = String(nama||"");
 
-    // 2) RENDER widget pakai preset yang ada (kalau tidak ada, default)
-    content.innerHTML = '';
-    window.renderAbsensiFlex && window.renderAbsensiFlex(content, {
-      target: (target ?? window.ABS_FLEX_CFG?.defaultTarget) || 1,
-      presetItems: preset
-    });
+    // set judul + render widget
+    window.setAbsensiModalTitle(overlay.dataset.nis, overlay.dataset.nama);
+    content.innerHTML = "";
+    window.renderAbsensiFlex && window.renderAbsensiFlex(content, { target, presetItems: preset });
 
-    // Referensi elemen baris/mini display untuk update persen (optional)
-    const td = srcBtn?.closest('td.abs-flex-cell');
-    const mini = td?.querySelector('.abs-mini');
+    overlay.style.display = "flex";
+  };
 
-    // 3) FUNGSION sync -> simpan state dari modal ke tombol & update tampilan mini
-    function syncBack(){
-      // renderAbsensiFlex menaruh _absensi* di container
-      const items   = content._absensiItems || [];
-      const tgt     = content._absensiTarget || 1;
-      const checked = content._absensiChecked ?? items.filter(x=>x.checked).length;
-      const percent = content._absensiPercent ?? Math.round(((checked||0)/tgt)*100);
-
-      // simpan di dataset tombol (persist antar-buka)
-      if (srcBtn){
-        try { srcBtn.dataset.absitems = JSON.stringify(items); } catch(e){}
-        srcBtn.dataset.abstarget = String(tgt);
-      }
-
-      // update mini display seperti "80% (4/5)"
-      if (mini){
-        mini.textContent = `${percent}% (${checked}/${tgt})`;
-      }
-    }
-
-    // 4) Setiap ada perubahan di modal -> langsung sync agar tidak hilang walau ditutup
-    content.addEventListener('change', syncBack);
-
-    // 5) Saat menutup modal (tombol, klik overlay, atau Escape) -> sekali lagi sync
-    const closeBtn = overlay.querySelector('#absensiModalClose');
-    const onOverlayClick = (e)=>{ if (e.target===overlay){ syncBack(); overlay.style.display='none'; cleanup(); } };
-    const onCloseClick   = ()=>{ syncBack(); overlay.style.display='none'; cleanup(); };
-    const onEsc          = (e)=>{ if (e.key==='Escape'){ syncBack(); overlay.style.display='none'; cleanup(); } };
-
-    overlay.addEventListener('click', onOverlayClick, { once:true });
-    closeBtn && closeBtn.addEventListener('click', onCloseClick, { once:true });
-    document.addEventListener('keydown', onEsc, { once:true });
-
-    function cleanup(){
-      // lepas listener 'change' agar tidak dobel pada buka berikutnya
-      content.removeEventListener('change', syncBack);
-    }
-
-    overlay.style.display = 'flex';
-  }
-
-  // Listener global tombol Input
-  document.addEventListener('click', function(e){
-    const btn = e.target.closest('.btn-absensi-flex');
-    if (!btn) return;
-    const { nis, nama } = extractIdentityFromButton(btn);
-    openAbsensiModal({ nis, nama, srcBtn: btn });
-  });
+  // Opsional: ambil state terkini dari modal (untuk disimpan ke D1 oleh kode Anda)
+  window.getCurrentAbsensiState = function(){
+    const overlay = document.getElementById("absensiModalOverlay");
+    const content = document.getElementById("absensiModalContent");
+    return {
+      nis: overlay?.dataset?.nis || "",
+      nama: overlay?.dataset?.nama || "",
+      absensiItems: content?._absensiItems || [],
+      absensiTarget: content?._absensiTarget || (window.ABS_FLEX_CFG?.defaultTarget||1),
+      absensiChecked: content?._absensiChecked || 0,
+      absensiPercent: content?._absensiPercent || 0
+    };
+  };
 })();
 
 
