@@ -2980,19 +2980,14 @@ logoutBtn.addEventListener("click", () => {
     const per     = ABS_FLEX_CFG.perStatus|0;
     const sesiAll = ["Sesi"];
 
-    // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
       const sesi = (idx === 0) ? "Pagi" : "Sore";
       return `${Title} ${sesi} ${i}`;
     }
-
-    // Jika lebih dari 2 sesi, gunakan daftar sesi lengkap
     if (per > 2){
       const sesi = sesiAll[idx] || `Sesi ${i}`;
       return `${Title} ${sesi} ${i}`;
     }
-
-    // Fallback (perStatus=1)
     return `${Title} ${i}`;
   }
 
@@ -3221,11 +3216,9 @@ logoutBtn.addEventListener("click", () => {
     const content = document.getElementById("absensiModalContent");
     if (!overlay || !content) return;
 
-    // simpan identitas
     overlay.dataset.nis = String(nis||"");
     overlay.dataset.nama = String(nama||"");
 
-    // set judul + render widget
     window.setAbsensiModalTitle(overlay.dataset.nis, overlay.dataset.nama);
     content.innerHTML = "";
     window.renderAbsensiFlex && window.renderAbsensiFlex(content, { target, presetItems: preset });
