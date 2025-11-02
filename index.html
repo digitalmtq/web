@@ -5221,25 +5221,11 @@ const allDataNorm = rawList
   });
 
   	// 4) KBM hari unik (HANYA hari dengan record bermakna)
-	// --- [PATCH] Tentukan basis data yang konsisten untuk KBM & slot ---
-const { start: absS, end: absE, source: absSrc } = (typeof getAbsensiRangeOrDefault === 'function'
-  ? getAbsensiRangeOrDefault()
-  : {}) || {};
-const useAbsensiRange = (absSrc === 'absensi');
-
-const dataBasis = useAbsensiRange
-  ? (allDataNorm || []).filter(it => {
-      const t = String(it?.tanggal || '');
-      return t >= (absS || '') && t <= (absE || '');
-    })
-  : allDataNorm;
-// 4) KBM unik (HANYA hari bermakna) — pakai dataBasis
-const kbmDaySet = new Set();
-(dataBasis||[]).forEach(it => {
-  if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
-});
-const kbmDays = kbmDaySet.size;
-
+	const kbmDaySet = new Set();
+	(allDataNorm||[]).forEach(it => {
+	if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
+	});
+	const kbmDays = kbmDaySet.size;
 
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
@@ -5894,24 +5880,11 @@ const allDataNorm = rawList
   });
 
   	// 4) KBM unik (HANYA hari bermakna)
-	// --- [PATCH] Tentukan basis data yang konsisten untuk KBM & slot ---
-const { start: absS, end: absE, source: absSrc } = (typeof getAbsensiRangeOrDefault === 'function'
-  ? getAbsensiRangeOrDefault()
-  : {}) || {};
-const useAbsensiRange = (absSrc === 'absensi');
-
-const dataBasis = useAbsensiRange
-  ? (allDataNorm || []).filter(it => {
-      const t = String(it?.tanggal || '');
-      return t >= (absS || '') && t <= (absE || '');
-    })
-  : allDataNorm;
-// 4) KBM unik (HANYA hari bermakna) — pakai dataBasis
-const kbmDaySet = new Set();
-(dataBasis||[]).forEach(it => {
-  if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
-});
-const kbmDays = kbmDaySet.size;
+	const kbmDaySet = new Set();
+	(allDataNorm||[]).forEach(it => {
+	if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
+	});
+	const kbmDays = kbmDaySet.size;
 
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
@@ -5927,12 +5900,19 @@ const kbmDays = kbmDaySet.size;
   });
 
   // 6) Merge slot
-  // 6) Merge slot — pakai dataBasis agar konsisten dengan KBM
-const slotAgg = _aggregateSlotsPerKey(dataBasis);
+  const { start: absS, end: absE, source: absSrc } = getAbsensiRangeOrDefault();
+const useAbsensiRange = (absSrc === 'absensi');
+const allDataAbsensi = useAbsensiRange
+  ? (allDataNorm || []).filter(it => {
+      const t = String(it?.tanggal || '');
+      return t >= absS && t <= absE;
+    })
+  : allDataNorm;
 
+const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
 
-  // 6b) Hari hadir berbasis slot — pakai dataBasis (konsisten dengan KBM & slotAgg)
-const hadirDayAgg = _aggregateHadirDaysPerKey(dataBasis);
+  // 6b) Hari hadir berbasis slot -> simpan per santri (pakai allDataAbsensi agar konsisten dengan toggle rentang)
+  const hadirDayAgg = _aggregateHadirDaysPerKey(allDataAbsensi);
   for (const [k, v] of hadirDayAgg.entries()){
     if (!aggMap[k]) continue;
     aggMap[k].hadirDays = v.hadirDays;
