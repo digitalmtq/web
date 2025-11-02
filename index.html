@@ -4909,20 +4909,6 @@ function getSelectedKelas(){
   return { value: '', el };
 }
 
-// --- Helper: ambil rentang ABSENSI bila ada, jika kosong fallback ke PDF ---
-if (typeof window.getAbsensiRangeOrDefault !== 'function') {
-  window.getAbsensiRangeOrDefault = function (){
-    const absS = document.querySelector('#absensi-start-date')?.value || '';
-    const absE = document.querySelector('#absensi-end-date')?.value   || '';
-    const pdfS = document.querySelector('#pdf-start-date')?.value      || '';
-    const pdfE = document.querySelector('#pdf-end-date')?.value        || '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(absS) && /^\d{4}-\d{2}-\d{2}$/.test(absE)) {
-      return { start: absS, end: absE, source: 'absensi' };
-    }
-    return { start: pdfS, end: pdfE, source: 'pdf' };
-  };
-}
-
   // === Helper Kelas/Kelompok ===
 function buildKelasKelompokLine(kelas, kelasEl) {
   const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
@@ -6784,27 +6770,25 @@ async function pdfSantriDownload(){
     const key = sel.value;
     const selectedNama = sel.options[sel.selectedIndex]?.dataset?.nama || '';
 
-    // --- Gunakan rentang ABSENSI bila tersedia ---
+    const { startDate, endDate, kelasLine, rows: aggRows, allDataNorm } = await collectRekapData();
+
+	// === Range efektif (pakai Absensi jika toggle aktif) ===
 const { start: absS, end: absE, source: absSrc } =
   (typeof getAbsensiRangeOrDefault === 'function')
     ? getAbsensiRangeOrDefault()
-    : { start: startDate, end: endDate, source: 'pdf' };
+    : { start: startDate, end: endDate, source: 'global' };
 
 const usingAbsensiRange = (absSrc === 'absensi');
 const effStart = usingAbsensiRange ? absS : startDate;
 const effEnd   = usingAbsensiRange ? absE : endDate;
 
-// Filter data santri sesuai rentang efektif
-let mine = allDataNorm.filter(it => String(it.nis||it.id||'') === key);
+    let mine = allDataNorm.filter(it => (String(it.nis||it.id||'') === key));
 if (usingAbsensiRange) {
   mine = mine.filter(it => {
     const t = String(it?.tanggal || '');
     return t >= effStart && t <= effEnd;
   });
 }
-if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih pada rentang tanggal.');
-
-    const mine = allDataNorm.filter(it => (String(it.nis||it.id||'') === key));
     if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih pada rentang tanggal.');
 
     const namaSantri = selectedNama || (mine.find(it => it.nama)?.nama) || '-';
@@ -6897,47 +6881,32 @@ if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih pada ren
 	);
 
     // ==== Rekap total slot (pakai dari agregat jika ada) ====
-    // Cari profil agregat si santri, tapi hanya dipakai jika BUKAN absensi-range
-const agg = (!usingAbsensiRange)
-  ? aggRows.find(r => r.nis === key || (!r.nis && r.id === key))
-  : null;
+    const agg = aggRows.find(r => r.nis === key || (!r.nis && r.id === key));
 
-// === Rekap total slot (pilih sumber dengan aman) ===
-const totH = (agg?.hadirSlots != null) ? agg.hadirSlots : dayRows.reduce((s,d)=>s+d.cnt.hadir,0);
-const totA = (agg?.alphaSlots != null) ? agg.alphaSlots : dayRows.reduce((s,d)=>s+d.cnt.alpha,0);
-const totS = (agg?.sakitSlots != null) ? agg.sakitSlots : dayRows.reduce((s,d)=>s+d.cnt.sakit,0);
-const totI = (agg?.izinSlots  != null) ? agg.izinSlots  : dayRows.reduce((s,d)=>s+d.cnt.izin,0);
+    const totH = (agg?.hadirSlots != null) ? agg.hadirSlots : dayRows.reduce((s,d)=>s+d.cnt.hadir,0);
+    const totA = (agg?.alphaSlots != null) ? agg.alphaSlots : dayRows.reduce((s,d)=>s+d.cnt.alpha,0);
+    const totS = (agg?.sakitSlots != null) ? agg.sakitSlots : dayRows.reduce((s,d)=>s+d.cnt.sakit,0);
+    const totI = (agg?.izinSlots  != null) ? agg.izinSlots  : dayRows.reduce((s,d)=>s+d.cnt.izin,0);
 
-const totalTargetSlots = (agg?.targetSlots != null)
-  ? agg.targetSlots
-  : dayRows.reduce((s,d)=> s + Number(d.targetSlots||0), 0);
+    const totalTargetSlots = (agg?.targetSlots != null)
+      ? agg.targetSlots
+      : dayRows.reduce((s,d)=>s + Number(d.targetSlots||0), 0);
 
-const totPages = Math.round(
-  (agg && !usingAbsensiRange) ? (agg.totalPageSum ?? 0) : dayRows.reduce((s,d)=>s+d.totalPage,0)
-);
+    const totPages = Math.round(agg?.totalPageSum ?? dayRows.reduce((s,d)=>s+d.totalPage,0));
+    const totJuz   = +(agg?.totalJuz ?? dayRows.reduce((s,d)=>s+d.totalJuz,0)).toFixed(2);
 
-const totJuz = +(
-  (agg && !usingAbsensiRange) ? (agg.totalJuz ?? 0) : dayRows.reduce((s,d)=>s+d.totalJuz,0)
-).toFixed(2);
+	const murCountTotal = dayRows.reduce((s,d)=> s + ((d.murJuz||0) > 0 ? 1 : 0), 0);
+	const murJuzTotal   = +( (agg?.murTotalJuz ?? dayRows.reduce((s,d)=> s + (d.murJuz||0), 0)).toFixed(2) );
 
-// Murajaah total
-const murCountTotal = dayRows.reduce((s,d)=> s + ((d.murJuz||0) > 0 ? 1 : 0), 0);
-const murJuzTotal   = +(
-  (agg && !usingAbsensiRange) ? (agg.murTotalJuz ?? 0) : dayRows.reduce((s,d)=> s + (d.murJuz||0), 0)
-).toFixed(2);
-
-// Nilai rata2 total
-const totalNilaiCount = (!usingAbsensiRange && agg?.nilaiCount != null)
-  ? agg.nilaiCount
-  : dayRows.reduce((s,d)=> s + (d.nilaiCount||0), 0);
-
-const hasNilaiTotal = totalNilaiCount > 0;
-const nilaiAvg = hasNilaiTotal
-  ? ( (!usingAbsensiRange && agg?.nilaiCount>0)
-      ? (agg.nilaiSum / agg.nilaiCount)
-      : (dayRows.reduce((s,d)=> s + (d.nilaiSum||0), 0) / totalNilaiCount)
-    )
-  : null;
+    const totalNilaiCount = (agg?.nilaiCount != null)
+	? agg.nilaiCount
+	: dayRows.reduce((s,d)=> s + (d.nilaiCount||0), 0);
+	const hasNilaiTotal = totalNilaiCount > 0;
+	const nilaiAvg = hasNilaiTotal
+	? ((agg?.nilaiCount != null && agg.nilaiCount > 0)
+	? (agg.nilaiSum / agg.nilaiCount)
+	: (dayRows.reduce((s,d)=> s + (d.nilaiSum||0), 0) / totalNilaiCount))
+	: null;
     const statusJuzTotal = PDF_totalAllJuzStatus(totJuz, agg?.semester ?? semesterSantri);
 
     // Persentase kehadiran total (slot-based)
@@ -6981,28 +6950,28 @@ const nilaiAvg = hasNilaiTotal
       };
     });
 
-    // ==== Baris REKAP (slot-based) ====
-    const predHurufTotal = hasNilaiTotal
-	? PDF_predikatFromScore(nilaiAvg).huruf
-	: '-';
-    function _mergeSAfromDayRows(dayRows){
+	 function _mergeSAfromDayRows(dayRows){
   const list = [];
   dayRows.forEach(d => (d.sa||[]).forEach(seg => seg?.from && seg?.to && list.push(seg)));
-  return PDF_joinSAsegmentsNamaMerged(list);
+  return PDF_joinSAsegmentsNamaMerged(list); // sudah ada di file
 }
 function _mergeJuzFromDayRows(dayRows){
   const list = [];
   dayRows.forEach(d => (d.juz||[]).forEach(seg => Array.isArray(seg) && seg.length>=2 && list.push(seg)));
-  return PDF_joinRangeSegmentsCompact(list, true);
+  return PDF_joinRangeSegmentsCompact(list, true); // sudah ada di file
 }
 
-const setoranTotal = (!usingAbsensiRange && agg)
-  ? PDF_joinSAsegmentsNamaMerged(agg.saSegments)
-  : _mergeSAfromDayRows(dayRows);
+    // ==== Baris REKAP (slot-based) ====
+    const predHurufTotal = hasNilaiTotal
+	? PDF_predikatFromScore(nilaiAvg).huruf
+	: '-';
+    const setoranTotal = (usingAbsensiRange || !agg)
+  ? _mergeSAfromDayRows(dayRows)
+  : PDF_joinSAsegmentsNamaMerged(agg.saSegments);
 
-const juzTotalTxt  = (!usingAbsensiRange && agg)
-  ? PDF_joinRangeSegmentsCompact(agg.juzSegments, true)
-  : _mergeJuzFromDayRows(dayRows);
+const juzTotalTxt  = (usingAbsensiRange || !agg)
+  ? _mergeJuzFromDayRows(dayRows)
+  : PDF_joinRangeSegmentsCompact(agg.juzSegments, true);
 
     tableRows.push({
       _isRekap: true,
@@ -7059,8 +7028,7 @@ const juzTotalTxt  = (!usingAbsensiRange && agg)
       doc.text(`Santri: ${key} — ${namaSantri}`, margin.left, margin.top + 12);
       const rightX = pageW - margin.right - 78;
       doc.text(`Semester: ${tableRows.find(r=>!r._isRekap)?.sem ?? '-'}`, rightX, margin.top + 6);
-      // Di drawHeaderBarS(), ubah baris periode:
-	  doc.text(`Periode Tahfiz: ${fmtD_M_YYYY(effStart)} s.d. ${fmtD_M_YYYY(effEnd)}`, rightX, margin.top + 12);
+      doc.text(`Periode Tahfiz: ${fmtD_M_YYYY(effStart)} s.d. ${fmtD_M_YYYY(effEnd)}`, rightX, margin.top + 12);
       doc.setTextColor(...theme.text);
     }
     function drawFooterS(pageNo, totalPages, printedAt){
@@ -7200,7 +7168,7 @@ const juzTotalTxt  = (!usingAbsensiRange && agg)
     }
     const printedAt = new Date();
     const printedISO = printedAt.toISOString().slice(0,10);
-	const ttdDate = fmtDDMMYYYY(effEnd) || fmtDDMMYYYY(printedISO) || printedAt.toLocaleDateString('id-ID');
+    const ttdDate = fmtDDMMYYYY(effEnd) || fmtDDMMYYYY(printedISO) || printedAt.toLocaleDateString('id-ID');
 
     const spaceTop = 10, neededH = 36;
     if (y + spaceTop + neededH > pageH - margin.bottom){
@@ -7231,7 +7199,7 @@ const juzTotalTxt  = (!usingAbsensiRange && agg)
     const totalPages = doc.internal.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooterS(p, totalPages, printedAt.toLocaleString()); }
 
-    const fileName = `Rekap_perSantri_${key}_${startDate}_sd_${endDate}.pdf`;
+    const fileName = `Rekap_perSantri_${key}_${effStart}_sd_${effEnd}.pdf`;
     doc.save(fileName);
 
     const santriModal = document.getElementById('santriModalOverlay');
