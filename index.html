@@ -4888,6 +4888,37 @@ function _isMeaningfulKBM(rec){
     return map;
   }
 
+// ====== Agregasi "hari hadir" per santri (ikut dataset TERFILTER) ======
+function _aggregateHadirDaysPerKey(items){
+  const map = new Map(); // key -> Set tanggal hadir
+  for (const r of (items || [])) {
+    const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
+    if (!key) continue;
+    const tgl = r?.tanggal ? String(r.tanggal).slice(0,10) : '';
+    if (!tgl) continue;
+
+    // “hadir” dari slot baru, fallback ke field lama absensi/status
+    let isHadir = false;
+    const sc = r?._slotCounts;
+    if (sc && Number(sc.hadir||0) > 0) {
+      isHadir = true;
+    } else {
+      const st = (typeof PDF_normStatus === 'function')
+        ? PDF_normStatus(r?.absensi ?? r?.status)
+        : String(r?.absensi ?? r?.status ?? '').toLowerCase();
+      if (st === 'hadir' || st === 'h') isHadir = true;
+    }
+
+    if (isHadir) {
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key).add(tgl);
+    }
+  }
+  const out = new Map();
+  for (const [k,set] of map.entries()) out.set(k, set.size);
+  return out;
+}
+
 // === Hitung "hadirDays" per santri (≥1 slot hadir pada suatu tanggal) ===
 function _hadirDaysPerKey(items){
   const mapSet = new Map(); // key -> Set(tanggal_hadir)
