@@ -5223,12 +5223,6 @@ async function collectRekapData(){
     aggMap[k].targetSlots = a.target;
   }
 
-  // 6b) Hari hadir per santri (ikut dataset TERFILTER)
-const hadirDaysAgg = _aggregateHadirDaysPerKey(allDataAbsensi);
-for (const [k, cnt] of hadirDaysAgg.entries()){
-  if (aggMap[k]) aggMap[k].hadirDays = cnt;  // akan dipakai untuk Hadir %
-}
-
   const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
   const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
   if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
@@ -5539,7 +5533,8 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
         const targetSlots= Number(r.targetSlots ?? 0);
         const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
-		const hadirPct   = denomSlots > 0
+  		const hadirDays = Number(r.hadirDays || 0);
+  		const hadirPct  = (kbmDays > 0) ? Math.round((hadirDays / kbmDays) * 100) : 0;
 		? Math.round((hadirSlots / denomSlots) * 100)
 		: (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
 
