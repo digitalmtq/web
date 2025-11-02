@@ -5133,6 +5133,7 @@ async function d1FetchAbsensiAggMap({ kelas, start, end }) {
   return m;
 }
 
+  // ====== Ambil & Agregasi Data (Rekap Kelas) ======
   async function collectRekapData(){
   const { value: kelas, el: kelasEl } = getSelectedKelas();
   const startDate = document.querySelector('#pdf-start-date')?.value;
@@ -5151,73 +5152,85 @@ async function d1FetchAbsensiAggMap({ kelas, start, end }) {
   }
 
   // 2) ROSTER
-  const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
-  let santriData = await resSantri.json().catch(()=>[]);
-  if (!Array.isArray(santriData)) santriData = [];
+const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+let santriData = await resSantri.json().catch(()=>[]);
+if (!Array.isArray(santriData)) santriData = [];
 
-  const allowSet = buildRosterWhitelist(santriData);
-  const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-  const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
-  const keyName = v => String(v || "").trim().toLowerCase();
-  const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
-  const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
-  const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
-  const rosterById   = byIdMap(santriData, s => s);
-  const rosterByNis  = byNisMap(santriData, s => s);
-  const rosterByName = byNameMap(santriData, s => s);
+// >>> HARD WHITELIST berdasarkan roster
+const allowSet = buildRosterWhitelist(santriData);
 
-  // 3) Normalisasi raw + injeksi slot (hanya yang ada di roster)
-  const allDataNorm = rawList
-    .filter(r => {
-      const id  = keyId(r?.id ?? "");
-      const nis = keyNis(r?.nis ?? "");
-      if (nis && allowSet.has(nis)) return true;
-      if (id  && allowSet.has(id))  return true;
-      const nmK = keyName(r?.nama);
-      const guessNis = nmK && rosterByName.get(nmK)?.nis ? keyNis(rosterByName.get(nmK).nis) : "";
-      const guessId  = nmK && rosterByName.get(nmK)?.id  ? keyId(rosterByName.get(nmK).id)  : "";
-      return (guessNis && allowSet.has(guessNis)) || (guessId && allowSet.has(guessId));
-    })
-    .map(r => {
-      let id   = keyId(r?.id ?? "");
-      let nis  = keyNis(r?.nis ?? "");
-      const nmK = keyName(r?.nama);
-      if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
-      if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
+// index helper (tetap seperti semula)
+const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
+const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
+const keyName = v => String(v || "").trim().toLowerCase();
+const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
+const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
+const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
+const rosterById   = byIdMap(santriData, s => s);
+const rosterByNis  = byNisMap(santriData, s => s);
+const rosterByName = byNameMap(santriData, s => s);
 
-      let nama = r?.nama;
-      if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
-      if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
-      if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
+// 3) Normalisasi raw + injeksi slot
+const allDataNorm = rawList
+  // >>> BUANG SEMUA RECORD yang key-nya tidak ada di roster
+  .filter(r => {
+    const id  = keyId(r?.id ?? "");
+    const nis = keyNis(r?.nis ?? "");
+    // boleh lolos jika nis/id ada di allow; jika kosong bisa coba ditebak dari roster, tapi kalau tidak tertebak → drop
+    if (nis && allowSet.has(nis)) return true;
+    if (id  && allowSet.has(id))  return true;
 
-      let semester = (r?.semester != null) ? Number(r.semester) : null;
-      if (semester == null) {
-        if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
-        else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
-      }
+    // upaya terakhir: tebak NIS dari nama di roster, lalu cek ke allowSet
+    const nmK = keyName(r?.nama);
+    const guessNis = nmK && rosterByName.get(nmK)?.nis ? keyNis(rosterByName.get(nmK).nis) : "";
+    const guessId  = nmK && rosterByName.get(nmK)?.id  ? keyId(rosterByName.get(nmK).id)  : "";
+    return (guessNis && allowSet.has(guessNis)) || (guessId && allowSet.has(guessId));
+  })
+  .map(r => {
+    // …(blok normalisasi asli Anda, tidak berubah)…
+    let id   = keyId(r?.id ?? "");
+    let nis  = keyNis(r?.nis ?? "");
+    const nmK = keyName(r?.nama);
+    if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
+    if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
 
-      let jenjang = r?.jenjang ?? null;
-      if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
-      if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
+    let nama = r?.nama;
+    if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
+    if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
+    if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-      let keterangan = r?.keterangan ?? null;
-      if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
-      if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
+    let semester = (r?.semester != null) ? Number(r.semester) : null;
+    if (semester == null) {
+      if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
+      else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
+    }
 
-      const slot = _slotMetricsFromRecord(r);
-      return {
-        ...r, ...slot, id, nis, nama, semester, jenjang, keterangan,
-        tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
-      };
-    });
+    let jenjang = r?.jenjang ?? null;
+    if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
+    if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
 
-  // 4) DATA BASIS & KBM = jumlah tanggal yang punya 1 input (apa pun)
-  //    (range sudah difilter di query D1: startDate..endDate)
-  const dataBasis = (allDataNorm || []).filter(it => it?.tanggal);
-  const kbmDays = new Set(dataBasis.map(it => String(it.tanggal).slice(0,10))).size;
+    let keterangan = r?.keterangan ?? null;
+    if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
+    if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
+
+    const slot = _slotMetricsFromRecord(r);
+    return {
+      ...r, ...slot, id, nis, nama, semester, jenjang, keterangan,
+      tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
+    };
+  });
+
+  	// 4) KBM hari unik (HANYA hari dengan record bermakna)
+	const kbmDaySet = new Set();
+	(allDataNorm||[]).forEach(it => {
+	if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
+	});
+	const kbmDays = kbmDaySet.size;
 
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
+
+  // totalJuz / totalMur dari server (cepat & konsisten)
   Object.values(aggMap).forEach(r => {
     const k = (r.nis && String(r.nis).trim()) || (r.id && String(r.id).trim());
     if (!k) return;
@@ -5225,11 +5238,12 @@ async function d1FetchAbsensiAggMap({ kelas, start, end }) {
     if (a) {
       r.totalJuz    = Number(a.totalJuz || r.totalJuz || 0);
       r.murTotalJuz = Number(a.totalMur || r.murTotalJuz || 0);
+      // r.murCount tetap dihitung dari harian (berapa hari ada mur>0)
     }
   });
 
-  // 6) Merge slot & hari hadir → pakai dataBasis (konsisten dengan KBM)
-  const slotAgg = _aggregateSlotsPerKey(dataBasis);
+  // 6) Merge slot (hadir/izin/sakit/alpha + target)
+  const slotAgg = _aggregateSlotsPerKey(allDataNorm);
   for (const [k, a] of slotAgg.entries()) {
     if (!aggMap[k]) continue;
     aggMap[k].hadirSlots  = a.hadir;
@@ -5238,10 +5252,12 @@ async function d1FetchAbsensiAggMap({ kelas, start, end }) {
     aggMap[k].alphaSlots  = a.alpha;
     aggMap[k].targetSlots = a.target;
   }
-  const hadirDayAgg = _aggregateHadirDaysPerKey(dataBasis);
+
+	   // 6b) Hari hadir berbasis slot -> simpan per santri
+  const hadirDayAgg = _aggregateHadirDaysPerKey(allDataNorm);
   for (const [k, v] of hadirDayAgg.entries()){
     if (!aggMap[k]) continue;
-    aggMap[k].hadirDays = v.hadirDays;
+    aggMap[k].hadirDays = v.hadirDays; // dipakai untuk Hadir % (hari hadir / kbmDays)
   }
 
   const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
@@ -5787,7 +5803,8 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
 
   // ====== Ambil & Agregasi Data utk 1 kelas spesifik ======
   async function collectRekapDataForClass(kelasKey, startDate, endDate){
-  if (!kelasKey || !startDate || !endDate) return null;
+  if (!kelasKey) return null;
+  if (!startDate || !endDate) return null;
   const { line: kelasLine } = _kelasKelompokLineFor(kelasKey);
 
   // 1) ABSENSI: raw + aggregate
@@ -5798,72 +5815,80 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
   if (!Array.isArray(rawList) || rawList.length === 0) return null;
 
   // 2) ROSTER
-  const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`);
-  let santriData = await resSantri.json().catch(()=>[]);
-  if (!Array.isArray(santriData)) santriData = [];
+const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`);
+let santriData = await resSantri.json().catch(()=>[]);
+if (!Array.isArray(santriData)) santriData = [];
 
-  const allowSet = buildRosterWhitelist(santriData);
-  const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-  const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
-  const keyName = v => String(v || "").trim().toLowerCase();
-  const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
-  const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
-  const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
-  const rosterById   = byIdMap(santriData, s => s);
-  const rosterByNis  = byNisMap(santriData, s => s);
-  const rosterByName = byNameMap(santriData, s => s);
+// >>> HARD WHITELIST roster
+const allowSet = buildRosterWhitelist(santriData);
 
-  // 3) Normalisasi raw + injeksi slot (hanya yang ada di roster)
-  const allDataNorm = rawList
-    .filter(r => {
-      const id  = keyId(r?.id ?? "");  const nis = keyNis(r?.nis ?? "");
-      if (nis && allowSet.has(nis)) return true;
-      if (id  && allowSet.has(id))  return true;
-      const nmK = keyName(r?.nama);
-      const guessNis = nmK && rosterByName.get(nmK)?.nis ? keyNis(rosterByName.get(nmK).nis) : "";
-      const guessId  = nmK && rosterByName.get(nmK)?.id  ? keyId(rosterByName.get(nmK).id)  : "";
-      return (guessNis && allowSet.has(guessNis)) || (guessId && allowSet.has(guessId));
-    })
-    .map(r => {
-      let id   = keyId(r?.id ?? "");
-      let nis  = keyNis(r?.nis ?? "");
-      const nmK = keyName(r?.nama);
-      if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
-      if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
+// index helper (tetap)
+const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
+const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
+const keyName = v => String(v || "").trim().toLowerCase();
+const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
+const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
+const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
+const rosterById   = byIdMap(santriData, s => s);
+const rosterByNis  = byNisMap(santriData, s => s);
+const rosterByName = byNameMap(santriData, s => s);
 
-      let nama = r?.nama;
-      if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
-      if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
-      if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
+// 3) Normalisasi raw + injeksi slot
+const allDataNorm = rawList
+  // >>> hanya record yang ada di roster
+  .filter(r => {
+    const id  = keyId(r?.id ?? "");  const nis = keyNis(r?.nis ?? "");
+    if (nis && allowSet.has(nis)) return true;
+    if (id  && allowSet.has(id))  return true;
+    const nmK = keyName(r?.nama);
+    const guessNis = nmK && rosterByName.get(nmK)?.nis ? keyNis(rosterByName.get(nmK).nis) : "";
+    const guessId  = nmK && rosterByName.get(nmK)?.id  ? keyId(rosterByName.get(nmK).id)  : "";
+    return (guessNis && allowSet.has(guessNis)) || (guessId && allowSet.has(guessId));
+  })
+  .map(r => {
+    // …(blok normalisasi asli Anda, sama seperti sebelumnya)…
+    let id   = keyId(r?.id ?? "");
+    let nis  = keyNis(r?.nis ?? "");
+    const nmK = keyName(r?.nama);
+    if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
+    if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
 
-      let semester = (r?.semester != null) ? Number(r.semester) : null;
-      if (semester == null) {
-        if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
-        else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
-      }
+    let nama = r?.nama;
+    if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
+    if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
+    if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-      let jenjang = r?.jenjang ?? null;
-      if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
-      if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
+    let semester = (r?.semester != null) ? Number(r.semester) : null;
+    if (semester == null) {
+      if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
+      else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
+    }
 
-      let keterangan = r?.keterangan ?? null;
-      if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
-      if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
+    let jenjang = r?.jenjang ?? null;
+    if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
+    if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
 
-      const slot = _slotMetricsFromRecord(r);
-      return {
-        ...r, ...slot, id, nis, nama, semester, jenjang, keterangan,
-        tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
-      };
-    });
+    let keterangan = r?.keterangan ?? null;
+    if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
+    if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
 
-  // 4) DATA BASIS & KBM = jumlah tanggal yang punya 1 input (apa pun)
-  //    (range sudah difilter di query D1: startDate..endDate)
-  const dataBasis = (allDataNorm || []).filter(it => it?.tanggal);
-  const kbmDays = new Set(dataBasis.map(it => String(it.tanggal).slice(0,10))).size;
+    const slot = _slotMetricsFromRecord(r);
+    return {
+      ...r, ...slot, id, nis, nama, semester, jenjang, keterangan,
+      tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
+    };
+  });
 
-  // 5) Agregasi base + merge aggregate D1
+  	// 4) KBM unik (HANYA hari bermakna)
+	const kbmDaySet = new Set();
+	(allDataNorm||[]).forEach(it => {
+	if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
+	});
+	const kbmDays = kbmDaySet.size;
+
+  // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
+
   Object.values(aggMap).forEach(r => {
     const k = (r.nis && String(r.nis).trim()) || (r.id && String(r.id).trim());
     if (!k) return;
@@ -5874,8 +5899,25 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
     }
   });
 
-  // 6) Merge slot & hari hadir → pakai dataBasis (konsisten dengan KBM)
-  const slotAgg = _aggregateSlotsPerKey(dataBasis);
+  // 6) Merge slot
+  const { start: absS, end: absE, source: absSrc } = getAbsensiRangeOrDefault();
+const useAbsensiRange = (absSrc === 'absensi');
+const allDataAbsensi = useAbsensiRange
+  ? (allDataNorm || []).filter(it => {
+      const t = String(it?.tanggal || '');
+      return t >= absS && t <= absE;
+    })
+  : allDataNorm;
+
+const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
+
+  // 6b) Hari hadir berbasis slot -> simpan per santri (pakai allDataAbsensi agar konsisten dengan toggle rentang)
+  const hadirDayAgg = _aggregateHadirDaysPerKey(allDataAbsensi);
+  for (const [k, v] of hadirDayAgg.entries()){
+    if (!aggMap[k]) continue;
+    aggMap[k].hadirDays = v.hadirDays;
+  }
+
   for (const [k, a] of slotAgg.entries()) {
     if (!aggMap[k]) continue;
     aggMap[k].hadirSlots  = a.hadir;
@@ -5883,11 +5925,6 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
     aggMap[k].sakitSlots  = a.sakit;
     aggMap[k].alphaSlots  = a.alpha;
     aggMap[k].targetSlots = a.target;
-  }
-  const hadirDayAgg = _aggregateHadirDaysPerKey(dataBasis);
-  for (const [k, v] of hadirDayAgg.entries()){
-    if (!aggMap[k]) continue;
-    aggMap[k].hadirDays = v.hadirDays;
   }
 
   const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
