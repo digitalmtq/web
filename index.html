@@ -5221,11 +5221,12 @@ const allDataNorm = rawList
   });
 
   	// 4) KBM hari unik (HANYA hari dengan record bermakna)
-	const kbmDaySet = new Set();
-	(allDataNorm||[]).forEach(it => {
-	if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
-	});
-	const kbmDays = kbmDaySet.size;
+	// 4) KBM = jumlah tanggal yang punya 1 input apa pun (sesuai definisi Anda)
+const kbmDays = new Set(
+  (dataBasis || [])
+    .map(it => (it?.tanggal ? String(it.tanggal).slice(0,10) : ''))
+    .filter(Boolean)
+).size;
 
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
@@ -5899,20 +5900,11 @@ const allDataNorm = rawList
     }
   });
 
-  // 6) Merge slot
-  const { start: absS, end: absE, source: absSrc } = getAbsensiRangeOrDefault();
-const useAbsensiRange = (absSrc === 'absensi');
-const allDataAbsensi = useAbsensiRange
-  ? (allDataNorm || []).filter(it => {
-      const t = String(it?.tanggal || '');
-      return t >= absS && t <= absE;
-    })
-  : allDataNorm;
+  // 6) Agregasi slot & hari-hadir pakai dataBasis (konsisten dengan KBM)
+const slotAgg = _aggregateSlotsPerKey(dataBasis);
 
-const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
-
-  // 6b) Hari hadir berbasis slot -> simpan per santri (pakai allDataAbsensi agar konsisten dengan toggle rentang)
-  const hadirDayAgg = _aggregateHadirDaysPerKey(allDataAbsensi);
+// 6b) Hari hadir berbasis slot (>=1 slot hadir pada hari tsb)
+const hadirDayAgg = _aggregateHadirDaysPerKey(dataBasis);
   for (const [k, v] of hadirDayAgg.entries()){
     if (!aggMap[k]) continue;
     aggMap[k].hadirDays = v.hadirDays;
