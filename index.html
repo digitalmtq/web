@@ -4891,22 +4891,32 @@ function _isMeaningfulKBM(rec){
 // ====== Agregasi "hari hadir" per santri (ikut dataset TERFILTER) ======
 function _aggregateHadirDaysPerKey(items){
   const map = new Map(); // key -> Set tanggal hadir
+
+  // normalizer lokal (jangan bergantung pada PDF_normStatus agar aman di halaman login)
+  function _normStatusLocal(s){
+    const v = String(s || '').trim().toLowerCase();
+    if (v === 'hadir' || v === 'h') return 'hadir';
+    if (v === 'alpha' || v === 'alfa' || v === 'alpa' || v === 'a') return 'alpha';
+    if (v === 'sakit' || v === 'skt' || v === 's') return 'sakit';
+    if (v === 'izin'  || v === 'ijin' || v === 'izn' || v === 'i') return 'izin';
+    return v || '';
+  }
+
   for (const r of (items || [])) {
     const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
     if (!key) continue;
+
     const tgl = r?.tanggal ? String(r.tanggal).slice(0,10) : '';
     if (!tgl) continue;
 
-    // “hadir” dari slot baru, fallback ke field lama absensi/status
+    // “hadir” dari slot baru; fallback ke field lama absensi/status
     let isHadir = false;
     const sc = r?._slotCounts;
-    if (sc && Number(sc.hadir||0) > 0) {
+    if (sc && Number(sc.hadir || 0) > 0) {
       isHadir = true;
     } else {
-      const st = (typeof PDF_normStatus === 'function')
-        ? PDF_normStatus(r?.absensi ?? r?.status)
-        : String(r?.absensi ?? r?.status ?? '').toLowerCase();
-      if (st === 'hadir' || st === 'h') isHadir = true;
+      const st = _normStatusLocal(r?.absensi ?? r?.status);
+      if (st === 'hadir') isHadir = true;
     }
 
     if (isHadir) {
@@ -4914,8 +4924,9 @@ function _aggregateHadirDaysPerKey(items){
       map.get(key).add(tgl);
     }
   }
+
   const out = new Map();
-  for (const [k,set] of map.entries()) out.set(k, set.size);
+  for (const [k, set] of map.entries()) out.set(k, set.size);
   return out;
 }
 
