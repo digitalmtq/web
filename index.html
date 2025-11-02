@@ -4865,29 +4865,68 @@ function _isMeaningfulKBM(rec){
   return false;
 }
 
-  // ====== Helper agregasi slot per santri (BARU) ======
-  function _aggregateSlotsPerKey(items){
-    const map = new Map();
-    for (const r of (items || [])) {
-      const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
-      if (!key) continue;
+  // ====== Helper agregasi slot per santri (DITINGKATKAN) ======
+function _aggregateSlotsPerKey(items){
+  const tmp = new Map(); // key -> {hadir, izin, sakit, alpha, target, hadirDays:Set, checkedDays:Set}
 
-      const sc = r?._slotCounts || { hadir:0, izin:0, sakit:0, alpha:0 };
-      const t0 = Number(r?._slotTarget)  || 0;
-      const ch = Number(r?._slotChecked) || 0;
-      const targetToday = t0 > 0 ? t0 : (ch > 0 ? ch : (sc.hadir + sc.izin + sc.sakit + sc.alpha));
-
-      if (!map.has(key)) map.set(key, { hadir:0, izin:0, sakit:0, alpha:0, target:0 });
-      const agg = map.get(key);
-      agg.hadir += sc.hadir;
-      agg.izin  += sc.izin;
-      agg.sakit += sc.sakit;
-      agg.alpha += sc.alpha;
-      agg.target += targetToday;
-    }
-    return map;
+  // Normalizer kecil utk fallback status lama (tanpa dependensi eksternal)
+  function _normStatus(s){
+    const v = String(s ?? '').trim().toLowerCase();
+    if (v === 'hadir' || v === 'h') return 'hadir';
+    if (v === 'alpha' || v === 'alfa' || v === 'alpa' || v === 'a') return 'alpha';
+    if (v === 'sakit' || v === 'skt' || v === 's') return 'sakit';
+    if (v === 'izin'  || v === 'ijin' || v === 'izn' || v === 'i') return 'izin';
+    return 'lainnya';
   }
 
+  for (const r of (items || [])) {
+    const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
+    if (!key) continue;
+
+    const sc = r?._slotCounts || { hadir:0, izin:0, sakit:0, alpha:0 };
+    const t0 = Number(r?._slotTarget)  || 0;
+    const ch = Number(r?._slotChecked) || 0;
+    const targetToday = t0 > 0 ? t0 : (ch > 0 ? ch : (sc.hadir + sc.izin + sc.sakit + sc.alpha));
+
+    const tgl = r?.tanggal ? String(r.tanggal).slice(0,10) : '';
+
+    if (!tmp.has(key)) tmp.set(key, {
+      hadir:0, izin:0, sakit:0, alpha:0, target:0,
+      hadirDays: new Set(), checkedDays: new Set()
+    });
+    const agg = tmp.get(key);
+
+    // akumulasi slot
+    agg.hadir += Number(sc.hadir||0);
+    agg.izin  += Number(sc.izin ||0);
+    agg.sakit += Number(sc.sakit||0);
+    agg.alpha += Number(sc.alpha||0);
+    agg.target += Number(targetToday||0);
+
+    // logika hari
+    const hasAnyChecked = (Number(r?._slotChecked||0) > 0) || ((sc.hadir+sc.izin+sc.sakit+sc.alpha) > 0);
+    const isHadirToday  = Number(sc.hadir||0) > 0 || _normStatus(r?.absensi ?? r?.status) === 'hadir';
+
+    if (tgl){
+      if (hasAnyChecked) agg.checkedDays.add(tgl);
+      if (isHadirToday)  agg.hadirDays.add(tgl);
+    }
+  }
+
+  // Ubah Set -> angka, dan kembalikan struktur kompatibel + field baru
+  const out = new Map();
+  for (const [k, a] of tmp.entries()){
+    out.set(k, {
+      hadir: a.hadir, izin: a.izin, sakit: a.sakit, alpha: a.alpha,
+      target: a.target,
+      hadirDays: a.hadirDays.size,
+      checkedDays: a.checkedDays.size
+    });
+  }
+  return out;
+}
+
+	 
 // --- Helper aman ambil nilai kelas ---
 function getSelectedKelas(){
   const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
@@ -5223,6 +5262,12 @@ async function collectRekapData(){
     aggMap[k].targetSlots = a.target;
   }
 
+  // 6b) Hari hadir per santri (ikut dataset TERFILTER)
+const hadirDaysAgg = _aggregateHadirDaysPerKey(allDataAbsensi);
+for (const [k, cnt] of hadirDaysAgg.entries()){
+  if (aggMap[k]) aggMap[k].hadirDays = cnt;  // akan dipakai untuk Hadir %
+}
+
   const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
   const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
   if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
@@ -5527,16 +5572,23 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         const juzText     = PDF_joinRangeSegmentsCompact(r.juzSegments, true);
 
         // SLOT-based
-        const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
-        const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
-        const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
-        const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
-        const targetSlots= Number(r.targetSlots ?? 0);
-        const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
-  		const hadirDays = Number(r.hadirDays || 0);
-  		const hadirPct  = (kbmDays > 0) ? Math.round((hadirDays / kbmDays) * 100) : 0;
-		? Math.round((hadirSlots / denomSlots) * 100)
-		: (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
+        // SLOT-based
+const hadirSlots  = Number(r.hadirSlots ?? r.hadir ?? 0);
+const izinSlots   = Number(r.izinSlots  ?? r.izin  ?? 0);
+const sakitSlots  = Number(r.sakitSlots ?? r.sakit ?? 0);
+const alphaSlots  = Number(r.alphaSlots ?? r.alpha ?? 0);
+const targetSlots = Number(r.targetSlots ?? 0);
+const denomSlots  = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+
+// % Hadir berbasis kbmDays jika tersedia, fallback ke rumus lama bila belum
+const _hadirDays  = Number(r.hadirDays ?? NaN);
+const _kbmDays    = Number(kbmDays ?? NaN);
+const hadirPct =
+  (Number.isFinite(_kbmDays) && _kbmDays > 0 && Number.isFinite(_hadirDays) && _hadirDays >= 0)
+    ? Math.round((_hadirDays / _kbmDays) * 100)
+    : (denomSlots > 0
+        ? Math.round((hadirSlots / denomSlots) * 100)
+        : (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0));
 
         return {
           no: String(idx+1),
@@ -5871,6 +5923,12 @@ async function collectRekapDataForClass(kelasKey, startDate, endDate){
     aggMap[k].targetSlots = a.target;
   }
 
+	// 6b) Hari hadir per santri (ikut dataset TERFILTER)
+const hadirDaysAgg = _aggregateHadirDaysPerKey(allDataAbsensi);
+for (const [k, cnt] of hadirDaysAgg.entries()){
+  if (aggMap[k]) aggMap[k].hadirDays = cnt;  // akan dipakai untuk Hadir %
+}
+	
   const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
   const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
   if (!rows.length) return null;
@@ -6015,15 +6073,23 @@ async function collectRekapDataForClass(kelasKey, startDate, endDate){
           const setoranText = PDF_joinSAsegmentsNamaMerged(r.saSegments);
           const juzText     = PDF_joinRangeSegmentsCompact(r.juzSegments, true);
 
-          const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
-          const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
-          const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
-          const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
-          const targetSlots= Number(r.targetSlots ?? 0);
-          const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
-		  const hadirPct   = denomSlots > 0
-		  ? Math.round((hadirSlots / denomSlots) * 100)
-		  : (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
+          // SLOT-based
+const hadirSlots  = Number(r.hadirSlots ?? r.hadir ?? 0);
+const izinSlots   = Number(r.izinSlots  ?? r.izin  ?? 0);
+const sakitSlots  = Number(r.sakitSlots ?? r.sakit ?? 0);
+const alphaSlots  = Number(r.alphaSlots ?? r.alpha ?? 0);
+const targetSlots = Number(r.targetSlots ?? 0);
+const denomSlots  = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+
+// % Hadir berbasis kbmDays jika tersedia, fallback ke rumus lama bila belum
+const _hadirDays  = Number(r.hadirDays ?? NaN);
+const _kbmDays    = Number(kbmDays ?? NaN);
+const hadirPct =
+  (Number.isFinite(_kbmDays) && _kbmDays > 0 && Number.isFinite(_hadirDays) && _hadirDays >= 0)
+    ? Math.round((_hadirDays / _kbmDays) * 100)
+    : (denomSlots > 0
+        ? Math.round((hadirSlots / denomSlots) * 100)
+        : (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0));
 
           return {
             no: String(idx+1),
@@ -6243,12 +6309,23 @@ async function xlsRekapDownload(){
         const setoranText = PDF_joinSAsegmentsNamaMerged(r.saSegments);
         const juzText     = PDF_joinRangeSegmentsCompact(r.juzSegments, true);
 
-        const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
-        const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
-        const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
-        const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
-        const targetSlots= Number(r.targetSlots ?? 0);
-        const hadirPct   = targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0;
+        // SLOT-based
+const hadirSlots  = Number(r.hadirSlots ?? r.hadir ?? 0);
+const izinSlots   = Number(r.izinSlots  ?? r.izin  ?? 0);
+const sakitSlots  = Number(r.sakitSlots ?? r.sakit ?? 0);
+const alphaSlots  = Number(r.alphaSlots ?? r.alpha ?? 0);
+const targetSlots = Number(r.targetSlots ?? 0);
+const denomSlots  = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+
+// % Hadir berbasis kbmDays jika tersedia, fallback ke rumus lama bila belum
+const _hadirDays  = Number(r.hadirDays ?? NaN);
+const _kbmDays    = Number(kbmDays ?? NaN);
+const hadirPct =
+  (Number.isFinite(_kbmDays) && _kbmDays > 0 && Number.isFinite(_hadirDays) && _hadirDays >= 0)
+    ? Math.round((_hadirDays / _kbmDays) * 100)
+    : (denomSlots > 0
+        ? Math.round((hadirSlots / denomSlots) * 100)
+        : (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0));
 
         return [
           idx+1,
@@ -6771,7 +6848,7 @@ async function pdfSantriDownload(){
     const key = sel.value;
     const selectedNama = sel.options[sel.selectedIndex]?.dataset?.nama || '';
 
-    const { startDate, endDate, kelasLine, rows: aggRows, allDataNorm } = await collectRekapData();
+    const { startDate, endDate, kelasLine, rows: aggRows, allDataNorm, kbmDays } = await collectRekapData();
 
 	// === Range efektif (pakai Absensi jika toggle aktif) ===
 const { start: absS, end: absE, source: absSrc } =
@@ -6911,10 +6988,9 @@ if (usingAbsensiRange) {
     const statusJuzTotal = PDF_totalAllJuzStatus(totJuz, agg?.semester ?? semesterSantri);
 
     // Persentase kehadiran total (slot-based)
-    const denomTotal = totH + totI + totS + totA;
-	const hadirPctTotal = denomTotal > 0
-	? Math.round((totH / denomTotal) * 100)
-	: (totalTargetSlots > 0 ? Math.round((totH / totalTargetSlots) * 100) : 0);
+    // Persentase kehadiran total (BERBASIS HARI)
+const hadirDaysTotal = dayRows.reduce((s,d) => s + ((d.cnt?.hadir||0) > 0 ? 1 : 0), 0);
+const hadirPctTotal  = (kbmDays > 0) ? Math.round((hadirDaysTotal / kbmDays) * 100) : 0;
 
     // ==== Baris harian (slot-based) ====
     const tableRows = dayRows.map((d, idx) => {
