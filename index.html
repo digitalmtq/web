@@ -2946,7 +2946,6 @@ logoutBtn.addEventListener("click", () => {
 });
 
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
-<script>
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
@@ -3241,10 +3240,8 @@ logoutBtn.addEventListener("click", () => {
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
 })();
-</script>
 
 <!-- === listener ringan: set judul modal dari baris (tanpa buka modal / tanpa render) -->
-<script>
 (function(){
   // Ambil teks aman dari sel (support <a>, input/select)
   function cellText(el){
@@ -3306,7 +3303,6 @@ logoutBtn.addEventListener("click", () => {
     // Tidak preventDefault / stopPropagation — biarkan handler lama berjalan
   }, { passive: true });
 })();
-</script>
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
 
 
