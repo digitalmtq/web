@@ -4977,24 +4977,52 @@ document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=
     return `${group}${letter}`;
   }
 
-  // ====== Helper slot absensi (BARU) ======
-  function _slotMetricsFromRecord(rec){
-    const items = Array.isArray(rec?.absensiItems) ? rec.absensiItems : [];
-    const target = Number(rec?.absensiTarget) || 0;
-    const checked = Number(rec?.absensiChecked) || items.filter(it=>it?.checked).length;
+  // ====== Helper slot absensi (VERSI FIX) ======
+function _slotMetricsFromRecord(rec){
+  const items = Array.isArray(rec?.absensiItems) ? rec.absensiItems : [];
+  const counts = { hadir:0, izin:0, sakit:0, alpha:0 };
 
-    const counts = { hadir:0, izin:0, sakit:0, alpha:0 };
-    for (const it of items){
-      if (!it?.checked) continue;
-      const st = String(it.key||'').toLowerCase().replace(/\d+$/,''); // "hadir1" -> "hadir"
-      if (st in counts) counts[st]++;
-    }
-    return {
-      _slotCounts: counts,
-      _slotTarget: target,
-      _slotChecked: checked
-    };
+  // helper: berbagai kemungkinan flag "checked"
+  const isChecked = (it) => {
+    if (!it) return false;
+    if (typeof it.checked    === 'boolean') return it.checked;
+    if (typeof it.isChecked  === 'boolean') return it.isChecked;
+    if (typeof it.selected   === 'boolean') return it.selected;
+    if ('c'     in it) return !!it.c;
+    if ('v'     in it) return !!it.v;
+    if ('value' in it) return !!it.value;
+    // kalau struktur item tak punya flag, anggap "checked" jika key sudah menyatakan status
+    const k = String(it.key||'').toLowerCase().replace(/\d+$/,'');
+    return ['hadir','izin','sakit','alpha'].includes(k);
+  };
+
+  // hitung dari absensiItems
+  let checkedFromItems = 0;
+  for (const it of items){
+    if (!isChecked(it)) continue;
+    checkedFromItems++;
+    const st = String(it.key||'').toLowerCase().replace(/\d+$/,''); // "hadir1" -> "hadir"
+    if (st in counts) counts[st]++;
   }
+
+  // target & checked (prioritas: nilai eksplisit di record, lalu hasil hitung)
+  const target  = Number(rec?.absensiTarget);
+  const checked = Number(rec?.absensiChecked);
+  const _slotTarget  = Number.isFinite(target)  ? target  : checkedFromItems;
+  const _slotChecked = Number.isFinite(checked) ? checked : checkedFromItems;
+
+  // Fallback lama: kalau tidak ada item slot sama sekali, pakai field absensi/status
+  if (!items.length && _slotChecked === 0){
+    const st = PDF_normStatus(rec?.absensi ?? rec?.status);
+    if (st in counts) counts[st] = 1;
+  }
+
+  return {
+    _slotCounts: counts,
+    _slotTarget,
+    _slotChecked
+  };
+}
 
 // ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? ======
 function _isMeaningfulKBM(rec){
@@ -5738,7 +5766,7 @@ const hadirPct  = denomDays > 0
   ? Math.round(100 * hadirDays / denomDays)
   : (
       (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
-      ? Math.round(100 * hadirirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
+      ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
       : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
     );
 
@@ -6238,7 +6266,7 @@ const hadirPct  = denomDays > 0
   ? Math.round(100 * hadirDays / denomDays)
   : (
       (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
-      ? Math.round(100 * hadirirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
+      ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
       : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
     );
 
