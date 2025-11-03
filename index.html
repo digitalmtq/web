@@ -2946,6 +2946,7 @@ logoutBtn.addEventListener("click", () => {
 });
 
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
+<script>
 (function(){
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
@@ -3051,12 +3052,44 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
+  // === NEW: inject CSS tombol absensi (sekali saja) ===
+  function ensureAbsensiFlexStyles(){
+    if (document.getElementById("absflex-styles")) return;
+    const style = document.createElement("style");
+    style.id = "absflex-styles";
+    style.textContent = `
+      /* tombol default biru */
+      .btn-absensi-flex{
+        display:inline-flex; align-items:center; gap:8px;
+        padding:6px 10px; border-radius:10px; cursor:pointer; user-select:none;
+        background:#1E88E5; color:#fff; border:1px solid transparent;
+        min-height:32px; transition:background .2s ease, color .2s ease, border-color .2s ease;
+        min-width:0;
+      }
+      .btn-absensi-flex input[type="checkbox"]{ width:16px; height:16px; accent-color:#0f766e; }
+      .btn-absensi-flex > span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+
+      /* jadi hijau muda saat dicentang (browser modern) */
+      .btn-absensi-flex:has(input[type="checkbox"]:checked){
+        background:#A5D6A7; color:#0f4221; border-color:#86efac;
+      }
+
+      /* fallback lama: dipakai via class .is-checked jika :has() tidak tersedia */
+      .btn-absensi-flex.is-checked{
+        background:#A5D6A7; color:#0f4221; border-color:#86efac;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   // Render widget ke target container (dipakai di MODAL)
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
     const root = (typeof container === "string") ? document.getElementById(container) : container;
     if (!root) throw new Error("Container absensi tidak ditemukan");
     const perStatus = ABS_FLEX_CFG.perStatus;
     const keys = buildKeys(perStatus);
+
+    ensureAbsensiFlexStyles();
 
     root.innerHTML = `
       <div class="absflex-head" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
@@ -3076,9 +3109,9 @@ logoutBtn.addEventListener("click", () => {
             <!-- Grid dalam: checkbox per sesi, rapi sampai 6 sesi -->
             <div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
               ${Array.from({length:perStatus},(_,i)=>`
-                <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;border:1px solid #f1f5f9;min-height:32px;min-width:0;">
-                  <input type="checkbox" data-abskey="${st}${i+1}" style="width:16px;height:16px;">
-                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${labelFor(st, i+1)}</span>
+                <label class="btn-absensi-flex">
+                  <input type="checkbox" data-abskey="${st}${i+1}">
+                  <span>${labelFor(st, i+1)}</span>
                 </label>
               `).join("")}
             </div>
@@ -3090,6 +3123,7 @@ logoutBtn.addEventListener("click", () => {
     const percentEl = root.querySelector(".absflex-percent");
     const targetEl  = root.querySelector(".absflex-target");
     const boxes     = [...root.querySelectorAll('input[type="checkbox"][data-abskey]')];
+    const HAS_HAS   = CSS && CSS.supports && CSS.supports('selector(:has(*))');
 
     // bangun items awal
     let items;
@@ -3105,6 +3139,11 @@ logoutBtn.addEventListener("click", () => {
         const k = String(b.dataset.abskey).toLowerCase();
         const it = items.find(x => x.key === k);
         b.checked = !!it?.checked;
+        // fallback jika :has() tidak tersedia → toggle class di label
+        if (!HAS_HAS){
+          const lab = b.closest('.btn-absensi-flex');
+          if (lab) lab.classList.toggle('is-checked', b.checked);
+        }
       });
     }
     function recolor(p){
@@ -3165,8 +3204,10 @@ logoutBtn.addEventListener("click", () => {
   // expose helper compute (optional)
   window.__absflex_computePercent = computePercent;
 })();
+</script>
 
 <!-- === helper: buat modal overlay Absensi Flex secara dinamis (sekali saja) -->
+<script>
 (function(){
   function ensureAbsensiModal(){
     if (document.getElementById("absensiModalOverlay")) return;
@@ -3181,7 +3222,7 @@ logoutBtn.addEventListener("click", () => {
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
           <h3 style="margin:0;font-size:18px;"><span id="absensiModalTitleName" style="font-weight:600;"></span></h3>
-          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
+          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;color:#fff;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
       </div>
@@ -3200,8 +3241,10 @@ logoutBtn.addEventListener("click", () => {
   }
   window.ensureAbsensiModal = ensureAbsensiModal;
 })();
+</script>
 
 <!-- === listener ringan: set judul modal dari baris (tanpa buka modal / tanpa render) -->
+<script>
 (function(){
   // Ambil teks aman dari sel (support <a>, input/select)
   function cellText(el){
@@ -3263,8 +3306,8 @@ logoutBtn.addEventListener("click", () => {
     // Tidak preventDefault / stopPropagation — biarkan handler lama berjalan
   }, { passive: true });
 })();
+</script>
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
-
 
 
 // === Load Santri Data ===
