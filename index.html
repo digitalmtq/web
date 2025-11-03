@@ -4052,8 +4052,22 @@ async function loadSantriData() {
           cell._absensiPercent = comp.percent;
 
           function updateMini(){
-            mini.textContent = `${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
-          }
+  // teks
+  mini.textContent = `${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
+  // simpan angka untuk referensi lain (opsional)
+  mini.setAttribute('data-progress', String(cell._absensiPercent));
+  // tandai hijau jika 100%
+  const complete = Number(cell._absensiPercent) >= 100;
+  mini.classList.toggle('is-complete', complete);
+  if (!complete){
+    // kembali ke default (tanpa latar)
+    mini.style.background = '';
+    mini.style.color = '';
+    mini.style.borderRadius = '';
+    mini.style.padding = '';
+  }
+}
+
           updateMini();
 
           btn.addEventListener("click", () => {
@@ -4803,6 +4817,24 @@ async function simpanDataMutabaah(saveBtn){
 document.getElementById('save-btn')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('save-btn-modal')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('mur-save')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
+
+// re-sync badge .abs-mini semua baris setelah simpan
+document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=>{
+  const mini = cell.querySelector('.abs-mini');
+  if (!mini) return;
+  const percent = Number(cell._absensiPercent || 0);
+  mini.textContent = `${percent}% (${Number(cell._absensiChecked||0)}/${Number(cell._absensiTarget||0)})`;
+  mini.setAttribute('data-progress', String(percent));
+  const complete = percent >= 100;
+  mini.classList.toggle('is-complete', complete);
+  if (!complete){
+    mini.style.background = '';
+    mini.style.color = '';
+    mini.style.borderRadius = '';
+    mini.style.padding = '';
+  }
+});
+
 // ============================
 // A. LOAD SANTRI DATA
 // ============================	 
