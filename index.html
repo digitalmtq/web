@@ -2953,7 +2953,7 @@ logoutBtn.addEventListener("click", () => {
   const st = document.createElement('style');
   st.id = 'absmini-green-style';
   st.textContent = `
-    /* Bentuk umum pill */
+    /* Bentuk umum pill untuk .abs-mini */
     .abs-mini.is-hadir,
     .abs-mini.is-izin,
     .abs-mini.is-sakit,
@@ -3080,7 +3080,7 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
-// Status utama dari items yg tercentang (prioritas: hadir > izin > sakit > alpha)
+  // Status utama dari items yg tercentang (prioritas: hadir > izin > sakit > alpha)
 function getPrimaryStatus(items){
   const picked = new Set(
     (items||[])
@@ -3117,12 +3117,14 @@ function getPrimaryStatus(items){
     percent = Number(payload)||0;
   }
 
-  const mini = findAbsMiniFromBtn(btn);
+  const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
+  const mini = cell && cell.querySelector('.abs-mini');
   if (!mini) return;
 
   // reset kelas warna dulu
   mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
 
+  // Warnai bila minimal ada satu cek (percent>0) & status diketahui
   if (percent > 0 && status){
     mini.classList.add(`is-${status}`);
   } else {
@@ -3196,19 +3198,18 @@ window.__absmini_sync = syncAbsMiniFromPercent;
       percentEl.style.background = p>=80 ? '#dcfce7' : p>=50 ? '#fff7ed' : '#fee2e2';
       percentEl.style.borderColor= p>=80 ? '#86efac' : p>=50 ? '#fdba74' : '#fca5a5';
     }
-    
-	  function recalcExpose(){
+    function recalcExpose(){
   const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
   const rec = computePercent(items, t);
   percentEl.textContent = `${Math.round(rec.percent)}%`;
   recolor(rec.percent);
 
-  // expose ke container (dipakai untuk sync ke cell pemanggil)
+  // expose ke container
   root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
   root._absensiTarget  = rec.target;
   root._absensiChecked = rec.checked;
   root._absensiPercent = Math.round(rec.percent);
-  root._absensiStatus  = getPrimaryStatus(items); // <<— NEW
+  root._absensiStatus  = getPrimaryStatus(items); // <— NEW
 
   // Sinkronkan badge .abs-mini di sel tombol terkait (kirim {percent,status})
   syncAbsMiniFromPercent({ percent: root._absensiPercent, status: root._absensiStatus });
@@ -3368,6 +3369,7 @@ window.__absmini_sync = syncAbsMiniFromPercent;
   }, { passive: true });
 })();
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
+
 
 // === Load Santri Data ===
 async function loadSantriData() {
@@ -4095,8 +4097,6 @@ async function loadSantriData() {
           cell._absensiTarget  = comp.tgt;
           cell._absensiChecked = comp.checked;
           cell._absensiPercent = comp.percent;
-		  cell._absensiStatus  = getPrimaryStatus(itemsInit); // <<— NEW
-		  
 
           function updateMini(){
   mini.textContent = `${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
@@ -4130,13 +4130,13 @@ async function loadSantriData() {
 
             // pasang listener pada root (bukan content) + simpan balik pakai clone
             const onRootChange = () => {
-  cell._absensiItems   = window.__absflex_safeCloneItems(widget._absensiItems);
-  cell._absensiTarget  = Number(widget._absensiTarget)  || cell._absensiTarget || 1;
-  cell._absensiChecked = Number(widget._absensiChecked) || 0;
-  cell._absensiPercent = Number(widget._absensiPercent) || 0;
-  cell._absensiStatus  = widget._absensiStatus || getPrimaryStatus(cell._absensiItems||[]); // <<— NEW
-  updateMini();
-};
+              cell._absensiItems   = window.__absflex_safeCloneItems(widget._absensiItems);
+              cell._absensiTarget  = Number(widget._absensiTarget)  || cell._absensiTarget || 1;
+              cell._absensiChecked = Number(widget._absensiChecked) || 0;
+              cell._absensiPercent = Number(widget._absensiPercent) || 0;
+			  cell._absensiStatus  = widget._absensiStatus || getPrimaryStatus(cell._absensiItems||[]);
+              updateMini();
+            };
             root.addEventListener("change", onRootChange);
 
             // sinkron awal (kalau clamp mengubah)
@@ -4862,39 +4862,16 @@ document.getElementById('save-btn')?.addEventListener('click', function(){ simpa
 document.getElementById('save-btn-modal')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('mur-save')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 
-// re-sync badge .abs-mini semua baris setelah simpan (ikutkan status -> kelas warna)
+// re-sync badge .abs-mini semua baris setelah simpan
 document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=>{
   const mini = cell.querySelector('.abs-mini');
   if (!mini) return;
-
   const percent = Number(cell._absensiPercent || 0);
-  const status  = cell._absensiStatus || (function(){
-    const items = Array.isArray(cell._absensiItems) ? cell._absensiItems : [];
-    // getPrimaryStatus didefinisikan di Kode 1
-    if (typeof window.getPrimaryStatus === 'function') return window.getPrimaryStatus(items);
-    // kalau tidak global, pakai fallback inline:
-    const picked = new Set(items.filter(it=>it && it.checked).map(it=>String(it.key).toLowerCase().replace(/\d+$/,'')));
-    if (picked.has('hadir')) return 'hadir';
-    if (picked.has('izin'))  return 'izin';
-    if (picked.has('sakit')) return 'sakit';
-    if (picked.has('alpha')) return 'alpha';
-    return '';
-  })();
-
+  const status  = cell._absensiStatus || getPrimaryStatus(cell._absensiItems||[]);
   mini.textContent = `${percent}% (${Number(cell._absensiChecked||0)}/${Number(cell._absensiTarget||0)})`;
   mini.setAttribute('data-progress', String(percent));
-
-  // bersihkan kelas lama
   mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
-
-  if (percent > 0 && status){
-    mini.classList.add(`is-${status}`);
-  } else {
-    mini.style.background = '';
-    mini.style.color = '';
-    mini.style.borderRadius = '';
-    mini.style.padding = '';
-  }
+  if (percent > 0 && status){ mini.classList.add(`is-${status}`); }
 });
 // ============================
 // A. LOAD SANTRI DATA
