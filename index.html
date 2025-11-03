@@ -2947,35 +2947,6 @@ logoutBtn.addEventListener("click", () => {
 
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
 (function(){
-  // Inject style .abs-mini saat 100%
-  (function ensureAbsMiniStyles(){
-  if (document.getElementById('absmini-green-style')) return;
-  const st = document.createElement('style');
-  st.id = 'absmini-green-style';
-  st.textContent = `
-    /* Bentuk umum pill untuk .abs-mini */
-    .abs-mini.is-hadir,
-    .abs-mini.is-izin,
-    .abs-mini.is-sakit,
-    .abs-mini.is-alpha{
-      border-radius:999px;
-      padding:2px 8px;
-      font-weight:600;
-      transition:background .2s ease, color .2s ease, border-color .2s ease;
-      display:inline-block;
-    }
-    /* Hijau: hadir */
-    .abs-mini.is-hadir{ background:#dcfce7; color:#065f46; border:1px solid #86efac; }
-    /* Ungu: izin */
-    .abs-mini.is-izin{ background:#f3e8ff; color:#5b21b6; border:1px solid #d8b4fe; }
-    /* Kuning: sakit */
-    .abs-mini.is-sakit{ background:#fef9c3; color:#92400e; border:1px solid #fde68a; }
-    /* Merah: alpha */
-    .abs-mini.is-alpha{ background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
-  `;
-  document.head.appendChild(st);
-})();
-
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
@@ -3080,64 +3051,6 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
-  // Status utama dari items yg tercentang (prioritas: hadir > izin > sakit > alpha)
-function getPrimaryStatus(items){
-  const picked = new Set(
-    (items||[])
-      .filter(it => it && it.checked)
-      .map(it => String(it.key).toLowerCase().replace(/\d+$/,''))
-  );
-  if (picked.has('hadir')) return 'hadir';
-  if (picked.has('izin'))  return 'izin';
-  if (picked.has('sakit')) return 'sakit';
-  if (picked.has('alpha')) return 'alpha';
-  return '';
-}
-
-  // Cari .abs-mini yang se-sel dengan tombol
-  function findAbsMiniFromBtn(btn){
-    if (!btn) return null;
-    const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
-    return (cell && cell.querySelector('.abs-mini'))
-        || btn.querySelector?.('.abs-mini')
-        || btn.parentElement?.querySelector?.('.abs-mini')
-        || null;
-  }
-  // Sinkronkan badge .abs-mini berdasarkan persen
-  function syncAbsMiniFromPercent(payload){
-  const btn = window.__absensiLastButton;
-  if (!btn) return;
-
-  // payload bisa number (legacy) atau object {percent, status}
-  let percent = 0, status = '';
-  if (typeof payload === 'object' && payload){
-    percent = Number(payload.percent)||0;
-    status  = String(payload.status||'');
-  } else {
-    percent = Number(payload)||0;
-  }
-
-  const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
-  const mini = cell && cell.querySelector('.abs-mini');
-  if (!mini) return;
-
-  // reset kelas warna dulu
-  mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
-
-  // Warnai bila minimal ada satu cek (percent>0) & status diketahui
-  if (percent > 0 && status){
-    mini.classList.add(`is-${status}`);
-  } else {
-    // kembali ke default
-    mini.style.background = '';
-    mini.style.color = '';
-    mini.style.border = '';
-    mini.style.borderRadius = '';
-    mini.style.padding = '';
-  }
-}
-window.__absmini_sync = syncAbsMiniFromPercent;
-
   // Render widget ke target container (dipakai di MODAL)
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
     const root = (typeof container === "string") ? document.getElementById(container) : container;
@@ -3199,21 +3112,16 @@ window.__absmini_sync = syncAbsMiniFromPercent;
       percentEl.style.borderColor= p>=80 ? '#86efac' : p>=50 ? '#fdba74' : '#fca5a5';
     }
     function recalcExpose(){
-  const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
-  const rec = computePercent(items, t);
-  percentEl.textContent = `${Math.round(rec.percent)}%`;
-  recolor(rec.percent);
-
-  // expose ke container
-  root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
-  root._absensiTarget  = rec.target;
-  root._absensiChecked = rec.checked;
-  root._absensiPercent = Math.round(rec.percent);
-  root._absensiStatus  = getPrimaryStatus(items); // <— NEW
-
-  // Sinkronkan badge .abs-mini di sel tombol terkait (kirim {percent,status})
-  syncAbsMiniFromPercent({ percent: root._absensiPercent, status: root._absensiStatus });
-}
+      const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
+      const rec = computePercent(items, t);
+      percentEl.textContent = `${Math.round(rec.percent)}%`;
+      recolor(rec.percent);
+      // expose ke container (dipakai untuk sync ke cell pemanggil)
+      root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
+      root._absensiTarget  = rec.target;
+      root._absensiChecked = rec.checked;
+      root._absensiPercent = Math.round(rec.percent);
+    }
 
     // listeners
     root.addEventListener("change", (e) => {
@@ -3343,21 +3251,8 @@ window.__absmini_sync = syncAbsMiniFromPercent;
   // Ekspor fungsi publik jika ingin dipanggil dari handler lama Anda
   window.__setAbsensiTitleFromBtn = function(btn){
     window.ensureAbsensiModal && window.ensureAbsensiModal();
-    // simpan tombol terakhir untuk sinkronisasi .abs-mini
-    window.__absensiLastButton = btn;
     const { nis, nama } = extractIdentityFromButton(btn);
     setAbsensiModalTitle(nis, nama);
-
-    // tandai awal jika badge sudah 100%
-    const mini = (function(){
-      const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
-      return (cell && cell.querySelector('.abs-mini')) || null;
-    })();
-    if (mini){
-      const txt = (mini.getAttribute('data-progress') ?? mini.textContent ?? '').trim();
-      const num = parseInt(String(txt).replace('%','').trim(), 10);
-      mini.classList.toggle('is-complete', Number.isFinite(num) && num === 100);
-    }
   };
 
   // Listener global: hanya set judul; tidak membuka modal & tidak render
@@ -3369,6 +3264,7 @@ window.__absmini_sync = syncAbsMiniFromPercent;
   }, { passive: true });
 })();
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
+
 
 
 // === Load Santri Data ===
@@ -4099,18 +3995,8 @@ async function loadSantriData() {
           cell._absensiPercent = comp.percent;
 
           function updateMini(){
-  mini.textContent = `${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
-  mini.setAttribute('data-progress', String(cell._absensiPercent));
-
-  // reset kelas warna dulu
-  mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
-
-  // tentukan status (pakai cache, atau hitung dari items)
-  const st = cell._absensiStatus || getPrimaryStatus(cell._absensiItems||[]);
-  if (Number(cell._absensiPercent) > 0 && st){
-    mini.classList.add(`is-${st}`);
-  }
-}
+            mini.textContent = `${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
+          }
           updateMini();
 
           btn.addEventListener("click", () => {
@@ -4134,7 +4020,6 @@ async function loadSantriData() {
               cell._absensiTarget  = Number(widget._absensiTarget)  || cell._absensiTarget || 1;
               cell._absensiChecked = Number(widget._absensiChecked) || 0;
               cell._absensiPercent = Number(widget._absensiPercent) || 0;
-			  cell._absensiStatus  = widget._absensiStatus || getPrimaryStatus(cell._absensiItems||[]);
               updateMini();
             };
             root.addEventListener("change", onRootChange);
@@ -4861,18 +4746,6 @@ async function simpanDataMutabaah(saveBtn){
 document.getElementById('save-btn')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('save-btn-modal')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('mur-save')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
-
-// re-sync badge .abs-mini semua baris setelah simpan
-document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=>{
-  const mini = cell.querySelector('.abs-mini');
-  if (!mini) return;
-  const percent = Number(cell._absensiPercent || 0);
-  const status  = cell._absensiStatus || getPrimaryStatus(cell._absensiItems||[]);
-  mini.textContent = `${percent}% (${Number(cell._absensiChecked||0)}/${Number(cell._absensiTarget||0)})`;
-  mini.setAttribute('data-progress', String(percent));
-  mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
-  if (percent > 0 && status){ mini.classList.add(`is-${status}`); }
-});
 // ============================
 // A. LOAD SANTRI DATA
 // ============================	 
