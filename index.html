@@ -3107,7 +3107,7 @@ logoutBtn.addEventListener("click", () => {
         <select class="absflex-target" style="padding:2px 6px;border:1px solid #e5e7eb;border-radius:8px;">
           ${Array.from({length:ABS_FLEX_CFG.maxTarget},(_,i)=>`<option value="${i+1}" ${i+1==target?'selected':''}>${i+1}</option>`).join("")}
         </select>
-        <!-- Netral: tanpa warna; akan diwarnai oleh recolor() -->
+        <!-- Netral; warna akan diatur lewat recolor() -->
         <span class="absflex-percent" style="border:1px solid #e5e7eb;padding:2px 8px;border-radius:999px;background:transparent;font-weight:600;">0%</span>
       </div>
 
@@ -3151,19 +3151,20 @@ logoutBtn.addEventListener("click", () => {
         b.checked = !!it?.checked;
       });
     }
-    // >>> Desain hijau hanya saat 100%
+    // >>> Revisi: 100% = border & bg hijau + angka tebal
     function recolor(p){
       percentEl.style.borderRadius = '999px';
       percentEl.style.padding = '2px 8px';
-      percentEl.style.fontWeight = '600';
       if (p >= 100){
-        percentEl.style.background = '#dcfce7';           // rgb(220,252,231)
-        percentEl.style.border = '1px solid #86efac';     // rgb(134,239,172)
+        percentEl.style.background = '#dcfce7';         // hijau muda
+        percentEl.style.border = '1px solid #86efac';   // frame hijau
         percentEl.style.color = '#065f46';
+        percentEl.style.fontWeight = '700';             // angka lebih tebal
       } else {
         percentEl.style.background = 'transparent';
         percentEl.style.border = '1px solid #e5e7eb';
         percentEl.style.color = '';
+        percentEl.style.fontWeight = '600';
       }
     }
     function recalcExpose(){
