@@ -2949,20 +2949,32 @@ logoutBtn.addEventListener("click", () => {
 (function(){
   // Inject style .abs-mini saat 100%
   (function ensureAbsMiniStyles(){
-    if (document.getElementById('absmini-green-style')) return;
-    const st = document.createElement('style');
-    st.id = 'absmini-green-style';
-    st.textContent = `
-      .abs-mini.is-complete{
-        background:#dcfce7; /* hijau muda */
-        color:#065f46;       /* kontras */
-        border-radius:6px;
-        padding:0 .375rem;
-        transition: background .2s ease, color .2s ease;
-      }
-    `;
-    document.head.appendChild(st);
-  })();
+  if (document.getElementById('absmini-green-style')) return;
+  const st = document.createElement('style');
+  st.id = 'absmini-green-style';
+  st.textContent = `
+    /* Bentuk umum pill */
+    .abs-mini.is-hadir,
+    .abs-mini.is-izin,
+    .abs-mini.is-sakit,
+    .abs-mini.is-alpha{
+      border-radius:999px;
+      padding:2px 8px;
+      font-weight:600;
+      transition:background .2s ease, color .2s ease, border-color .2s ease;
+      display:inline-block;
+    }
+    /* Hijau: hadir */
+    .abs-mini.is-hadir{ background:#dcfce7; color:#065f46; border:1px solid #86efac; }
+    /* Ungu: izin */
+    .abs-mini.is-izin{ background:#f3e8ff; color:#5b21b6; border:1px solid #d8b4fe; }
+    /* Kuning: sakit */
+    .abs-mini.is-sakit{ background:#fef9c3; color:#92400e; border:1px solid #fde68a; }
+    /* Merah: alpha */
+    .abs-mini.is-alpha{ background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+  `;
+  document.head.appendChild(st);
+})();
 
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
@@ -3068,6 +3080,20 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
+// Status utama dari items yg tercentang (prioritas: hadir > izin > sakit > alpha)
+function getPrimaryStatus(items){
+  const picked = new Set(
+    (items||[])
+      .filter(it => it && it.checked)
+      .map(it => String(it.key).toLowerCase().replace(/\d+$/,''))
+  );
+  if (picked.has('hadir')) return 'hadir';
+  if (picked.has('izin'))  return 'izin';
+  if (picked.has('sakit')) return 'sakit';
+  if (picked.has('alpha')) return 'alpha';
+  return '';
+}
+
   // Cari .abs-mini yang se-sel dengan tombol
   function findAbsMiniFromBtn(btn){
     if (!btn) return null;
@@ -3078,21 +3104,37 @@ logoutBtn.addEventListener("click", () => {
         || null;
   }
   // Sinkronkan badge .abs-mini berdasarkan persen
-  function syncAbsMiniFromPercent(percent){
-    const btn = window.__absensiLastButton;
-    if (!btn) return;
-    const mini = findAbsMiniFromBtn(btn);
-    if (!mini) return;
-    const complete = (percent >= 100);
-    mini.classList.toggle('is-complete', complete);
-    if (!complete){
-      mini.style.background = '';
-      mini.style.color = '';
-      mini.style.borderRadius = '';
-      mini.style.padding = '';
-    }
+  function syncAbsMiniFromPercent(payload){
+  const btn = window.__absensiLastButton;
+  if (!btn) return;
+
+  // payload bisa number (legacy) atau object {percent, status}
+  let percent = 0, status = '';
+  if (typeof payload === 'object' && payload){
+    percent = Number(payload.percent)||0;
+    status  = String(payload.status||'');
+  } else {
+    percent = Number(payload)||0;
   }
-  window.__absmini_sync = syncAbsMiniFromPercent;
+
+  const mini = findAbsMiniFromBtn(btn);
+  if (!mini) return;
+
+  // reset kelas warna dulu
+  mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
+
+  if (percent > 0 && status){
+    mini.classList.add(`is-${status}`);
+  } else {
+    // kembali ke default
+    mini.style.background = '';
+    mini.style.color = '';
+    mini.style.border = '';
+    mini.style.borderRadius = '';
+    mini.style.padding = '';
+  }
+}
+window.__absmini_sync = syncAbsMiniFromPercent;
 
   // Render widget ke target container (dipakai di MODAL)
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
@@ -3154,20 +3196,23 @@ logoutBtn.addEventListener("click", () => {
       percentEl.style.background = p>=80 ? '#dcfce7' : p>=50 ? '#fff7ed' : '#fee2e2';
       percentEl.style.borderColor= p>=80 ? '#86efac' : p>=50 ? '#fdba74' : '#fca5a5';
     }
-    function recalcExpose(){
-      const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
-      const rec = computePercent(items, t);
-      percentEl.textContent = `${Math.round(rec.percent)}%`;
-      recolor(rec.percent);
-      // expose ke container (dipakai untuk sync ke cell pemanggil)
-      root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
-      root._absensiTarget  = rec.target;
-      root._absensiChecked = rec.checked;
-      root._absensiPercent = Math.round(rec.percent);
+    
+	  function recalcExpose(){
+  const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
+  const rec = computePercent(items, t);
+  percentEl.textContent = `${Math.round(rec.percent)}%`;
+  recolor(rec.percent);
 
-      // Sinkronkan badge .abs-mini di sel tombol terkait
-      syncAbsMiniFromPercent(Math.round(rec.percent));
-    }
+  // expose ke container (dipakai untuk sync ke cell pemanggil)
+  root._absensiItems   = items.map(it => ({key:it.key, checked:!!it.checked}));
+  root._absensiTarget  = rec.target;
+  root._absensiChecked = rec.checked;
+  root._absensiPercent = Math.round(rec.percent);
+  root._absensiStatus  = getPrimaryStatus(items); // <<— NEW
+
+  // Sinkronkan badge .abs-mini di sel tombol terkait (kirim {percent,status})
+  syncAbsMiniFromPercent({ percent: root._absensiPercent, status: root._absensiStatus });
+}
 
     // listeners
     root.addEventListener("change", (e) => {
@@ -4050,24 +4095,22 @@ async function loadSantriData() {
           cell._absensiTarget  = comp.tgt;
           cell._absensiChecked = comp.checked;
           cell._absensiPercent = comp.percent;
+		  cell._absensiStatus  = getPrimaryStatus(itemsInit); // <<— NEW
+		  
 
           function updateMini(){
-  // teks
   mini.textContent = `${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
-  // simpan angka untuk referensi lain (opsional)
   mini.setAttribute('data-progress', String(cell._absensiPercent));
-  // tandai hijau jika 100%
-  const complete = Number(cell._absensiPercent) >= 100;
-  mini.classList.toggle('is-complete', complete);
-  if (!complete){
-    // kembali ke default (tanpa latar)
-    mini.style.background = '';
-    mini.style.color = '';
-    mini.style.borderRadius = '';
-    mini.style.padding = '';
+
+  // reset kelas warna dulu
+  mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
+
+  // tentukan status (pakai cache, atau hitung dari items)
+  const st = cell._absensiStatus || getPrimaryStatus(cell._absensiItems||[]);
+  if (Number(cell._absensiPercent) > 0 && st){
+    mini.classList.add(`is-${st}`);
   }
 }
-
           updateMini();
 
           btn.addEventListener("click", () => {
@@ -4087,12 +4130,13 @@ async function loadSantriData() {
 
             // pasang listener pada root (bukan content) + simpan balik pakai clone
             const onRootChange = () => {
-              cell._absensiItems   = window.__absflex_safeCloneItems(widget._absensiItems);
-              cell._absensiTarget  = Number(widget._absensiTarget)  || cell._absensiTarget || 1;
-              cell._absensiChecked = Number(widget._absensiChecked) || 0;
-              cell._absensiPercent = Number(widget._absensiPercent) || 0;
-              updateMini();
-            };
+  cell._absensiItems   = window.__absflex_safeCloneItems(widget._absensiItems);
+  cell._absensiTarget  = Number(widget._absensiTarget)  || cell._absensiTarget || 1;
+  cell._absensiChecked = Number(widget._absensiChecked) || 0;
+  cell._absensiPercent = Number(widget._absensiPercent) || 0;
+  cell._absensiStatus  = widget._absensiStatus || getPrimaryStatus(cell._absensiItems||[]); // <<— NEW
+  updateMini();
+};
             root.addEventListener("change", onRootChange);
 
             // sinkron awal (kalau clamp mengubah)
@@ -4818,23 +4862,40 @@ document.getElementById('save-btn')?.addEventListener('click', function(){ simpa
 document.getElementById('save-btn-modal')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('mur-save')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 
-// re-sync badge .abs-mini semua baris setelah simpan
+// re-sync badge .abs-mini semua baris setelah simpan (ikutkan status -> kelas warna)
 document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=>{
   const mini = cell.querySelector('.abs-mini');
   if (!mini) return;
+
   const percent = Number(cell._absensiPercent || 0);
+  const status  = cell._absensiStatus || (function(){
+    const items = Array.isArray(cell._absensiItems) ? cell._absensiItems : [];
+    // getPrimaryStatus didefinisikan di Kode 1
+    if (typeof window.getPrimaryStatus === 'function') return window.getPrimaryStatus(items);
+    // kalau tidak global, pakai fallback inline:
+    const picked = new Set(items.filter(it=>it && it.checked).map(it=>String(it.key).toLowerCase().replace(/\d+$/,'')));
+    if (picked.has('hadir')) return 'hadir';
+    if (picked.has('izin'))  return 'izin';
+    if (picked.has('sakit')) return 'sakit';
+    if (picked.has('alpha')) return 'alpha';
+    return '';
+  })();
+
   mini.textContent = `${percent}% (${Number(cell._absensiChecked||0)}/${Number(cell._absensiTarget||0)})`;
   mini.setAttribute('data-progress', String(percent));
-  const complete = percent >= 100;
-  mini.classList.toggle('is-complete', complete);
-  if (!complete){
+
+  // bersihkan kelas lama
+  mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
+
+  if (percent > 0 && status){
+    mini.classList.add(`is-${status}`);
+  } else {
     mini.style.background = '';
     mini.style.color = '';
     mini.style.borderRadius = '';
     mini.style.padding = '';
   }
 });
-
 // ============================
 // A. LOAD SANTRI DATA
 // ============================	 
