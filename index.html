@@ -2947,6 +2947,23 @@ logoutBtn.addEventListener("click", () => {
 
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
 (function(){
+  // Tambahan kecil: inject style untuk .abs-mini saat 100%
+  (function ensureAbsMiniStyles(){
+    if (document.getElementById('absmini-green-style')) return;
+    const st = document.createElement('style');
+    st.id = 'absmini-green-style';
+    st.textContent = `
+      .abs-mini.is-complete{
+        background:#dcfce7; /* hijau muda */
+        color:#065f46;       /* hijau gelap biar kontras */
+        border-radius:6px;
+        padding:0 .375rem;
+        transition: background .2s ease, color .2s ease;
+      }
+    `;
+    document.head.appendChild(st);
+  })();
+
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
@@ -3051,6 +3068,24 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
+  // ——— Tambahan util: sinkronisasi tampilan .abs-mini terdekat tombol pembuka ———
+  function syncAbsMiniFromPercent(percent){
+    const btn = window.__absensiLastButton;
+    if (!btn) return;
+    const mini = btn.querySelector('.abs-mini');
+    if (!mini) return;
+    const complete = (percent >= 100); // 100% = semua target terpenuhi
+    mini.classList.toggle('is-complete', complete);
+    if (!complete){
+      // Kembalikan ke default tanpa latar (biarkan class lain tetap ada)
+      mini.style.background = '';
+      mini.style.color = '';
+      mini.style.borderRadius = '';
+      mini.style.padding = '';
+    }
+  }
+  window.__absmini_sync = syncAbsMiniFromPercent;
+
   // Render widget ke target container (dipakai di MODAL)
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
     const root = (typeof container === "string") ? document.getElementById(container) : container;
@@ -3121,6 +3156,9 @@ logoutBtn.addEventListener("click", () => {
       root._absensiTarget  = rec.target;
       root._absensiChecked = rec.checked;
       root._absensiPercent = Math.round(rec.percent);
+
+      // >>> Tambahan: sinkronkan badge .abs-mini dekat tombol pembuka
+      syncAbsMiniFromPercent(Math.round(rec.percent));
     }
 
     // listeners
@@ -3251,8 +3289,18 @@ logoutBtn.addEventListener("click", () => {
   // Ekspor fungsi publik jika ingin dipanggil dari handler lama Anda
   window.__setAbsensiTitleFromBtn = function(btn){
     window.ensureAbsensiModal && window.ensureAbsensiModal();
+    // Simpan tombol terakhir untuk sinkronisasi .abs-mini di baris yang sama
+    window.__absensiLastButton = btn;
     const { nis, nama } = extractIdentityFromButton(btn);
     setAbsensiModalTitle(nis, nama);
+
+    // Opsional: jika badge sudah menampilkan "100%", tandai sekarang juga
+    const mini = btn.querySelector('.abs-mini');
+    if (mini){
+      const txt = (mini.getAttribute('data-progress') ?? mini.textContent ?? '').trim();
+      const num = parseInt(String(txt).replace('%','').trim(), 10);
+      mini.classList.toggle('is-complete', Number.isFinite(num) && num === 100);
+    }
   };
 
   // Listener global: hanya set judul; tidak membuka modal & tidak render
