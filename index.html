@@ -2947,7 +2947,7 @@ logoutBtn.addEventListener("click", () => {
 
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
 (function(){
-  // Inject style untuk highlight .abs-mini saat 100% (sekali saja)
+  // Inject style .abs-mini saat 100%
   (function ensureAbsMiniStyles(){
     if (document.getElementById('absmini-green-style')) return;
     const st = document.createElement('style');
@@ -2955,7 +2955,7 @@ logoutBtn.addEventListener("click", () => {
     st.textContent = `
       .abs-mini.is-complete{
         background:#dcfce7; /* hijau muda */
-        color:#065f46;       /* hijau gelap agar kontras */
+        color:#065f46;       /* kontras */
         border-radius:6px;
         padding:0 .375rem;
         transition: background .2s ease, color .2s ease;
@@ -2963,34 +2963,6 @@ logoutBtn.addEventListener("click", () => {
     `;
     document.head.appendChild(st);
   })();
-
-  // Helper: cari .abs-mini yang terkait tombol pemicu (di sel yang sama)
-  function findAbsMiniFromBtn(btn){
-    if (!btn) return null;
-    const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
-    return (cell && cell.querySelector('.abs-mini'))
-        || btn.querySelector?.('.abs-mini')
-        || btn.parentElement?.querySelector?.('.abs-mini')
-        || null;
-  }
-
-  // Helper: sinkronkan tampilan .abs-mini berdasarkan persen
-  function syncAbsMiniFromPercent(percent){
-    const btn = window.__absensiLastButton;
-    if (!btn) return;
-    const mini = findAbsMiniFromBtn(btn);
-    if (!mini) return;
-    const complete = (percent >= 100);
-    mini.classList.toggle('is-complete', complete);
-    if (!complete){
-      // Kembalikan ke default tanpa latar (jangan ganggu style lain)
-      mini.style.background = '';
-      mini.style.color = '';
-      mini.style.borderRadius = '';
-      mini.style.padding = '';
-    }
-  }
-  window.__absmini_sync = syncAbsMiniFromPercent;
 
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
   window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
@@ -3096,6 +3068,32 @@ logoutBtn.addEventListener("click", () => {
     return items;
   }
 
+  // Cari .abs-mini yang se-sel dengan tombol
+  function findAbsMiniFromBtn(btn){
+    if (!btn) return null;
+    const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
+    return (cell && cell.querySelector('.abs-mini'))
+        || btn.querySelector?.('.abs-mini')
+        || btn.parentElement?.querySelector?.('.abs-mini')
+        || null;
+  }
+  // Sinkronkan badge .abs-mini berdasarkan persen
+  function syncAbsMiniFromPercent(percent){
+    const btn = window.__absensiLastButton;
+    if (!btn) return;
+    const mini = findAbsMiniFromBtn(btn);
+    if (!mini) return;
+    const complete = (percent >= 100);
+    mini.classList.toggle('is-complete', complete);
+    if (!complete){
+      mini.style.background = '';
+      mini.style.color = '';
+      mini.style.borderRadius = '';
+      mini.style.padding = '';
+    }
+  }
+  window.__absmini_sync = syncAbsMiniFromPercent;
+
   // Render widget ke target container (dipakai di MODAL)
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
     const root = (typeof container === "string") ? document.getElementById(container) : container;
@@ -3167,7 +3165,7 @@ logoutBtn.addEventListener("click", () => {
       root._absensiChecked = rec.checked;
       root._absensiPercent = Math.round(rec.percent);
 
-      // Sinkronkan badge .abs-mini terdekat tombol pembuka
+      // Sinkronkan badge .abs-mini di sel tombol terkait
       syncAbsMiniFromPercent(Math.round(rec.percent));
     }
 
@@ -3299,15 +3297,16 @@ logoutBtn.addEventListener("click", () => {
   // Ekspor fungsi publik jika ingin dipanggil dari handler lama Anda
   window.__setAbsensiTitleFromBtn = function(btn){
     window.ensureAbsensiModal && window.ensureAbsensiModal();
-    // Simpan tombol terakhir untuk sinkronisasi .abs-mini
+    // simpan tombol terakhir untuk sinkronisasi .abs-mini
     window.__absensiLastButton = btn;
-
     const { nis, nama } = extractIdentityFromButton(btn);
     setAbsensiModalTitle(nis, nama);
 
-    // Tandai awal bila badge sudah 100% pada sel saat tombol diklik
-    const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
-    const mini = cell && cell.querySelector('.abs-mini');
+    // tandai awal jika badge sudah 100%
+    const mini = (function(){
+      const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
+      return (cell && cell.querySelector('.abs-mini')) || null;
+    })();
     if (mini){
       const txt = (mini.getAttribute('data-progress') ?? mini.textContent ?? '').trim();
       const num = parseInt(String(txt).replace('%','').trim(), 10);
