@@ -3107,7 +3107,8 @@ logoutBtn.addEventListener("click", () => {
         <select class="absflex-target" style="padding:2px 6px;border:1px solid #e5e7eb;border-radius:8px;">
           ${Array.from({length:ABS_FLEX_CFG.maxTarget},(_,i)=>`<option value="${i+1}" ${i+1==target?'selected':''}>${i+1}</option>`).join("")}
         </select>
-        <span class="absflex-percent" style="border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;background:#eef2ff;font-weight:600;">0%</span>
+        <!-- Netral: tanpa warna; akan diwarnai oleh recolor() -->
+        <span class="absflex-percent" style="border:1px solid #e5e7eb;padding:2px 8px;border-radius:999px;background:transparent;font-weight:600;">0%</span>
       </div>
 
       <!-- Grid luar: kartu per status (responsif & rapi) -->
@@ -3150,9 +3151,20 @@ logoutBtn.addEventListener("click", () => {
         b.checked = !!it?.checked;
       });
     }
+    // >>> Desain hijau hanya saat 100%
     function recolor(p){
-      percentEl.style.background = p>=80 ? '#dcfce7' : p>=50 ? '#fff7ed' : '#fee2e2';
-      percentEl.style.borderColor= p>=80 ? '#86efac' : p>=50 ? '#fdba74' : '#fca5a5';
+      percentEl.style.borderRadius = '999px';
+      percentEl.style.padding = '2px 8px';
+      percentEl.style.fontWeight = '600';
+      if (p >= 100){
+        percentEl.style.background = '#dcfce7';           // rgb(220,252,231)
+        percentEl.style.border = '1px solid #86efac';     // rgb(134,239,172)
+        percentEl.style.color = '#065f46';
+      } else {
+        percentEl.style.background = 'transparent';
+        percentEl.style.border = '1px solid #e5e7eb';
+        percentEl.style.color = '';
+      }
     }
     function recalcExpose(){
       const t = Number(targetEl.value)||ABS_FLEX_CFG.defaultTarget;
@@ -3323,7 +3335,6 @@ logoutBtn.addEventListener("click", () => {
   }, { passive: true });
 })();
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
-
 
 
 // === Load Santri Data ===
