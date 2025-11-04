@@ -2990,12 +2990,12 @@ logoutBtn.addEventListener("click", () => {
   })();
 
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
-  window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
+    window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
-    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
-    defaultTarget: 1,                                   // default denominator
-    maxTarget: 1,                                       // denominator 1..6
-    labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
+    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 2), // ✅ default 2 (Pagi/Sore)
+    defaultTarget: 2,                                   // ✅ bawa default ke 2
+    maxTarget: 6,                                       // ✅ dukung 1..6 sesi aktif
+    labels: null
   };
 
   // --- Tambahan: helper clone aman & di-expose global ---
@@ -3037,22 +3037,14 @@ logoutBtn.addEventListener("click", () => {
     const Title   = st.charAt(0).toUpperCase() + st.slice(1);
     const idx     = i - 1;
     const per     = ABS_FLEX_CFG.perStatus|0;
-    const sesiAll = ["Sesi"];
-
-    // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
-      const sesi = (idx === 0) ? "Pagi" : "Sore";
-      return `${Title} ${sesi} ${i}`;
-    }
-
-    // Jika lebih dari 2 sesi, gunakan daftar sesi lengkap
-    if (per > 2){
-      const sesi = sesiAll[idx] || `Sesi ${i}`;
-      return `${Title} ${sesi} ${i}`;
-    }
-
-    // Fallback (perStatus=1)
-    return `${Title} ${i}`;
+	const sesi = (idx === 0) ? "Pagi" : "Sore";
+	return `${Title} ${sesi}`; // ✅ tidak ulang angka
+	}
+	if (per > 2){
+	return `${Title} Sesi ${i}`; // ✅ Sesi 1..N
+	}
+	return `${Title} ${i}`;
   }
 
   function labelFor(st, i){
@@ -3282,7 +3274,7 @@ logoutBtn.addEventListener("click", () => {
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
           <h3 style="margin:0;font-size:18px;"><span id="absensiModalTitleName" style="font-weight:600;"></span></h3>
-          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
+          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;color:#fff;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
       </div>
@@ -3554,7 +3546,7 @@ async function loadSantriData() {
       for (let s = sFrom; s <= sTo; s++) {
         const surah = surahList.find(x => Number(x.id) === s);
         if (!surah) continue;
-        const totalAy = Number(s.jumlah_ayat || 0);
+        const totalAy = Number(surah.jumlah_ayat || 0); // ✅ FIX
         const startAy = (s === sFrom) ? aFrom : 1;
         const endAy   = (s === sTo)   ? aTo   : totalAy;
 
@@ -4792,7 +4784,7 @@ async function simpanDataMutabaah(saveBtn){
           for (let s = Number(sFrom); s <= Number(sTo); s++) {
             const surah = surahList.find(x => Number(x.id) === s);
             if (!surah) continue;
-            const totalAy = Number(s.jumlah_ayat || 0);
+            const totalAy = Number(surah.jumlah_ayat || 0); // ✅ FIX
             const startAy = (s === Number(sFrom)) ? Number(aFrom) : 1;
             const endAy   = (s === Number(sTo))   ? Number(aTo)   : totalAy;
 
