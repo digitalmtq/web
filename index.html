@@ -12238,28 +12238,43 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ======= Komputasi: Per Halaqoh (kelas)
-    async function computeByKelas(startDate, endDate, kelasKeys){
-      const rows = [];
-      for (const k of kelasKeys){
-        const rowsKelas = await getRowsForClass(k, startDate, endDate);
-        let sum=0, n=0, kh=0, tn=0;
-        for (const r of rowsKelas){
-          const pct = getPercent(r);
-          const isKhatam = Number(r.totalJuz||0) >= 30;
-          const isTuntas = !isKhatam && pct >= 100;
-          sum += pct; n++; if (isKhatam) kh++; else if (isTuntas) tn++;
-        }
-        rows.push({
-          label: getKelasLabel(k),
-          avg: n? (sum/n) : 0,
-          khatam: kh,
-          tuntas: tn,
-          count: n
-        });
-      }
-      rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
-      return { rows, startDate, endDate, mode: 'kelas' };
+// === PATCH: Normalisasi grafik ke total roster ===
+async function computeByKelas(startDate, endDate, kelasKeys){
+  const rows = [];
+  for (const k of kelasKeys){
+    // Ambil paralel: data capaian + roster
+    const [rowsKelas, roster] = await Promise.all([
+      getRowsForClass(k, startDate, endDate).catch(()=>[]),
+      getRosterForClass(k).catch(()=>[])
+    ]);
+
+    const allow = makeAllowSet(roster);
+    const rosterCount = allow.size;           // jumlah santri resmi di halaqoh
+    let sum=0, kh=0, tn=0, present=0;
+
+    for (const r of rowsKelas){
+      const pct = getPercent(r);
+      const isKhatam = Number(r.totalJuz||0) >= 30;
+      const isTuntas = !isKhatam && pct >= 100;
+      sum += pct;
+      present++;                  // santri yang punya data pada periode
+      if (isKhatam) kh++; else if (isTuntas) tn++;
     }
+
+    // --- KUNCI: normalisasi ke roster (bukan hanya yang present)
+    const denom = rosterCount || present;      // fallback bila roster kosong
+    rows.push({
+      label  : getKelasLabel(k),
+      avg    : denom ? (sum / denom) : 0,      // <- normalisasi ke roster
+      khatam : kh,
+      tuntas : tn,
+      count  : rosterCount,                    // "Santri" = total roster
+      present: present                         // opsional: santri aktif
+    });
+  }
+  rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
+  return { rows, startDate, endDate, mode: 'kelas' };
+}
 
     // ======= Chart ctx guard
     function getChartCtx(){
