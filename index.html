@@ -3378,7 +3378,7 @@ async function loadSantriData() {
   overlay.style.display = "flex";
 
   // ===== util jenjang (tetap) =====
-  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 32);
+  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 33);
 
   const parseJenjang = (v) => {
     const m = /^A(\d+)$/.exec(String(v || "").trim());
@@ -9959,7 +9959,7 @@ function renderSessionHTML(s){
 
 <script>
   // ====== KONFIG (opsional dari window.*) ======
-  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 32);             // 34 default; 0 = tanpa batas atas
+  const JENJANG_MAX = Number(window.JENJANG_MAX ?? 33);             // 34 default; 0 = tanpa batas atas
   const JENJANG_SAFETY_CAP = Number(window.JENJANG_SAFETY_CAP ?? 1000); // darurat bila tanpa batas
 
   // ====== Helper jenjang dinamis ======
