@@ -11,16 +11,16 @@
 
   <!-- Favicon untuk browser -->
   <link rel="icon" href="./icon-192.png" type="image/png" sizes="192x192" />
-  <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/digitalmtq/web/refs/heads/main/mtqlogo.png" />
+  <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/raportahfiz/web/refs/heads/main/mtqlogo.png" />
 
   <!-- Open Graph Meta Tags (untuk WhatsApp, FB, Telegram) -->
   <meta property="og:title" content="Portal Mutaba'ah Tahfidz" />
   <meta property="og:description" content="Mudah, simpel, akurat. Sesuai halaman Mushaf Madinah. Dilengkapi laporan otomatis." />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://digitalmtq.netlify.app/" />
+  <meta property="og:url" content="https://raportahfiz.netlify.app/" />
 
   <!-- Gunakan gambar 512x512 -->
-  <meta property="og:image" content="https://raw.githubusercontent.com/digitalmtq/web/refs/heads/main/mtqlogo.png" />
+  <meta property="og:image" content="https://raw.githubusercontent.com/raportahfiz/web/refs/heads/main/mtqlogo.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="512" />
   <meta property="og:image:height" content="512" />
@@ -468,7 +468,7 @@ button.lihat-quran-btn:hover::after {
     
     <!-- Header Login (Logo + Judul) -->
     <div class="login-header">
-    <img src="https://raw.githubusercontent.com/digitalmtq/web/main/mtqlogo.png" alt="Logo Mutaba'ah Tahfizh" />
+    <img src="https://raw.githubusercontent.com/raportahfiz/web/main/mtqlogo.png" alt="Logo Mutaba'ah Tahfizh" />
 	<br>
    <h1 class="judul">Mutaba'ah Tahfizh
 Ponpes AL IRSYAD</h1>
@@ -2743,12 +2743,12 @@ background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:cen
 
   // === Fungsi atur dropdown kelas ===
 function aturDropdownKelas(user) {
-  const semuaKelas = [  "kelas_012025","kelas_022025","kelas_032025","kelas_042025","kelas_052025","kelas_062025",
+  const semuaKelas = [  "kelas_012526","kelas_022025","kelas_032025","kelas_042025","kelas_052025","kelas_062025",
     "kelas_072025","kelas_082025","kelas_092025","kelas_102025","kelas_112025","kelas_122025",
     "kelas_132025","kelas_142025","kelas_152025","kelas_162025","kelas_172025","kelas_182025",
     "kelas_192025","kelas_202025","kelas_212025","kelas_222025","kelas_232025","kelas_242025"];
 
-  const namaKelasCustom = {  kelas_012025: "Ust. Tukimin Abu Rasyid BA",
+  const namaKelasCustom = {  kelas_012526: "Ust. Tukimin Abu Rasyid BA",
   kelas_022025: "Ust. Dicky Miswardi BA",
   kelas_032025: "Ust. Jundullah BA",
   kelas_042025: "Ust. Abdullah",
@@ -2947,55 +2947,13 @@ logoutBtn.addEventListener("click", () => {
 
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
 (function(){
-  // Inject style .abs-mini
-  (function ensureAbsMiniStyles(){
-    if (document.getElementById('absmini-green-style')) return;
-    const st = document.createElement('style');
-    st.id = 'absmini-green-style';
-    st.textContent = `
-      .abs-mini{
-        transition: background .2s ease, color .2s ease;
-      }
-      /* Warna default saat 100% (kompat lama) — akan dioverride oleh kelas status */
-      .abs-mini.is-complete{
-        background:#dcfce7; /* hijau muda */
-        color:#065f46;       /* kontras */
-        border-radius:6px;
-        padding:0 .375rem;
-        transition: background .2s ease, color .2s ease;
-      }
-      /* Warna berdasar status dominan */
-      .abs-mini.is-hadir{
-        background:#dcfce7; /* green-100 */
-        color:#065f46;
-        border-radius:6px; padding:0 .375rem;
-      }
-      .abs-mini.is-izin{
-        background:#f3e8ff; /* violet-100 */
-        color:#4c1d95;
-        border-radius:6px; padding:0 .375rem;
-      }
-      .abs-mini.is-sakit{
-        background:#fef9c3; /* yellow-100 */
-        color:#854d0e;
-        border-radius:6px; padding:0 .375rem;
-      }
-      .abs-mini.is-alpha{
-        background:#fee2e2; /* red-200 */
-        color:#7f1d1d;
-        border-radius:6px; padding:0 .375rem;
-      }
-    `;
-    document.head.appendChild(st);
-  })();
-
   // Konfigurasi global yang bisa dioverride sebelum loadSantriData jalan
-    window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
+  window.ABS_FLEX_CFG = window.ABS_FLEX_CFG || {
     statuses: ["hadir","izin","sakit","alpha"],
-    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // ✅ default 2 (Pagi/Sore)
-    defaultTarget: 1,                                   // ✅ bawa default ke 2
-    maxTarget: 1,                                       // ✅ dukung 1..6 sesi aktif
-    labels: null
+    perStatus: Number(window.ABS_FLEX_PER_STATUS ?? 1), // default 2 unit per status (hadir1..2, dst)
+    defaultTarget: 1,                                   // default denominator
+    maxTarget: 1,                                       // denominator 1..6
+    labels: null                                        // {hadir:[...], izin:[...], ...] (opsional)
   };
 
   // --- Tambahan: helper clone aman & di-expose global ---
@@ -3005,23 +2963,6 @@ logoutBtn.addEventListener("click", () => {
       : [];
   }
   window.__absflex_safeCloneItems = safeCloneItems;
-
-  // --- Tambahan: tentukan status dominan & expose global ---
-  function dominantStatus(items){
-    const cnt = {hadir:0, izin:0, sakit:0, alpha:0};
-    (items||[]).forEach(it=>{
-      if (!it?.checked) return;
-      const base = String(it.key||'').toLowerCase().replace(/\d+$/,'');
-      if (base in cnt) cnt[base]++;
-    });
-    // prioritas seri: hadir > izin > sakit > alpha
-    let best=null,max=0;
-    ["hadir","izin","sakit","alpha"].forEach(k=>{
-      if (cnt[k] > max){ max=cnt[k]; best=k; }
-    });
-    return max>0 ? best : null;
-  }
-  window.__absmini_dominantStatus = dominantStatus;
 
   function buildKeys(perStatus = ABS_FLEX_CFG.perStatus){
     const n = Math.max(1, Math.min(6, perStatus|0 || 2));
@@ -3037,14 +2978,22 @@ logoutBtn.addEventListener("click", () => {
     const Title   = st.charAt(0).toUpperCase() + st.slice(1);
     const idx     = i - 1;
     const per     = ABS_FLEX_CFG.perStatus|0;
+    const sesiAll = ["Sesi"];
+
+    // Legacy: jika tetap 2 sesi, pertahankan Pagi/Sore
     if (per === 2){
-	const sesi = (idx === 0) ? "Pagi" : "Sore";
-	return `${Title} ${sesi}`; // ✅ tidak ulang angka
-	}
-	if (per > 2){
-	return `${Title} Sesi ${i}`; // ✅ Sesi 1..N
-	}
-	return `${Title} ${i}`;
+      const sesi = (idx === 0) ? "Pagi" : "Sore";
+      return `${Title} ${sesi} ${i}`;
+    }
+
+    // Jika lebih dari 2 sesi, gunakan daftar sesi lengkap
+    if (per > 2){
+      const sesi = sesiAll[idx] || `Sesi ${i}`;
+      return `${Title} ${sesi} ${i}`;
+    }
+
+    // Fallback (perStatus=1)
+    return `${Title} ${i}`;
   }
 
   function labelFor(st, i){
@@ -3101,45 +3050,6 @@ logoutBtn.addEventListener("click", () => {
     }
     return items;
   }
-
-  // Cari .abs-mini yang se-sel dengan tombol
-  function findAbsMiniFromBtn(btn){
-    if (!btn) return null;
-    const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
-    return (cell && cell.querySelector('.abs-mini'))
-        || btn.querySelector?.('.abs-mini')
-        || btn.parentElement?.querySelector?.('.abs-mini')
-        || null;
-  }
-
-  // Sinkronkan badge .abs-mini
-  function syncAbsMiniFromPercent(percent){
-    const btn = window.__absensiLastButton;
-    if (!btn) return;
-    const mini = findAbsMiniFromBtn(btn);
-    if (!mini) return;
-
-    // Toggle indikator complete (kompat lama)
-    const complete = (percent >= 100);
-    mini.classList.toggle('is-complete', complete);
-
-    // Warna berdasar status dominan dari CELL pemanggil
-    const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
-    const items = Array.isArray(cell?._absensiItems) ? cell._absensiItems : [];
-    const st = dominantStatus(items);
-
-    mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
-    if (st) {
-      mini.classList.add(`is-${st}`);
-    } else {
-      // netral
-      mini.style.background = '';
-      mini.style.color = '';
-      mini.style.borderRadius = '';
-      mini.style.padding = '';
-    }
-  }
-  window.__absmini_sync = syncAbsMiniFromPercent;
 
   // Render widget ke target container (dipakai di MODAL)
   window.renderAbsensiFlex = function renderAbsensiFlex(container, { target=ABS_FLEX_CFG.defaultTarget, presetItems=null } = {}){
@@ -3211,9 +3121,6 @@ logoutBtn.addEventListener("click", () => {
       root._absensiTarget  = rec.target;
       root._absensiChecked = rec.checked;
       root._absensiPercent = Math.round(rec.percent);
-
-      // Sinkronkan badge .abs-mini di sel tombol terkait
-      syncAbsMiniFromPercent(Math.round(rec.percent));
     }
 
     // listeners
@@ -3274,7 +3181,7 @@ logoutBtn.addEventListener("click", () => {
       <div class="absensi-modal-card" style="background:#fff; padding:20px; border-radius:12px; min-width:340px; max-width:90%; max-height:90%; overflow:auto;">
         <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px;">
           <h3 style="margin:0;font-size:18px;"><span id="absensiModalTitleName" style="font-weight:600;"></span></h3>
-          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;color:#fff;">Tutup</button>
+          <button id="absensiModalClose" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#1E88E5;">Tutup</button>
         </div>
         <div id="absensiModalContent"></div>
       </div>
@@ -3344,21 +3251,8 @@ logoutBtn.addEventListener("click", () => {
   // Ekspor fungsi publik jika ingin dipanggil dari handler lama Anda
   window.__setAbsensiTitleFromBtn = function(btn){
     window.ensureAbsensiModal && window.ensureAbsensiModal();
-    // simpan tombol terakhir untuk sinkronisasi .abs-mini
-    window.__absensiLastButton = btn;
     const { nis, nama } = extractIdentityFromButton(btn);
     setAbsensiModalTitle(nis, nama);
-
-    // tandai awal jika badge sudah 100%
-    const mini = (function(){
-      const cell = btn.closest('.abs-flex-cell, td, th, .cell, .grid-cell');
-      return (cell && cell.querySelector('.abs-mini')) || null;
-    })();
-    if (mini){
-      const txt = (mini.getAttribute('data-progress') ?? mini.textContent ?? '').trim();
-      const num = parseInt(String(txt).replace('%','').trim(), 10);
-      mini.classList.toggle('is-complete', Number.isFinite(num) && num === 100);
-    }
   };
 
   // Listener global: hanya set judul; tidak membuka modal & tidak render
@@ -3370,6 +3264,8 @@ logoutBtn.addEventListener("click", () => {
   }, { passive: true });
 })();
 <!-- ============ ABSENSI FLEX – UTIL & RENDER (global, ringan) ============ -->
+
+
 
 // === Load Santri Data ===
 async function loadSantriData() {
@@ -3546,7 +3442,7 @@ async function loadSantriData() {
       for (let s = sFrom; s <= sTo; s++) {
         const surah = surahList.find(x => Number(x.id) === s);
         if (!surah) continue;
-        const totalAy = Number(surah.jumlah_ayat || 0); // ✅ FIX
+        const totalAy = Number(surah.jumlah_ayat || 0);
         const startAy = (s === sFrom) ? aFrom : 1;
         const endAy   = (s === sTo)   ? aTo   : totalAy;
 
@@ -3619,19 +3515,15 @@ async function loadSantriData() {
   window.__makeSurahOptions = makeSurahOptions;
 
   // AYAT dropdown bertanda ✓/🟢 — fallback aman bila Tahap 2 belum terpasang
-function _fillAyatOptionsMarkedLocal(selectEl, surahId, selectedAyat = "") {
-  if (!selectEl) return;
-  selectEl.innerHTML = `<option value="">— Ayat —</option>`;
-  if (selectedAyat) selectEl.value = String(selectedAyat);
-}
-// helper: pilih global jika ada, selain itu pakai lokal
-function callFillAyatOptions(selectEl, surahId, selectedAyat=""){
-  if (typeof window.fillAyatOptionsMarked === "function") {
-    window.fillAyatOptionsMarked(selectEl, surahId, selectedAyat);
-  } else {
-    _fillAyatOptionsMarkedLocal(selectEl, surahId, selectedAyat);
+  function fillAyatOptionsMarked(selectEl, surahId, selectedAyat = "") {
+    if (typeof window.fillAyatOptionsMarked === "function") {
+      window.fillAyatOptionsMarked(selectEl, surahId, selectedAyat);
+      return;
+    }
+    if (!selectEl) return;
+    selectEl.innerHTML = `<option value="">— Ayat —</option>`;
+    if (selectedAyat) selectEl.value = String(selectedAyat);
   }
-}
 
   try {
     // MASTER santri
@@ -3931,8 +3823,8 @@ function callFillAyatOptions(selectEl, surahId, selectedAyat=""){
         if (dariArr[0])   surahDari.value   = dariArr[0];
         if (sampaiArr[0]) surahSampai.value = sampaiArr[0];
 
-        callFillAyatOptions(ayatDari,   surahDari.value || "",   dariArr[1]   || "");
-		callFillAyatOptions(ayatSampai, surahSampai.value || "", sampaiArr[1] || "");
+        fillAyatOptionsMarked(ayatDari,   surahDari.value || "",   dariArr[1]   || "");
+        fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", sampaiArr[1] || "");
 
         if (dataAbsensi?.tilawahTotalJuz) {
           const tj = Number(dataAbsensi.tilawahTotalJuz);
@@ -3953,11 +3845,11 @@ function callFillAyatOptions(selectEl, surahId, selectedAyat=""){
 
         surahDari.addEventListener("change", () => {
           rebuildSurahDari();
-          callFillAyatOptions(ayatDari, surahDari.value || "", "");
+          fillAyatOptionsMarked(ayatDari, surahDari.value || "", "");
           if (surahDari.value) {
             surahSampai.value = surahDari.value;
             rebuildSurahSampai();
-            callFillAyatOptions(ayatSampai, surahSampai.value || "", "");
+            fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", "");
             ayatSampai.value = ayatDari.value || "";
           } else {
             surahSampai.value = "";
@@ -3969,7 +3861,7 @@ function callFillAyatOptions(selectEl, surahId, selectedAyat=""){
 
         surahSampai.addEventListener("change", () => {
           rebuildSurahSampai();
-          callFillAyatOptions(ayatSampai, surahSampai.value || "", "");
+          fillAyatOptionsMarked(ayatSampai, surahSampai.value || "", "");
           updateTotalJuz(row);
         });
 
@@ -4103,30 +3995,8 @@ function callFillAyatOptions(selectEl, surahId, selectedAyat=""){
           cell._absensiPercent = comp.percent;
 
           function updateMini(){
-            // teks + atribut bantu
             mini.textContent = `${cell._absensiPercent}% (${cell._absensiChecked}/${cell._absensiTarget})`;
-            mini.setAttribute('data-progress', String(cell._absensiPercent));
-
-            // indikator complete (kompat lama)
-            const complete = Number(cell._absensiPercent) >= 100;
-            mini.classList.toggle('is-complete', complete);
-
-            // warna berdasar status dominan
-            const st = (typeof window.__absmini_dominantStatus==='function')
-              ? window.__absmini_dominantStatus(cell._absensiItems)
-              : null;
-
-            mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
-            if (st) {
-              mini.classList.add(`is-${st}`);
-            } else {
-              mini.style.background = '';
-              mini.style.color = '';
-              mini.style.borderRadius = '';
-              mini.style.padding = '';
-            }
           }
-
           updateMini();
 
           btn.addEventListener("click", () => {
@@ -4169,7 +4039,7 @@ function callFillAyatOptions(selectEl, surahId, selectedAyat=""){
 
   overlay.style.display = "none";
 }
-	
+
 
 // ====== Dropdown Ayat (OWNER-AWARE): ayat terpakai disembunyikan KECUALI jika baris ini adalah owner-nya ======
 // ====== Dropdown Ayat (OWNER-AWARE + RENTANG OWNER TETAP TAMPIL) ======
@@ -4732,7 +4602,6 @@ async function simpanDataMutabaah(saveBtn){
       });
 
       const res=await fetch('/api/saveData',{
-// ... (tidak berubah)
         method:'POST',
         credentials:'include',
         headers:{'Content-Type':'application/json','Accept':'application/json'},
@@ -4784,7 +4653,7 @@ async function simpanDataMutabaah(saveBtn){
           for (let s = Number(sFrom); s <= Number(sTo); s++) {
             const surah = surahList.find(x => Number(x.id) === s);
             if (!surah) continue;
-            const totalAy = Number(surah.jumlah_ayat || 0); // ✅ FIX
+            const totalAy = Number(surah.jumlah_ayat || 0);
             const startAy = (s === Number(sFrom)) ? Number(aFrom) : 1;
             const endAy   = (s === Number(sTo))   ? Number(aTo)   : totalAy;
 
@@ -4877,35 +4746,6 @@ async function simpanDataMutabaah(saveBtn){
 document.getElementById('save-btn')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('save-btn-modal')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
 document.getElementById('mur-save')?.addEventListener('click', function(){ simpanDataMutabaah(this); });
-
-// re-sync badge .abs-mini semua baris setelah simpan (tambahkan warna status dominan)
-document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=>{
-  const mini = cell.querySelector('.abs-mini');
-  if (!mini) return;
-  const percent = Number(cell._absensiPercent || 0);
-  mini.textContent = `${percent}% (${Number(cell._absensiChecked||0)}/${Number(cell._absensiTarget||0)})`;
-  mini.setAttribute('data-progress', String(percent));
-
-  // kompat lama: tanda complete
-  const complete = percent >= 100;
-  mini.classList.toggle('is-complete', complete);
-
-  // warna dominan
-  const st = (typeof window.__absmini_dominantStatus==='function')
-    ? window.__absmini_dominantStatus(cell._absensiItems)
-    : null;
-
-  mini.classList.remove('is-hadir','is-izin','is-sakit','is-alpha');
-  if (st) {
-    mini.classList.add(`is-${st}`);
-  } else {
-    mini.style.background = '';
-    mini.style.color = '';
-    mini.style.borderRadius = '';
-    mini.style.padding = '';
-  }
-});
-
 // ============================
 // A. LOAD SANTRI DATA
 // ============================	 
@@ -4994,23 +4834,37 @@ document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=
   }
 
 // ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? ======
-// ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? (slot-only) ======
 function _isMeaningfulKBM(rec){
-  // 1) SLOT absensi (btn-absensi-flex): minimal 1 slot tercentang
-  const checked = Number(rec?._slotChecked ?? 0);
-  if (Number.isFinite(checked) && checked > 0) return true;
+  // slot absensi
+  const checked = Number(rec?._slotChecked || 0);
+  if (checked > 0) return true;
 
-  // 2) Fallback legacy (jika belum pakai slot): 1 field absensi/status yang valid
-  //    Catatan: ini masih "input absensi", bukan setoran/mur/halaman/nilai/keterangan.
-  const raw = (rec?.absensi ?? rec?.status ?? '').toString().trim().toLowerCase();
-  if (raw) {
-    const st = (typeof PDF_normStatus === 'function') ? PDF_normStatus(raw) : raw;
-    if (st === 'hadir' || st === 'izin' || st === 'sakit' || st === 'alpha') return true;
-  }
+  // setoran: dari–sampai, total juz/halaman
+  const adaRange = !!(rec?.dari || rec?.dariSetoran) && !!(rec?.sampai || rec?.sampaiSetoran);
+  if (adaRange) return true;
 
-  // 3) Sinyal non-absensi (setoran/murajaah/halaman/nilai/keterangan) TIDAK menghitung KBM
+  const totJuz = Number(rec?.totalJuz ?? rec?.juz ?? rec?.total_juz_num ?? 0);
+  if (totJuz > 0) return true;
+
+  const totHalaman = Number(rec?.totalHalaman ?? rec?.totalPage ?? 0);
+  if (totHalaman > 0) return true;
+
+  // murajaah (server biasanya di `juzmurajaah` / `total_mur_num`)
+  const mur = Number(rec?.juzmurajaah ?? rec?.murajaah ?? rec?.mur_juz ?? rec?.total_mur_num ?? 0);
+  if (mur > 0) return true;
+
+  // nilai / predikat
+  const adaNilai = (rec?.buttonCell && rec.buttonCell.nilai!=null)
+                || (rec?.nilai != null) || (rec?.score != null);
+  if (adaNilai) return true;
+
+  // keterangan non-kosong
+  const ket = (rec?.keterangan ?? '').toString().trim();
+  if (ket) return true;
+
   return false;
 }
+
   // ====== Helper agregasi slot per santri (BARU) ======
   function _aggregateSlotsPerKey(items){
     const map = new Map();
@@ -5055,39 +4909,10 @@ function getSelectedKelas(){
   return { value: '', el };
 }
 
-// ====== Agregasi "hari hadir" per santri (slot-based) ======
-function _aggregateHadirDaysPerKey(items){
-  // key -> Set(tanggal_hadir)
-  const map = new Map();
-  for (const r of (items || [])) {
-    const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
-    const tgl = r?.tanggal ? String(r.tanggal).slice(0,10) : '';
-    if (!key || !tgl) continue;
-
-    // slot-based: minimal 1 slot 'hadir' di hari tsb
-    const sc = r?._slotCounts;
-    const hadHadirSlot = sc ? Number(sc.hadir||0) > 0 : false;
-
-    // fallback: kalau tidak ada slot, pakai field absensi/status
-    const st = (!sc) ? PDF_normStatus(r?.absensi ?? r?.status) : null;
-    const hadHadirNonSlot = (!sc) && (st === 'hadir');
-
-    if (hadHadirSlot || hadHadirNonSlot) {
-      if (!map.has(key)) map.set(key, new Set());
-      map.get(key).add(tgl);
-    }
-  }
-  const out = new Map();
-  for (const [k, set] of map.entries()){
-    out.set(k, { hadirDays: set.size });
-  }
-  return out;
-}
-
   // === Helper Kelas/Kelompok ===
 function buildKelasKelompokLine(kelas, kelasEl) {
   const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
-  const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {  kelas_012025: "Ust. Tukimin Abu Rasyid BA",
+  const custom = window.namaKelasCustom || window.NAMA_KELAS_CUSTOM || {  kelas_012526: "Ust. Tukimin Abu Rasyid BA",
   kelas_022025: "Ust. Dicky Miswardi BA",
   kelas_032025: "Ust. Jundullah BA",
   kelas_042025: "Ust. Abdullah",
@@ -5278,8 +5103,7 @@ async function d1FetchAbsensiAggMap({ kelas, start, end }) {
 }
 
   // ====== Ambil & Agregasi Data (Rekap Kelas) ======
-  // ====== Ambil & Agregasi Data (Rekap Kelas) ======
-async function collectRekapData(){
+  async function collectRekapData(){
   const { value: kelas, el: kelasEl } = getSelectedKelas();
   const startDate = document.querySelector('#pdf-start-date')?.value;
   const endDate   = document.querySelector('#pdf-end-date')?.value;
@@ -5297,132 +5121,85 @@ async function collectRekapData(){
   }
 
   // 2) ROSTER
-  const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
-  let santriData = await resSantri.json().catch(()=>[]);
-  if (!Array.isArray(santriData)) santriData = [];
+const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+let santriData = await resSantri.json().catch(()=>[]);
+if (!Array.isArray(santriData)) santriData = [];
 
-  const allowSet = buildRosterWhitelist(santriData);
-  const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-  const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
-  const keyName = v => String(v || "").trim().toLowerCase();
-  const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
-  const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
-  const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
-  const rosterById   = byIdMap(santriData, s => s);
-  const rosterByNis  = byNisMap(santriData, s => s);
-  const rosterByName = byNameMap(santriData, s => s);
+// >>> HARD WHITELIST berdasarkan roster
+const allowSet = buildRosterWhitelist(santriData);
 
-	// --- Normalizer: semester & jenjang ---
-function parseSemesterStrict(v){
-  // Terima "1".."6", "S1".."S6", "SM1".."SM6"
-  const s = String(v ?? '').trim().toUpperCase();
-  const m = s.match(/^(?:SM|S)?([1-6])$/); // grup angka 1..6
-  return m ? Number(m[1]) : null;
-}
-function normalizeJenjangCode(v){
-  // Terima "A12", "a12", "12" => kembalikan "A12"
-  const s = String(v ?? '').trim().toUpperCase();
-  const mA = s.match(/^A?(\d{1,2})$/); // izinkan dengan/ tanpa 'A'
-  if (!mA) return s || null;
-  const n = Number(mA[1]);
-  if (!Number.isFinite(n) || n < 1 || n > 34) return s || null;
-  return `A${n}`;
-}
-// versi aman untuk ditampilkan di tabel
-function safeSem(val){ return (Number.isFinite(val) && val >= 1 && val <= 6) ? val : '-'; }
-function safeJenjangLabel(raw){
-  const norm = normalizeJenjangCode(raw);
-  return jenjangLabel(norm || ''); // pakai fungsi kamu yg sudah ada
-}
+// index helper (tetap seperti semula)
+const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
+const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
+const keyName = v => String(v || "").trim().toLowerCase();
+const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
+const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
+const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
+const rosterById   = byIdMap(santriData, s => s);
+const rosterByNis  = byNisMap(santriData, s => s);
+const rosterByName = byNameMap(santriData, s => s);
 
-	// --- Normalizer: semester & jenjang ---
-function parseSemesterStrict(v){
-  // Terima "1".."6", "S1".."S6", "SM1".."SM6"
-  const s = String(v ?? '').trim().toUpperCase();
-  const m = s.match(/^(?:SM|S)?([1-6])$/); // grup angka 1..6
-  return m ? Number(m[1]) : null;
-}
-function normalizeJenjangCode(v){
-  // Terima "A12", "a12", "12" => kembalikan "A12"
-  const s = String(v ?? '').trim().toUpperCase();
-  const mA = s.match(/^A?(\d{1,2})$/); // izinkan dengan/ tanpa 'A'
-  if (!mA) return s || null;
-  const n = Number(mA[1]);
-  if (!Number.isFinite(n) || n < 1 || n > 34) return s || null;
-  return `A${n}`;
-}
-// versi aman untuk ditampilkan di tabel
-function safeSem(val){ return (Number.isFinite(val) && val >= 1 && val <= 6) ? val : '-'; }
-function safeJenjangLabel(raw){
-  const norm = normalizeJenjangCode(raw);
-  return jenjangLabel(norm || ''); // pakai fungsi kamu yg sudah ada
-}
+// 3) Normalisasi raw + injeksi slot
+const allDataNorm = rawList
+  // >>> BUANG SEMUA RECORD yang key-nya tidak ada di roster
+  .filter(r => {
+    const id  = keyId(r?.id ?? "");
+    const nis = keyNis(r?.nis ?? "");
+    // boleh lolos jika nis/id ada di allow; jika kosong bisa coba ditebak dari roster, tapi kalau tidak tertebak → drop
+    if (nis && allowSet.has(nis)) return true;
+    if (id  && allowSet.has(id))  return true;
 
-  // 3) Normalisasi raw + injeksi slot
-  const allDataNorm = rawList
-    .filter(r => {
-      const id  = keyId(r?.id ?? "");
-      const nis = keyNis(r?.nis ?? "");
-      if (nis && allowSet.has(nis)) return true;
-      if (id  && allowSet.has(id))  return true;
-      const nmK = keyName(r?.nama);
-      const guessNis = nmK && rosterByName.get(nmK)?.nis ? keyNis(rosterByName.get(nmK).nis) : "";
-      const guessId  = nmK && rosterByName.get(nmK)?.id  ? keyId(rosterByName.get(nmK).id)  : "";
-      return (guessNis && allowSet.has(guessNis)) || (guessId && allowSet.has(guessId));
-    })
-    .map(r => {
-      let id   = keyId(r?.id ?? "");
-      let nis  = keyNis(r?.nis ?? "");
-      const nmK = keyName(r?.nama);
-      if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
-      if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
+    // upaya terakhir: tebak NIS dari nama di roster, lalu cek ke allowSet
+    const nmK = keyName(r?.nama);
+    const guessNis = nmK && rosterByName.get(nmK)?.nis ? keyNis(rosterByName.get(nmK).nis) : "";
+    const guessId  = nmK && rosterByName.get(nmK)?.id  ? keyId(rosterByName.get(nmK).id)  : "";
+    return (guessNis && allowSet.has(guessNis)) || (guessId && allowSet.has(guessId));
+  })
+  .map(r => {
+    // …(blok normalisasi asli Anda, tidak berubah)…
+    let id   = keyId(r?.id ?? "");
+    let nis  = keyNis(r?.nis ?? "");
+    const nmK = keyName(r?.nama);
+    if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
+    if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
 
-      let nama = r?.nama;
-      if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
-      if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
-      if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
+    let nama = r?.nama;
+    if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
+    if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
+    if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-      let semester = parseSemesterStrict(r?.semester);
-if (semester == null) {
-  if (nis && rosterByNis.get(nis)?.semester != null) semester = parseSemesterStrict(rosterByNis.get(nis).semester);
-  else if (id && rosterById.get(id)?.semester != null) semester = parseSemesterStrict(rosterById.get(id).semester);
-}
+    let semester = (r?.semester != null) ? Number(r.semester) : null;
+    if (semester == null) {
+      if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
+      else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
+    }
 
-let jenjang = normalizeJenjangCode(r?.jenjang);
-if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = normalizeJenjangCode(rosterByNis.get(nis).jenjang);
-if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = normalizeJenjangCode(rosterById.get(id).jenjang);
+    let jenjang = r?.jenjang ?? null;
+    if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
+    if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
 
-      let keterangan = r?.keterangan ?? null;
-      if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
-      if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
+    let keterangan = r?.keterangan ?? null;
+    if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
+    if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
 
-      const slot = _slotMetricsFromRecord(r);
-      return {
-        ...r, ...slot, id, nis, nama, semester, jenjang, keterangan,
-        tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
-      };
-    });
-
-  // === [FIX] Terapkan toggle Rentang Absensi untuk perhitungan SLOT & KBM ===
-  const { start: absS, end: absE, source: absSrc } = getAbsensiRangeOrDefault();
-  const useAbsensiRange = (absSrc === 'absensi');
-  const allDataAbsensi = useAbsensiRange
-    ? (allDataNorm || []).filter(it => {
-        const t = String(it?.tanggal || '');
-        return t >= absS && t <= absE;
-      })
-    : allDataNorm;
-
-  // 4) KBM hari unik (HANYA hari bermakna) — pakai dataset yang sama dengan slot
-  const kbmDaySet = new Set();
-  (allDataAbsensi||[]).forEach(it => {
-    if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
+    const slot = _slotMetricsFromRecord(r);
+    return {
+      ...r, ...slot, id, nis, nama, semester, jenjang, keterangan,
+      tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
+    };
   });
-  const kbmDays = kbmDaySet.size;
+
+  	// 4) KBM hari unik (HANYA hari dengan record bermakna)
+	const kbmDaySet = new Set();
+	(allDataNorm||[]).forEach(it => {
+	if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
+	});
+	const kbmDays = kbmDaySet.size;
 
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
 
+  // totalJuz / totalMur dari server (cepat & konsisten)
   Object.values(aggMap).forEach(r => {
     const k = (r.nis && String(r.nis).trim()) || (r.id && String(r.id).trim());
     if (!k) return;
@@ -5430,11 +5207,12 @@ if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = normalizeJenjangC
     if (a) {
       r.totalJuz    = Number(a.totalJuz || r.totalJuz || 0);
       r.murTotalJuz = Number(a.totalMur || r.murTotalJuz || 0);
+      // r.murCount tetap dihitung dari harian (berapa hari ada mur>0)
     }
   });
 
-  // 6) Merge slot (pakai data yang sudah difilter absensi jika toggle aktif)
-  const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
+  // 6) Merge slot (hadir/izin/sakit/alpha + target)
+  const slotAgg = _aggregateSlotsPerKey(allDataNorm);
   for (const [k, a] of slotAgg.entries()) {
     if (!aggMap[k]) continue;
     aggMap[k].hadirSlots  = a.hadir;
@@ -5444,18 +5222,11 @@ if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = normalizeJenjangC
     aggMap[k].targetSlots = a.target;
   }
 
-  // 6b) Hari hadir per santri (slot-based) → untuk Hadir % berbasis HARI KBM
-const hadirDayAgg = _aggregateHadirDaysPerKey(allDataAbsensi);
-for (const [k, v] of hadirDayAgg.entries()){
-  if (!aggMap[k]) continue;
-  aggMap[k].hadirDays = v.hadirDays; // jumlah HARI hadir santri
-}
-
   const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
   const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
   if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
 
-  // 7) Ringkasan (slot)
+  // 7) Ringkasan total (pakai slot)
   let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
   rows.forEach(r=>{
     totJuz += r.totalJuz;
@@ -5504,14 +5275,23 @@ for (const [k, v] of hadirDayAgg.entries()){
         sel.innerHTML = `<option value="">— Pilih santri (ada data) —</option>` +
           arr.map(x => `<option value="${x.key}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis ? x.nis : x.id} — ${x.nama}</option>`).join('');
       } else {
-        const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
-let santriData = await resSantri.json().catch(() => []);
-if (!Array.isArray(santriData)) santriData = [];   // <<< penting: kalau API balik {error:...}
-        const arr = (santriData||[]).map(s => ({ key: (s.nis||s.id||'').toString(), nama: s.nama||'-', nis: s.nis||'', id: s.id||'' }))
-                              .filter(x => x.key).sort((a,b)=>a.nama.localeCompare(b.nama,'id'));
-        sel.innerHTML = `<option value="">— Pilih santri —</option>` +
-          arr.map(x => `<option value="${x.key}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis ? x.nis : x.id} — ${x.nama}</option>`).join('');
-      }
+  const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelas)}&t=${Date.now()}`);
+  let santriData = await resSantri.json().catch(() => []);
+  if (!Array.isArray(santriData)) santriData = [];   // kalau API balikin {error:...}
+
+  const arr = (santriData || [])
+    .map(s => ({
+      key: (s.nis || s.id || '').toString(),
+      nama: s.nama || '-',
+      nis: s.nis || '',
+      id: s.id || ''
+    }))
+    .filter(x => x.key)
+    .sort((a,b) => a.nama.localeCompare(b.nama,'id'));
+
+  sel.innerHTML = `<option value="">— Pilih santri —</option>` +
+    arr.map(x => `<option value="${x.key}" data-nama="${(x.nama||'').replace(/"/g,'&quot;')}">${x.nis ? x.nis : x.id} — ${x.nama}</option>`).join('');
+}
     } catch(e){
       sel.innerHTML = `<option value="">— Gagal memuat daftar santri —</option>`;
       console.error(e);
@@ -5760,23 +5540,17 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
         const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
         const targetSlots= Number(r.targetSlots ?? 0);
-        // === Hadir % berbasis HARI KBM ===
-const hadirDays = Number(r.hadirDays || 0);
-const denomDays = Number(kbmDays || 0);
-const hadirPct  = denomDays > 0
-  ? Math.round(100 * hadirDays / denomDays)
-  : (
-      (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
-      ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
-      : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
-    );
+        const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+		const hadirPct   = denomSlots > 0
+		? Math.round((hadirSlots / denomSlots) * 100)
+		: (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
 
         return {
           no: String(idx+1),
           nis: r.nis || r.id || '-',
           nama: r.nama || '-',
-          sem: safeSem(r.semester),
-		  jenjang: safeJenjangLabel(r.jenjang),
+          sem: r.semester ?? '-',
+          jenjang: jenjangLabel(r.jenjang ?? ''),
           ket: r.keterangan ?? '-',
           h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
           hadirPct: `${hadirPct}%`,
@@ -5991,8 +5765,7 @@ const hadirPct  = denomDays > 0
   }
 
   // ====== Ambil & Agregasi Data utk 1 kelas spesifik ======
-  // ====== Ambil & Agregasi Data utk 1 kelas spesifik ======
-async function collectRekapDataForClass(kelasKey, startDate, endDate){
+  async function collectRekapDataForClass(kelasKey, startDate, endDate){
   if (!kelasKey) return null;
   if (!startDate || !endDate) return null;
   const { line: kelasLine } = _kelasKelompokLineFor(kelasKey);
@@ -6005,84 +5778,80 @@ async function collectRekapDataForClass(kelasKey, startDate, endDate){
   if (!Array.isArray(rawList) || rawList.length === 0) return null;
 
   // 2) ROSTER
-  const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`);
-  let santriData = await resSantri.json().catch(()=>[]);
-  if (!Array.isArray(santriData)) santriData = [];
+const resSantri = await fetch(`/api/getSantri?kelas=${encodeURIComponent(kelasKey)}&t=${Date.now()}`);
+let santriData = await resSantri.json().catch(()=>[]);
+if (!Array.isArray(santriData)) santriData = [];
 
-  const allowSet = buildRosterWhitelist(santriData);
-  const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
-  const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
-  const keyName = v => String(v || "").trim().toLowerCase();
-  const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
-  const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
-  const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
-  const rosterById   = byIdMap(santriData, s => s);
-  const rosterByNis  = byNisMap(santriData, s => s);
-  const rosterByName = byNameMap(santriData, s => s);
+// >>> HARD WHITELIST roster
+const allowSet = buildRosterWhitelist(santriData);
 
-  // 3) Normalisasi raw + injeksi slot
-  const allDataNorm = rawList
-    .filter(r => {
-      const id  = keyId(r?.id ?? "");  const nis = keyNis(r?.nis ?? "");
-      if (nis && allowSet.has(nis)) return true;
-      if (id  && allowSet.has(id))  return true;
-      const nmK = keyName(r?.nama);
-      const guessNis = nmK && rosterByName.get(nmK)?.nis ? keyNis(rosterByName.get(nmK).nis) : "";
-      const guessId  = nmK && rosterByName.get(nmK)?.id  ? keyId(rosterByName.get(nmK).id)  : "";
-      return (guessNis && allowSet.has(guessNis)) || (guessId && allowSet.has(guessId));
-    })
-    .map(r => {
-      let id   = keyId(r?.id ?? "");
-      let nis  = keyNis(r?.nis ?? "");
-      const nmK = keyName(r?.nama);
-      if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
-      if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
+// index helper (tetap)
+const keyId   = v => (v === 0 || v) ? String(v).trim() : "";
+const keyNis  = v => (v === 0 || v) ? String(v).trim() : "";
+const keyName = v => String(v || "").trim().toLowerCase();
+const byIdMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const id = keyId(a?.id); if (id) m.set(id, pick(a)); } return m; };
+const byNisMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nis = keyNis(a?.nis); if (nis) m.set(nis, pick(a)); } return m; };
+const byNameMap = (arr, pick = x => x) => { const m = new Map(); for (const a of arr||[]) { const nm = keyName(a?.nama); if (nm && !m.has(nm)) m.set(nm, pick(a)); } return m; };
+const rosterById   = byIdMap(santriData, s => s);
+const rosterByNis  = byNisMap(santriData, s => s);
+const rosterByName = byNameMap(santriData, s => s);
 
-      let nama = r?.nama;
-      if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
-      if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
-      if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
+// 3) Normalisasi raw + injeksi slot
+const allDataNorm = rawList
+  // >>> hanya record yang ada di roster
+  .filter(r => {
+    const id  = keyId(r?.id ?? "");  const nis = keyNis(r?.nis ?? "");
+    if (nis && allowSet.has(nis)) return true;
+    if (id  && allowSet.has(id))  return true;
+    const nmK = keyName(r?.nama);
+    const guessNis = nmK && rosterByName.get(nmK)?.nis ? keyNis(rosterByName.get(nmK).nis) : "";
+    const guessId  = nmK && rosterByName.get(nmK)?.id  ? keyId(rosterByName.get(nmK).id)  : "";
+    return (guessNis && allowSet.has(guessNis)) || (guessId && allowSet.has(guessId));
+  })
+  .map(r => {
+    // …(blok normalisasi asli Anda, sama seperti sebelumnya)…
+    let id   = keyId(r?.id ?? "");
+    let nis  = keyNis(r?.nis ?? "");
+    const nmK = keyName(r?.nama);
+    if (!nis && id && rosterById.get(id)?.nis) nis = keyNis(rosterById.get(id).nis);
+    if (!nis && nmK && rosterByName.get(nmK)?.nis) nis = keyNis(rosterByName.get(nmK).nis);
 
-      let semester = (r?.semester != null) ? Number(r.semester) : null;
-      if (semester == null) {
-        if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
-        else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
-      }
+    let nama = r?.nama;
+    if (!nama && nis && rosterByNis.get(nis)?.nama) nama = rosterByNis.get(nis).nama;
+    if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
+    if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-      let jenjang = r?.jenjang ?? null;
-      if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
-      if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
+    let semester = (r?.semester != null) ? Number(r.semester) : null;
+    if (semester == null) {
+      if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
+      else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
+    }
 
-      let keterangan = r?.keterangan ?? null;
-      if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
-      if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
+    let jenjang = r?.jenjang ?? null;
+    if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
+    if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
 
-      const slot = _slotMetricsFromRecord(r);
-      return {
-        ...r, ...slot, id, nis, nama, semester, jenjang, keterangan,
-        tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
-      };
-    });
+    let keterangan = r?.keterangan ?? null;
+    if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
+    if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
 
-  // === [Terapkan toggle Rentang Absensi] untuk SLOT & KBM
-  const { start: absS, end: absE, source: absSrc } = getAbsensiRangeOrDefault();
-  const useAbsensiRange = (absSrc === 'absensi');
-  const allDataAbsensi = useAbsensiRange
-    ? (allDataNorm || []).filter(it => {
-        const t = String(it?.tanggal || '');
-        return t >= absS && t <= absE;
-      })
-    : allDataNorm;
-
-  // 4) KBM unik (HANYA hari bermakna) — pakai dataset yang sudah difilter
-  const kbmDaySet = new Set();
-  (allDataAbsensi||[]).forEach(it => {
-    if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
+    const slot = _slotMetricsFromRecord(r);
+    return {
+      ...r, ...slot, id, nis, nama, semester, jenjang, keterangan,
+      tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
+    };
   });
-  const kbmDays = kbmDaySet.size;
+
+  	// 4) KBM unik (HANYA hari bermakna)
+	const kbmDaySet = new Set();
+	(allDataNorm||[]).forEach(it => {
+	if (it?.tanggal && _isMeaningfulKBM(it)) kbmDaySet.add(String(it.tanggal));
+	});
+	const kbmDays = kbmDaySet.size;
 
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
+
   Object.values(aggMap).forEach(r => {
     const k = (r.nis && String(r.nis).trim()) || (r.id && String(r.id).trim());
     if (!k) return;
@@ -6093,8 +5862,18 @@ async function collectRekapDataForClass(kelasKey, startDate, endDate){
     }
   });
 
-  // 6) Merge slot — pakai data absensi yang difilter
-  const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
+  // 6) Merge slot
+  const { start: absS, end: absE, source: absSrc } = getAbsensiRangeOrDefault();
+const useAbsensiRange = (absSrc === 'absensi');
+const allDataAbsensi = useAbsensiRange
+  ? (allDataNorm || []).filter(it => {
+      const t = String(it?.tanggal || '');
+      return t >= absS && t <= absE;
+    })
+  : allDataNorm;
+
+const slotAgg = _aggregateSlotsPerKey(allDataAbsensi);
+
   for (const [k, a] of slotAgg.entries()) {
     if (!aggMap[k]) continue;
     aggMap[k].hadirSlots  = a.hadir;
@@ -6103,13 +5882,6 @@ async function collectRekapDataForClass(kelasKey, startDate, endDate){
     aggMap[k].alphaSlots  = a.alpha;
     aggMap[k].targetSlots = a.target;
   }
-
-	 // 6b) Hari hadir per santri (slot-based) → untuk Hadir % berbasis HARI KBM
-const hadirDayAgg = _aggregateHadirDaysPerKey(allDataAbsensi);
-for (const [k, v] of hadirDayAgg.entries()){
-  if (!aggMap[k]) continue;
-  aggMap[k].hadirDays = v.hadirDays; // jumlah HARI hadir santri
-}
 
   const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
   const rows = allRows.filter(r => (typeof r.nis === 'string' ? r.nis.trim() !== '' : !!r.nis));
@@ -6260,23 +6032,17 @@ for (const [k, v] of hadirDayAgg.entries()){
           const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
           const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
           const targetSlots= Number(r.targetSlots ?? 0);
-          // === Hadir % berbasis HARI KBM ===
-const hadirDays = Number(r.hadirDays || 0);
-const denomDays = Number(kbmDays || 0);
-const hadirPct  = denomDays > 0
-  ? Math.round(100 * hadirDays / denomDays)
-  : (
-      (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
-      ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
-      : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
-    );
+          const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+		  const hadirPct   = denomSlots > 0
+		  ? Math.round((hadirSlots / denomSlots) * 100)
+		  : (targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0);
 
           return {
             no: String(idx+1),
             nis: r.nis || r.id || '-',
             nama: r.nama || '-',
-            sem: safeSem(r.semester),
-		    jenjang: safeJenjangLabel(r.jenjang),
+            sem: r.semester ?? '-',
+            jenjang: jenjangLabel(r.jenjang ?? ''),
             ket: r.keterangan ?? '-',
             h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
             hadirPct: `${hadirPct}%`,
@@ -6494,12 +6260,7 @@ async function xlsRekapDownload(){
         const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
         const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
         const targetSlots= Number(r.targetSlots ?? 0);
-        // === Hadir % berbasis HARI KBM ===
-const hadirDays = Number(r.hadirDays || 0);
-const denomDays = Number(kbmDays || 0);
-const hadirPct  = denomDays > 0
-  ? Math.round(100 * hadirDays / denomDays)
-  : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0);
+        const hadirPct   = targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0;
 
         return [
           idx+1,
@@ -7022,34 +6783,17 @@ async function pdfSantriDownload(){
     const key = sel.value;
     const selectedNama = sel.options[sel.selectedIndex]?.dataset?.nama || '';
 
-    const { startDate, endDate, kelasLine, rows: aggRows, allDataNorm, kbmDays } = await collectRekapData();
+    const { startDate, endDate, kelasLine, rows: aggRows, allDataNorm } = await collectRekapData();
 
-	// === Range efektif (pakai Absensi jika toggle aktif) ===
-const { start: absS, end: absE, source: absSrc } =
-  (typeof getAbsensiRangeOrDefault === 'function')
-    ? getAbsensiRangeOrDefault()
-    : { start: startDate, end: endDate, source: 'global' };
-
-const usingAbsensiRange = (absSrc === 'absensi');
-const effStart = usingAbsensiRange ? absS : startDate;
-const effEnd   = usingAbsensiRange ? absE : endDate;
-
-    let mine = allDataNorm.filter(it => (String(it.nis||it.id||'') === key));
-if (usingAbsensiRange) {
-  mine = mine.filter(it => {
-    const t = String(it?.tanggal || '');
-    return t >= effStart && t <= effEnd;
-  });
-}
+    const mine = allDataNorm.filter(it => (String(it.nis||it.id||'') === key));
     if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih pada rentang tanggal.');
 
     const namaSantri = selectedNama || (mine.find(it => it.nama)?.nama) || '-';
-    const semesterSantri = parseSemesterStrict(mine.find(it => it.semester!=null)?.semester);
-const jenjangSantri  = normalizeJenjangCode(
-  (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.jenjang)
-  ?? (mine.find(it => it.jenjang!=null)?.jenjang)
-);
-const jenjangSantriLabel = safeJenjangLabel(jenjangSantri);
+    const semesterSantri = (mine.find(it => it.semester!=null)?.semester) ?? null;
+    const jenjangSantri  = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.jenjang)
+                        ?? (mine.find(it => it.jenjang!=null)?.jenjang)
+                        ?? '-';
+    const jenjangSantriLabel = jenjangLabel(jenjangSantri);
 
     const keteranganSantri = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.keterangan)
                         ?? (mine.find(it => it.keterangan!=null)?.keterangan)
@@ -7162,20 +6906,11 @@ const jenjangSantriLabel = safeJenjangLabel(jenjangSantri);
 	: null;
     const statusJuzTotal = PDF_totalAllJuzStatus(totJuz, agg?.semester ?? semesterSantri);
 
-	// total hari hadir santri (≥1 slot hadir dalam 1 hari)
-const hadirDaysSantri = dayRows.reduce(
-  (s,d) => s + (Number(d.cnt?.hadir || 0) > 0 ? 1 : 0), 0
-);
-
-    // Persentase kehadiran total (berdasar HARI KBM)
-const denomDaysTotal = Number(kbmDays || 0);
-const hadirPctTotal  = denomDaysTotal > 0
-  ? Math.round(100 * hadirDaysSantri / denomDaysTotal)
-  : (
-      (totH + totI + totS + totA) > 0
-      ? Math.round(100 * totH / (totH + totI + totS + totA))
-      : (totalTargetSlots > 0 ? Math.round(100 * totH / totalTargetSlots) : 0)
-    );
+    // Persentase kehadiran total (slot-based)
+    const denomTotal = totH + totI + totS + totA;
+	const hadirPctTotal = denomTotal > 0
+	? Math.round((totH / denomTotal) * 100)
+	: (totalTargetSlots > 0 ? Math.round((totH / totalTargetSlots) * 100) : 0);
 
     // ==== Baris harian (slot-based) ====
     const tableRows = dayRows.map((d, idx) => {
@@ -7212,28 +6947,12 @@ const hadirPctTotal  = denomDaysTotal > 0
       };
     });
 
-	 function _mergeSAfromDayRows(dayRows){
-  const list = [];
-  dayRows.forEach(d => (d.sa||[]).forEach(seg => seg?.from && seg?.to && list.push(seg)));
-  return PDF_joinSAsegmentsNamaMerged(list); // sudah ada di file
-}
-function _mergeJuzFromDayRows(dayRows){
-  const list = [];
-  dayRows.forEach(d => (d.juz||[]).forEach(seg => Array.isArray(seg) && seg.length>=2 && list.push(seg)));
-  return PDF_joinRangeSegmentsCompact(list, true); // sudah ada di file
-}
-
     // ==== Baris REKAP (slot-based) ====
     const predHurufTotal = hasNilaiTotal
 	? PDF_predikatFromScore(nilaiAvg).huruf
 	: '-';
-    const setoranTotal = (usingAbsensiRange || !agg)
-  ? _mergeSAfromDayRows(dayRows)
-  : PDF_joinSAsegmentsNamaMerged(agg.saSegments);
-
-const juzTotalTxt  = (usingAbsensiRange || !agg)
-  ? _mergeJuzFromDayRows(dayRows)
-  : PDF_joinRangeSegmentsCompact(agg.juzSegments, true);
+    const setoranTotal = agg ? PDF_joinSAsegmentsNamaMerged(agg.saSegments) : '-';
+    const juzTotalTxt  = agg ? PDF_joinRangeSegmentsCompact(agg.juzSegments, true) : '-';
 
     tableRows.push({
       _isRekap: true,
@@ -7290,7 +7009,7 @@ const juzTotalTxt  = (usingAbsensiRange || !agg)
       doc.text(`Santri: ${key} — ${namaSantri}`, margin.left, margin.top + 12);
       const rightX = pageW - margin.right - 78;
       doc.text(`Semester: ${tableRows.find(r=>!r._isRekap)?.sem ?? '-'}`, rightX, margin.top + 6);
-      doc.text(`Periode Tahfiz: ${fmtD_M_YYYY(effStart)} s.d. ${fmtD_M_YYYY(effEnd)}`, rightX, margin.top + 12);
+      doc.text(`Periode Tahfiz: ${fmtD_M_YYYY(startDate)} s.d. ${fmtD_M_YYYY(endDate)}`, rightX, margin.top + 12);
       doc.setTextColor(...theme.text);
     }
     function drawFooterS(pageNo, totalPages, printedAt){
@@ -7430,7 +7149,7 @@ const juzTotalTxt  = (usingAbsensiRange || !agg)
     }
     const printedAt = new Date();
     const printedISO = printedAt.toISOString().slice(0,10);
-    const ttdDate = fmtDDMMYYYY(effEnd) || fmtDDMMYYYY(printedISO) || printedAt.toLocaleDateString('id-ID');
+    const ttdDate = fmtDDMMYYYY(endDate) || fmtDDMMYYYY(printedISO) || printedAt.toLocaleDateString('id-ID');
 
     const spaceTop = 10, neededH = 36;
     if (y + spaceTop + neededH > pageH - margin.bottom){
@@ -7461,7 +7180,7 @@ const juzTotalTxt  = (usingAbsensiRange || !agg)
     const totalPages = doc.internal.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) { doc.setPage(p); drawFooterS(p, totalPages, printedAt.toLocaleString()); }
 
-    const fileName = `Rekap_perSantri_${key}_${effStart}_sd_${effEnd}.pdf`;
+    const fileName = `Rekap_perSantri_${key}_${startDate}_sd_${endDate}.pdf`;
     doc.save(fileName);
 
     const santriModal = document.getElementById('santriModalOverlay');
@@ -10756,7 +10475,7 @@ document.addEventListener("DOMContentLoaded", () => {
 (()=>{
   // ===== KONFIG REPO =====
   const API    = '/api/gitFile';
-  const OWNER  = 'digitalmtq';
+  const OWNER  = 'raportahfiz';
   const REPO   = 'web';
   const BRANCH = 'main';
   const PATH   = 'index.html';
