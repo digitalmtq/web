@@ -7052,16 +7052,61 @@ if (usingAbsensiRange) {
 }
     if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih pada rentang tanggal.');
 
-    const namaSantri = selectedNama || (mine.find(it => it.nama)?.nama) || '-';
-    const semesterSantri = (mine.find(it => it.semester!=null)?.semester) ?? null;
-    const jenjangSantri  = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.jenjang)
-                        ?? (mine.find(it => it.jenjang!=null)?.jenjang)
-                        ?? '-';
-    const jenjangSantriLabel = jenjangLabel(jenjangSantri);
+    // --- dapatkan helper override UI (fallback ke no-op bila belum ada) ---
+const _getSelectedSemester   = (window.getSelectedSemester   || (() => null));
+const _getSelectedJenjang    = (window.getSelectedJenjang    || (() => null));
+const _getSelectedKeterangan = (window.getSelectedKeterangan || (() => null));
 
-    const keteranganSantri = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.keterangan)
-                        ?? (mine.find(it => it.keterangan!=null)?.keterangan)
-                        ?? '-';
+// --- util kecil untuk cari data berdasarkan key (nis||id) ---
+const _byKey = (arr) => (arr || []).find(it => String(it?.nis || it?.id || '') === key) || null;
+const _byKeyAgg = (arr) => (arr || []).find(r => (r?.nis && String(r.nis) === key) || (!r?.nis && String(r?.id || '') === key)) || null;
+
+// --- ambil kandidat dari sumber yang paling reliabel ---
+const mineOne   = _byKey(mine);        // dari raw harian yang sudah dinormalisasi
+const aggOne    = _byKeyAgg(aggRows);  // dari agregat
+
+// --- Nama: prioritas selectedNama -> raw -> agregat -> '-' ---
+const namaSantri =
+  selectedNama ||
+  (mineOne?.nama && String(mineOne.nama).trim()) ||
+  (aggOne?.nama && String(aggOne.nama).trim()) ||
+  '-';
+
+// --- Semester: coba raw -> agregat; nanti bisa di-override UI ---
+let semesterSantri =
+  (mineOne?.semester != null ? Number(mineOne.semester) : null) ??
+  (aggOne?.semester != null ? Number(aggOne.semester) : null) ??
+  null;
+
+// --- Jenjang: coba agregat -> raw; nanti bisa di-override UI ---
+let jenjangSantri =
+  (aggOne?.jenjang ?? null) ??
+  (mineOne?.jenjang ?? null) ??
+  '';
+
+// --- Keterangan (SP): coba agregat -> raw; nanti bisa di-override UI ---
+let keteranganSantri =
+  (aggOne?.keterangan ?? null) ??
+  (mineOne?.keterangan ?? null) ??
+  '';
+
+// --- Override dari UI bila ada pilihan --- 
+const semSel = _getSelectedSemester();
+const jenSel = _getSelectedJenjang();
+const ketSel = _getSelectedKeterangan();
+
+if (semSel != null && Number.isFinite(Number(semSel))) {
+  semesterSantri = Number(semSel);
+}
+if (jenSel != null && String(jenSel).trim() !== '') {
+  jenjangSantri = String(jenSel).trim();
+}
+if (ketSel != null && String(ketSel).trim() !== '') {
+  keteranganSantri = String(ketSel).trim();
+}
+
+// --- Label jenjang untuk tampilan ---
+const jenjangSantriLabel = jenjangLabel(jenjangSantri || '');
 
     // ==== Kelompokkan per tanggal (slot-based) ====
     const byDate = new Map();
