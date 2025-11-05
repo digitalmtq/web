@@ -53,7 +53,7 @@ export async function onRequestPost({ request, env }) {
   if (!/^[1-6]$/.test(String(semester))) {
     return json({ error: "Semester harus 1-6." }, 400);
   }
-  if (jenjang && !/^A[1-8]$/.test(String(jenjang))) {
+  if (jenjang && !/^A[1-32]$/.test(String(jenjang))) {
     return json({ error: "Jenjang harus A1-A8 (atau kosong)." }, 400);
   }
 
