@@ -4994,37 +4994,23 @@ document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=
   }
 
 // ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? ======
+// ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? (slot-only) ======
 function _isMeaningfulKBM(rec){
-  // slot absensi
-  const checked = Number(rec?._slotChecked || 0);
-  if (checked > 0) return true;
+  // 1) SLOT absensi (btn-absensi-flex): minimal 1 slot tercentang
+  const checked = Number(rec?._slotChecked ?? 0);
+  if (Number.isFinite(checked) && checked > 0) return true;
 
-  // setoran: dari–sampai, total juz/halaman
-  const adaRange = !!(rec?.dari || rec?.dariSetoran) && !!(rec?.sampai || rec?.sampaiSetoran);
-  if (adaRange) return true;
+  // 2) Fallback legacy (jika belum pakai slot): 1 field absensi/status yang valid
+  //    Catatan: ini masih "input absensi", bukan setoran/mur/halaman/nilai/keterangan.
+  const raw = (rec?.absensi ?? rec?.status ?? '').toString().trim().toLowerCase();
+  if (raw) {
+    const st = (typeof PDF_normStatus === 'function') ? PDF_normStatus(raw) : raw;
+    if (st === 'hadir' || st === 'izin' || st === 'sakit' || st === 'alpha') return true;
+  }
 
-  const totJuz = Number(rec?.totalJuz ?? rec?.juz ?? rec?.total_juz_num ?? 0);
-  if (totJuz > 0) return true;
-
-  const totHalaman = Number(rec?.totalHalaman ?? rec?.totalPage ?? 0);
-  if (totHalaman > 0) return true;
-
-  // murajaah (server biasanya di `juzmurajaah` / `total_mur_num`)
-  const mur = Number(rec?.juzmurajaah ?? rec?.murajaah ?? rec?.mur_juz ?? rec?.total_mur_num ?? 0);
-  if (mur > 0) return true;
-
-  // nilai / predikat
-  const adaNilai = (rec?.buttonCell && rec.buttonCell.nilai!=null)
-                || (rec?.nilai != null) || (rec?.score != null);
-  if (adaNilai) return true;
-
-  // keterangan non-kosong
-  const ket = (rec?.keterangan ?? '').toString().trim();
-  if (ket) return true;
-
+  // 3) Sinyal non-absensi (setoran/murajaah/halaman/nilai/keterangan) TIDAK menghitung KBM
   return false;
 }
-
   // ====== Helper agregasi slot per santri (BARU) ======
   function _aggregateSlotsPerKey(items){
     const map = new Map();
