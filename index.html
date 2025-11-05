@@ -5312,6 +5312,52 @@ async function collectRekapData(){
   const rosterByNis  = byNisMap(santriData, s => s);
   const rosterByName = byNameMap(santriData, s => s);
 
+	// --- Normalizer: semester & jenjang ---
+function parseSemesterStrict(v){
+  // Terima "1".."6", "S1".."S6", "SM1".."SM6"
+  const s = String(v ?? '').trim().toUpperCase();
+  const m = s.match(/^(?:SM|S)?([1-6])$/); // grup angka 1..6
+  return m ? Number(m[1]) : null;
+}
+function normalizeJenjangCode(v){
+  // Terima "A12", "a12", "12" => kembalikan "A12"
+  const s = String(v ?? '').trim().toUpperCase();
+  const mA = s.match(/^A?(\d{1,2})$/); // izinkan dengan/ tanpa 'A'
+  if (!mA) return s || null;
+  const n = Number(mA[1]);
+  if (!Number.isFinite(n) || n < 1 || n > 34) return s || null;
+  return `A${n}`;
+}
+// versi aman untuk ditampilkan di tabel
+function safeSem(val){ return (Number.isFinite(val) && val >= 1 && val <= 6) ? val : '-'; }
+function safeJenjangLabel(raw){
+  const norm = normalizeJenjangCode(raw);
+  return jenjangLabel(norm || ''); // pakai fungsi kamu yg sudah ada
+}
+
+	// --- Normalizer: semester & jenjang ---
+function parseSemesterStrict(v){
+  // Terima "1".."6", "S1".."S6", "SM1".."SM6"
+  const s = String(v ?? '').trim().toUpperCase();
+  const m = s.match(/^(?:SM|S)?([1-6])$/); // grup angka 1..6
+  return m ? Number(m[1]) : null;
+}
+function normalizeJenjangCode(v){
+  // Terima "A12", "a12", "12" => kembalikan "A12"
+  const s = String(v ?? '').trim().toUpperCase();
+  const mA = s.match(/^A?(\d{1,2})$/); // izinkan dengan/ tanpa 'A'
+  if (!mA) return s || null;
+  const n = Number(mA[1]);
+  if (!Number.isFinite(n) || n < 1 || n > 34) return s || null;
+  return `A${n}`;
+}
+// versi aman untuk ditampilkan di tabel
+function safeSem(val){ return (Number.isFinite(val) && val >= 1 && val <= 6) ? val : '-'; }
+function safeJenjangLabel(raw){
+  const norm = normalizeJenjangCode(raw);
+  return jenjangLabel(norm || ''); // pakai fungsi kamu yg sudah ada
+}
+
   // 3) Normalisasi raw + injeksi slot
   const allDataNorm = rawList
     .filter(r => {
@@ -5336,15 +5382,15 @@ async function collectRekapData(){
       if (!nama && id  && rosterById.get(id)?.nama)  nama = rosterById.get(id).nama;
       if (!id && nis && rosterByNis.get(nis)?.id) id = keyId(rosterByNis.get(nis).id);
 
-      let semester = (r?.semester != null) ? Number(r.semester) : null;
-      if (semester == null) {
-        if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
-        else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
-      }
+      let semester = parseSemesterStrict(r?.semester);
+if (semester == null) {
+  if (nis && rosterByNis.get(nis)?.semester != null) semester = parseSemesterStrict(rosterByNis.get(nis).semester);
+  else if (id && rosterById.get(id)?.semester != null) semester = parseSemesterStrict(rosterById.get(id).semester);
+}
 
-      let jenjang = r?.jenjang ?? null;
-      if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
-      if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
+let jenjang = normalizeJenjangCode(r?.jenjang);
+if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = normalizeJenjangCode(rosterByNis.get(nis).jenjang);
+if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = normalizeJenjangCode(rosterById.get(id).jenjang);
 
       let keterangan = r?.keterangan ?? null;
       if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
@@ -5721,7 +5767,7 @@ const hadirPct  = denomDays > 0
   ? Math.round(100 * hadirDays / denomDays)
   : (
       (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
-      ? Math.round(100 * hadirirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
+      ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
       : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
     );
 
@@ -5729,8 +5775,8 @@ const hadirPct  = denomDays > 0
           no: String(idx+1),
           nis: r.nis || r.id || '-',
           nama: r.nama || '-',
-          sem: r.semester ?? '-',
-          jenjang: jenjangLabel(r.jenjang ?? ''),
+          sem: safeSem(r.semester),
+		  jenjang: safeJenjangLabel(r.jenjang),
           ket: r.keterangan ?? '-',
           h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
           hadirPct: `${hadirPct}%`,
@@ -6221,7 +6267,7 @@ const hadirPct  = denomDays > 0
   ? Math.round(100 * hadirDays / denomDays)
   : (
       (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
-      ? Math.round(100 * hadirirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
+      ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
       : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
     );
 
@@ -6229,8 +6275,8 @@ const hadirPct  = denomDays > 0
             no: String(idx+1),
             nis: r.nis || r.id || '-',
             nama: r.nama || '-',
-            sem: r.semester ?? '-',
-            jenjang: jenjangLabel(r.jenjang ?? ''),
+            sem: safeSem(r.semester),
+		    jenjang: safeJenjangLabel(r.jenjang),
             ket: r.keterangan ?? '-',
             h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
             hadirPct: `${hadirPct}%`,
@@ -6998,11 +7044,12 @@ if (usingAbsensiRange) {
     if (!mine.length) throw new Error('Tidak ada data untuk santri terpilih pada rentang tanggal.');
 
     const namaSantri = selectedNama || (mine.find(it => it.nama)?.nama) || '-';
-    const semesterSantri = (mine.find(it => it.semester!=null)?.semester) ?? null;
-    const jenjangSantri  = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.jenjang)
-                        ?? (mine.find(it => it.jenjang!=null)?.jenjang)
-                        ?? '-';
-    const jenjangSantriLabel = jenjangLabel(jenjangSantri);
+    const semesterSantri = parseSemesterStrict(mine.find(it => it.semester!=null)?.semester);
+const jenjangSantri  = normalizeJenjangCode(
+  (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.jenjang)
+  ?? (mine.find(it => it.jenjang!=null)?.jenjang)
+);
+const jenjangSantriLabel = safeJenjangLabel(jenjangSantri);
 
     const keteranganSantri = (aggRows.find(r => r.nis === key || (!r.nis && r.id === key))?.keterangan)
                         ?? (mine.find(it => it.keterangan!=null)?.keterangan)
