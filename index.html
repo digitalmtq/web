@@ -4993,6 +4993,37 @@ document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=
     };
   }
 
+	function getSelectedSemester(){
+  const el =
+    document.querySelector('select.semester') ||
+    document.querySelector('.semester select') ||
+    document.querySelector('#semester') ||
+    document.querySelector('select[name="semester"]');
+  const v = Number(el?.value);
+  return Number.isFinite(v) ? v : null;
+}
+
+function getSelectedJenjang(){
+  const el =
+    document.querySelector('select.jenjang') ||
+    document.querySelector('.jenjang select') ||
+    document.querySelector('#jenjang') ||
+    document.querySelector('select[name="jenjang"]');
+  const v = (el?.value ?? '').trim();
+  return v ? v : null;       // contoh: "A12", "2B", dst — biarkan string apa adanya
+}
+
+function getSelectedKeterangan(){
+  const el =
+    document.querySelector('select.keterangan') ||
+    document.querySelector('.keterangan select') ||
+    document.querySelector('#keterangan') ||
+    document.querySelector('select[name="keterangan"]') ||
+    document.querySelector('input.keterangan');
+  const v = (el?.value ?? '').trim();
+  return v ? v : null;       // contoh: "SP1", "SP2", "SP3", atau teks lain
+}
+
 // ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? ======
 // ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? (slot-only) ======
 function _isMeaningfulKBM(rec){
@@ -5083,6 +5114,27 @@ function _aggregateHadirDaysPerKey(items){
     out.set(k, { hadirDays: set.size });
   }
   return out;
+}
+
+	function applyUIOverrides(allDataNorm, aggMap){
+  const semSel = getSelectedSemester();
+  const jenSel = getSelectedJenjang();
+  const ketSel = getSelectedKeterangan();
+
+  if (semSel != null || jenSel != null || ketSel != null){
+    // timpa di raw-normalized
+    (allDataNorm || []).forEach(it => {
+      if (semSel != null) it.semester   = semSel;
+      if (jenSel != null) it.jenjang    = jenSel;
+      if (ketSel != null) it.keterangan = ketSel;
+    });
+    // timpa di agregat
+    Object.values(aggMap || {}).forEach(r => {
+      if (semSel != null) r.semester   = semSel;
+      if (jenSel != null) r.jenjang    = jenSel;
+      if (ketSel != null) r.keterangan = ketSel;
+    });
+  }
 }
 
   // === Helper Kelas/Kelompok ===
@@ -5377,6 +5429,7 @@ async function collectRekapData(){
 
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
+	applyUIOverrides(allDataNorm, aggMap);
 
   Object.values(aggMap).forEach(r => {
     const k = (r.nis && String(r.nis).trim()) || (r.id && String(r.id).trim());
@@ -6038,6 +6091,7 @@ async function collectRekapDataForClass(kelasKey, startDate, endDate){
 
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
+	applyUIOverrides(allDataNorm, aggMap);
   Object.values(aggMap).forEach(r => {
     const k = (r.nis && String(r.nis).trim()) || (r.id && String(r.id).trim());
     if (!k) return;
