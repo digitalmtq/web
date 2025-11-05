@@ -54,11 +54,21 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Semester harus 1-6." }, 400);
   }
 
-  // --- Validasi jenjang: boleh kosong atau 1–999 (tanpa leading zero)
+  // --- Validasi & normalisasi jenjang: kosong ATAU "A1"… "A999" (case-insensitive, leading zero dinormalisasi)
+  let jenjangNormalized = "";
   {
-    const j = String(jenjang).trim();
-    if (j && !/^(?:[1-9]\d{0,2})$/.test(j)) {
-      return json({ error: "Jenjang harus 1–999 (atau kosong)." }, 400);
+    let j = String(jenjang ?? "").trim();
+    if (j !== "") {
+      j = j.toUpperCase().replace(/\s+/g, ""); // " a001 " -> "A001"
+      const m = /^A(\d{1,3})$/.exec(j);
+      if (!m) {
+        return json({ error: "Jenjang harus A1–A999 (atau kosong)." }, 400);
+      }
+      const n = Number(m[1]);           // "001" -> 1
+      if (!Number.isInteger(n) || n < 1 || n > 999) {
+        return json({ error: "Jenjang harus A1–A999 (atau kosong)." }, 400);
+      }
+      jenjangNormalized = `A${n}`;      // simpan sebagai "A1", "A12", "A999"
     }
   }
 
@@ -115,17 +125,13 @@ export async function onRequestPost({ request, env }) {
   }, 0);
   const nextId = currentMaxId + 1;
 
-  // --- Normalisasi jenjang untuk penyimpanan ("001" -> "1")
-  const jRaw = String(jenjang).trim();
-  const jenjangNormalized = jRaw ? String(Number(jRaw)) : "";
-
   // --- 4) Tambahkan item baru
   santriList.push({
     id: nextId,
     nis: nisKey,
     nama: String(nama).trim(),
     semester: String(semester).trim(),
-    jenjang: jenjangNormalized,
+    jenjang: jenjangNormalized, // sudah dinormalisasi (A1..A999) atau ""
   });
 
   // --- 5) Simpan kembali (PUT)
