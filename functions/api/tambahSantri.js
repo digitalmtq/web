@@ -53,8 +53,13 @@ export async function onRequestPost({ request, env }) {
   if (!/^[1-6]$/.test(String(semester))) {
     return json({ error: "Semester harus 1-6." }, 400);
   }
-  if (jenjang && !/^A[1-32]$/.test(String(jenjang))) {
-    return json({ error: "Jenjang harus A1-A8 (atau kosong)." }, 400);
+
+  // --- Validasi jenjang: boleh kosong atau 1–999 (tanpa leading zero)
+  {
+    const j = String(jenjang).trim();
+    if (j && !/^(?:[1-9]\d{0,2})$/.test(j)) {
+      return json({ error: "Jenjang harus 1–999 (atau kosong)." }, 400);
+    }
   }
 
   // --- Normalisasi nama file kelas
@@ -110,13 +115,17 @@ export async function onRequestPost({ request, env }) {
   }, 0);
   const nextId = currentMaxId + 1;
 
+  // --- Normalisasi jenjang untuk penyimpanan ("001" -> "1")
+  const jRaw = String(jenjang).trim();
+  const jenjangNormalized = jRaw ? String(Number(jRaw)) : "";
+
   // --- 4) Tambahkan item baru
   santriList.push({
     id: nextId,
     nis: nisKey,
     nama: String(nama).trim(),
     semester: String(semester).trim(),
-    jenjang: String(jenjang).trim(),
+    jenjang: jenjangNormalized,
   });
 
   // --- 5) Simpan kembali (PUT)
