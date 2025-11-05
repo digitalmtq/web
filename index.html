@@ -5024,6 +5024,64 @@ function getSelectedKeterangan(){
   return v ? v : null;       // contoh: "SP1", "SP2", "SP3", atau teks lain
 }
 
+// BACA OVERRIDE PER NIS/ID dari DOM (fleksibel terhadap berbagai struktur)
+function _readPerKeyOverrides(){
+  const map = new Map();
+
+  // Helper set nilai aman
+  function setOv(key, field, val){
+    if (val == null || String(val).trim() === '') return;
+    const k = String(key || '').trim();
+    if (!k) return;
+    if (!map.has(k)) map.set(k, {});
+    map.get(k)[field] = val;
+  }
+
+  // Pola 1: baris punya data-key/nis/id, lalu ada child .semester/.jenjang/.keterangan
+  document.querySelectorAll('[data-key], [data-nis], [data-id]').forEach(row => {
+    const key = row.dataset.key || row.dataset.nis || row.dataset.id;
+    if (!key) return;
+
+    const sem = row.querySelector('select.semester, input.semester, [name="semester"].semester');
+    const jen = row.querySelector('select.jenjang,  input.jenjang,  [name="jenjang"].jenjang');
+    const ket = row.querySelector('select.keterangan, input.keterangan, [name="keterangan"].keterangan');
+
+    if (sem) setOv(key, 'semester', Number(sem.value));
+    if (jen) setOv(key, 'jenjang',  String(jen.value).trim());
+    if (ket) setOv(key, 'keterangan', String(ket.value).trim());
+  });
+
+  // Pola 2: input/select berdiri sendiri dengan data-key/data-nis/data-id
+  const fields = [
+    {sel:'select.semester, input.semester, [name="semester"].semester', f:'semester', coerce:v=>Number(v)},
+    {sel:'select.jenjang,  input.jenjang,  [name="jenjang"].jenjang',   f:'jenjang',  coerce:v=>String(v).trim()},
+    {sel:'select.keterangan, input.keterangan, [name="keterangan"].keterangan', f:'keterangan', coerce:v=>String(v).trim()},
+  ];
+  for (const {sel, f, coerce} of fields){
+    document.querySelectorAll(sel).forEach(el => {
+      const key = el.dataset.key || el.dataset.nis || el.dataset.id || '';
+      if (!key) return;
+      setOv(key, f, coerce(el.value));
+    });
+  }
+
+  // Pola 3 (fallback ringan): nama input mengandung NIS, mis. name="semester-110123"
+  document.querySelectorAll('input[name^="semester-"], select[name^="semester-"]').forEach(el=>{
+    const m = String(el.name||'').match(/^semester-(.+)$/);
+    if (m) setOv(m[1], 'semester', Number(el.value));
+  });
+  document.querySelectorAll('input[name^="jenjang-"], select[name^="jenjang-"]').forEach(el=>{
+    const m = String(el.name||'').match(/^jenjang-(.+)$/);
+    if (m) setOv(m[1], 'jenjang', String(el.value).trim());
+  });
+  document.querySelectorAll('input[name^="keterangan-"], select[name^="keterangan-"]').forEach(el=>{
+    const m = String(el.name||'').match(/^keterangan-(.+)$/);
+    if (m) setOv(m[1], 'keterangan', String(el.value).trim());
+  });
+
+  return map; // Map<key, {semester?, jenjang?, keterangan?}>
+}
+
 // ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? ======
 // ====== Apakah record harian ini "bermakna" untuk dihitung sebagai 1 hari KBM? (slot-only) ======
 function _isMeaningfulKBM(rec){
@@ -5117,24 +5175,29 @@ function _aggregateHadirDaysPerKey(items){
 }
 
 	function applyUIOverrides(allDataNorm, aggMap){
-  const semSel = getSelectedSemester();
-  const jenSel = getSelectedJenjang();
-  const ketSel = getSelectedKeterangan();
+  const perKey = _readPerKeyOverrides();     // baca dari DOM (tiap baris)
+  if (!perKey || perKey.size === 0) return;
 
-  if (semSel != null || jenSel != null || ketSel != null){
-    // timpa di raw-normalized
-    (allDataNorm || []).forEach(it => {
-      if (semSel != null) it.semester   = semSel;
-      if (jenSel != null) it.jenjang    = jenSel;
-      if (ketSel != null) it.keterangan = ketSel;
-    });
-    // timpa di agregat
-    Object.values(aggMap || {}).forEach(r => {
-      if (semSel != null) r.semester   = semSel;
-      if (jenSel != null) r.jenjang    = jenSel;
-      if (ketSel != null) r.keterangan = ketSel;
-    });
-  }
+  // timpa di raw-normalized (hanya key yang ada di map)
+  (allDataNorm || []).forEach(it => {
+    const key = (it?.nis && String(it.nis)) || (it?.id && String(it.id)) || '';
+    if (!key) return;
+    const ov = perKey.get(String(key));
+    if (!ov) return;
+    if (ov.semester != null && Number.isFinite(Number(ov.semester))) it.semester = Number(ov.semester);
+    if (ov.jenjang)    it.jenjang = String(ov.jenjang).trim();
+    if (ov.keterangan) it.keterangan = String(ov.keterangan).trim();
+  });
+
+  // timpa di agregat
+  Object.keys(aggMap || {}).forEach(k => {
+    const r  = aggMap[k];
+    const ov = perKey.get(String(k));
+    if (!ov) return;
+    if (ov.semester != null && Number.isFinite(Number(ov.semester))) r.semester = Number(ov.semester);
+    if (ov.jenjang)    r.jenjang = String(ov.jenjang).trim();
+    if (ov.keterangan) r.keterangan = String(ov.keterangan).trim();
+  });
 }
 
   // === Helper Kelas/Kelompok ===
@@ -5775,7 +5838,7 @@ const hadirPct  = denomDays > 0
   ? Math.round(100 * hadirDays / denomDays)
   : (
       (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
-      ? Math.round(100 * hadirirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
+      ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
       : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
     );
 
@@ -6276,7 +6339,8 @@ const hadirPct  = denomDays > 0
   ? Math.round(100 * hadirDays / denomDays)
   : (
       (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
-      ? Math.round(100 * hadirirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
+      // ganti bagian fallback:
+	  ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
       : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
     );
 
