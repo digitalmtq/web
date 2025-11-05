@@ -5034,50 +5034,6 @@ function _isMeaningfulKBM(rec){
     return map;
   }
 
-// === BACA NILAI TERBARU DARI TABEL DASHBOARD (UI OVERRIDES) ===
-// Harap pastikan setiap <tr> punya data-nis atau data-id.
-// Dan setiap sel yg bisa diedit punya data-field="semester|jenjang|keterangan".
-function getLiveMetaOverrides() {
-  const outByKey = new Map(); // key = nis || id
-
-  // Cari tabel utama dashboard (ganti selector jika Anda pakai id/kelas berbeda)
-  const table = document.querySelector('#tabel-santri, table#santriTable, .table-santri') || document;
-  const rows = table.querySelectorAll('tr[data-nis], tr[data-id]');
-
-  rows.forEach(tr => {
-    const nis = (tr.getAttribute('data-nis') || '').trim();
-    const id  = (tr.getAttribute('data-id')  || '').trim();
-    const key = nis || id;
-    if (!key) return;
-
-    const getText = (el) => {
-      if (!el) return '';
-      // support contenteditable / input / textarea / plain text
-      if (el.matches('input,select,textarea')) return (el.value ?? '').trim();
-      const ce = el.querySelector('input,select,textarea');
-      if (ce) return (ce.value ?? '').trim();
-      return (el.textContent ?? '').trim();
-    };
-
-    const semEl = tr.querySelector('[data-field="sem"], [data-field="semester"]');
-    const jenEl = tr.querySelector('[data-field="jenjang"]');
-    const ketEl = tr.querySelector('[data-field="keterangan"], [data-field="ket"]');
-
-    const semVal = getText(semEl);
-    const jenVal = getText(jenEl);
-    const ketVal = getText(ketEl);
-
-    if (!outByKey.has(key)) outByKey.set(key, {});
-    const obj = outByKey.get(key);
-
-    if (semVal !== '') obj.semester  = Number.isFinite(+semVal) ? Number(semVal) : semVal;
-    if (jenVal !== '') obj.jenjang   = jenVal;
-    if (ketVal !== '') obj.keterangan = ketVal;
-  });
-
-  return outByKey; // Map<key,{semester?,jenjang?,keterangan?}>
-}
-
 // --- Helper aman ambil nilai kelas ---
 function getSelectedKelas(){
   const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
@@ -5355,78 +5311,6 @@ async function collectRekapData(){
   const rosterById   = byIdMap(santriData, s => s);
   const rosterByNis  = byNisMap(santriData, s => s);
   const rosterByName = byNameMap(santriData, s => s);
-
-	// setelah:
-//   let santriData = await resSantri.json()...
-//   const rosterById   = byIdMap(...)
-//   const rosterByNis  = byNisMap(...)
-//   const rosterByName = byNameMap(...)
-
-// [NEW] Ambil override live dari UI
-const liveOverrides = getLiveMetaOverrides(); // Map<key,{semester?,jenjang?,keterangan?}>
-
-// Terapkan ke santriData & indeks roster (agar lookup roster ikut nilai terbaru)
-if (liveOverrides && liveOverrides.size) {
-  // Mutasi objek di santriData agar konsisten
-  for (const s of santriData) {
-    const key = (s?.nis != null && String(s.nis).trim()) || (s?.id != null && String(s.id).trim());
-    if (!key) continue;
-    const ov = liveOverrides.get(String(key));
-    if (!ov) continue;
-    if (ov.semester  !== undefined) s.semester  = ov.semester;
-    if (ov.jenjang   !== undefined) s.jenjang   = ov.jenjang;
-    if (ov.keterangan!== undefined) s.keterangan= ov.keterangan;
-  }
-  // rebuild indeks agar berisi nilai terbaru
-  const rosterById2   = byIdMap(santriData, s => s);
-  const rosterByNis2  = byNisMap(santriData, s => s);
-  const rosterByName2 = byNameMap(santriData, s => s);
-
-  // ganti referensi lama ke yang baru
-  // (kalau variabel Anda const, ganti nama variabelnya sejak awal atau bungkus di objek)
-  Object.assign(rosterById,   rosterById2);
-  Object.assign(rosterByNis,  rosterByNis2);
-  Object.assign(rosterByName, rosterByName2);
-}
-
-// ...lanjut ke normalisasi raw -> allDataNorm...
-const allDataNorm = rawList
-  // (opsional) filter whitelist seperti di versi sukses, kalau Anda butuh
-  // .filter(...)
-  .map(r => {
-    // ... blok id/nis/nama seperti existing ...
-    // (kode Anda sekarang)
-
-    // === ambil nilai dari roster dulu (sudah di-override di atas)
-    let semester = (r?.semester != null) ? Number(r.semester) : null;
-    if (semester == null) {
-      if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
-      else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
-    }
-    let jenjang = r?.jenjang ?? null;
-    if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
-    if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
-
-    let keterangan = r?.keterangan ?? null;
-    if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
-    if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
-
-    // === [NEW] terakhir, paksa override jika ada (mengalahkan semua sumber)
-    const key = (nis || id || '').trim();
-    const ov  = key ? liveOverrides.get(key) : null;
-    if (ov) {
-      if (ov.semester  !== undefined) semester  = ov.semester;
-      if (ov.jenjang   !== undefined) jenjang   = ov.jenjang;
-      if (ov.keterangan!== undefined) keterangan= ov.keterangan;
-    }
-
-    const slot = _slotMetricsFromRecord(r);
-    return {
-      ...r, ...slot, id, nis, nama,
-      semester, jenjang, keterangan,
-      tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
-    };
-  });
 
   // 3) Normalisasi raw + injeksi slot
   const allDataNorm = rawList
@@ -6089,78 +5973,6 @@ async function collectRekapDataForClass(kelasKey, startDate, endDate){
   const rosterById   = byIdMap(santriData, s => s);
   const rosterByNis  = byNisMap(santriData, s => s);
   const rosterByName = byNameMap(santriData, s => s);
-
-	 // setelah:
-//   let santriData = await resSantri.json()...
-//   const rosterById   = byIdMap(...)
-//   const rosterByNis  = byNisMap(...)
-//   const rosterByName = byNameMap(...)
-
-// [NEW] Ambil override live dari UI
-const liveOverrides = getLiveMetaOverrides(); // Map<key,{semester?,jenjang?,keterangan?}>
-
-// Terapkan ke santriData & indeks roster (agar lookup roster ikut nilai terbaru)
-if (liveOverrides && liveOverrides.size) {
-  // Mutasi objek di santriData agar konsisten
-  for (const s of santriData) {
-    const key = (s?.nis != null && String(s.nis).trim()) || (s?.id != null && String(s.id).trim());
-    if (!key) continue;
-    const ov = liveOverrides.get(String(key));
-    if (!ov) continue;
-    if (ov.semester  !== undefined) s.semester  = ov.semester;
-    if (ov.jenjang   !== undefined) s.jenjang   = ov.jenjang;
-    if (ov.keterangan!== undefined) s.keterangan= ov.keterangan;
-  }
-  // rebuild indeks agar berisi nilai terbaru
-  const rosterById2   = byIdMap(santriData, s => s);
-  const rosterByNis2  = byNisMap(santriData, s => s);
-  const rosterByName2 = byNameMap(santriData, s => s);
-
-  // ganti referensi lama ke yang baru
-  // (kalau variabel Anda const, ganti nama variabelnya sejak awal atau bungkus di objek)
-  Object.assign(rosterById,   rosterById2);
-  Object.assign(rosterByNis,  rosterByNis2);
-  Object.assign(rosterByName, rosterByName2);
-}
-
-// ...lanjut ke normalisasi raw -> allDataNorm...
-const allDataNorm = rawList
-  // (opsional) filter whitelist seperti di versi sukses, kalau Anda butuh
-  // .filter(...)
-  .map(r => {
-    // ... blok id/nis/nama seperti existing ...
-    // (kode Anda sekarang)
-
-    // === ambil nilai dari roster dulu (sudah di-override di atas)
-    let semester = (r?.semester != null) ? Number(r.semester) : null;
-    if (semester == null) {
-      if (nis && rosterByNis.get(nis)?.semester != null) semester = Number(rosterByNis.get(nis).semester);
-      else if (id && rosterById.get(id)?.semester != null) semester = Number(rosterById.get(id).semester);
-    }
-    let jenjang = r?.jenjang ?? null;
-    if (!jenjang && nis && rosterByNis.get(nis)?.jenjang) jenjang = rosterByNis.get(nis).jenjang;
-    if (!jenjang && id  && rosterById.get(id)?.jenjang)  jenjang = rosterById.get(id).jenjang;
-
-    let keterangan = r?.keterangan ?? null;
-    if (!keterangan && nis && rosterByNis.get(nis)?.keterangan) keterangan = rosterByNis.get(nis).keterangan;
-    if (!keterangan && id  && rosterById.get(id)?.keterangan)  keterangan = rosterById.get(id).keterangan;
-
-    // === [NEW] terakhir, paksa override jika ada (mengalahkan semua sumber)
-    const key = (nis || id || '').trim();
-    const ov  = key ? liveOverrides.get(key) : null;
-    if (ov) {
-      if (ov.semester  !== undefined) semester  = ov.semester;
-      if (ov.jenjang   !== undefined) jenjang   = ov.jenjang;
-      if (ov.keterangan!== undefined) keterangan= ov.keterangan;
-    }
-
-    const slot = _slotMetricsFromRecord(r);
-    return {
-      ...r, ...slot, id, nis, nama,
-      semester, jenjang, keterangan,
-      tanggal: r?.tanggal ? String(r.tanggal).slice(0,10) : null
-    };
-  });
 
   // 3) Normalisasi raw + injeksi slot
   const allDataNorm = rawList
