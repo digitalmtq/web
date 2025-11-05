@@ -12158,6 +12158,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return Array.isArray(roster) ? roster : [];
     }
     function makeAllowSet(roster){
+      // Set kunci untuk FILTER (boleh gandakan id+nis)
       if (typeof buildRosterWhitelist === 'function') return buildRosterWhitelist(roster);
       const allow = new Set();
       for (const s of (roster||[])) {
@@ -12167,6 +12168,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (id)  allow.add(id);
       }
       return allow;
+    }
+    // >>> BARU: hitung SANTRI UNIK (pakai id; kalau kosong, fallback nis)
+    function countUniqueRoster(roster){
+      const uniq = new Set();
+      for (const s of (roster||[])){
+        const hasId  = (s?.id===0  || s?.id);
+        const hasNis = (s?.nis===0 || s?.nis);
+        if (hasId)  uniq.add('id:'  + String(s.id).trim());
+        else if (hasNis) uniq.add('nis:' + String(s.nis).trim());
+        // kalau dua-duanya kosong, skip
+      }
+      return uniq.size;
     }
 
     // ===== Fallback: agregat D1 + roster (TERFILTER whitelist)
@@ -12237,44 +12250,41 @@ document.addEventListener("DOMContentLoaded", () => {
       return 0;
     }
 
-    // ======= Komputasi: Per Halaqoh (kelas)
-// === PATCH: Normalisasi grafik ke total roster ===
-async function computeByKelas(startDate, endDate, kelasKeys){
-  const rows = [];
-  for (const k of kelasKeys){
-    // Ambil paralel: data capaian + roster
-    const [rowsKelas, roster] = await Promise.all([
-      getRowsForClass(k, startDate, endDate).catch(()=>[]),
-      getRosterForClass(k).catch(()=>[])
-    ]);
+    // ======= Komputasi: Per Halaqoh (kelas) — FIX hitung santri unik (bukan jumlah key)
+    async function computeByKelas(startDate, endDate, kelasKeys){
+      const rows = [];
+      for (const k of kelasKeys){
+        // Ambil paralel: data capaian + roster
+        const [rowsKelas, roster] = await Promise.all([
+          getRowsForClass(k, startDate, endDate).catch(()=>[]),
+          getRosterForClass(k).catch(()=>[])
+        ]);
 
-    const allow = makeAllowSet(roster);
-    const rosterCount = allow.size;           // jumlah santri resmi di halaqoh
-    let sum=0, kh=0, tn=0, present=0;
+        const rosterCount = countUniqueRoster(roster); // <<< INI FIX UTAMA
+        let sum=0, kh=0, tn=0, present=0;
 
-    for (const r of rowsKelas){
-      const pct = getPercent(r);
-      const isKhatam = Number(r.totalJuz||0) >= 30;
-      const isTuntas = !isKhatam && pct >= 100;
-      sum += pct;
-      present++;                  // santri yang punya data pada periode
-      if (isKhatam) kh++; else if (isTuntas) tn++;
+        for (const r of rowsKelas){
+          const pct = getPercent(r);
+          const isKhatam = Number(r.totalJuz||0) >= 30;
+          const isTuntas = !isKhatam && pct >= 100;
+          sum += pct;
+          present++;
+          if (isKhatam) kh++; else if (isTuntas) tn++;
+        }
+
+        const denom = rosterCount || present; // fallback jika roster kosong
+        rows.push({
+          label  : getKelasLabel(k),
+          avg    : denom ? (sum / denom) : 0,
+          khatam : kh,
+          tuntas : tn,
+          count  : rosterCount,  // "Total Santri" = santri unik
+          present: present       // info tambahan (aktif)
+        });
+      }
+      rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
+      return { rows, startDate, endDate, mode: 'kelas' };
     }
-
-    // --- KUNCI: normalisasi ke roster (bukan hanya yang present)
-    const denom = rosterCount || present;      // fallback bila roster kosong
-    rows.push({
-      label  : getKelasLabel(k),
-      avg    : denom ? (sum / denom) : 0,      // <- normalisasi ke roster
-      khatam : kh,
-      tuntas : tn,
-      count  : rosterCount,                    // "Santri" = total roster
-      present: present                         // opsional: santri aktif
-    });
-  }
-  rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
-  return { rows, startDate, endDate, mode: 'kelas' };
-}
 
     // ======= Chart ctx guard
     function getChartCtx(){
@@ -12324,7 +12334,7 @@ async function computeByKelas(startDate, endDate, kelasKeys){
             legend:{ display:false },
             tooltip:{ callbacks:{ footer:(items)=>{
               const i = items[0].dataIndex, r = rows[i];
-              return `Santri: ${r.count} | Tuntas: ${r.tuntas} | Khatam: ${r.khatam}`;
+              return `Santri: ${r.count} (aktif: ${r.present}) | Tuntas: ${r.tuntas} | Khatam: ${r.khatam}`;
             }}}
           }
         }
@@ -12342,7 +12352,7 @@ async function computeByKelas(startDate, endDate, kelasKeys){
             <div class="pct">${pct}%</div>
           </div>
           <div class="thms-progress"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>
-          <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Tuntas: ${r.tuntas} · Khatam: ${r.khatam}</div>
+          <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Aktif: ${r.present} · Tuntas: ${r.tuntas} · Khatam: ${r.khatam}</div>
         `;
         list.appendChild(item);
       });
@@ -12549,6 +12559,7 @@ async function computeByKelas(startDate, endDate, kelasKeys){
   }
 })();
 </script>
+
 
 
 
