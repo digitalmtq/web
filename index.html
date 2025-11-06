@@ -13252,13 +13252,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ===== sinkron tanggal ke dashboard + set flag reload =====
+  // ===== sinkron tanggal ke dashboard =====
   function syncDashboardDate(dateStr){
-    try{
-      sessionStorage.setItem(SS_KEY_DATE, dateStr);
-      sessionStorage.setItem(SS_KEY_OPEN, '1');
-    }catch(e){}
-
     try{
       const target =
         (window.tanggalInput && window.tanggalInput.tagName ? window.tanggalInput : null) ||
@@ -13267,21 +13262,28 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('date');
 
       if (target){
+        // MODE AJAX / tanpa reload:
         if (target.value !== dateStr){
           target.value = dateStr;
           target.setAttribute('value', dateStr);
         }
         target.dispatchEvent(new Event('input', {bubbles:true}));
         target.dispatchEvent(new Event('change', {bubbles:true}));
-        // CATATAN:
-        // - Jika handler melakukan AJAX update #santri-table tanpa reload,
-        //   observer (ensureTableObserver) akan mendeteksi dan renderRows() ulang.
-        // - Jika handler melakukan full reload, flag sessionStorage akan
-        //   membuat modal auto-open di halaman baru.
+        // Tidak set SS_KEY_OPEN di sini supaya tidak auto-open setiap refresh.
       } else {
+        // Fallback: kalau tidak ada input tanggal dashboard, pakai reload + auto-open sekali
+        try{
+          sessionStorage.setItem(SS_KEY_DATE, dateStr);
+          sessionStorage.setItem(SS_KEY_OPEN, '1');
+        }catch(e){}
         window.location.reload();
       }
     }catch(e){
+      // Kalau error, fallback reload + auto-open sekali
+      try{
+        sessionStorage.setItem(SS_KEY_DATE, dateStr);
+        sessionStorage.setItem(SS_KEY_OPEN, '1');
+      }catch(_e){}
       window.location.reload();
     }
   }
@@ -13323,10 +13325,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (tableObserver) tableObserver.disconnect();
 
-    tableObserver = new MutationObserver(function(muts){
+    tableObserver = new MutationObserver(function(){
       const overlay = document.getElementById('presensiAllOverlay');
       if (overlay && overlay.classList.contains('show')){
-        // data dashboard berubah -> sinkronkan ulang daftar di modal
         renderRows();
       }
     });
@@ -13667,9 +13668,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const selected = this.value;
     if (selected){
       syncDashboardDate(selected);
-      // Jika dashboard update tabel via AJAX (tanpa reload),
-      // observer akan menangkap perubahan dan memanggil renderRows()
-      // sehingga isi modal ikut tanggal baru tanpa tertutup.
     }
   });
 
@@ -13683,7 +13681,7 @@ document.addEventListener("DOMContentLoaded", () => {
     __paResizeT = requestAnimationFrame(setFixedNamaWidthMobile);
   });
 
-  // Auto-open modal setelah reload jika diminta
+  // Auto-open modal setelah reload jika (dan hanya jika) sebelumnya memang diset saat fallback reload
   try{
     const shouldOpen = sessionStorage.getItem(SS_KEY_OPEN) === '1';
     const savedDate = sessionStorage.getItem(SS_KEY_DATE);
@@ -13694,6 +13692,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }catch(e){}
 })();
 </script>
+
 		
 </body>
 </html>
