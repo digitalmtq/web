@@ -4960,19 +4960,51 @@ document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=
     document.head.appendChild(s);
   })();
 
-  /** Konversi kode A1..A34 => label ILA..ILD, 1A..1J, 2A..2J, 3A..3J, dst */
-  function jenjangLabel(code) {
-    const m = String(code || '').trim().match(/^A(\d+)$/i);
-    if (!m) return String(code || '');
-    const n = Number(m[1]);
-    if (n >= 1 && n <= 4) {
-      return ['ILA','ILB','ILC','ILD'][n - 1];
-    }
-    const group = Math.floor((n - 5) / 10) + 1;
-    const idx   = (n - 5) % 10;
-    const letter = String.fromCharCode(65 + idx);
-    return `${group}${letter}`;
+  /** Ambil label jenjang dari DOM <select class="jenjang">.
+ *  - Jika code bukan "A<number>", kembalikan apa adanya (mis. "1 PDF", "1 SD", dll).
+ *  - Jika "A<number>", cari option[value=code] pada semua <select.jenjang> dan
+ *    kembalikan textContent-nya (mis. A4 -> "1 MA"). Tanpa batas jumlah kode.
+ *  - Cache hasil scan option supaya cepat.
+ */
+(function(){
+  function buildJenjangMapFromDOM(){
+    const m = new Map();
+    // ambil semua option dari semua <select class="jenjang">
+    document.querySelectorAll('select.jenjang option').forEach(opt=>{
+      const val = String(opt.value || '').trim();
+      const txt = String(opt.textContent || '').trim();
+      if (val && txt && /^A\d+$/i.test(val)) {
+        if (!m.has(val)) m.set(val, txt);
+      }
+    });
+    return m;
   }
+
+  // cache di window agar tidak scan DOM berulang-ulang
+  window._jenjangValueToTextMap = window._jenjangValueToTextMap || buildJenjangMapFromDOM;
+
+  window.jenjangLabel = function jenjangLabel(code){
+    const raw = String(code ?? '').trim();
+    if (!raw) return '';
+    // kalau sudah berupa label final (bukan A<number>), kembalikan apa adanya
+    if (!/^A\d+$/i.test(raw)) return raw;
+
+    // cari teks option untuk value Axx
+    const map = (typeof window._jenjangValueToTextMap === 'function')
+      ? window._jenjangValueToTextMap()
+      : buildJenjangMapFromDOM();
+
+    return map.get(raw) || raw; // fallback: kalau belum ada di DOM, tampilkan code mentah
+  };
+
+  // Opsional: jika option berubah dinamis, refresh cache otomatis
+  try{
+    const mo = new MutationObserver(()=>{ window._jenjangValueToTextMap = buildJenjangMapFromDOM; });
+    document.querySelectorAll('select.jenjang').forEach(sel=>{
+      mo.observe(sel, {subtree:true, childList:true, characterData:true});
+    });
+  }catch{}
+})();
 
   // ====== Helper slot absensi (BARU) ======
   function _slotMetricsFromRecord(rec){
@@ -5028,7 +5060,7 @@ function getSelectedKeterangan(){
 function _readPerKeyOverrides(){
   const map = new Map();
 
-  // Helper set nilai aman
+  // Helper set nilai aman ke map
   function setOv(key, field, val){
     if (val == null || String(val).trim() === '') return;
     const k = String(key || '').trim();
@@ -5037,11 +5069,22 @@ function _readPerKeyOverrides(){
     map.get(k)[field] = val;
   }
 
-  // Pola 1: baris punya data-key/nis/id, lalu ada child .semester/.jenjang/.keterangan
+  // Helper ambil teks & angka dari elemen non-input/select
+  const _text = el => (el?.textContent ?? '').trim();
+  const _num  = t => {
+    const n = Number((t ?? '').toString().trim());
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // =========================
+  // Pola 1:
+  // baris punya data-key/nis/id, lalu ada child .semester/.jenjang/.keterangan
+  // =========================
   document.querySelectorAll('[data-key], [data-nis], [data-id]').forEach(row => {
     const key = row.dataset.key || row.dataset.nis || row.dataset.id;
     if (!key) return;
 
+    // Prioritas ambil dari input/select jika ada
     const sem = row.querySelector('select.semester, input.semester, [name="semester"].semester');
     const jen = row.querySelector('select.jenjang,  input.jenjang,  [name="jenjang"].jenjang');
     const ket = row.querySelector('select.keterangan, input.keterangan, [name="keterangan"].keterangan');
@@ -5049,12 +5092,37 @@ function _readPerKeyOverrides(){
     if (sem) setOv(key, 'semester', Number(sem.value));
     if (jen) setOv(key, 'jenjang',  String(jen.value).trim());
     if (ket) setOv(key, 'keterangan', String(ket.value).trim());
+
+    // Jika TIDAK ada input/select → baca TEKS tampilan dashboard (bukan cache D1)
+    // Juga dukung data-attribute di baris/cell.
+    if (!sem) {
+      const semTxt =
+        row.getAttribute('data-semester') ||
+        _text(row.querySelector('.semester-text, .semester-label, .semester:not(select):not(input), [data-semester], [data-field="semester"]'));
+      const v = _num(semTxt);
+      if (v != null) setOv(key, 'semester', v);
+    }
+    if (!jen) {
+      const jenTxt =
+        row.getAttribute('data-jenjang') ||
+        _text(row.querySelector('.jenjang-text, .jenjang-label, .jenjang:not(select):not(input), [data-jenjang], [data-field="jenjang"]'));
+      if (jenTxt) setOv(key, 'jenjang', jenTxt.trim());
+    }
+    if (!ket) {
+      const ketTxt =
+        row.getAttribute('data-keterangan') ||
+        _text(row.querySelector('.keterangan-text, .keterangan-label, .keterangan:not(select):not(input), [data-keterangan], [data-field="keterangan"]'));
+      if (ketTxt) setOv(key, 'keterangan', ketTxt.trim());
+    }
   });
 
-  // Pola 2: input/select berdiri sendiri dengan data-key/data-nis/data-id
+  // =========================
+  // Pola 2:
+  // input/select berdiri sendiri dengan data-key/data-nis/data-id
+  // =========================
   const fields = [
-    {sel:'select.semester, input.semester, [name="semester"].semester', f:'semester', coerce:v=>Number(v)},
-    {sel:'select.jenjang,  input.jenjang,  [name="jenjang"].jenjang',   f:'jenjang',  coerce:v=>String(v).trim()},
+    {sel:'select.semester, input.semester, [name="semester"].semester', f:'semester',  coerce:v=>Number(v)},
+    {sel:'select.jenjang,  input.jenjang,  [name="jenjang"].jenjang',   f:'jenjang',   coerce:v=>String(v).trim()},
     {sel:'select.keterangan, input.keterangan, [name="keterangan"].keterangan', f:'keterangan', coerce:v=>String(v).trim()},
   ];
   for (const {sel, f, coerce} of fields){
@@ -5065,7 +5133,10 @@ function _readPerKeyOverrides(){
     });
   }
 
-  // Pola 3 (fallback ringan): nama input mengandung NIS, mis. name="semester-110123"
+  // =========================
+  // Pola 3 (fallback ringan):
+  // nama input/select mengandung NIS, mis. name="semester-110123"
+  // =========================
   document.querySelectorAll('input[name^="semester-"], select[name^="semester-"]').forEach(el=>{
     const m = String(el.name||'').match(/^semester-(.+)$/);
     if (m) setOv(m[1], 'semester', Number(el.value));
@@ -5079,6 +5150,7 @@ function _readPerKeyOverrides(){
     if (m) setOv(m[1], 'keterangan', String(el.value).trim());
   });
 
+  // Hasil akhir
   return map; // Map<key, {semester?, jenjang?, keterangan?}>
 }
 
