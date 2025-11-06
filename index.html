@@ -13031,7 +13031,7 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 
-<!-- ===================== PRESENSI ALL (TH Trigger) ===================== -->
+<!-- ===================== PRESENSI ALL (TH Trigger) ===================== --> 
 <style>
   /* overlay & modal ringkas */
   #presensiAllOverlay{
@@ -13269,15 +13269,12 @@ document.addEventListener("DOMContentLoaded", () => {
           target.value = dateStr;
           target.setAttribute('value', dateStr);
         }
-        // trigger handler existing (biasanya akan refresh / ajax)
         target.dispatchEvent(new Event('input', {bubbles:true}));
         target.dispatchEvent(new Event('change', {bubbles:true}));
       } else {
-        // kalau tidak ada target, fallback: reload biasa
         window.location.reload();
       }
     }catch(e){
-      // fallback aman kalau ada error
       window.location.reload();
     }
   }
@@ -13643,8 +13640,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const selected = this.value;
     if (selected){
-      // sinkron ke dashboard + minta halaman refresh + auto buka modal setelah reload
-      syncDashboardDate(selected);
+      // 1) Tutup modal dulu
+      closeModal();
+      // 2) Sinkron & biarkan halaman refresh, lalu auto-open lagi via sessionStorage
+      setTimeout(function(){
+        syncDashboardDate(selected);
+      }, 30);
     }
   });
 
