@@ -13181,12 +13181,25 @@ document.addEventListener("DOMContentLoaded", () => {
     .pa-row{align-items:center;}
   }
 
-  /* cursor + underline untuk th All Presensi */
+  /* th All Presensi: tampilan seperti link nyata */
   th.pa-presensi-th{
     cursor:pointer;
     position:relative;
-    text-decoration:underline;
-    text-underline-offset:4px;
+  }
+  th.pa-presensi-th .pa-presensi-link{
+    color:inherit;
+    text-decoration:none;
+    display:inline-block;
+  }
+  th.pa-presensi-th .pa-presensi-all{
+    display:block;
+    line-height:1.1;
+  }
+  th.pa-presensi-th .pa-presensi-text{
+    display:block;
+    line-height:1.1;
+    text-decoration:underline;          /* underline asli browser */
+    text-underline-offset:3px;
   }
   th.pa-presensi-th::after{
     content:"";
@@ -13419,21 +13432,20 @@ document.addEventListener("DOMContentLoaded", () => {
       el.addEventListener('change', (e)=>{
         const checked = e.target.checked;
 
-        // kalau dicentang: jadikan eksklusif + set semua baris ke status tsb
         if (checked){
-          // matikan bulk lain
+          // aktifkan satu, matikan lainnya
           bulkIds.forEach(o=>{
-            if(o !== id){
+            if (o !== id){
               const x = document.getElementById(o);
-              if(x){ x.checked = false; }
+              if (x) x.checked = false;
             }
           });
-          // bersihkan semua centang baris
+          // clear semua baris
           document.querySelectorAll('#paRows .st').forEach(c=>{ c.checked = false; });
-          // centang sesuai status terpilih
+          // set semua ke status ini
           document.querySelectorAll('#paRows '+map[id]).forEach(c=>{ c.checked = true; });
         } else {
-          // kalau di-uncheck: benar-benar kosongkan semua centang santri
+          // jika toggle dinonaktifkan -> kosongkan semua baris
           document.querySelectorAll('#paRows .st').forEach(c=>{ c.checked = false; });
         }
       });
@@ -13598,6 +13610,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     if (!th) return;
 
+    // ubah tampilan teks jadi "All" + "Presensi" dengan underline di kata Presensi
+    if (!th.querySelector('.pa-presensi-link')) {
+      const raw = (th.textContent || '').trim();
+      if (/^all\s+presensi$/i.test(raw)) {
+        th.innerHTML =
+          '<span class="pa-presensi-link">' +
+            '<span class="pa-presensi-all">All</span>' +
+            '<span class="pa-presensi-text">Presensi</span>' +
+          '</span>';
+      } else {
+        // fallback jika cuma "Presensi"
+        th.innerHTML =
+          '<span class="pa-presensi-link">' +
+            '<span class="pa-presensi-text">' + raw + '</span>' +
+          '</span>';
+      }
+    }
+
     th.classList.add('pa-presensi-th');
     th.addEventListener('click', openModal);
   }
@@ -13642,7 +13672,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 })();
 </script>
-
 
 
 
