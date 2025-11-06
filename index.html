@@ -13180,12 +13180,20 @@ document.addEventListener("DOMContentLoaded", () => {
     .pa-row{align-items:center;}
   }
 
-  /* cursor untuk th */
-  th.pa-presensi-th{cursor:pointer;position:relative}
+  /* cursor + underline untuk th Presensi */
+  th.pa-presensi-th{
+    cursor:pointer;
+    position:relative;
+    text-decoration:underline;
+    text-underline-offset:4px;
+  }
   th.pa-presensi-th::after{
-    content:"";position:absolute;inset:auto 8px 6px auto;
+    content:"";
+    position:absolute;
+    inset:auto 8px 6px auto;
     width:7px;height:7px;
-    border-right:2px solid #1E88E5;border-bottom:2px solid #1E88E5;
+    border-right:2px solid #1E88E5;
+    border-bottom:2px solid #1E88E5;
     transform:rotate(45deg)
   }
 </style>
@@ -13562,11 +13570,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById('paCloseX').addEventListener('click', closeModal);
   document.getElementById('paBtnClose').addEventListener('click', closeModal);
 
-  // ✅ Save: apply ke tabel + panggil simpanDataMutabaah (ada efek saving) TANPA menutup modal
+  // Save: apply ke tabel + panggil simpanDataMutabaah (ada efek saving) TANPA menutup modal
   document.getElementById('paBtnSave')?.addEventListener('click', async function(){
     const btn = this;
     try{
-      applyToTable(); // update absensi flex di tabel utama
+      applyToTable();
 
       if (typeof window.simpanDataMutabaah === 'function') {
         await window.simpanDataMutabaah(btn);
@@ -13576,11 +13584,9 @@ document.addEventListener("DOMContentLoaded", () => {
         console.warn('simpanDataMutabaah() tidak ditemukan di global scope.');
         alert('Fungsi simpanDataMutabaah tidak ditemukan. Data di tabel sudah di-update, tapi tidak terkirim ke server.');
       }
-      // Modal tetap terbuka; user bisa lihat status tombol & menutup manual via "Tutup"
     } catch(err){
       console.error('Gagal menyimpan Presensi All:', err);
       alert('Terjadi error saat menyimpan presensi. Silakan cek console atau coba lagi.');
-      // tidak menutup modal agar user bisa koreksi
     }
   });
 
@@ -13594,9 +13600,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (__paResizeT) cancelAnimationFrame(__paResizeT);
     __paResizeT = requestAnimationFrame(setFixedNamaWidthMobile);
   });
-
-  // Optional expose:
-  // window.hookPresensiTH = hookPresensiTH;
 })();
 </script>
 
