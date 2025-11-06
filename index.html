@@ -6385,6 +6385,7 @@ const hadirPct  = denomDays > 0
   : (
       (hadirSlots + izinSlots + sakitSlots + alphaSlots) > 0
       // ganti bagian fallback:
+	  // ganti bagian fallback:
 	  ? Math.round(100 * hadirSlots / (hadirSlots + izinSlots + sakitSlots + alphaSlots))
       : (targetSlots > 0 ? Math.round(100 * hadirSlots / targetSlots) : 0)
     );
