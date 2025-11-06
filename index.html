@@ -13166,18 +13166,59 @@ document.addEventListener("DOMContentLoaded", () => {
   .pa-row{border-bottom:1px solid #f3f4f6}
   .pa-row:last-child{border-bottom:none}
 
-  /* ---------- MOBILE: kolom Nama fixed mengikuti nama terpanjang ---------- */
+  /* ---------- MOBILE (<=720px): sticky kolom NIS kiri, header ikut geser ---------- */
   @media(max-width:720px){
     #presensiAllOverlay{ --pa-nama-w: 180px; }
-    .pa-list-head,.pa-row{
-      grid-template-columns:82px var(--pa-nama-w, 180px) repeat(4,64px)
+
+    /* Grid kolom untuk mobile */
+    .pa-list-head,
+    .pa-row{
+      grid-template-columns:82px var(--pa-nama-w, 180px) repeat(4,64px);
     }
-    .pa-col{padding:8px;line-height:1.25}
+
+    .pa-col{
+      padding:8px;
+      line-height:1.25;
+    }
+
     .pa-col.nama{
       width:var(--pa-nama-w, 180px);
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
+
     .pa-row{align-items:center;}
+
+    /* Scroll horizontal di container list (header & rows gerak bareng) */
+    .pa-list{
+      overflow:auto;                 /* wadah scroll utama */
+      -webkit-overflow-scrolling:touch;
+    }
+
+    /* Jangan buat scroll terpisah di body rows */
+    .pa-rows{
+      max-height:none;
+      overflow:visible;
+    }
+
+    /* Sticky kolom pertama (NIS) */
+    .pa-list-head .pa-col:first-child,
+    #paRows .pa-row .pa-col:first-child{
+      position:sticky;
+      left:0;
+      z-index:3;
+    }
+
+    /* Warna bg beda header & body supaya rapi */
+    .pa-list-head .pa-col:first-child{
+      background:#f8fafc;
+      z-index:4;
+    }
+    #paRows .pa-row .pa-col:first-child{
+      background:#fff;
+      box-shadow:2px 0 4px rgba(0,0,0,0.03);
+    }
   }
 
   /* th Presensi: tampilan seperti link nyata */
@@ -13186,8 +13227,8 @@ document.addEventListener("DOMContentLoaded", () => {
     position:relative;
   }
   th.pa-presensi-th .pa-presensi-link{
-    color:#FFFFFF;                 /* gaya link */
-    text-decoration:underline;     /* underline asli */
+    color:#1E88E5;
+    text-decoration:underline;
     text-underline-offset:3px;
   }
   th.pa-presensi-th::after{
