@@ -13152,8 +13152,19 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
-
-
+<!-- ===== STICKY HEADER TABLE FOR MOBILE ===== -->
+<script>
+(function () {
+  var tbl = document.getElementById('santri-table');
+  if (!tbl) return;
+  if (!tbl.closest('.santri-scrollwrap')) {
+    var wrap = document.createElement('div');
+    wrap.className = 'santri-scrollwrap scroll-on';
+    tbl.parentNode.insertBefore(wrap, tbl);
+    wrap.appendChild(tbl);
+  }
+})();
+</script>
 
 		
 </body>
