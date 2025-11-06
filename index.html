@@ -13125,7 +13125,20 @@ document.addEventListener("DOMContentLoaded", () => {
   .pa-rows{max-height:52vh;overflow:auto}
   .pa-row{border-bottom:1px solid #f3f4f6}
   .pa-row:last-child{border-bottom:none}
-  @media(max-width:720px){.pa-list-head,.pa-row{grid-template-columns:82px 1fr repeat(4,64px)}}
+
+  /* ---------- MOBILE: kolom Nama fixed mengikuti nama terpanjang ---------- */
+  @media(max-width:720px){
+    /* Default fallback; akan di-set dinamis via JS */
+    #presensiAllOverlay{ --pa-nama-w: 180px; }
+    .pa-list-head,.pa-row{grid-template-columns:82px var(--pa-nama-w, 180px) repeat(4,64px)}
+    .pa-col{ padding:8px; line-height:1.25 }
+    .pa-col.nama{
+      width:var(--pa-nama-w, 180px);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .pa-row{ align-items:center; }
+  }
+
   /* cursor untuk th */
   th.pa-presensi-th{cursor:pointer;position:relative}
   th.pa-presensi-th::after{content:"";position:absolute;inset:auto 8px 6px auto;width:7px;height:7px;border-right:2px solid #1E88E5;border-bottom:2px solid #1E88E5;transform:rotate(45deg)}
@@ -13161,7 +13174,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="pa-list">
         <div class="pa-list-head">
           <div class="pa-col">NIS</div>
-          <div class="pa-col">Nama</div>
+          <div class="pa-col nama">Nama</div>
           <div class="pa-col" style="text-align:center">Hadir</div>
           <div class="pa-col" style="text-align:center">Izin</div>
           <div class="pa-col" style="text-align:center">Sakit</div>
@@ -13235,6 +13248,41 @@ document.addEventListener("DOMContentLoaded", () => {
     return ['hadir','izin','sakit','alpha'].reduce((a,b)=>cnt[b]>cnt[a]?b:a,'hadir');
   }
 
+  // ===== MOBILE: set lebar kolom Nama mengikuti nama terpanjang =====
+  function setFixedNamaWidthMobile(){
+    // hanya jalankan di mobile breakpoint
+    if (!window.matchMedia('(max-width: 720px)').matches) return;
+
+    const overlay = document.getElementById('presensiAllOverlay');
+    const names = [...document.querySelectorAll('#paRows .pa-col.nama')];
+    if (!names.length){ overlay?.style?.setProperty('--pa-nama-w', '180px'); return; }
+
+    // ambil font untuk pengukuran akurat
+    const sample = names[0];
+    const cs = window.getComputedStyle(sample);
+    const font = `${cs.fontStyle} ${cs.fontVariant} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = font;
+
+    let maxPx = 0;
+    names.forEach(el => {
+      const text = el.textContent.trim();
+      const w = ctx.measureText(text).width;
+      if (w > maxPx) maxPx = w;
+    });
+
+    // tambah padding kiri/kanan + clamp agar tidak makan layar
+    const padding = 24;
+    let target = Math.ceil(maxPx + padding);
+    const maxVW = Math.floor(window.innerWidth * 0.55); // maksimal 55vw
+    const minPx = 140;
+    target = Math.max(minPx, Math.min(target, maxVW));
+
+    overlay?.style?.setProperty('--pa-nama-w', `${target}px`);
+  }
+
   // ===== render daftar di modal =====
   function renderRows(){
     const wrap = document.getElementById('paRows');
@@ -13252,7 +13300,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const dom = currentDominantFromRow(tr); // pra-centang
       r.innerHTML = `
         <div class="pa-col">${nis}</div>
-        <div class="pa-col">${nama}</div>
+        <div class="pa-col nama" title="${nama}">${nama}</div>
         <div class="pa-col" style="text-align:center"><input type="checkbox" class="st st-hadir"></div>
         <div class="pa-col" style="text-align:center"><input type="checkbox" class="st st-izin"></div>
         <div class="pa-col" style="text-align:center"><input type="checkbox" class="st st-sakit"></div>
@@ -13270,6 +13318,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (dom) r.querySelector(`.st-${dom}`)?.click();
       wrap.appendChild(r);
     });
+
+    // pastikan header kolom 2 punya class .nama (untuk CSS mobile)
+    document.querySelector('#presensiAllOverlay .pa-list-head .pa-col:nth-child(2)')?.classList.add('nama');
+
+    // hitung lebar fixed kolom nama (mobile)
+    setFixedNamaWidthMobile();
   }
 
   // ===== BULK (mutually exclusive untuk semua baris) =====
@@ -13287,9 +13341,7 @@ document.addEventListener("DOMContentLoaded", () => {
           document.querySelectorAll('#paRows .st').forEach(c=>c.checked=false);
           // set massal
           document.querySelectorAll('#paRows '+map[id]).forEach(c=>c.checked=true);
-        } else {
-          // jika uncheck yang aktif -> tidak apa-apa (membiarkan pilihan per baris)
-        }
+        } // jika uncheck, biarkan pilihan per baris
       });
     });
   }
@@ -13298,6 +13350,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyToTable(){
     const { rows } = getSantriRows();
     const chosen = new Map(); // nis -> 'hadir'|'izin'|'sakit'|'alpha'|''
+
     document.querySelectorAll('#paRows .pa-row').forEach(r=>{
       const nis = r.dataset.nis;
       const status =
@@ -13310,6 +13363,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const per = Number(window.ABS_FLEX_CFG?.perStatus ?? 2);
     const allStatuses = Array.isArray(window.ABS_FLEX_CFG?.statuses) ? window.ABS_FLEX_CFG.statuses : ['hadir','izin','sakit','alpha'];
+
     function makeItemsFor(status, target){
       const t = Math.max(1, Math.min(6, Number(target)||Number(window.ABS_FLEX_CFG?.defaultTarget||1)));
       const items=[];
@@ -13402,6 +13456,9 @@ document.addEventListener("DOMContentLoaded", () => {
     renderRows();
     document.getElementById('presensiAllOverlay').classList.add('show');
     document.getElementById('presensiAllOverlay').setAttribute('aria-hidden','false');
+
+    // re-calc lebar nama jika orientation/resolution berubah saat buka
+    setFixedNamaWidthMobile();
   }
   function closeModal(){
     document.getElementById('presensiAllOverlay').classList.remove('show');
@@ -13432,6 +13489,13 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById('paTanggal').addEventListener('change', setHariFromInput);
   setupBulk();
   hookPresensiTH();
+
+  // Re-calc lebar nama saat resize (debounce ringan)
+  let __paResizeT=null;
+  window.addEventListener('resize', ()=>{
+    if (__paResizeT) cancelAnimationFrame(__paResizeT);
+    __paResizeT = requestAnimationFrame(setFixedNamaWidthMobile);
+  });
 
   // Jika tabel di-render ulang (loadSantriData), panggil lagi hookPresensiTH setelah render selesai:
   // window.hookPresensiTH = hookPresensiTH; // opsional: expose untuk dipanggil manual
