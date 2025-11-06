@@ -13117,7 +13117,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     .pa-row{align-items:center;}
 
-    /* scroll horizontal: header & body bergerak bersama */
     .pa-list{
       overflow:auto;
       -webkit-overflow-scrolling:touch;
@@ -13128,7 +13127,6 @@ document.addEventListener("DOMContentLoaded", () => {
       overflow:visible;
     }
 
-    /* sticky kolom pertama (NIS) */
     .pa-list-head .pa-col:first-child,
     #paRows .pa-row .pa-col:first-child{
       position:sticky;
@@ -13236,12 +13234,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const v = el.value;
     if(!v){ hari.textContent='-'; return; }
 
-    const today = getTodayStr();
-    if (v > today){
-      el.value = today;
-    }
-
-    const parts = el.value.split('-').map(Number);
+    const parts = v.split('-').map(Number);
     if (parts.length === 3){
       const [y,m,dd] = parts;
       hari.textContent = hariIndo(new Date(y, m-1, dd));
@@ -13250,7 +13243,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ===== sinkron tanggal ke dashboard + set flag reload =====
+  // ===== sinkron tanggal ke dashboard + paksa reload =====
   function syncDashboardDate(dateStr){
     try{
       sessionStorage.setItem(SS_KEY_DATE, dateStr);
@@ -13271,12 +13264,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         target.dispatchEvent(new Event('input', {bubbles:true}));
         target.dispatchEvent(new Event('change', {bubbles:true}));
-      } else {
-        window.location.reload();
       }
     }catch(e){
-      window.location.reload();
+      /* abaikan, lanjut reload */
     }
+
+    // apapun yang terjadi, reload supaya data server ikut tanggal terbaru
+    window.location.reload();
   }
 
   // ===== deteksi kolom NIS/Nama dari THEAD =====
@@ -13550,22 +13544,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== open/close modal =====
   function openModal(initialDate){
     const inTanggal = document.getElementById('paTanggal');
-    const todayStr = getTodayStr();
-    inTanggal.setAttribute('max', todayStr);
 
-    const global =
+    const globalVal =
       (window.tanggalInput && window.tanggalInput.value ? window.tanggalInput.value : '') ||
       document.querySelector('#tanggalInput')?.value ||
       document.querySelector('#tanggal')?.value ||
       document.querySelector('#date')?.value ||
       '';
 
-    let useDate = todayStr;
-    if (initialDate && initialDate <= todayStr){
-      useDate = initialDate;
-    } else if (global && global <= todayStr){
-      useDate = global;
-    }
+    const useDate = initialDate || globalVal || getTodayStr();
 
     inTanggal.value = useDate;
     setHariFromInput();
@@ -13632,20 +13619,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Saat tanggal di modal diubah:
   document.getElementById('paTanggal').addEventListener('change', function(){
-    const today = getTodayStr();
-    if (this.value > today) {
-      this.value = today;
-    }
     setHariFromInput();
-
     const selected = this.value;
     if (selected){
-      // 1) Tutup modal dulu
-      closeModal();
-      // 2) Sinkron & biarkan halaman refresh, lalu auto-open lagi via sessionStorage
-      setTimeout(function(){
-        syncDashboardDate(selected);
-      }, 30);
+      syncDashboardDate(selected);
     }
   });
 
