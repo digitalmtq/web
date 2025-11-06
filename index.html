@@ -13094,7 +13094,7 @@ document.addEventListener("DOMContentLoaded", () => {
   .pa-row{border-bottom:1px solid #f3f4f6}
   .pa-row:last-child{border-bottom:none}
 
-  /* ---------- MOBILE (<=720px): sticky NIS kiri, header ikut geser ---------- */
+  /* ---------- MOBILE (<=720px): sticky kolom NIS kiri, header ikut geser ---------- */
   @media(max-width:720px){
     #presensiAllOverlay{ --pa-nama-w: 180px; }
 
@@ -13117,7 +13117,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     .pa-row{align-items:center;}
 
-    /* scroll horizontal: header & rows bareng */
+    /* scroll horizontal: header & body bergerak bersama */
     .pa-list{
       overflow:auto;
       -webkit-overflow-scrolling:touch;
@@ -13128,14 +13128,13 @@ document.addEventListener("DOMContentLoaded", () => {
       overflow:visible;
     }
 
-    /* Sticky kolom pertama (NIS) */
+    /* sticky kolom pertama (NIS) */
     .pa-list-head .pa-col:first-child,
     #paRows .pa-row .pa-col:first-child{
       position:sticky;
       left:0;
       z-index:3;
     }
-
     .pa-list-head .pa-col:first-child{
       background:#f8fafc;
       z-index:4;
@@ -13146,7 +13145,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* th Presensi: tampilan link */
+  /* th Presensi: tampilan seperti link nyata */
   th.pa-presensi-th{
     cursor:pointer;
     position:relative;
@@ -13167,7 +13166,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 </style>
 
-<!-- Modal -->
+<!-- Modal dibuat sekali -->
 <div id="presensiAllOverlay" aria-hidden="true">
   <div class="pa-card" role="dialog" aria-modal="true" aria-labelledby="pa-title">
     <div class="pa-hd">
@@ -13214,6 +13213,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 (function(){
+  const SS_KEY_OPEN = 'PA_OPEN_AFTER_RELOAD';
+  const SS_KEY_DATE = 'PA_SELECTED_DATE';
+
   // ===== util tanggal/hari =====
   function getTodayStr(){
     const d = new Date();
@@ -13239,23 +13241,48 @@ document.addEventListener("DOMContentLoaded", () => {
       el.value = today;
     }
 
-    const [y,m,dd] = el.value.split('-').map(Number);
-    hari.textContent = hariIndo(new Date(y, m-1, dd));
+    const parts = el.value.split('-').map(Number);
+    if (parts.length === 3){
+      const [y,m,dd] = parts;
+      hari.textContent = hariIndo(new Date(y, m-1, dd));
+    } else {
+      hari.textContent = '-';
+    }
   }
 
-  // ===== helper kelas (dipakai untuk call API) =====
-  function getSelectedKelas(){
-    const el =
-      window.kelasSelect ||
-      document.getElementById('kelasSelect') ||
-      document.querySelector('select.kelas') ||
-      document.querySelector('.kelas select') ||
-      document.querySelector('select[name="kelas"]');
-    const v = (el && el.value || '').trim();
-    return { value: v, el: el || null };
+  // ===== sinkron tanggal ke dashboard + set flag reload =====
+  function syncDashboardDate(dateStr){
+    try{
+      sessionStorage.setItem(SS_KEY_DATE, dateStr);
+      sessionStorage.setItem(SS_KEY_OPEN, '1');
+    }catch(e){}
+
+    try{
+      const target =
+        (window.tanggalInput && window.tanggalInput.tagName ? window.tanggalInput : null) ||
+        document.getElementById('tanggalInput') ||
+        document.getElementById('tanggal') ||
+        document.getElementById('date');
+
+      if (target){
+        if (target.value !== dateStr){
+          target.value = dateStr;
+          target.setAttribute('value', dateStr);
+        }
+        // trigger handler existing (biasanya akan refresh / ajax)
+        target.dispatchEvent(new Event('input', {bubbles:true}));
+        target.dispatchEvent(new Event('change', {bubbles:true}));
+      } else {
+        // kalau tidak ada target, fallback: reload biasa
+        window.location.reload();
+      }
+    }catch(e){
+      // fallback aman kalau ada error
+      window.location.reload();
+    }
   }
 
-  // ===== deteksi kolom NIS/Nama dari THEAD dashboard =====
+  // ===== deteksi kolom NIS/Nama dari THEAD =====
   function headerMapForTable(table){
     const map = { nis:0, nama:1, presensi:-1 };
     if(!table) return map;
@@ -13274,6 +13301,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return map;
   }
 
+  // ===== ambil rows santri dari #santri-table =====
   function getSantriRows(){
     const table = document.getElementById('santri-table');
     const tbody = table?.querySelector('tbody');
@@ -13283,7 +13311,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return { table, map, rows };
   }
 
-  // ===== baca status dominan di DOM (fallback lokal) =====
+  // ===== baca status dominan saat ini (untuk pra-centang) =====
   function currentDominantFromRow(row){
     const cell = row.querySelector('.abs-flex-cell');
     const items = Array.isArray(cell?._absensiItems) ? cell._absensiItems : [];
@@ -13299,96 +13327,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return ['hadir','izin','sakit','alpha'].reduce((a,b)=>cnt[b]>cnt[a]?b:a,'hadir');
   }
 
-  // ===== normalisasi status text =====
-  function paNormStatus(s){
-    s = String(s || '').trim().toLowerCase();
-    if (s === 'hadir' || s === 'h') return 'hadir';
-    if (s === 'izin' || s === 'ijin' || s === 'i') return 'izin';
-    if (s === 'sakit' || s === 'skt' || s === 's') return 'sakit';
-    if (s === 'alpha' || s === 'alfa' || s === 'alpa' || s === 'a') return 'alpha';
-    return '';
-  }
-
-  // ===== ambil status dari record API (slot-based aware) =====
-  function deriveStatusFromApiRecord(rec){
-    if (!rec) return '';
-    const counts = {hadir:0,izin:0,sakit:0,alpha:0};
-
-    // _slotCounts (dari server aggregate slot)
-    if (rec._slotCounts){
-      ['hadir','izin','sakit','alpha'].forEach(k=>{
-        if (rec._slotCounts[k]) counts[k] += Number(rec._slotCounts[k]) || 0;
-      });
-    }
-
-    // absensiItems (detail slot)
-    if (Array.isArray(rec.absensiItems)){
-      rec.absensiItems.forEach(it=>{
-        if (!it || !it.checked) return;
-        const base = String(it.key||'').toLowerCase().replace(/\d+$/,'');
-        if (base in counts) counts[base]++;
-      });
-    }
-
-    // jika ada slot -> pilih yang terbanyak
-    let best = ''; let max = 0;
-    for (const k in counts){
-      if (counts[k] > max){
-        max = counts[k];
-        best = k;
-      }
-    }
-    if (max > 0) return best;
-
-    // fallback ke field absensi/status biasa
-    const st = paNormStatus(rec.absensi ?? rec.status);
-    return st || '';
-  }
-
-  // ===== CACHE & loader presensi via /api/getAbsensiRange =====
-  const paPresensiCache = new Map(); // key: kelas|tanggal => Map(NIS/ID -> status)
-
-  async function loadPresensiMap(tanggal){
-    if (!tanggal) return null;
-    const { value:kelas } = getSelectedKelas();
-    if (!kelas) return null;
-
-    const cacheKey = `${kelas}|${tanggal}`;
-    if (paPresensiCache.has(cacheKey)) return paPresensiCache.get(cacheKey);
-
-    try{
-      const url = `/api/getAbsensiRange?kelas=${encodeURIComponent(kelas)}&start=${encodeURIComponent(tanggal)}&end=${encodeURIComponent(tanggal)}&t=${Date.now()}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      const json = await res.json();
-      if (!json || typeof json !== 'object' || !Array.isArray(json.list)){
-        throw new Error('Format respons tidak valid');
-      }
-
-      const map = new Map();
-      (json.list || []).forEach(rec=>{
-        let key = '';
-        if (json.aggregate){
-          key = String(rec.key || rec.nis || rec.id || '').trim();
-        } else {
-          key = String(rec.nis || rec.id || '').trim();
-        }
-        if (!key) return;
-        const st = deriveStatusFromApiRecord(rec);
-        if (!st) return;
-        map.set(key, st); // jika dobel, terakhir menimpa
-      });
-
-      paPresensiCache.set(cacheKey, map.size ? map : null);
-      return paPresensiCache.get(cacheKey);
-    }catch(err){
-      console.warn('Gagal load /api/getAbsensiRange, fallback DOM:', err);
-      paPresensiCache.set(cacheKey, null);
-      return null;
-    }
-  }
-
-  // ===== MOBILE: lebar kolom Nama dinamis =====
+  // ===== MOBILE: set lebar kolom Nama mengikuti nama terpanjang =====
   function setFixedNamaWidthMobile(){
     if (!window.matchMedia('(max-width: 720px)').matches) return;
     const overlay = document.getElementById('presensiAllOverlay');
@@ -13422,25 +13361,21 @@ document.addEventListener("DOMContentLoaded", () => {
     overlay?.style?.setProperty('--pa-nama-w', `${target}px`);
   }
 
-  // ===== render daftar di modal (gunakan data API jika ada) =====
-  function renderRows(presensiMap){
+  // ===== render daftar di modal =====
+  function renderRows(){
     const wrap = document.getElementById('paRows');
     wrap.innerHTML = '';
-
     const { rows, map } = getSantriRows();
-    if (!rows.length){
-      return;
-    }
-
     rows.forEach(tr=>{
       const tds = tr.querySelectorAll('td');
-      const nis  = (tds[map.nis]?.textContent || tr.dataset.nis || '').trim();
+      const nis  = (tds[map.nis]?.textContent || '').trim();
       const nama = (tds[map.nama]?.textContent || '').trim();
 
       const r = document.createElement('div');
       r.className = 'pa-row';
       r.dataset.nis = nis;
 
+      const dom = currentDominantFromRow(tr);
       r.innerHTML = `
         <div class="pa-col">${nis}</div>
         <div class="pa-col nama" title="${nama}">${nama}</div>
@@ -13450,7 +13385,6 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="pa-col" style="text-align:center"><input type="checkbox" class="st st-alpha"></div>
       `;
 
-      // mutual exclusive per row
       r.querySelectorAll('.st').forEach(chk=>{
         chk.addEventListener('change', (e)=>{
           if (e.target.checked){
@@ -13459,18 +13393,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
-      // tentukan status:
-      let st = '';
-      if (presensiMap) {
-        // data dari API untuk tanggal yang dipilih
-        st = presensiMap.get(nis) || '';
-      } else {
-        // fallback: pakai kondisi di tabel dashboard (tanggal aktif)
-        st = currentDominantFromRow(tr);
-      }
-
-      if (st) {
-        const box = r.querySelector(`.st-${st}`);
+      if (dom) {
+        const box = r.querySelector(`.st-${dom}`);
         if (box) box.checked = true;
       }
 
@@ -13484,17 +13408,10 @@ document.addEventListener("DOMContentLoaded", () => {
     setFixedNamaWidthMobile();
   }
 
-  // ===== wrapper: load API + render =====
-  async function loadAndRenderRows(){
-    const tanggal = document.getElementById('paTanggal').value;
-    const presensiMap = await loadPresensiMap(tanggal);
-    renderRows(presensiMap);
-  }
-
   // ===== BULK (mutually exclusive + clear saat uncheck) =====
   function setupBulk(){
     const bulkIds = ['paAllHadir','paAllIzin','paAllSakit','paAllAlpha'];
-    const mapSel = {
+    const map = {
       paAllHadir: '.st-hadir',
       paAllIzin:  '.st-izin',
       paAllSakit: '.st-sakit',
@@ -13509,25 +13426,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const checked = e.target.checked;
 
         if (checked){
-          // matikan yang lain
           bulkIds.forEach(o=>{
             if (o !== id){
               const x = document.getElementById(o);
               if (x) x.checked = false;
             }
           });
-          // clear semua, lalu set 1 status
           document.querySelectorAll('#paRows .st').forEach(c=>{ c.checked = false; });
-          document.querySelectorAll('#paRows '+mapSel[id]).forEach(c=>{ c.checked = true; });
+          document.querySelectorAll('#paRows '+map[id]).forEach(c=>{ c.checked = true; });
         } else {
-          // kalau toggle lepas -> kosongkan semua
           document.querySelectorAll('#paRows .st').forEach(c=>{ c.checked = false; });
         }
       });
     });
   }
 
-  // ===== apply hasil ke tabel abs-flex =====
+  // ===== terapkan hasil ke tabel (ABSENSI FLEX) =====
   function applyToTable(){
     const { rows } = getSantriRows();
     const chosen = new Map();
@@ -13618,7 +13532,6 @@ document.addEventListener("DOMContentLoaded", () => {
       updateMini(cell);
     });
 
-    // event keluar (opsional untuk logging)
     const tanggal = document.getElementById('paTanggal').value;
     const hari = document.getElementById('paHari').textContent;
     const itemsOut = [];
@@ -13638,38 +13551,38 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===== open/close modal =====
-  function openModal(){
-    const overlay = document.getElementById('presensiAllOverlay');
+  function openModal(initialDate){
     const inTanggal = document.getElementById('paTanggal');
     const todayStr = getTodayStr();
-
     inTanggal.setAttribute('max', todayStr);
 
-    // sync awal dengan tanggal global dashboard
-    const global = (window.tanggalInput?.value)
-      || document.querySelector('#tanggalInput')?.value
-      || document.querySelector('#tanggal')?.value
-      || document.querySelector('#date')?.value;
+    const global =
+      (window.tanggalInput && window.tanggalInput.value ? window.tanggalInput.value : '') ||
+      document.querySelector('#tanggalInput')?.value ||
+      document.querySelector('#tanggal')?.value ||
+      document.querySelector('#date')?.value ||
+      '';
 
-    if (global && global <= todayStr) {
-      inTanggal.value = global;
-    } else {
-      inTanggal.value = todayStr;
+    let useDate = todayStr;
+    if (initialDate && initialDate <= todayStr){
+      useDate = initialDate;
+    } else if (global && global <= todayStr){
+      useDate = global;
     }
 
+    inTanggal.value = useDate;
     setHariFromInput();
 
-    overlay.classList.add('show');
-    overlay.setAttribute('aria-hidden','false');
+    renderRows();
+    document.getElementById('presensiAllOverlay').classList.add('show');
+    document.getElementById('presensiAllOverlay').setAttribute('aria-hidden','false');
 
-    // muat presensi sesuai tanggal terpilih (via API jika ada)
-    loadAndRenderRows();
+    setFixedNamaWidthMobile();
   }
 
   function closeModal(){
-    const overlay = document.getElementById('presensiAllOverlay');
-    overlay.classList.remove('show');
-    overlay.setAttribute('aria-hidden','true');
+    document.getElementById('presensiAllOverlay').classList.remove('show');
+    document.getElementById('presensiAllOverlay').setAttribute('aria-hidden','true');
     ['paAllHadir','paAllIzin','paAllSakit','paAllAlpha'].forEach(id=>{
       const el=document.getElementById(id);
       if(el) el.checked=false;
@@ -13677,7 +13590,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('paRows').innerHTML = '';
   }
 
-  // ===== pasang trigger pada <th> Presensi =====
+  // ===== pasang pada <th>Presensi> (support lama "All Presensi") =====
   function hookPresensiTH(){
     const table = document.getElementById('santri-table');
     if (!table) return;
@@ -13696,7 +13609,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     th.classList.add('pa-presensi-th');
-    th.addEventListener('click', openModal);
+    th.addEventListener('click', function(){ openModal(); });
   }
 
   // ===== init =====
@@ -13720,14 +13633,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Saat tanggal di modal diubah:
   document.getElementById('paTanggal').addEventListener('change', function(){
     const today = getTodayStr();
     if (this.value > today) {
       this.value = today;
     }
     setHariFromInput();
-    // setiap ganti tanggal -> reload data presensi tanggal tsb
-    loadAndRenderRows();
+
+    const selected = this.value;
+    if (selected){
+      // sinkron ke dashboard + minta halaman refresh + auto buka modal setelah reload
+      syncDashboardDate(selected);
+    }
   });
 
   setupBulk();
@@ -13738,10 +13656,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (__paResizeT) cancelAnimationFrame(__paResizeT);
     __paResizeT = requestAnimationFrame(setFixedNamaWidthMobile);
   });
+
+  // Auto-open modal setelah reload jika diminta
+  try{
+    const shouldOpen = sessionStorage.getItem(SS_KEY_OPEN) === '1';
+    const savedDate = sessionStorage.getItem(SS_KEY_DATE);
+    if (shouldOpen){
+      sessionStorage.removeItem(SS_KEY_OPEN);
+      openModal(savedDate || undefined);
+    }
+  }catch(e){}
 })();
 </script>
-
-
 		
 </body>
 </html>
