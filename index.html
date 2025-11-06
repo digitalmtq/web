@@ -13117,6 +13117,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     .pa-row{align-items:center;}
 
+    /* scroll horizontal: header & body bergerak bersama */
     .pa-list{
       overflow:auto;
       -webkit-overflow-scrolling:touch;
@@ -13127,6 +13128,7 @@ document.addEventListener("DOMContentLoaded", () => {
       overflow:visible;
     }
 
+    /* sticky kolom pertama (NIS) */
     .pa-list-head .pa-col:first-child,
     #paRows .pa-row .pa-col:first-child{
       position:sticky;
@@ -13234,7 +13236,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const v = el.value;
     if(!v){ hari.textContent='-'; return; }
 
-    const parts = v.split('-').map(Number);
+    const today = getTodayStr();
+    if (v > today){
+      el.value = today;
+    }
+
+    const parts = el.value.split('-').map(Number);
     if (parts.length === 3){
       const [y,m,dd] = parts;
       hari.textContent = hariIndo(new Date(y, m-1, dd));
@@ -13243,7 +13250,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ===== sinkron tanggal ke dashboard + paksa reload =====
+  // ===== sinkron tanggal ke dashboard + set flag reload =====
   function syncDashboardDate(dateStr){
     try{
       sessionStorage.setItem(SS_KEY_DATE, dateStr);
@@ -13264,13 +13271,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         target.dispatchEvent(new Event('input', {bubbles:true}));
         target.dispatchEvent(new Event('change', {bubbles:true}));
+      } else {
+        window.location.reload();
       }
     }catch(e){
-      /* abaikan, lanjut reload */
+      window.location.reload();
     }
-
-    // apapun yang terjadi, reload supaya data server ikut tanggal terbaru
-    window.location.reload();
   }
 
   // ===== deteksi kolom NIS/Nama dari THEAD =====
@@ -13544,15 +13550,22 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== open/close modal =====
   function openModal(initialDate){
     const inTanggal = document.getElementById('paTanggal');
+    const todayStr = getTodayStr();
+    inTanggal.setAttribute('max', todayStr);
 
-    const globalVal =
+    const global =
       (window.tanggalInput && window.tanggalInput.value ? window.tanggalInput.value : '') ||
       document.querySelector('#tanggalInput')?.value ||
       document.querySelector('#tanggal')?.value ||
       document.querySelector('#date')?.value ||
       '';
 
-    const useDate = initialDate || globalVal || getTodayStr();
+    let useDate = todayStr;
+    if (initialDate){
+      useDate = initialDate;
+    } else if (global){
+      useDate = global;
+    }
 
     inTanggal.value = useDate;
     setHariFromInput();
@@ -13572,6 +13585,36 @@ document.addEventListener("DOMContentLoaded", () => {
       if(el) el.checked=false;
     });
     document.getElementById('paRows').innerHTML = '';
+  }
+
+  // ===== tunggu sampai tabel santri terisi sebelum auto-open =====
+  function waitAndOpenModal(initialDate){
+    let tries = 0;
+    const maxTries = 50;      // 50 x 200ms = 10 detik max
+    const interval = 200;
+
+    function ready(){
+      const table = document.getElementById('santri-table');
+      const tbody = table && table.querySelector('tbody');
+      return !!(tbody && tbody.rows && tbody.rows.length);
+    }
+
+    if (ready()){
+      openModal(initialDate);
+      return;
+    }
+
+    const timer = setInterval(function(){
+      tries++;
+      if (ready()){
+        clearInterval(timer);
+        openModal(initialDate);
+      } else if (tries >= maxTries){
+        clearInterval(timer);
+        // fallback: tetap buka modal dengan apa adanya
+        openModal(initialDate);
+      }
+    }, interval);
   }
 
   // ===== pasang pada <th>Presensi> (support lama "All Presensi") =====
@@ -13619,9 +13662,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Saat tanggal di modal diubah:
   document.getElementById('paTanggal').addEventListener('change', function(){
+    const today = getTodayStr();
+    if (this.value > today) {
+      this.value = today;
+    }
     setHariFromInput();
+
     const selected = this.value;
     if (selected){
+      // sinkron ke dashboard + minta halaman refresh / reload data
       syncDashboardDate(selected);
     }
   });
@@ -13635,13 +13684,13 @@ document.addEventListener("DOMContentLoaded", () => {
     __paResizeT = requestAnimationFrame(setFixedNamaWidthMobile);
   });
 
-  // Auto-open modal setelah reload jika diminta
+  // Auto-open modal setelah reload, tapi tunggu tabel siap
   try{
     const shouldOpen = sessionStorage.getItem(SS_KEY_OPEN) === '1';
     const savedDate = sessionStorage.getItem(SS_KEY_DATE);
     if (shouldOpen){
       sessionStorage.removeItem(SS_KEY_OPEN);
-      openModal(savedDate || undefined);
+      waitAndOpenModal(savedDate || undefined);
     }
   }catch(e){}
 })();
