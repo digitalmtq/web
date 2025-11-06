@@ -1342,7 +1342,7 @@ async function buatUserNIS() {
             <th>Nama</th>
 			<th>Jenjang</th>
             <th>Semester</th>
-            <th>Presensi All</th>
+            <th>All Presensi</th>
 			<th>SP</th>
             <th>Setor Dari</th>
             <th>Setor Sampai</th>
@@ -13129,7 +13129,7 @@ document.addEventListener("DOMContentLoaded", () => {
     padding:12px 16px;border-top:1px solid #eee;background:#fff
   }
   .pa-btn{
-    border-radius:10px;border:1px solid #e5e7eb;background:#1E88E5;
+    border-radius:10px;border:1px solid #e5e7eb;background:#fff;
     padding:8px 14px;cursor:pointer
   }
   .pa-btn.primary{
@@ -13181,7 +13181,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .pa-row{align-items:center;}
   }
 
-  /* cursor + underline untuk th Presensi All */
+  /* cursor + underline untuk th All Presensi */
   th.pa-presensi-th{
     cursor:pointer;
     position:relative;
@@ -13204,6 +13204,7 @@ document.addEventListener("DOMContentLoaded", () => {
   <div class="pa-card" role="dialog" aria-modal="true" aria-labelledby="pa-title">
     <div class="pa-hd">
       <h3 id="pa-title" style="margin:0;font-size:18px;">Presensi All</h3>
+      <button class="pa-btn" id="paCloseX" aria-label="Tutup">Tutup</button>
     </div>
     <div class="pa-bd">
       <div class="pa-date">
@@ -13218,7 +13219,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
 
       <div class="pa-bulk">
-        <strong style="font-size:12px;color:#555">Semua</strong>
+        <strong style="font-size:12px;color:#555">Centang semua:</strong>
         <label><input type="checkbox" id="paAllHadir"> Hadir</label>
         <label><input type="checkbox" id="paAllIzin"> Izin</label>
         <label><input type="checkbox" id="paAllSakit"> Sakit</label>
@@ -13248,7 +13249,7 @@ document.addEventListener("DOMContentLoaded", () => {
 (function(){
   // ===== util tanggal/hari =====
   function getTodayStr(){
-    const d = new Date(); // lokal browser
+    const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth()+1).padStart(2,'0');
     const dd= String(d.getDate()).padStart(2,'0');
@@ -13268,7 +13269,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const today = getTodayStr();
     if (v > today){
-      el.value = today; // clamp kalau dipaksa lewat hari ini
+      el.value = today;
     }
 
     const [y,m,dd] = el.value.split('-').map(Number);
@@ -13282,11 +13283,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const ths = table.querySelectorAll('thead th');
     if (!ths.length) return map;
     for (let i=0;i<ths.length;i++){
-      const t = (ths[i].textContent||'').trim().toLowerCase();
+      const tRaw = (ths[i].textContent||'').trim().toLowerCase();
+      const t = tRaw.replace(/\s+/g,' ');
       if (t === 'nis') map.nis = i;
       if (t === 'nama') map.nama = i;
-      // Dukung "Presensi All" (baru) dan "Presensi" (lama)
-      if (t === 'presensi all' || t === 'presensi') {
+      if (t === 'presensi' || t === 'all presensi') {
         map.presensi = i;
         ths[i].classList.add('pa-presensi-th');
       }
@@ -13401,28 +13402,39 @@ document.addEventListener("DOMContentLoaded", () => {
     setFixedNamaWidthMobile();
   }
 
-  // ===== BULK (mutually exclusive untuk semua baris) =====
+  // ===== BULK (mutually exclusive + clear saat uncheck) =====
   function setupBulk(){
     const bulkIds = ['paAllHadir','paAllIzin','paAllSakit','paAllAlpha'];
     const map = {
       paAllHadir: '.st-hadir',
-      paAllIzin: '.st-izin',
+      paAllIzin:  '.st-izin',
       paAllSakit: '.st-sakit',
       paAllAlpha: '.st-alpha'
     };
+
     bulkIds.forEach(id=>{
       const el = document.getElementById(id);
       if (!el) return;
+
       el.addEventListener('change', (e)=>{
-        if (e.target.checked){
+        const checked = e.target.checked;
+
+        // kalau dicentang: jadikan eksklusif + set semua baris ke status tsb
+        if (checked){
+          // matikan bulk lain
           bulkIds.forEach(o=>{
-            if(o!==id){
-              const x=document.getElementById(o);
-              if(x) x.checked=false;
+            if(o !== id){
+              const x = document.getElementById(o);
+              if(x){ x.checked = false; }
             }
           });
-          document.querySelectorAll('#paRows .st').forEach(c=>c.checked=false);
-          document.querySelectorAll('#paRows '+map[id]).forEach(c=>c.checked=true);
+          // bersihkan semua centang baris
+          document.querySelectorAll('#paRows .st').forEach(c=>{ c.checked = false; });
+          // centang sesuai status terpilih
+          document.querySelectorAll('#paRows '+map[id]).forEach(c=>{ c.checked = true; });
+        } else {
+          // kalau di-uncheck: benar-benar kosongkan semua centang santri
+          document.querySelectorAll('#paRows .st').forEach(c=>{ c.checked = false; });
         }
       });
     });
@@ -13493,7 +13505,7 @@ document.addEventListener("DOMContentLoaded", () => {
         mini.setAttribute('data-progress', String(pct));
         mini.classList.toggle('is-complete', pct>=100);
 
-        const st = (typeof window.__absmini_dominantStatus==='function')
+        const st = (typeof window.__absmini_dominantStatus === 'function')
           ? window.__absmini_dominantStatus(cell._absensiItems)
           : null;
 
@@ -13574,15 +13586,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('paRows').innerHTML = '';
   }
 
-  // ===== pasang pada <th>Presensi All> =====
+  // ===== pasang pada <th>All Presensi> (atau Presensi lama) =====
   function hookPresensiTH(){
     const table = document.getElementById('santri-table');
     if (!table) return;
     const ths = [...table.querySelectorAll('thead th')];
 
     const th = ths.find(t => {
-      const txt = (t.textContent||'').trim().toLowerCase();
-      return txt === 'presensi all' || txt === 'presensi';
+      const txt = (t.textContent||'').trim().toLowerCase().replace(/\s+/g,' ');
+      return txt === 'all presensi' || txt === 'presensi';
     });
     if (!th) return;
 
@@ -13591,14 +13603,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===== init =====
+  document.getElementById('paCloseX').addEventListener('click', closeModal);
   document.getElementById('paBtnClose').addEventListener('click', closeModal);
 
-  // Save: apply ke tabel + panggil simpanDataMutabaah (ada efek saving) TANPA menutup modal
   document.getElementById('paBtnSave')?.addEventListener('click', async function(){
     const btn = this;
     try{
       applyToTable();
-
       if (typeof window.simpanDataMutabaah === 'function') {
         await window.simpanDataMutabaah(btn);
       } else if (typeof simpanDataMutabaah === 'function') {
@@ -13613,7 +13624,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Clamp tanggal ketika diubah manual
   document.getElementById('paTanggal').addEventListener('change', function(){
     const today = getTodayStr();
     if (this.value > today) {
@@ -13625,7 +13635,6 @@ document.addEventListener("DOMContentLoaded", () => {
   setupBulk();
   hookPresensiTH();
 
-  // Re-calc lebar nama saat resize (debounce ringan)
   let __paResizeT = null;
   window.addEventListener('resize', ()=>{
     if (__paResizeT) cancelAnimationFrame(__paResizeT);
@@ -13633,6 +13642,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 })();
 </script>
+
 
 
 
