@@ -1342,7 +1342,7 @@ async function buatUserNIS() {
             <th>Nama</th>
 			<th>Jenjang</th>
             <th>Semester</th>
-            <th>All Presensi</th>
+            <th>Presensi</th>
 			<th>SP</th>
             <th>Setor Dari</th>
             <th>Setor Sampai</th>
@@ -11670,8 +11670,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-
-
 <!-- ===== MODE FILTER NIS (card layout mobile + ayat ditumpuk, TANPA scroll di wrapper) ===== -->
 <style>
   /* Kolom NIS interaktif */
@@ -11696,12 +11694,15 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ===== Wrapper mobile TANPA scroll internal ===== */
   @media (max-width: 768px) {
     .santri-scrollwrap.scroll-on {
+      /* tidak ada batas tinggi & tidak ada scroll internal */
       max-height: none;
       overflow-y: visible;
+
+      /* kosmetik tetap boleh */
       border: 1px solid #eee;
       border-radius: 10px;
       padding: 10px;
-      overflow-x: hidden;
+      overflow-x: hidden; /* cegah geser kiri-kanan */
       background: #fff;
       display: block;
       box-sizing: border-box;
@@ -11724,15 +11725,8 @@ document.addEventListener("DOMContentLoaded", () => {
     font-size: 14px;
     line-height: 1.4;
   }
-  .nis-filter-bar.show {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .nis-filter-bar .label {
-    opacity: .8;
-  }
+  .nis-filter-bar.show { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .nis-filter-bar .label { opacity: .8; }
   .nis-filter-bar .btn-clear {
     padding: 6px 10px;
     border: 1px solid #d1d5db;
@@ -11744,24 +11738,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ===== CARD LAYOUT MOBILE (saat filtered) ===== */
   @media (max-width: 768px) {
-    #santri-table.filtered-compact.card-mobile {
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-    #santri-table.filtered-compact.card-mobile thead {
-      display: none !important;
-    }
+    #santri-table.filtered-compact.card-mobile { border-collapse: separate; border-spacing: 0; }
+    #santri-table.filtered-compact.card-mobile thead { display: none !important; }
 
     #santri-table.filtered-compact.card-mobile tbody {
       padding: 2px 0;
       display: block;
     }
 
+    /* Kartu center presisi */
     #santri-table.filtered-compact.card-mobile tbody tr {
       display: block;
       box-sizing: border-box;
       width: min(680px, 100% - 24px);
-      margin: 10px auto;
+      margin: 10px auto;      /* center kiri-kanan */
       padding: 12px;
       border: 1px solid #eee;
       border-radius: 10px;
@@ -11769,6 +11759,7 @@ document.addEventListener("DOMContentLoaded", () => {
       box-shadow: 0 1px 6px rgba(0,0,0,.03);
     }
 
+    /* KV row (label: nilai) */
     #santri-table.filtered-compact.card-mobile tbody td:not(.hidden-col) {
       display: flex;
       align-items: flex-start;
@@ -11787,17 +11778,16 @@ document.addEventListener("DOMContentLoaded", () => {
       font-weight: 600;
       opacity: .85;
     }
-    #santri-table.filtered-compact.card-mobile tbody td:not(.hidden-col) > * {
-      max-width: 100%;
-    }
+    #santri-table.filtered-compact.card-mobile tbody td:not(.hidden-col) > * { max-width: 100%; }
 
+    /* Tumpuk AYAT di bawah SURAH */
     #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"],
-    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] {
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"]{
       display: block;
       padding: 10px 0;
     }
     #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"]::before,
-    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"]::before {
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"]::before{
       display: block;
       margin-bottom: 6px;
       font-weight: 600;
@@ -11805,20 +11795,19 @@ document.addEventListener("DOMContentLoaded", () => {
       content: attr(data-label) ":";
     }
     #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"] select,
-    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] select {
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] select{
       display: block;
       width: 100%;
       min-height: 42px;
     }
     #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"] select.ayat-dari,
-    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] select.ayat-sampai {
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] select.ayat-sampai{
       margin-top: 8px;
     }
   }
 
-  .santri-scrollwrap {
-    scroll-margin-top: 64px;
-  }
+  /* offset kalau ada header sticky (opsional) */
+  .santri-scrollwrap { scroll-margin-top: 64px; }
 </style>
 
 <script>
@@ -11861,16 +11850,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return bar;
   }
 
-  function saveState(s){
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
-  }
-
+  function saveState(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch{} }
   function loadState(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      if (s && (s.mode === 'filtered' || s.mode === 'all')) return s;
+      if (s && (s.mode==='filtered' || s.mode==='all')) return s;
     }catch{}
     return null;
   }
@@ -11882,23 +11868,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!thead) return { keepIdx: new Set(), hideIdx: new Set() };
 
     const wantedLabels = new Set([
-      'nama',
-      'presensi',
-      'all presensi',   // <-- dukung All Presensi (2 baris akan dinormalisasi)
-      'setor dari',
-      'setor sampai',
-      'nilai',
-      'murajaah',
-      'setting murajaah',
-      'setting thms'
+      'nama','presensi','setor dari','setor sampai','nilai',
+      'murajaah','setting murajaah','setting thms'
     ]);
 
     const ths = Array.from(thead.rows[0].cells);
     const keepIdx = new Set();
 
     ths.forEach((th, idx) => {
-      // NORMALISASI: gabung spasi & newline jadi satu spasi
-      const label = th.textContent.trim().toLowerCase().replace(/\s+/g, ' ');
+      const label = th.textContent.trim().toLowerCase();
       const isWantedByLabel   = wantedLabels.has(label);
       const isSettingMurById  = th.id === 'murRangeHeader';
       const isMurajaahByClass = th.classList.contains('mur-header');
@@ -11909,10 +11887,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const hideIdx = new Set();
-    ths.forEach((_, idx) => {
-      if (!keepIdx.has(idx)) hideIdx.add(idx);
-    });
-
+    ths.forEach((_, idx) => { if (!keepIdx.has(idx)) hideIdx.add(idx); });
     return { keepIdx, hideIdx };
   }
 
@@ -11925,9 +11900,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(tb.rows).forEach(tr => {
       const tds = Array.from(tr.cells);
       tds.forEach((td, idx) => {
-        if (!td.classList.contains('hidden-col')){
-          td.setAttribute('data-label', headers[idx] || '');
-        }
+        if (!td.classList.contains('hidden-col')) td.setAttribute('data-label', headers[idx] || '');
       });
     });
   }
@@ -11936,38 +11909,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const tbl = getTable(); if (!tbl) return;
     const isCompact = !!tbl.dataset.nisFilter;
     const isMobile = window.innerWidth <= 768;
-    if (isCompact && isMobile){
-      tbl.classList.add('card-mobile');
-      setCardLabels();
-    } else {
-      tbl.classList.remove('card-mobile');
-    }
+    if (isCompact && isMobile){ tbl.classList.add('card-mobile'); setCardLabels(); }
+    else { tbl.classList.remove('card-mobile'); }
   }
 
   function setColumnVisibility(compactOn){
     const tbl = getTable(); if (!tbl || !tbl.tHead) return;
     const { hideIdx } = computeCompactColumns();
     const ths = Array.from(tbl.tHead.rows[0].cells);
-    const tb = getTBody(tbl);
-    const rows = tb ? Array.from(tb.rows) : [];
+    const tb = getTBody(tbl); const rows = tb ? Array.from(tb.rows) : [];
 
-    ths.forEach((th, idx) => {
-      if (hideIdx.has(idx)){
-        th.classList.toggle('hidden-col', !!compactOn);
-      } else {
-        th.classList.remove('hidden-col');
-      }
-    });
-
-    rows.forEach(tr => {
+    ths.forEach((th, idx)=>{ if (hideIdx.has(idx)) th.classList.toggle('hidden-col', !!compactOn); else th.classList.remove('hidden-col'); });
+    rows.forEach(tr=>{
       const tds = Array.from(tr.cells);
-      tds.forEach((td, idx) => {
-        if (hideIdx.has(idx)){
-          td.classList.toggle('hidden-col', !!compactOn);
-        } else {
-          td.classList.remove('hidden-col');
-        }
-      });
+      tds.forEach((td, idx)=>{ if (hideIdx.has(idx)) td.classList.toggle('hidden-col', !!compactOn); else td.classList.remove('hidden-col'); });
     });
 
     tbl.classList.toggle('filtered-compact', !!compactOn);
@@ -11978,30 +11933,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tbl) tbl = getTable();
     const tbody = getTBody(tbl); if (!tbody) return;
 
-    [...tbody.rows].forEach(tr => {
+    [...tbody.rows].forEach(tr=>{
       tr.style.display = '';
       const cell = tr.querySelector('td.col-nis');
       if (cell){
-        if (cell.dataset.originalNis){
-          cell.textContent = cell.dataset.originalNis;
-          delete cell.dataset.originalNis;
-        }
+        if (cell.dataset.originalNis){ cell.textContent = cell.dataset.originalNis; delete cell.dataset.originalNis; }
         cell.classList.remove('show-all');
       }
     });
-
     delete tbl.dataset.nisFilter;
     saveState({ mode: 'all' });
 
-    const wrap = ensureWrapper();
-    if (wrap) wrap.classList.add('scroll-on');
+    const wrap = ensureWrapper(); if (wrap) wrap.classList.add('scroll-on'); /* kelas tetap dipakai utk styling, tapi tanpa scroll */
     setColumnVisibility(false);
 
-    const bar = ensureFilterBar();
-    if (bar){
-      bar.classList.remove('show');
-      bar.querySelector('.nis').textContent = '';
-    }
+    const bar = ensureFilterBar(); if (bar){ bar.classList.remove('show'); bar.querySelector('.nis').textContent = ''; }
   }
 
   function applyNISFilter(tbl, nisText){
@@ -12011,15 +11957,13 @@ document.addEventListener("DOMContentLoaded", () => {
     let found = false;
     tbl.dataset.nisFilter = nisText;
 
-    [...tbody.rows].forEach(tr => {
+    [...tbody.rows].forEach(tr=>{
       const cell = tr.querySelector('td.col-nis');
       const val  = cell ? String(cell.dataset.originalNis || cell.textContent).trim() : '';
       const match = (val === nisText);
       tr.style.display = match ? '' : 'none';
       if (match && cell){
-        if (!cell.dataset.originalNis){
-          cell.dataset.originalNis = val;
-        }
+        if (!cell.dataset.originalNis) cell.dataset.originalNis = val;
         cell.textContent = 'Tampilkan Semua Santri';
         cell.classList.add('show-all');
         found = true;
@@ -12031,99 +11975,69 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const wrap = ensureWrapper();
       if (wrap){
-        wrap.classList.add('scroll-on');
+        wrap.classList.add('scroll-on');      /* tetap pakai styling, namun tanpa overflow */
         wrap.scrollTop = 0;
       }
-
       setColumnVisibility(true);
 
       const bar = ensureFilterBar();
-      if (bar){
-        bar.classList.add('show');
-        bar.querySelector('.nis').textContent = nisText;
-      }
+      if (bar){ bar.classList.add('show'); bar.querySelector('.nis').textContent = nisText; }
     } else {
       resetNISFilter(tbl);
     }
-
     return found;
   }
 
   function applyStateIfAny(){
-    const tbl = getTable();
-    const tbody = getTBody(tbl);
+    const tbl = getTable(); const tbody = getTBody(tbl);
     if (!tbl || !tbody) return;
-
-    const state = loadState();
-    if (!state) return;
+    const state = loadState(); if (!state) return;
     if (!tbody.rows.length) return;
 
-    if (state.mode === 'filtered' && state.nis){
-      applyNISFilter(tbl, state.nis);
-    } else {
-      resetNISFilter(tbl);
-    }
+    if (state.mode === 'filtered' && state.nis){ applyNISFilter(tbl, state.nis); }
+    else { resetNISFilter(tbl); }
   }
 
   function ensureBodyObserver(){
-    const tbl = getTable();
-    const tbody = getTBody(tbl);
+    const tbl = getTable(); const tbody = getTBody(tbl);
     if (!tbl || !tbody) return;
 
     if (bodyObserver) bodyObserver.disconnect();
-    bodyObserver = new MutationObserver(() => {
-      applyStateIfAny();
-    });
-    bodyObserver.observe(tbody, { childList: true });
+    bodyObserver = new MutationObserver(() => { applyStateIfAny(); });
+    bodyObserver.observe(tbody, { childList:true });
   }
 
   function ensureHeadObserver(){
-    const tbl = getTable();
-    const thead = tbl && tbl.tHead;
+    const tbl = getTable(); const thead = tbl && tbl.tHead;
     if (!tbl || !thead) return;
 
     if (headObserver) headObserver.disconnect();
     headObserver = new MutationObserver(() => {
-      if (tbl.dataset.nisFilter){
-        setColumnVisibility(true);
-        setCardLabels();
-      }
+      if (tbl.dataset.nisFilter){ setColumnVisibility(true); setCardLabels(); }
     });
-    headObserver.observe(thead, { childList: true, subtree: true });
+    headObserver.observe(thead, { childList:true, subtree:true });
   }
 
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', (e)=>{
     const btnClear = e.target && e.target.closest && e.target.closest('.nis-filter-bar .btn-clear');
-    if (btnClear){
-      resetNISFilter(getTable());
-      return;
-    }
+    if (btnClear){ resetNISFilter(getTable()); return; }
 
     const cell = e.target && e.target.closest && e.target.closest('#santri-table td.col-nis');
     if (!cell) return;
-
-    const tbl = getTable();
-    if (!tbl) return;
+    const tbl = getTable(); if (!tbl) return;
 
     const isFiltered = !!tbl.dataset.nisFilter;
-    if (isFiltered && cell.classList.contains('show-all')){
-      resetNISFilter(tbl);
-      return;
-    }
+    if (isFiltered && cell.classList.contains('show-all')){ resetNISFilter(tbl); return; }
 
     const nisText = String(cell.dataset.originalNis || cell.textContent).trim();
     if (!nisText) return;
-
     applyNISFilter(tbl, nisText);
   });
 
   window.addEventListener('resize', () => updateMobileCardMode());
 
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
 
   function init(){
     ensureWrapper();
@@ -12134,15 +12048,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // guard bila tbody render belakangan
     let tries = 0;
-    const i = setInterval(() => {
+    const i = setInterval(()=>{
       tries++;
       const tbl = getTable(), tbody = getTBody(tbl);
       if (tbl && tbody && tbody.rows.length){
-        ensureWrapper();
-        ensureFilterBar();
-        ensureBodyObserver();
-        ensureHeadObserver();
-        applyStateIfAny();
+        ensureWrapper(); ensureFilterBar(); ensureBodyObserver(); ensureHeadObserver(); applyStateIfAny();
         clearInterval(i);
       }
       if (tries > 20) clearInterval(i);
@@ -12152,6 +12062,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.resetNISFilter = resetNISFilter;
 })();
 </script>
+
 
 
 <script>
@@ -13269,24 +13180,14 @@ document.addEventListener("DOMContentLoaded", () => {
     .pa-row{align-items:center;}
   }
 
-  /* th All Presensi: tampilan seperti link nyata */
+  /* th Presensi: tampilan seperti link nyata */
   th.pa-presensi-th{
     cursor:pointer;
     position:relative;
   }
   th.pa-presensi-th .pa-presensi-link{
-    color:inherit;
-    text-decoration:none;
-    display:inline-block;
-  }
-  th.pa-presensi-th .pa-presensi-all{
-    display:block;
-    line-height:1.1;
-  }
-  th.pa-presensi-th .pa-presensi-text{
-    display:block;
-    line-height:1.1;
-    text-decoration:underline;          /* underline asli browser */
+    color:#1E88E5;                 /* gaya link */
+    text-decoration:underline;     /* underline asli */
     text-underline-offset:3px;
   }
   th.pa-presensi-th::after{
@@ -13520,19 +13421,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const checked = e.target.checked;
 
         if (checked){
-          // aktifkan satu, matikan lainnya
           bulkIds.forEach(o=>{
             if (o !== id){
               const x = document.getElementById(o);
               if (x) x.checked = false;
             }
           });
-          // clear semua baris
           document.querySelectorAll('#paRows .st').forEach(c=>{ c.checked = false; });
-          // set semua ke status ini
           document.querySelectorAll('#paRows '+map[id]).forEach(c=>{ c.checked = true; });
         } else {
-          // jika toggle dinonaktifkan -> kosongkan semua baris
           document.querySelectorAll('#paRows .st').forEach(c=>{ c.checked = false; });
         }
       });
@@ -13685,7 +13582,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('paRows').innerHTML = '';
   }
 
-  // ===== pasang pada <th>All Presensi> (atau Presensi lama) =====
+  // ===== pasang pada <th>Presensi> (support lama "All Presensi") =====
   function hookPresensiTH(){
     const table = document.getElementById('santri-table');
     if (!table) return;
@@ -13693,26 +13590,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const th = ths.find(t => {
       const txt = (t.textContent||'').trim().toLowerCase().replace(/\s+/g,' ');
-      return txt === 'all presensi' || txt === 'presensi';
+      return txt === 'presensi' || txt === 'all presensi';
     });
     if (!th) return;
 
-    // ubah tampilan teks jadi "All" + "Presensi" dengan underline di kata Presensi
     if (!th.querySelector('.pa-presensi-link')) {
-      const raw = (th.textContent || '').trim();
-      if (/^all\s+presensi$/i.test(raw)) {
-        th.innerHTML =
-          '<span class="pa-presensi-link">' +
-            '<span class="pa-presensi-all">All</span>' +
-            '<span class="pa-presensi-text">Presensi</span>' +
-          '</span>';
-      } else {
-        // fallback jika cuma "Presensi"
-        th.innerHTML =
-          '<span class="pa-presensi-link">' +
-            '<span class="pa-presensi-text">' + raw + '</span>' +
-          '</span>';
-      }
+      const label = (th.textContent || '').trim() || 'Presensi';
+      th.innerHTML =
+        '<a href="javascript:void(0)" class="pa-presensi-link">'+label+'</a>';
     }
 
     th.classList.add('pa-presensi-th');
