@@ -13180,12 +13180,13 @@ document.addEventListener("DOMContentLoaded", () => {
     .pa-row{align-items:center;}
   }
 
-  /* cursor + underline untuk th Presensi */
+  /* cursor & gaya untuk th PRESENSI */
   th.pa-presensi-th{
     cursor:pointer;
     position:relative;
-    text-decoration:underline;
-    text-underline-offset:4px;
+    color:#1E88E5;
+    text-decoration:underline;          /* garis bawah ala link */
+    text-underline-offset:3px;          /* sedikit jarak biar rapi */
   }
   th.pa-presensi-th::after{
     content:"";
@@ -13194,7 +13195,7 @@ document.addEventListener("DOMContentLoaded", () => {
     width:7px;height:7px;
     border-right:2px solid #1E88E5;
     border-bottom:2px solid #1E88E5;
-    transform:rotate(45deg)
+    transform:rotate(45deg);
   }
 </style>
 
@@ -13218,7 +13219,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
 
       <div class="pa-bulk">
-        <strong style="font-size:12px;color:#555">Centang semua:</strong>
+        <strong style="font-size:12px;color:#555">All:</strong>
         <label><input type="checkbox" id="paAllHadir"> Hadir</label>
         <label><input type="checkbox" id="paAllIzin"> Izin</label>
         <label><input type="checkbox" id="paAllSakit"> Sakit</label>
@@ -13570,12 +13571,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById('paCloseX').addEventListener('click', closeModal);
   document.getElementById('paBtnClose').addEventListener('click', closeModal);
 
-  // Save: apply ke tabel + panggil simpanDataMutabaah (ada efek saving) TANPA menutup modal
+  // Save: apply ke tabel + simpan ke server via simpanDataMutabaah, modal tetap terbuka
   document.getElementById('paBtnSave')?.addEventListener('click', async function(){
     const btn = this;
     try{
       applyToTable();
-
       if (typeof window.simpanDataMutabaah === 'function') {
         await window.simpanDataMutabaah(btn);
       } else if (typeof simpanDataMutabaah === 'function') {
@@ -13600,8 +13600,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (__paResizeT) cancelAnimationFrame(__paResizeT);
     __paResizeT = requestAnimationFrame(setFixedNamaWidthMobile);
   });
+
+  // Optional expose:
+  // window.hookPresensiTH = hookPresensiTH;
 })();
 </script>
+
 
 
 		
