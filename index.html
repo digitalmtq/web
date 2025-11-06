@@ -11672,6 +11672,162 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+<!-- ===== MODE FILTER NIS (card layout mobile + ayat ditumpuk, TANPA scroll di wrapper) ===== -->
+<style>
+  /* Kolom NIS interaktif */
+  #santri-table td.col-nis {
+    color: #1E88E5;
+    cursor: pointer;
+    text-decoration: underline;
+    user-select: none;
+    white-space: nowrap;
+  }
+  #santri-table td.col-nis.show-all {
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  /* Sembunyikan kolom saat mode ringkas (filtered) */
+  #santri-table.filtered-compact th.hidden-col,
+  #santri-table.filtered-compact td.hidden-col {
+    display: none !important;
+  }
+
+  /* ===== Wrapper mobile TANPA scroll internal ===== */
+  @media (max-width: 768px) {
+    .santri-scrollwrap.scroll-on {
+      /* tidak ada batas tinggi & tidak ada scroll internal */
+      max-height: none;
+      overflow-y: visible;
+
+      /* kosmetik tetap boleh */
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 10px;
+      overflow-x: hidden; /* cegah geser kiri-kanan */
+      background: #fff;
+      display: block;
+      box-sizing: border-box;
+    }
+    .santri-scrollwrap.scroll-on > table {
+      width: 100%;
+      margin: 0;
+      table-layout: auto;
+    }
+  }
+
+  /* Bar kontrol filter */
+  .nis-filter-bar {
+    display: none;
+    margin: 8px 0 6px;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .nis-filter-bar.show {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .nis-filter-bar .label {
+    opacity: .8;
+  }
+  .nis-filter-bar .btn-clear {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #1E88E5;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  /* ===== CARD LAYOUT MOBILE (saat filtered) ===== */
+  @media (max-width: 768px) {
+    #santri-table.filtered-compact.card-mobile {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    #santri-table.filtered-compact.card-mobile thead {
+      display: none !important;
+    }
+
+    #santri-table.filtered-compact.card-mobile tbody {
+      padding: 2px 0;
+      display: block;
+    }
+
+    /* Kartu center presisi */
+    #santri-table.filtered-compact.card-mobile tbody tr {
+      display: block;
+      box-sizing: border-box;
+      width: min(680px, 100% - 24px);
+      margin: 10px auto;
+      padding: 12px;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 1px 6px rgba(0,0,0,.03);
+    }
+
+    /* KV row (label: nilai) */
+    #santri-table.filtered-compact.card-mobile tbody td:not(.hidden-col) {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      white-space: normal;
+      border-bottom: 1px solid #f2f2f2;
+    }
+    #santri-table.filtered-compact.card-mobile tbody tr td:not(.hidden-col):last-of-type {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    #santri-table.filtered-compact.card-mobile tbody td:not(.hidden-col)::before {
+      content: attr(data-label) ":";
+      flex: 0 0 44%;
+      font-weight: 600;
+      opacity: .85;
+    }
+    #santri-table.filtered-compact.card-mobile tbody td:not(.hidden-col) > * {
+      max-width: 100%;
+    }
+
+    /* Tumpuk AYAT di bawah SURAH */
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"],
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] {
+      display: block;
+      padding: 10px 0;
+    }
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"]::before,
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"]::before {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      opacity: .85;
+      content: attr(data-label) ":";
+    }
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"] select,
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] select {
+      display: block;
+      width: 100%;
+      min-height: 42px;
+    }
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"] select.ayat-dari,
+    #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] select.ayat-sampai {
+      margin-top: 8px;
+    }
+  }
+
+  /* offset kalau ada header sticky (opsional) */
+  .santri-scrollwrap {
+    scroll-margin-top: 64px;
+  }
+</style>
+
 <script>
 (function(){
   const STORAGE_KEY = 'nisFilterState.v2'; // {mode:'filtered'|'all', nis?:string}
@@ -11712,18 +11868,23 @@ document.addEventListener("DOMContentLoaded", () => {
     return bar;
   }
 
-  function saveState(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch{} }
+  function saveState(s){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    }catch{}
+  }
+
   function loadState(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      if (s && (s.mode==='filtered' || s.mode==='all')) return s;
+      if (s && (s.mode === 'filtered' || s.mode === 'all')) return s;
     }catch{}
     return null;
   }
 
-  // Hitung kolom yang tampil saat compact/filtered
+  // Mode ringkas: kolom yang ditampilkan
   function computeCompactColumns(){
     const tbl = getTable();
     const thead = tbl ? tbl.tHead : null;
@@ -11732,7 +11893,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const wantedLabels = new Set([
       'nama',
       'presensi',
-      'all presensi',      // ✅ ikut tampil
+      'all presensi',      // ✅ dukung header "All Presensi"
       'setor dari',
       'setor sampai',
       'nilai',
@@ -11745,20 +11906,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const keepIdx = new Set();
 
     ths.forEach((th, idx) => {
-      const label = th.textContent.trim().toLowerCase().replace(/\s+/g,' ');
+      const label = th.textContent.trim().toLowerCase();
       const isWantedByLabel   = wantedLabels.has(label);
       const isSettingMurById  = th.id === 'murRangeHeader';
       const isMurajaahByClass = th.classList.contains('mur-header');
       const isTHMSById        = th.id === 'totalAllJuzHeader';
-      const isAllPresensiTH   = th.classList.contains('pa-presensi-th'); // ✅ aman jika teks berubah
-
-      if (isWantedByLabel || isSettingMurById || isMurajaahByClass || isTHMSById || isAllPresensiTH){
+      if (isWantedByLabel || isSettingMurById || isMurajaahByClass || isTHMSById){
         keepIdx.add(idx);
       }
     });
 
     const hideIdx = new Set();
-    ths.forEach((_, idx) => { if (!keepIdx.has(idx)) hideIdx.add(idx); });
+    ths.forEach((_, idx) => {
+      if (!keepIdx.has(idx)) hideIdx.add(idx);
+    });
     return { keepIdx, hideIdx };
   }
 
@@ -11771,7 +11932,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(tb.rows).forEach(tr => {
       const tds = Array.from(tr.cells);
       tds.forEach((td, idx) => {
-        if (!td.classList.contains('hidden-col')) {
+        if (!td.classList.contains('hidden-col')){
           td.setAttribute('data-label', headers[idx] || '');
         }
       });
@@ -11797,15 +11958,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const tb = getTBody(tbl);
     const rows = tb ? Array.from(tb.rows) : [];
 
-    ths.forEach((th, idx)=>{
-      if (hideIdx.has(idx)) th.classList.toggle('hidden-col', !!compactOn);
-      else th.classList.remove('hidden-col');
+    ths.forEach((th, idx) => {
+      if (hideIdx.has(idx)){
+        th.classList.toggle('hidden-col', !!compactOn);
+      } else {
+        th.classList.remove('hidden-col');
+      }
     });
-    rows.forEach(tr=>{
+
+    rows.forEach(tr => {
       const tds = Array.from(tr.cells);
-      tds.forEach((td, idx)=>{
-        if (hideIdx.has(idx)) td.classList.toggle('hidden-col', !!compactOn);
-        else td.classList.remove('hidden-col');
+      tds.forEach((td, idx) => {
+        if (hideIdx.has(idx)){
+          td.classList.toggle('hidden-col', !!compactOn);
+        } else {
+          td.classList.remove('hidden-col');
+        }
       });
     });
 
@@ -11817,7 +11985,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tbl) tbl = getTable();
     const tbody = getTBody(tbl); if (!tbody) return;
 
-    [...tbody.rows].forEach(tr=>{
+    [...tbody.rows].forEach(tr => {
       tr.style.display = '';
       const cell = tr.querySelector('td.col-nis');
       if (cell){
@@ -11833,8 +12001,7 @@ document.addEventListener("DOMContentLoaded", () => {
     saveState({ mode: 'all' });
 
     const wrap = ensureWrapper();
-    if (wrap) wrap.classList.add('scroll-on');
-
+    if (wrap) wrap.classList.add('scroll-on'); // kelas tetap dipakai utk styling, tapi tanpa scroll
     setColumnVisibility(false);
 
     const bar = ensureFilterBar();
@@ -11851,13 +12018,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let found = false;
     tbl.dataset.nisFilter = nisText;
 
-    [...tbody.rows].forEach(tr=>{
+    [...tbody.rows].forEach(tr => {
       const cell = tr.querySelector('td.col-nis');
       const val  = cell ? String(cell.dataset.originalNis || cell.textContent).trim() : '';
       const match = (val === nisText);
       tr.style.display = match ? '' : 'none';
       if (match && cell){
-        if (!cell.dataset.originalNis) cell.dataset.originalNis = val;
+        if (!cell.dataset.originalNis){
+          cell.dataset.originalNis = val;
+        }
         cell.textContent = 'Tampilkan Semua Santri';
         cell.classList.add('show-all');
         found = true;
@@ -11869,7 +12038,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const wrap = ensureWrapper();
       if (wrap){
-        wrap.classList.add('scroll-on');
+        wrap.classList.add('scroll-on'); // tetap pakai styling, namun tanpa overflow
         wrap.scrollTop = 0;
       }
 
@@ -11883,6 +12052,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       resetNISFilter(tbl);
     }
+
     return found;
   }
 
@@ -11890,8 +12060,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const tbl = getTable();
     const tbody = getTBody(tbl);
     if (!tbl || !tbody) return;
+
     const state = loadState();
-    if (!state || !tbody.rows.length) return;
+    if (!state) return;
+    if (!tbody.rows.length) return;
 
     if (state.mode === 'filtered' && state.nis){
       applyNISFilter(tbl, state.nis);
@@ -11906,8 +12078,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tbl || !tbody) return;
 
     if (bodyObserver) bodyObserver.disconnect();
-    bodyObserver = new MutationObserver(() => { applyStateIfAny(); });
-    bodyObserver.observe(tbody, { childList:true });
+    bodyObserver = new MutationObserver(() => {
+      applyStateIfAny();
+    });
+    bodyObserver.observe(tbody, { childList: true });
   }
 
   function ensureHeadObserver(){
@@ -11922,10 +12096,10 @@ document.addEventListener("DOMContentLoaded", () => {
         setCardLabels();
       }
     });
-    headObserver.observe(thead, { childList:true, subtree:true });
+    headObserver.observe(thead, { childList: true, subtree: true });
   }
 
-  document.addEventListener('click', (e)=>{
+  document.addEventListener('click', (e) => {
     const btnClear = e.target && e.target.closest && e.target.closest('.nis-filter-bar .btn-clear');
     if (btnClear){
       resetNISFilter(getTable());
@@ -11967,7 +12141,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // guard bila tbody render belakangan
     let tries = 0;
-    const i = setInterval(()=>{
+    const i = setInterval(() => {
       tries++;
       const tbl = getTable(), tbody = getTBody(tbl);
       if (tbl && tbody && tbody.rows.length){
