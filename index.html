@@ -13044,7 +13044,8 @@ document.addEventListener("DOMContentLoaded", () => {
   .pa-card{
     background:#fff;max-width:980px;width:100%;max-height:90vh;
     border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);
-    display:flex;flex-direction:column;overflow:hidden
+    display:flex;flex-direction:column;overflow:hidden;
+    position:relative; /* untuk loader di dalam modal */
   }
   .pa-hd{
     display:flex;align-items:center;justify-content:space-between;
@@ -13164,6 +13165,23 @@ document.addEventListener("DOMContentLoaded", () => {
     border-bottom:2px solid #1E88E5;
     transform:rotate(45deg)
   }
+
+  /* Loader overlay di dalam modal */
+  .pa-loading{
+    position:absolute;
+    inset:0;
+    background:rgba(255,255,255,0.8);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+  }
+  .pa-loading.show{display:flex;}
+  .pa-loading img{
+    width:40px;
+    height:40px;
+    object-fit:contain;
+  }
 </style>
 
 <!-- Modal dibuat sekali -->
@@ -13207,6 +13225,11 @@ document.addEventListener("DOMContentLoaded", () => {
     <div class="pa-ft">
       <button class="pa-btn" id="paBtnClose">Tutup</button>
       <button class="pa-btn primary" id="paBtnSave">Save</button>
+    </div>
+
+    <!-- Loader di dalam modal -->
+    <div id="paLoading" class="pa-loading" aria-hidden="true">
+      <img src="loader.gif" alt="Loading...">
     </div>
   </div>
 </div>
@@ -13252,6 +13275,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ===== loader helper =====
+  function showLoading(){
+    const el = document.getElementById('paLoading');
+    if (!el) return;
+    el.classList.add('show');
+    el.setAttribute('aria-hidden','false');
+  }
+  function hideLoading(){
+    const el = document.getElementById('paLoading');
+    if (!el) return;
+    el.classList.remove('show');
+    el.setAttribute('aria-hidden','true');
+  }
+
   // ===== sinkron tanggal ke dashboard =====
   function syncDashboardDate(dateStr){
     try{
@@ -13261,29 +13298,37 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('tanggal') ||
         document.getElementById('date');
 
+      const overlayOpen = document
+        .getElementById('presensiAllOverlay')
+        ?.classList.contains('show');
+
       if (target){
-        // MODE AJAX / tanpa reload:
+        if (overlayOpen) showLoading(); // tampilkan loader selama AJAX jalan
+
         if (target.value !== dateStr){
           target.value = dateStr;
           target.setAttribute('value', dateStr);
         }
         target.dispatchEvent(new Event('input', {bubbles:true}));
         target.dispatchEvent(new Event('change', {bubbles:true}));
-        // Tidak set SS_KEY_OPEN di sini supaya tidak auto-open setiap refresh.
+        // AJAX handler akan update #santri-table,
+        // MutationObserver -> renderRows() -> hideLoading()
       } else {
-        // Fallback: kalau tidak ada input tanggal dashboard, pakai reload + auto-open sekali
+        // Fallback reload penuh + auto-open sekali
         try{
           sessionStorage.setItem(SS_KEY_DATE, dateStr);
           sessionStorage.setItem(SS_KEY_OPEN, '1');
         }catch(e){}
+        if (overlayOpen) showLoading();
         window.location.reload();
       }
     }catch(e){
-      // Kalau error, fallback reload + auto-open sekali
+      // Kalau error, fallback reload penuh + auto-open sekali
       try{
         sessionStorage.setItem(SS_KEY_DATE, dateStr);
         sessionStorage.setItem(SS_KEY_OPEN, '1');
       }catch(_e){}
+      showLoading();
       window.location.reload();
     }
   }
@@ -13328,7 +13373,8 @@ document.addEventListener("DOMContentLoaded", () => {
     tableObserver = new MutationObserver(function(){
       const overlay = document.getElementById('presensiAllOverlay');
       if (overlay && overlay.classList.contains('show')){
-        renderRows();
+        renderRows();       // sync isi modal dengan data baru
+        hideLoading();      // matikan loader setelah data masuk
       }
     });
 
@@ -13602,6 +13648,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('presensiAllOverlay').setAttribute('aria-hidden','false');
 
     setFixedNamaWidthMobile();
+    hideLoading(); // pastikan bersih saat baru dibuka
   }
 
   function closeModal(){
@@ -13612,6 +13659,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if(el) el.checked=false;
     });
     document.getElementById('paRows').innerHTML = '';
+    hideLoading();
   }
 
   // ===== pasang pada <th>Presensi> (support lama "All Presensi") =====
@@ -13692,7 +13740,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }catch(e){}
 })();
 </script>
-
 		
 </body>
 </html>
