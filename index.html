@@ -13216,6 +13216,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const SS_KEY_OPEN = 'PA_OPEN_AFTER_RELOAD';
   const SS_KEY_DATE = 'PA_SELECTED_DATE';
 
+  let tableObserver = null;
+
   // ===== util tanggal/hari =====
   function getTodayStr(){
     const d = new Date();
@@ -13271,6 +13273,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         target.dispatchEvent(new Event('input', {bubbles:true}));
         target.dispatchEvent(new Event('change', {bubbles:true}));
+        // CATATAN:
+        // - Jika handler melakukan AJAX update #santri-table tanpa reload,
+        //   observer (ensureTableObserver) akan mendeteksi dan renderRows() ulang.
+        // - Jika handler melakukan full reload, flag sessionStorage akan
+        //   membuat modal auto-open di halaman baru.
       } else {
         window.location.reload();
       }
@@ -13306,6 +13313,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const map = headerMapForTable(table);
     const rows = [...tbody.querySelectorAll('tr')];
     return { table, map, rows };
+  }
+
+  // ===== observer: jika #santri-table berubah, update isi modal jika sedang terbuka =====
+  function ensureTableObserver(){
+    const { table } = getSantriRows();
+    const tbody = table?.querySelector('tbody');
+    if (!tbody) return;
+
+    if (tableObserver) tableObserver.disconnect();
+
+    tableObserver = new MutationObserver(function(muts){
+      const overlay = document.getElementById('presensiAllOverlay');
+      if (overlay && overlay.classList.contains('show')){
+        // data dashboard berubah -> sinkronkan ulang daftar di modal
+        renderRows();
+      }
+    });
+
+    tableObserver.observe(tbody, { childList:true, subtree:true });
   }
 
   // ===== baca status dominan saat ini (untuk pra-centang) =====
@@ -13561,9 +13587,9 @@ document.addEventListener("DOMContentLoaded", () => {
       '';
 
     let useDate = todayStr;
-    if (initialDate){
+    if (initialDate && initialDate <= todayStr){
       useDate = initialDate;
-    } else if (global){
+    } else if (global && global <= todayStr){
       useDate = global;
     }
 
@@ -13585,36 +13611,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if(el) el.checked=false;
     });
     document.getElementById('paRows').innerHTML = '';
-  }
-
-  // ===== tunggu sampai tabel santri terisi sebelum auto-open =====
-  function waitAndOpenModal(initialDate){
-    let tries = 0;
-    const maxTries = 50;      // 50 x 200ms = 10 detik max
-    const interval = 200;
-
-    function ready(){
-      const table = document.getElementById('santri-table');
-      const tbody = table && table.querySelector('tbody');
-      return !!(tbody && tbody.rows && tbody.rows.length);
-    }
-
-    if (ready()){
-      openModal(initialDate);
-      return;
-    }
-
-    const timer = setInterval(function(){
-      tries++;
-      if (ready()){
-        clearInterval(timer);
-        openModal(initialDate);
-      } else if (tries >= maxTries){
-        clearInterval(timer);
-        // fallback: tetap buka modal dengan apa adanya
-        openModal(initialDate);
-      }
-    }, interval);
   }
 
   // ===== pasang pada <th>Presensi> (support lama "All Presensi") =====
@@ -13670,13 +13666,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const selected = this.value;
     if (selected){
-      // sinkron ke dashboard + minta halaman refresh / reload data
       syncDashboardDate(selected);
+      // Jika dashboard update tabel via AJAX (tanpa reload),
+      // observer akan menangkap perubahan dan memanggil renderRows()
+      // sehingga isi modal ikut tanggal baru tanpa tertutup.
     }
   });
 
   setupBulk();
   hookPresensiTH();
+  ensureTableObserver();
 
   let __paResizeT = null;
   window.addEventListener('resize', ()=>{
@@ -13684,13 +13683,13 @@ document.addEventListener("DOMContentLoaded", () => {
     __paResizeT = requestAnimationFrame(setFixedNamaWidthMobile);
   });
 
-  // Auto-open modal setelah reload, tapi tunggu tabel siap
+  // Auto-open modal setelah reload jika diminta
   try{
     const shouldOpen = sessionStorage.getItem(SS_KEY_OPEN) === '1';
     const savedDate = sessionStorage.getItem(SS_KEY_DATE);
     if (shouldOpen){
       sessionStorage.removeItem(SS_KEY_OPEN);
-      waitAndOpenModal(savedDate || undefined);
+      openModal(savedDate || undefined);
     }
   }catch(e){}
 })();
