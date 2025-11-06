@@ -13129,7 +13129,7 @@ document.addEventListener("DOMContentLoaded", () => {
     padding:12px 16px;border-top:1px solid #eee;background:#fff
   }
   .pa-btn{
-    border-radius:10px;border:1px solid #e5e7eb;background:#fff;
+    border-radius:10px;border:1px solid #e5e7eb;background:#1E88E5;
     padding:8px 14px;cursor:pointer
   }
   .pa-btn.primary{
@@ -13217,7 +13217,6 @@ document.addEventListener("DOMContentLoaded", () => {
   <div class="pa-card" role="dialog" aria-modal="true" aria-labelledby="pa-title">
     <div class="pa-hd">
       <h3 id="pa-title" style="margin:0;font-size:18px;">Presensi All</h3>
-      <button class="pa-btn" id="paCloseX" aria-label="Tutup">Tutup</button>
     </div>
     <div class="pa-bd">
       <div class="pa-date">
@@ -13232,7 +13231,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
 
       <div class="pa-bulk">
-        <strong style="font-size:12px;color:#555">Centang semua:</strong>
+        <strong style="font-size:12px;color:#555">Semua</strong>
         <label><input type="checkbox" id="paAllHadir"> Hadir</label>
         <label><input type="checkbox" id="paAllIzin"> Izin</label>
         <label><input type="checkbox" id="paAllSakit"> Sakit</label>
@@ -13633,7 +13632,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===== init =====
-  document.getElementById('paCloseX').addEventListener('click', closeModal);
   document.getElementById('paBtnClose').addEventListener('click', closeModal);
 
   document.getElementById('paBtnSave')?.addEventListener('click', async function(){
