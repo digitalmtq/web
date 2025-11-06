@@ -13181,7 +13181,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .pa-row{align-items:center;}
   }
 
-  /* cursor + underline untuk th Presensi */
+  /* cursor + underline untuk th Presensi All */
   th.pa-presensi-th{
     cursor:pointer;
     position:relative;
@@ -13248,8 +13248,7 @@ document.addEventListener("DOMContentLoaded", () => {
 (function(){
   // ===== util tanggal/hari =====
   function getTodayStr(){
-    // Menggunakan waktu lokal browser; jika ingin pakai server, arahkan ke API waktu server di sini.
-    const d = new Date();
+    const d = new Date(); // lokal browser
     const y = d.getFullYear();
     const m = String(d.getMonth()+1).padStart(2,'0');
     const dd= String(d.getDate()).padStart(2,'0');
@@ -13267,10 +13266,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const v = el.value;
     if(!v){ hari.textContent='-'; return; }
 
-    // Clamp kalau lewat hari ini (antisipasi user pakai inspect/ubah manual)
     const today = getTodayStr();
     if (v > today){
-      el.value = today;
+      el.value = today; // clamp kalau dipaksa lewat hari ini
     }
 
     const [y,m,dd] = el.value.split('-').map(Number);
@@ -13287,7 +13285,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const t = (ths[i].textContent||'').trim().toLowerCase();
       if (t === 'nis') map.nis = i;
       if (t === 'nama') map.nama = i;
-      if (t === 'presensi') {
+      // Dukung "Presensi All" (baru) dan "Presensi" (lama)
+      if (t === 'presensi all' || t === 'presensi') {
         map.presensi = i;
         ths[i].classList.add('pa-presensi-th');
       }
@@ -13543,7 +13542,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const inTanggal = document.getElementById('paTanggal');
     const todayStr = getTodayStr();
 
-    // batasi max ke hari ini
     inTanggal.setAttribute('max', todayStr);
 
     const global = (window.tanggalInput?.value)
@@ -13551,7 +13549,6 @@ document.addEventListener("DOMContentLoaded", () => {
       || document.querySelector('#tanggal')?.value
       || document.querySelector('#date')?.value;
 
-    // gunakan global jika ada dan tidak melewati hari ini
     if (global && global <= todayStr) {
       inTanggal.value = global;
     } else {
@@ -13577,13 +13574,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('paRows').innerHTML = '';
   }
 
-  // ===== pasang pada <th>Presensi> =====
+  // ===== pasang pada <th>Presensi All> =====
   function hookPresensiTH(){
     const table = document.getElementById('santri-table');
     if (!table) return;
     const ths = [...table.querySelectorAll('thead th')];
-    const th = ths.find(t => (t.textContent||'').trim().toLowerCase() === 'presensi');
+
+    const th = ths.find(t => {
+      const txt = (t.textContent||'').trim().toLowerCase();
+      return txt === 'presensi all' || txt === 'presensi';
+    });
     if (!th) return;
+
     th.classList.add('pa-presensi-th');
     th.addEventListener('click', openModal);
   }
@@ -13611,7 +13613,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Clamp tanggal di saat user ubah manual; disable esok & set hari
+  // Clamp tanggal ketika diubah manual
   document.getElementById('paTanggal').addEventListener('change', function(){
     const today = getTodayStr();
     if (this.value > today) {
