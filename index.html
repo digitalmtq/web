@@ -13285,7 +13285,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const cell = row.querySelector('.abs-flex-cell');
     const items = Array.isArray(cell?._absensiItems) ? cell._absensiItems : [];
     if (typeof window.__absmini_dominantStatus === 'function'){
-      return window.__absmini_dominantStatus(items); // 'hadir'|'izin'|'sakit'|'alpha'|null
+      return window.__absmini_dominantStatus(items);
     }
     const cnt = {hadir:0,izin:0,sakit:0,alpha:0};
     items.forEach(it=>{
@@ -13354,7 +13354,6 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="pa-col" style="text-align:center"><input type="checkbox" class="st st-alpha"></div>
       `;
 
-      // mutual exclusive per row
       r.querySelectorAll('.st').forEach(chk=>{
         chk.addEventListener('change', (e)=>{
           if (e.target.checked){
@@ -13363,7 +13362,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
-      // pra-centang sesuai status dominan
       if (dom) {
         const box = r.querySelector(`.st-${dom}`);
         if (box) box.checked = true;
@@ -13372,7 +13370,6 @@ document.addEventListener("DOMContentLoaded", () => {
       wrap.appendChild(r);
     });
 
-    // pastikan header kolom 2 punya class .nama (untuk CSS mobile)
     document
       .querySelector('#presensiAllOverlay .pa-list-head .pa-col:nth-child(2)')
       ?.classList.add('nama');
@@ -13394,19 +13391,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!el) return;
       el.addEventListener('change', (e)=>{
         if (e.target.checked){
-          // matikan bulk lain
           bulkIds.forEach(o=>{
             if(o!==id){
               const x=document.getElementById(o);
               if(x) x.checked=false;
             }
           });
-          // clear semua
           document.querySelectorAll('#paRows .st').forEach(c=>c.checked=false);
-          // set massal
           document.querySelectorAll('#paRows '+map[id]).forEach(c=>c.checked=true);
         }
-        // jika dilepas, tidak mengubah pilihan per baris
       });
     });
   }
@@ -13414,7 +13407,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== terapkan hasil ke tabel (ABSENSI FLEX) =====
   function applyToTable(){
     const { rows } = getSantriRows();
-    const chosen = new Map(); // nis -> 'hadir'|'izin'|'sakit'|'alpha'|''
+    const chosen = new Map();
 
     document.querySelectorAll('#paRows .pa-row').forEach(r=>{
       const nis = r.dataset.nis;
@@ -13488,7 +13481,7 @@ document.addEventListener("DOMContentLoaded", () => {
     rows.forEach(tr=>{
       const nis = (tr.dataset?.nis || tr.querySelector('td')?.textContent || '').trim();
       const st  = chosen.get(nis);
-      if (!st) return; // tidak diubah
+      if (!st) return;
 
       const cell = tr.querySelector('.abs-flex-cell');
       if (!cell) return;
@@ -13502,7 +13495,6 @@ document.addEventListener("DOMContentLoaded", () => {
       updateMini(cell);
     });
 
-    // Event opsional untuk listener luar
     const tanggal = document.getElementById('paTanggal').value;
     const hari = document.getElementById('paHari').textContent;
     const itemsOut = [];
@@ -13570,25 +13562,25 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById('paCloseX').addEventListener('click', closeModal);
   document.getElementById('paBtnClose').addEventListener('click', closeModal);
 
-  // ✅ Save: apply ke tabel + simpan ke server via simpanDataMutabaah + tutup modal
-  document.getElementById('paBtnSave')?.addEventListener('click', function(){
-    try {
-      // terapkan ke ABS FLEX di tabel
-      applyToTable();
+  // ✅ Save: apply ke tabel + panggil simpanDataMutabaah (ada efek saving) TANPA menutup modal
+  document.getElementById('paBtnSave')?.addEventListener('click', async function(){
+    const btn = this;
+    try{
+      applyToTable(); // update absensi flex di tabel utama
 
-      // panggil fungsi save global (mengirim ke server)
       if (typeof window.simpanDataMutabaah === 'function') {
-        window.simpanDataMutabaah(this);
+        await window.simpanDataMutabaah(btn);
       } else if (typeof simpanDataMutabaah === 'function') {
-        simpanDataMutabaah(this);
+        await simpanDataMutabaah(btn);
       } else {
         console.warn('simpanDataMutabaah() tidak ditemukan di global scope.');
+        alert('Fungsi simpanDataMutabaah tidak ditemukan. Data di tabel sudah di-update, tapi tidak terkirim ke server.');
       }
-    } catch (err) {
+      // Modal tetap terbuka; user bisa lihat status tombol & menutup manual via "Tutup"
+    } catch(err){
       console.error('Gagal menyimpan Presensi All:', err);
       alert('Terjadi error saat menyimpan presensi. Silakan cek console atau coba lagi.');
-    } finally {
-      closeModal();
+      // tidak menutup modal agar user bisa koreksi
     }
   });
 
@@ -13603,10 +13595,11 @@ document.addEventListener("DOMContentLoaded", () => {
     __paResizeT = requestAnimationFrame(setFixedNamaWidthMobile);
   });
 
-  // Optional: jika loadSantriData merender ulang tabel, bisa panggil:
+  // Optional expose:
   // window.hookPresensiTH = hookPresensiTH;
 })();
 </script>
+
 
 		
 </body>
