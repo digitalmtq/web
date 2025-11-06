@@ -453,6 +453,57 @@ button.lihat-quran-btn:hover::after {
   }
   .password-wrapper { flex: 1; }   /* input melar, tombol tetap di kanan */
 }
+
+
+/* ===== Perbaikan: Sticky THEAD di mobile (#santri-table) ===== */
+@media (max-width: 768px) {
+  /* UBAH: jadikan wrapper mobile sebagai scroll container */
+  .santri-scrollwrap.scroll-on {
+    /* sebelumnya: max-height: none; overflow-y: visible; (non-sticky) */
+    max-height: calc(100vh - 220px); /* sesuaikan dengan tinggi header/toolbar kamu */
+    overflow: auto;                   /* aktifkan scroll X & Y */
+    -webkit-overflow-scrolling: touch;
+    /* properti kosmetik kamu tetap boleh */
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 10px;
+    background: #fff;
+    display: block;
+    box-sizing: border-box;
+  }
+
+  /* Penting agar sticky konsisten di mobile */
+  #santri-table {
+    border-collapse: separate !important; /* sticky lebih stabil */
+    display: table !important;            /* cegah trik 'table jadi block' */
+    width: max-content;                   /* izinkan scroll horizontal */
+    white-space: nowrap;                  /* kolom tidak pecah */
+  }
+
+  /* Header benar-benar sticky di mobile (sudah ada, ini penguat) */
+  #santri-table thead th,
+  #santri-table thead td {
+    position: sticky;
+    top: 0;               /* kalau ada header fixed, ganti mis. top: 56px; */
+    z-index: 4;
+    background: #1e88e5;  /* ulangi background agar tak transparan */
+    color: #fff;
+  }
+
+  /* Sudut kiri atas tetap paling atas */
+  #santri-table thead th:first-child {
+    left: 0;
+    z-index: 6;
+  }
+
+  /* Kolom pertama body tetap sticky kiri (sudah ada di filemu) */
+  #santri-table tbody td:first-child {
+    left: 0;
+    z-index: 5;
+    background: #fff;
+  }
+}
+
   </style>
 </head>
 <body>
