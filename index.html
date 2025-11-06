@@ -11696,15 +11696,12 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ===== Wrapper mobile TANPA scroll internal ===== */
   @media (max-width: 768px) {
     .santri-scrollwrap.scroll-on {
-      /* tidak ada batas tinggi & tidak ada scroll internal */
       max-height: none;
       overflow-y: visible;
-
-      /* kosmetik tetap boleh */
       border: 1px solid #eee;
       border-radius: 10px;
       padding: 10px;
-      overflow-x: hidden; /* cegah geser kiri-kanan */
+      overflow-x: hidden;
       background: #fff;
       display: block;
       box-sizing: border-box;
@@ -11760,7 +11757,6 @@ document.addEventListener("DOMContentLoaded", () => {
       display: block;
     }
 
-    /* Kartu center presisi */
     #santri-table.filtered-compact.card-mobile tbody tr {
       display: block;
       box-sizing: border-box;
@@ -11773,7 +11769,6 @@ document.addEventListener("DOMContentLoaded", () => {
       box-shadow: 0 1px 6px rgba(0,0,0,.03);
     }
 
-    /* KV row (label: nilai) */
     #santri-table.filtered-compact.card-mobile tbody td:not(.hidden-col) {
       display: flex;
       align-items: flex-start;
@@ -11796,7 +11791,6 @@ document.addEventListener("DOMContentLoaded", () => {
       max-width: 100%;
     }
 
-    /* Tumpuk AYAT di bawah SURAH */
     #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Dari"],
     #santri-table.filtered-compact.card-mobile tbody td[data-label="Setor Sampai"] {
       display: block;
@@ -11822,7 +11816,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* offset kalau ada header sticky (opsional) */
   .santri-scrollwrap {
     scroll-margin-top: 64px;
   }
@@ -11869,9 +11862,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function saveState(s){
-    try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-    }catch{}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
   }
 
   function loadState(){
@@ -11893,7 +11884,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const wantedLabels = new Set([
       'nama',
       'presensi',
-      'all presensi',      // ✅ dukung header "All Presensi"
+      'all presensi',   // <-- dukung All Presensi (2 baris akan dinormalisasi)
       'setor dari',
       'setor sampai',
       'nilai',
@@ -11906,7 +11897,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const keepIdx = new Set();
 
     ths.forEach((th, idx) => {
-      const label = th.textContent.trim().toLowerCase();
+      // NORMALISASI: gabung spasi & newline jadi satu spasi
+      const label = th.textContent.trim().toLowerCase().replace(/\s+/g, ' ');
       const isWantedByLabel   = wantedLabels.has(label);
       const isSettingMurById  = th.id === 'murRangeHeader';
       const isMurajaahByClass = th.classList.contains('mur-header');
@@ -11920,6 +11912,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ths.forEach((_, idx) => {
       if (!keepIdx.has(idx)) hideIdx.add(idx);
     });
+
     return { keepIdx, hideIdx };
   }
 
@@ -12001,7 +11994,7 @@ document.addEventListener("DOMContentLoaded", () => {
     saveState({ mode: 'all' });
 
     const wrap = ensureWrapper();
-    if (wrap) wrap.classList.add('scroll-on'); // kelas tetap dipakai utk styling, tapi tanpa scroll
+    if (wrap) wrap.classList.add('scroll-on');
     setColumnVisibility(false);
 
     const bar = ensureFilterBar();
@@ -12038,7 +12031,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const wrap = ensureWrapper();
       if (wrap){
-        wrap.classList.add('scroll-on'); // tetap pakai styling, namun tanpa overflow
+        wrap.classList.add('scroll-on');
         wrap.scrollTop = 0;
       }
 
