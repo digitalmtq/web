@@ -13547,7 +13547,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const cbSakit = document.getElementById('paAllSakit');
     const cbAlpha = document.getElementById('paAllAlpha');
 
-    // reset dulu
     [cbHadir, cbIzin, cbSakit, cbAlpha].forEach(cb => { if (cb) cb.checked = false; });
 
     if (!rows.length) return;
@@ -13575,7 +13574,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (allSakit) candidates.push(cbSakit);
     if (allAlpha) candidates.push(cbAlpha);
 
-    // Hanya kalau tepat satu jenis status memenuhi semua baris => centang bulk itu
     if (candidates.length === 1 && candidates[0]){
       candidates[0].checked = true;
     }
@@ -13626,7 +13624,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ?.classList.add('nama');
 
     setFixedNamaWidthMobile();
-    syncBulkFromRows(); // <-- set bulk checkbox otomatis sesuai isi row
+    syncBulkFromRows();
   }
 
   // ===== BULK (mutually exclusive + clear saat uncheck) =====
@@ -13667,6 +13665,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const { rows } = getSantriRows();
     const chosen = new Map();
 
+    // Baca pilihan dari modal
     document.querySelectorAll('#paRows .pa-row').forEach(r=>{
       const nis = r.dataset.nis;
       const status =
@@ -13674,7 +13673,7 @@ document.addEventListener("DOMContentLoaded", () => {
         r.querySelector('.st-izin')?.checked  ? 'izin'  :
         r.querySelector('.st-sakit')?.checked ? 'sakit' :
         r.querySelector('.st-alpha')?.checked ? 'alpha' : '';
-      chosen.set(nis, status);
+      chosen.set(nis, status); // boleh kosong (artinya clear)
     });
 
     const per = Number(window.ABS_FLEX_CFG?.perStatus ?? 2);
@@ -13697,6 +13696,23 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       return items;
+    }
+
+    function makeEmptyItems(target){
+      const t = Math.max(
+        1,
+        Math.min(6,
+          Number(target) || Number(window.ABS_FLEX_CFG?.defaultTarget || 1)
+        )
+      );
+      const items=[];
+      for (const st of allStatuses){
+        for (let i=1;i<=per;i++){
+          const key = `${st}${i}`;
+          items.push({ key, checked:false });
+        }
+      }
+      return { items, target:t };
     }
 
     function compute(items, target){
@@ -13736,23 +13752,38 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // Terapkan ke setiap row di dashboard
     rows.forEach(tr=>{
       const nis = (tr.dataset?.nis || tr.querySelector('td')?.textContent || '').trim();
-      const st  = chosen.get(nis);
-      if (!st) return;
+      if (!nis) return;
 
+      const chosenStatus = chosen.get(nis); // bisa 'hadir'/'izin'/... atau '' (clear) atau undefined
       const cell = tr.querySelector('.abs-flex-cell');
       if (!cell) return;
 
-      const targetNow = Number(cell._absensiTarget || window.ABS_FLEX_CFG?.defaultTarget || 1);
-      cell._absensiItems = makeItemsFor(st, targetNow);
-      const rec = compute(cell._absensiItems, targetNow);
-      cell._absensiTarget  = rec.target;
-      cell._absensiChecked = rec.checked;
-      cell._absensiPercent = rec.percent;
-      updateMini(cell);
+      const currentTarget = Number(cell._absensiTarget || window.ABS_FLEX_CFG?.defaultTarget || 1);
+
+      if (!chosenStatus){ 
+        // CLEAR: tidak ada yang dicentang di modal -> matikan semua checkbox di flex
+        const empty = makeEmptyItems(currentTarget);
+        cell._absensiItems   = empty.items;
+        const rec = compute(cell._absensiItems, empty.target);
+        cell._absensiTarget  = rec.target;
+        cell._absensiChecked = rec.checked;
+        cell._absensiPercent = rec.percent;
+        updateMini(cell);
+      } else {
+        // SET ke status tunggal
+        cell._absensiItems = makeItemsFor(chosenStatus, currentTarget);
+        const rec = compute(cell._absensiItems, currentTarget);
+        cell._absensiTarget  = rec.target;
+        cell._absensiChecked = rec.checked;
+        cell._absensiPercent = rec.percent;
+        updateMini(cell);
+      }
     });
 
+    // Event keluar (opsional, tidak diubah)
     const tanggal = document.getElementById('paTanggal').value;
     const hari = document.getElementById('paHari').textContent;
     const itemsOut = [];
