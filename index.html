@@ -5252,6 +5252,9 @@ function keteranganDisplayForKey(key, fallback){
   return (fallback!=null && String(fallback).trim()!=='') ? String(fallback) : '-';
 }
 	
+// === expose ke global supaya pdfSantriDownload di luar IIFE bisa pakai ===
+window.semesterDisplayForKey = semesterDisplayForKey;
+window.keteranganDisplayForKey = keteranganDisplayForKey;
 
   // === Helper Kelas/Kelompok ===
 function buildKelasKelompokLine(kelas, kelasEl) {
@@ -7208,6 +7211,9 @@ if (indBtn && !indBtn.dataset.listenerAttached) {
     return map;
   }
 })(); // end IIFE
+
+var semesterDisplayForKey = window.semesterDisplayForKey || function(key, fb){ return fb ?? '-'; };
+var keteranganDisplayForKey = window.keteranganDisplayForKey || function(key, fb){ return fb ?? '-'; };
 
 	 // === [FIX-1] Global fmtMurRange (agar bisa dipakai di semua blok) ===
 if (typeof window.fmtMurRange !== 'function') {
