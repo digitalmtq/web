@@ -5161,6 +5161,57 @@ function _isMeaningfulKBM(rec){
     return map;
   }
 
+// --- Presence harian per key (berdasar rentang absensi aktif) ---
+function _presenceMapsFromAbsensi(allDataAbsensi){
+  const kbmDaysPerKey = new Map();   // key -> jumlah hari KBM (bermakna)
+  const hadirDaysPerKey = new Map(); // key -> jumlah hari dgn minimal 1 slot 'hadir'
+
+  // key -> (tgl -> {hadir, izin, sakit, alpha, meaningful})
+  const bucket = new Map();
+
+  for (const r of (allDataAbsensi || [])){
+    const key = (r?.nis && String(r.nis).trim()) || (r?.id && String(r.id).trim());
+    const tgl = r?.tanggal ? String(r.tanggal).slice(0,10) : '';
+    if (!key || !tgl) continue;
+
+    if (!bucket.has(key)) bucket.set(key, new Map());
+    const byDate = bucket.get(key);
+    if (!byDate.has(tgl)) byDate.set(tgl, {hadir:0, izin:0, sakit:0, alpha:0, meaningful:false});
+
+    const cell = byDate.get(tgl);
+
+    // slot (baru)
+    const sc = r?._slotCounts || {hadir:0, izin:0, sakit:0, alpha:0};
+    cell.hadir += Number(sc.hadir||0);
+    cell.izin  += Number(sc.izin ||0);
+    cell.sakit += Number(sc.sakit||0);
+    cell.alpha += Number(sc.alpha||0);
+
+    // tandai meaningful pakai logika _isMeaningfulKBM yang sama
+    if (_isMeaningfulKBM(r)) cell.meaningful = true;
+
+    // legacy: kalau tidak ada slot, status 'hadir' tetap dihitung hadir
+    if (!r?._slotChecked){
+      const st = (typeof PDF_normStatus==='function') ? PDF_normStatus(r?.absensi ?? r?.status) : '';
+      if (st === 'hadir') cell.hadir += 1;
+    }
+  }
+
+  // finalize per key
+  for (const [key, byDate] of bucket.entries()){
+    let kbm = 0, had = 0;
+    for (const c of byDate.values()){
+      if (c.meaningful) {
+        kbm += 1;
+        if (c.hadir > 0) had += 1;
+      }
+    }
+    kbmDaysPerKey.set(key, kbm);
+    hadirDaysPerKey.set(key, had);
+  }
+  return { kbmDaysPerKey, hadirDaysPerKey };
+}
+
 // --- Helper aman ambil nilai kelas ---
 function getSelectedKelas(){
   const el = (typeof kelasSelect !== 'undefined' && kelasSelect)
@@ -5255,6 +5306,8 @@ function keteranganDisplayForKey(key, fallback){
 // === expose ke global supaya pdfSantriDownload di luar IIFE bisa pakai ===
 window.semesterDisplayForKey = semesterDisplayForKey;
 window.keteranganDisplayForKey = keteranganDisplayForKey;
+// Default mode persentase hadir: 'kbm' (hari) atau 'slots' (slot)
+window.PDF_HADIR_PCT_MODE = window.PDF_HADIR_PCT_MODE || 'kbm';
 
   // === Helper Kelas/Kelompok ===
 function buildKelasKelompokLine(kelas, kelasEl) {
@@ -5583,6 +5636,13 @@ for (const it of _sortedAbsensi){
   });
   const kbmDays = kbmDaySet.size;
 
+  const { kbmDaysPerKey, hadirDaysPerKey } = _presenceMapsFromAbsensi(allDataAbsensi);
+// simpan sebagai objek plain agar gampang diserialisasi:
+const presence = {
+  kbmDaysPerKey: Object.fromEntries(kbmDaysPerKey.entries()),
+  hadirDaysPerKey: Object.fromEntries(hadirDaysPerKey.entries())
+};
+
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
   applyUIOverrides(allDataNorm, aggMap);
@@ -5667,7 +5727,8 @@ for (const k of Object.keys(aggMap)) {
   });
 
   return { kelas, startDate, endDate, kelasLine, kbmDays, rows, allDataNorm,
-           totals: { totJuz, totH, totA, totS, totI, totPages } };
+         totals: { totJuz, totH, totA, totS, totI, totPages },
+         presence };
 }
 
   // === Isi dropdown santri (modal) ===
@@ -5867,7 +5928,9 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
   async function pdfRekapDownload(){
     setBtnLoading(pdfBtn, true, 'Membuat PDF…');
     try {
-      const { kelas, startDate, endDate, kelasLine, kbmDays, rows } = await collectRekapData();
+      const { kelas, startDate, endDate, kelasLine, kbmDays, rows, presence } = await collectRekapData();
+const kbmDaysPerKey = presence?.kbmDaysPerKey || {};
+const hadirDaysPerKey = presence?.hadirDaysPerKey || {};
 	  const rangeLabel = (typeof buildRangeLabel === 'function')
   ? buildRangeLabel(startDate, endDate)
   : `${startDate} s.d. ${endDate}`;
@@ -5954,12 +6017,27 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         const juzText     = PDF_joinRangeSegmentsCompact(r.juzSegments, true);
 
         // SLOT-based
-        const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
-        const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
-        const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
-        const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
-        const targetSlots= Number(r.targetSlots ?? 0);
-        const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+        // Hitung persen kehadiran: mode 'kbm' (hari) atau 'slots' (slot)
+const hadirSlots = Number(r.hadirSlots ?? r.hadir ?? 0);
+const izinSlots  = Number(r.izinSlots  ?? r.izin  ?? 0);
+const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
+const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
+const targetSlots= Number(r.targetSlots ?? 0);
+const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+
+const keyRow = String(r.nis || r.id || '').trim();
+let hadirPct = 0;
+
+if (window.PDF_HADIR_PCT_MODE === 'kbm') {
+  const kbmKey = Number(kbmDaysPerKey[keyRow] || 0);
+  const hadKey = Number(hadirDaysPerKey[keyRow] || 0);
+  hadirPct = (kbmKey > 0) ? Math.round(100 * hadKey / kbmKey) : 0;
+} else {
+  // mode lama berbasis slot
+  hadirPct = (targetSlots > 0)
+    ? Math.round((hadirSlots / targetSlots) * 100)
+    : (denomSlots > 0 ? Math.round((hadirSlots / denomSlots) * 100) : 0);
+}
 		// Utamakan targetSlots agar 1 hadir dari 4 = 25%
 		const hadirPct = (targetSlots > 0)
   		? Math.round((hadirSlots / targetSlots) * 100)
@@ -6288,6 +6366,12 @@ for (const it of _sortedAbsensi){
   });
   const kbmDays = kbmDaySet.size;
 
+  const { kbmDaysPerKey, hadirDaysPerKey } = _presenceMapsFromAbsensi(allDataAbsensi);
+const presence = {
+  kbmDaysPerKey: Object.fromEntries(kbmDaysPerKey.entries()),
+  hadirDaysPerKey: Object.fromEntries(hadirDaysPerKey.entries())
+};
+
   // 5) Agregasi base + merge angka aggregate D1
   const aggMap = PDF_buildRekapPerKey(allDataNorm);
 
@@ -6368,7 +6452,8 @@ for (const k of Object.keys(aggMap)) {
   });
 
   return { kelas: kelasKey, startDate, endDate, kelasLine, kbmDays, rows,
-           totals: { totJuz, totH, totA, totS, totI, totPages } };
+         totals: { totJuz, totH, totA, totS, totI, totPages },
+         presence };
 }
 
   // ===== PDF ALL KELAS =====
@@ -6482,7 +6567,9 @@ for (const k of Object.keys(aggMap)) {
         }
         if (!data) continue;
 
-        const { kelasLine, kbmDays, rows } = data;
+        const { kelasLine, kbmDays, rows, presence } = data;
+const kbmDaysPerKey = presence?.kbmDaysPerKey || {};
+const hadirDaysPerKey = presence?.hadirDaysPerKey || {};
 
 		const rangeLabel = (typeof buildRangeLabel === 'function')
   ? buildRangeLabel(startDate, endDate)
@@ -7458,11 +7545,19 @@ const jenjangSantriLabel = jenjangLabel(jenjangSantri || '');
 	: null;
     const statusJuzTotal = PDF_totalAllJuzStatus(totJuz, agg?.semester ?? semesterSantri);
 
-    // Persentase kehadiran total (slot-based)
-    const denomTotal = totH + totI + totS + totA;
-	const hadirPctTotal = (totalTargetSlots > 0)
+    // Persentase kehadiran total, support mode 'kbm' atau 'slots'
+const kbmDaysKey   = dayRows.length;                                 // semua hari meaningful
+const hadirDaysKey = dayRows.filter(d => Number(d.cnt.hadir||0) > 0).length;
+
+let hadirPctTotal = 0;
+if (window.PDF_HADIR_PCT_MODE === 'kbm') {
+  hadirPctTotal = (kbmDaysKey > 0) ? Math.round(100 * hadirDaysKey / kbmDaysKey) : 0;
+} else {
+  const denomTotal = totH + totI + totS + totA;
+  hadirPctTotal = (totalTargetSlots > 0)
     ? Math.round((totH / totalTargetSlots) * 100)
     : (denomTotal > 0 ? Math.round((totH / denomTotal) * 100) : 0);
+}
 
     // ==== Baris harian (slot-based) ====
     const tableRows = dayRows.map((d, idx) => {
