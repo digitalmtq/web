@@ -5256,41 +5256,6 @@ function keteranganDisplayForKey(key, fallback){
 window.semesterDisplayForKey = semesterDisplayForKey;
 window.keteranganDisplayForKey = keteranganDisplayForKey;
 
-
-	// ====== Hitung hadirDays per key berbasis dataset absensi (slot-aware & legacy) ======
-function _buildHadirDaysMap(list){
-  const daySetByKey = new Map();
-  for (const it of (list || [])){
-    const key = (it?.nis && String(it.nis).trim()) || (it?.id && String(it.id).trim());
-    const tgl = String(it?.tanggal || '').slice(0,10);
-    if (!key || !tgl) continue;
-
-    // prioritas slot: minimal ada slot 'hadir' di hari tsb
-    const sc = it?._slotCounts;
-    let isHadir = false;
-    if (sc && (Number(sc.hadir||0) > 0)) {
-      isHadir = true;
-    } else {
-      // fallback legacy (absensi/status)
-      const st = (typeof PDF_normStatus === 'function')
-        ? PDF_normStatus(it?.absensi ?? it?.status)
-        : String(it?.absensi ?? it?.status ?? '').toLowerCase();
-      if (st === 'hadir') isHadir = true;
-    }
-
-    if (isHadir){
-      if (!daySetByKey.has(key)) daySetByKey.set(key, new Set());
-      daySetByKey.get(key).add(tgl);
-    }
-  }
-
-  const out = new Map();
-  for (const [k,set] of daySetByKey.entries()){
-    out.set(k, set.size);
-  }
-  return out;
-}
-
   // === Helper Kelas/Kelompok ===
 function buildKelasKelompokLine(kelas, kelasEl) {
   const kelasNum = (String(kelas||'').match(/(\d+)/)?.[1]) || (kelas || '-');
@@ -5663,7 +5628,7 @@ for (const it of _sortedAbsensi){
     aggMap[k].alphaSlots  = a.alpha;
     aggMap[k].targetSlots = a.target;
   }
-	
+
 // --- META LIVE ke agregat (semester/jenjang dari roster, keterangan dari absensi terfilter) ---
 for (const k of Object.keys(aggMap)) {
   const r = aggMap[k];
@@ -5689,18 +5654,6 @@ for (const k of Object.keys(aggMap)) {
   const allRows = Object.values(aggMap).sort((a,b)=> (a.nama||a.nis||a.id).localeCompare(b.nama||b.nis||b.id,'id'));
   const rows = allRows.filter(r => String(r.nis || r.id || '').trim() !== '');
   if (rows.length === 0) throw new Error('Tidak ada data ber-NIS pada rentang tanggal tersebut.');
-
-	  // 6b) HadirDays per santri (mengacu ke data absensi ter-filter → sesuai KBM)
-  const hadirDaysMap = _buildHadirDaysMap(allDataAbsensi);
-  Object.keys(aggMap).forEach(k => {
-    aggMap[k].hadirDays = hadirDaysMap.get(k) || 0;
-  });
-
-  // 6b) HadirDays per santri (mengacu ke data absensi ter-filter → sesuai KBM)
-  const hadirDaysMap = _buildHadirDaysMap(allDataAbsensi);
-  Object.keys(aggMap).forEach(k => {
-    aggMap[k].hadirDays = hadirDaysMap.get(k) || 0;
-  });
 
   // 7) Ringkasan (slot)
   let totJuz=0, totH=0, totA=0, totS=0, totI=0, totPages=0;
@@ -6006,7 +5959,11 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
         const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
         const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
         const targetSlots= Number(r.targetSlots ?? 0);
-        const hadirDays = Number(r.hadirDays || 0); // jumlah hari hadir (sesuai KBM)
+        const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+		// Utamakan targetSlots agar 1 hadir dari 4 = 25%
+		const hadirPct = (targetSlots > 0)
+  		? Math.round((hadirSlots / targetSlots) * 100)
+  		: (denomSlots > 0 ? Math.round((hadirSlots / denomSlots) * 100) : 0);
 
         return {
           no: String(idx+1),
@@ -6016,7 +5973,7 @@ window.PDF_joinRangeSegmentsCompact = PDF_joinRangeSegmentsCompact;
           jenjang: jenjangLabel(r.jenjang ?? ''),
           ket: keteranganDisplayForKey(r.nis || r.id || '', r.keterangan),
           h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
-          hadirPct: String(hadirDays),
+          hadirPct: `${hadirPct}%`,
           setoran: setoranText,
           juz: juzText,
           totJuz: r.totalJuz.toFixed(2),
@@ -6544,7 +6501,10 @@ for (const k of Object.keys(aggMap)) {
           const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
           const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
           const targetSlots= Number(r.targetSlots ?? 0);
-          const hadirDays = Number(r.hadirDays || 0); // jumlah hari hadir (sesuai KBM)
+          const denomSlots = hadirSlots + izinSlots + sakitSlots + alphaSlots;
+		  const hadirPct = (targetSlots > 0)
+  		  ? Math.round((hadirSlots / targetSlots) * 100)
+  	  	  : (denomSlots > 0 ? Math.round((hadirSlots / denomSlots) * 100) : 0);
 
 
           return {
@@ -6555,7 +6515,7 @@ for (const k of Object.keys(aggMap)) {
             jenjang: jenjangLabel(r.jenjang ?? ''),
             ket: keteranganDisplayForKey(r.nis || r.id || '', r.keterangan),
             h: hadirSlots, a: alphaSlots, s: sakitSlots, i: izinSlots,
-            hadirPct: String(hadirDays),
+            hadirPct: `${hadirPct}%`,
             setoran: setoranText,
             juz: juzText,
             totJuz: r.totalJuz.toFixed(2),
@@ -6770,7 +6730,7 @@ async function xlsRekapDownload(){
         const sakitSlots = Number(r.sakitSlots ?? r.sakit ?? 0);
         const alphaSlots = Number(r.alphaSlots ?? r.alpha ?? 0);
         const targetSlots= Number(r.targetSlots ?? 0);
-        const hadirDays = Number(r.hadirDays || 0);
+        const hadirPct   = targetSlots > 0 ? Math.round((hadirSlots / targetSlots) * 100) : 0;
 
         return [
           idx+1,
@@ -6779,7 +6739,7 @@ async function xlsRekapDownload(){
           semesterDisplayForKey(r.nis || r.id || '', r.semester),
           jenjangLabel(r.jenjang ?? ''),
           hadirSlots, alphaSlots, sakitSlots, izinSlots,
-          hadirDays,
+          hadirPct,
           keteranganDisplayForKey(r.nis || r.id || '', r.keterangan),
           setoranText,
           juzText,
@@ -7528,7 +7488,7 @@ const jenjangSantriLabel = jenjangLabel(jenjangSantri || '');
         jenjang: jenjangSantriLabel,
         ket: keteranganDisplayForKey(key, keteranganLive),
         h: d.cnt.hadir, a: d.cnt.alpha, s: d.cnt.sakit, i: d.cnt.izin,
-        hadirPct: String(hadirDays),
+        hadirPct: `${hadirPct}%`,
         setoran: PDF_joinSAsegmentsNamaMerged(d.sa),
         juz: PDF_joinRangeSegmentsCompact(d.juz, true),
         totJuz: d.totalJuz ? d.totalJuz.toFixed(2) : '0.00',
