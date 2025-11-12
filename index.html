@@ -5021,6 +5021,19 @@ document.querySelectorAll('#santri-table tbody tr .abs-flex-cell').forEach(cell=
       const st = String(it.key||'').toLowerCase().replace(/\d+$/,''); // "hadir1" -> "hadir"
       if (st in counts) counts[st]++;
     }
+
+			// --- [FIX] Angkat hari legacy (tanpa slot) menjadi 1-slot ---
+		const hasAnySlot = (checked > 0) || (counts.hadir + counts.izin + counts.sakit + counts.alpha > 0);
+		if (!hasAnySlot && target === 0) {
+		const raw = (rec?.absensi ?? rec?.status ?? '').toString().trim().toLowerCase();
+		const st = (typeof PDF_normStatus === 'function') ? PDF_normStatus(raw) : raw;
+		if (st === 'hadir' || st === 'izin' || st === 'sakit' || st === 'alpha') {
+		counts[st] = 1;                // hitung 1 slot pada status legacy
+		// penting: supaya denominator persen > 0
+		return { _slotCounts: counts, _slotTarget: 1, _slotChecked: 1 };
+		}
+		}
+	  
     return {
       _slotCounts: counts,
       _slotTarget: target,
