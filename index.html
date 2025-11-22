@@ -12294,6 +12294,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="thms-card"><div class="t">Total Santri</div><div id="thmsCardSantri" class="v">-</div></div>
             <div class="thms-card"><div class="t">Rata-rata Global</div><div id="thmsCardAvg" class="v">-</div></div>
             <div class="thms-card"><div class="t">Tuntas</div><div id="thmsCardTuntas" class="v">-</div></div>
+            <div class="thms-card"><div class="t">Belum Tuntas</div><div id="thmsCardBelum" class="v">-</div></div>
             <div class="thms-card"><div class="t">Khatam</div><div id="thmsCardKhatam" class="v">-</div></div>
           </div>
 
@@ -12510,13 +12511,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const denom = rosterCount || present; // fallback jika roster kosong
+        const belum = Math.max(0, (rosterCount || 0) - tn - kh); // <<< BARU: santri belum tuntas per halaqoh
+
         rows.push({
-          label  : getKelasLabel(k),
-          avg    : denom ? (sum / denom) : 0,
-          khatam : kh,
-          tuntas : tn,
-          count  : rosterCount,  // "Total Santri" = santri unik
-          present: present       // info tambahan (aktif)
+          label       : getKelasLabel(k),
+          avg         : denom ? (sum / denom) : 0,
+          khatam      : kh,
+          tuntas      : tn,
+          belumTuntas : belum,
+          count       : rosterCount,  // "Total Santri" = santri unik
+          present     : present       // info tambahan (aktif)
         });
       }
       rows.sort((a,b)=> a.label.localeCompare(b.label, 'id'));
@@ -12549,12 +12553,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const totalSantri = rows.reduce((s,r)=>s+r.count,0);
       const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
       const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
+      const totalBelumTuntas = rows.reduce(
+        (s,r)=> s + (r.belumTuntas ?? Math.max(0,(r.count||0)-(r.tuntas||0)-(r.khatam||0))),
+        0
+      );
       const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
 
       document.getElementById('thmsCardKelompok').textContent = totalGroupsShown;
       document.getElementById('thmsCardSantri').textContent   = totalSantri;
       document.getElementById('thmsCardAvg').textContent      = `${avgGlobal}%`;
       document.getElementById('thmsCardTuntas').textContent   = totalTuntas;
+      document.getElementById('thmsCardBelum').textContent    = totalBelumTuntas;
       document.getElementById('thmsCardKhatam').textContent   = totalKhatam;
 
       const labels = rows.map(r=>r.label);
@@ -12571,7 +12580,8 @@ document.addEventListener("DOMContentLoaded", () => {
             legend:{ display:false },
             tooltip:{ callbacks:{ footer:(items)=>{
               const i = items[0].dataIndex, r = rows[i];
-              return `Santri: ${r.count} (aktif: ${r.present}) | Tuntas: ${r.tuntas} | Khatam: ${r.khatam}`;
+              const belum = r.belumTuntas ?? Math.max(0,(r.count||0)-(r.tuntas||0)-(r.khatam||0));
+              return `Santri: ${r.count} (aktif: ${r.present}) | Tuntas: ${r.tuntas} | Belum: ${belum} | Khatam: ${r.khatam}`;
             }}}
           }
         }
@@ -12581,6 +12591,7 @@ document.addEventListener("DOMContentLoaded", () => {
       list.innerHTML = '';
       rows.forEach(r=>{
         const pct = Math.round(r.avg);
+        const belum = r.belumTuntas ?? Math.max(0,(r.count||0)-(r.tuntas||0)-(r.khatam||0));
         const item = document.createElement('div');
         item.className = 'thms-item';
         item.innerHTML = `
@@ -12589,7 +12600,9 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="pct">${pct}%</div>
           </div>
           <div class="thms-progress"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>
-          <div class="thms-sub" style="margin-top:4px">Santri: ${r.count} · Aktif: ${r.present} · Tuntas: ${r.tuntas} · Khatam: ${r.khatam}</div>
+          <div class="thms-sub" style="margin-top:4px">
+            Santri: ${r.count} · Aktif: ${r.present} · Tuntas: ${r.tuntas} · Belum Tuntas: ${belum} · Khatam: ${r.khatam}
+          </div>
         `;
         list.appendChild(item);
       });
@@ -12703,6 +12716,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const totalSantri = rows.reduce((s,r)=>s+r.count,0);
         const totalKhatam = rows.reduce((s,r)=>s+r.khatam,0);
         const totalTuntas = rows.reduce((s,r)=>s+r.tuntas,0);
+        const totalBelumTuntas = rows.reduce(
+          (s,r)=> s + (r.belumTuntas ?? Math.max(0,(r.count||0)-(r.tuntas||0)-(r.khatam||0))),
+          0
+        );
         const avgGlobal   = rows.length ? Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length) : 0;
 
         const chartImg = await buildChartImage(rows);
@@ -12719,14 +12736,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const fmt = (window.fmtD_M_YYYY || (x=>x));
         doc.text(`Periode Tahfiz: ${fmt(startDate)} s.d. ${fmt(endDate)}${fromCache?'  (cache)':''}`, margin, 58);
 
-        // Kartu ringkas (grid 5 kolom)
-        const yCardsTop = 78, hCard = 48, gap = 10, cols = 5;
+        // Kartu ringkas (grid 6 kolom)
+        const yCardsTop = 78, hCard = 48, gap = 10, cols = 6;
         const colW = (pageW - margin*2 - gap*(cols-1)) / cols;
         const cards = [
           ['Total Halaqoh', String(totalGroupsShown)],
           ['Total Santri', String(totalSantri)],
           ['Rata-rata Global', `${avgGlobal}%`],
           ['Tuntas', String(totalTuntas)],
+          ['Belum Tuntas', String(totalBelumTuntas)],
           ['Khatam', String(totalKhatam)],
         ];
         doc.setDrawColor(230); doc.setLineWidth(0.8);
@@ -12747,16 +12765,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const chartH = 220;
         doc.addImage(chartImg, 'PNG', margin, chartY, chartW, chartH);
 
-        // Tabel ringkas (nama, % , Santri, Tuntas, Khatam)
+        // Tabel ringkas (nama, % , Santri, Tuntas, Belum, Khatam)
         let y = chartY + chartH + 22;
         const lineH = 16;
         function headerRow(){
           doc.setFont('helvetica','bold'); doc.setFontSize(10);
           doc.text('Halaqoh', margin, y);
-          doc.text('%', margin+300, y, { align:'right' });
-          doc.text('Santri', margin+360, y, { align:'right' });
-          doc.text('Tuntas', margin+430, y, { align:'right' });
-          doc.text('Khatam', margin+500, y, { align:'right' });
+          doc.text('%',       margin+260, y, { align:'right' });
+          doc.text('Santri',  margin+320, y, { align:'right' });
+          doc.text('Tuntas',  margin+380, y, { align:'right' });
+          doc.text('Belum',   margin+460, y, { align:'right' });
+          doc.text('Khatam',  margin+540, y, { align:'right' });
           doc.setFont('helvetica','normal'); doc.setFontSize(10);
           y += 6; doc.setDrawColor(230); doc.line(margin, y, pageW - margin, y); y += 10;
         }
@@ -12766,11 +12785,13 @@ document.addEventListener("DOMContentLoaded", () => {
             doc.addPage(); y = margin; headerRow();
           }
           const pct = Math.round(r.avg);
+          const belum = r.belumTuntas ?? Math.max(0,(r.count||0)-(r.tuntas||0)-(r.khatam||0));
           doc.text(String(r.label), margin, y);
-          doc.text(`${pct}%`, margin+300, y, { align:'right' });
-          doc.text(String(r.count), margin+360, y, { align:'right' });
-          doc.text(String(r.tuntas), margin+430, y, { align:'right' });
-          doc.text(String(r.khatam), margin+500, y, { align:'right' });
+          doc.text(`${pct}%`,        margin+260, y, { align:'right' });
+          doc.text(String(r.count),  margin+320, y, { align:'right' });
+          doc.text(String(r.tuntas), margin+380, y, { align:'right' });
+          doc.text(String(belum),    margin+460, y, { align:'right' });
+          doc.text(String(r.khatam), margin+540, y, { align:'right' });
           y += lineH;
         }
 
